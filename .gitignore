@@ -23,3 +23,11 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+
+# .bat
+*.bat
+start-server.bat
+stop-server.bat
+quick-update.bat
+check-status.bat
+start-ngrok.bat
