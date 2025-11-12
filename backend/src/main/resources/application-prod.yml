@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: dreampath-backend
+  
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/dreampath}
+    driver-class-name: org.postgresql.Driver
+    username: ${DB_USER:dreampath_user}
+    password: ${DB_PASSWORD:dreampath_pass}
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+server:
+  port: 8080
+
+openai:
+  api:
+    key: ${OPENAI_API_KEY}
+    model: ${OPENAI_MODEL:gpt-4o-mini}
+
+cors:
+  allowed-origins: ${CORS_ORIGINS:http://localhost}
+
+logging:
+  level:
+    com.dreampath: INFO
+    org.springframework.web: WARN
+
