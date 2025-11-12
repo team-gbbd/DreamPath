@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   frontend:
     build: ./frontend
@@ -16,22 +14,21 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - SPRING_PROFILES_ACTIVE=dev
-      - DB_HOST=db
-      - DB_PORT=3306
-      - DB_NAME=dreampath
-      - DB_USER=dreamuser
-      - DB_PASSWORD=dreampass
+      SPRING_PROFILES_ACTIVE: dev
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: dreampath
+      DB_USER: dreamuser
+      DB_PASSWORD: dreampass
     depends_on:
-      db:
-        condition: service_healthy
+      - db
     restart: always
 
   db:
     image: mysql:8.0
     container_name: dreampath-mysql
     ports:
-      - "3306:3306"
+      - "0.0.0.0:3333:3306"
     environment:
       MYSQL_ROOT_PASSWORD: rootpass
       MYSQL_DATABASE: dreampath
