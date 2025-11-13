@@ -1,35 +1,43 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { chatService } from '../../services/dw/api'
-import { Send, BarChart3, Loader2 } from 'lucide-react'
-import './ChatPage.css'
+'use client';
 
-const ChatPage = ({ sessionId, setSessionId }) => {
-  const [messages, setMessages] = useState([])
-  const [inputMessage, setInputMessage] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [isInitializing, setIsInitializing] = useState(true)
-  const messagesEndRef = useRef(null)
-  const navigate = useNavigate()
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { chatService } from '@/lib/api';
+import { Send, BarChart3, Loader2 } from 'lucide-react';
+import type { ChatMessage } from '@/types';
+import './ChatPage.css';
+
+interface ChatPageProps {
+  sessionId: string | null;
+  setSessionId: (id: string | null) => void;
+}
+
+export default function ChatPage({ sessionId, setSessionId }: ChatPageProps) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [inputMessage, setInputMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+    scrollToBottom();
+  }, [messages]);
 
   useEffect(() => {
-    initializeChat()
-  }, [])
+    initializeChat();
+  }, []);
 
   const initializeChat = async () => {
     try {
-      setIsInitializing(true)
-      const data = await chatService.startSession()
-      setSessionId(data.sessionId)
-      
+      setIsInitializing(true);
+      const data = await chatService.startSession();
+      setSessionId(data.sessionId);
+
       // 웰컴 메시지 추가
       setMessages([
         {
@@ -37,39 +45,42 @@ const ChatPage = ({ sessionId, setSessionId }) => {
           message: data.message,
           timestamp: Date.now(),
         },
-      ])
-    } catch (error) {
-      console.error('세션 시작 실패:', error)
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || '연결에 문제가 발생했습니다.'
+      ]);
+    } catch (error: any) {
+      console.error('세션 시작 실패:', error);
+      const errorMessage =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        '연결에 문제가 발생했습니다.';
       setMessages([
         {
           role: 'assistant',
           message: `죄송합니다. ${errorMessage} 잠시 후 다시 시도해주세요.`,
           timestamp: Date.now(),
         },
-      ])
+      ]);
     } finally {
-      setIsInitializing(false)
+      setIsInitializing(false);
     }
-  }
+  };
 
-  const handleSendMessage = async (e) => {
-    e.preventDefault()
-    if (!inputMessage.trim() || isLoading) return
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputMessage.trim() || isLoading || !sessionId) return;
 
-    const userMessage = {
+    const userMessage: ChatMessage = {
       role: 'user',
       message: inputMessage,
       timestamp: Date.now(),
-    }
+    };
 
-    setMessages((prev) => [...prev, userMessage])
-    setInputMessage('')
-    setIsLoading(true)
+    setMessages((prev) => [...prev, userMessage]);
+    setInputMessage('');
+    setIsLoading(true);
 
     try {
-      const response = await chatService.sendMessage(sessionId, inputMessage)
-      
+      const response = await chatService.sendMessage(sessionId, inputMessage);
+
       setMessages((prev) => [
         ...prev,
         {
@@ -77,10 +88,13 @@ const ChatPage = ({ sessionId, setSessionId }) => {
           message: response.message,
           timestamp: response.timestamp,
         },
-      ])
-    } catch (error) {
-      console.error('메시지 전송 실패:', error)
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || '응답을 생성하는 중 오류가 발생했습니다.'
+      ]);
+    } catch (error: any) {
+      console.error('메시지 전송 실패:', error);
+      const errorMessage =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        '응답을 생성하는 중 오류가 발생했습니다.';
       setMessages((prev) => [
         ...prev,
         {
@@ -88,27 +102,27 @@ const ChatPage = ({ sessionId, setSessionId }) => {
           message: `죄송합니다. ${errorMessage}`,
           timestamp: Date.now(),
         },
-      ])
+      ]);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleAnalyze = () => {
     if (messages.length < 5) {
-      alert('분석을 위해 더 많은 대화가 필요합니다.')
-      return
+      alert('분석을 위해 더 많은 대화가 필요합니다.');
+      return;
     }
-    navigate('/analysis')
-  }
+    router.push(`/analysis?sessionId=${sessionId}`);
+  };
 
-  const formatTime = (timestamp) => {
-    const date = new Date(timestamp)
-    return date.toLocaleTimeString('ko-KR', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    })
-  }
+  const formatTime = (timestamp: number) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString('ko-KR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
 
   return (
     <div className="chat-page">
@@ -118,7 +132,7 @@ const ChatPage = ({ sessionId, setSessionId }) => {
             <h1>🎯 DreamPath</h1>
             <p>AI 진로 상담사와 함께하는 진로 탐색</p>
           </div>
-          <button 
+          <button
             className="analyze-button"
             onClick={handleAnalyze}
             disabled={messages.length < 5}
@@ -187,8 +201,6 @@ const ChatPage = ({ sessionId, setSessionId }) => {
         </form>
       </div>
     </div>
-  )
+  );
 }
-
-export default ChatPage
 

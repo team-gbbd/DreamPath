@@ -1,20 +1,22 @@
-import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { analysisService } from '../../services/dw/api'
-import { 
-  ArrowLeft, 
-  Heart, 
-  User, 
-  Sparkles, 
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { analysisService } from '@/lib/api';
+import {
+  ArrowLeft,
+  Heart,
+  User,
+  Sparkles,
   Briefcase,
   Loader2,
-  TrendingUp 
-} from 'lucide-react'
-import { 
-  RadarChart, 
-  PolarGrid, 
-  PolarAngleAxis, 
-  Radar, 
+  TrendingUp,
+} from 'lucide-react';
+import {
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  Radar,
   ResponsiveContainer,
   BarChart,
   Bar,
@@ -22,49 +24,57 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend
-} from 'recharts'
-import './AnalysisPage.css'
+  Legend,
+} from 'recharts';
+import type { AnalysisResponse, RadarChartData, BarChartData } from '@/types';
+import './AnalysisPage.css';
 
-const AnalysisPage = ({ sessionId }) => {
-  const [analysis, setAnalysis] = useState(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const navigate = useNavigate()
+interface AnalysisPageProps {
+  sessionId: string;
+}
+
+export default function AnalysisPage({ sessionId }: AnalysisPageProps) {
+  const [analysis, setAnalysis] = useState<AnalysisResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
-    fetchAnalysis()
-  }, [])
+    fetchAnalysis();
+  }, []);
 
   const fetchAnalysis = async () => {
     try {
-      setIsLoading(true)
-      const data = await analysisService.analyzeSession(sessionId)
-      setAnalysis(data)
-    } catch (error) {
-      console.error('분석 실패:', error)
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || '분석을 불러오는 중 오류가 발생했습니다.'
-      setError(errorMessage)
+      setIsLoading(true);
+      const data = await analysisService.analyzeSession(sessionId);
+      setAnalysis(data);
+    } catch (error: any) {
+      console.error('분석 실패:', error);
+      const errorMessage =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        '분석을 불러오는 중 오류가 발생했습니다.';
+      setError(errorMessage);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
-  const prepareInterestData = () => {
-    if (!analysis?.interest?.areas) return []
-    return analysis.interest.areas.map(area => ({
+  const prepareInterestData = (): RadarChartData[] => {
+    if (!analysis?.interest?.areas) return [];
+    return analysis.interest.areas.map((area) => ({
       subject: area.name,
       value: area.level * 10, // 1-10을 10-100으로 변환
-    }))
-  }
+    }));
+  };
 
-  const prepareCareerMatchData = () => {
-    if (!analysis?.recommendedCareers) return []
-    return analysis.recommendedCareers.map(career => ({
+  const prepareCareerMatchData = (): BarChartData[] => {
+    if (!analysis?.recommendedCareers) return [];
+    return analysis.recommendedCareers.map((career) => ({
       name: career.careerName,
       matchScore: career.matchScore,
-    }))
-  }
+    }));
+  };
 
   if (isLoading) {
     return (
@@ -75,7 +85,7 @@ const AnalysisPage = ({ sessionId }) => {
           <p>감정, 성향, 흥미를 종합적으로 분석 중입니다.</p>
         </div>
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -84,20 +94,24 @@ const AnalysisPage = ({ sessionId }) => {
         <div className="error-container">
           <h2>오류 발생</h2>
           <p>{error}</p>
-          <button onClick={() => navigate('/')} className="back-button">
+          <button onClick={() => router.push('/')} className="back-button">
             <ArrowLeft size={20} />
             돌아가기
           </button>
         </div>
       </div>
-    )
+    );
+  }
+
+  if (!analysis) {
+    return null;
   }
 
   return (
     <div className="analysis-page">
       <div className="analysis-container">
         <div className="analysis-header">
-          <button onClick={() => navigate('/')} className="back-button">
+          <button onClick={() => router.push('/')} className="back-button">
             <ArrowLeft size={20} />
             대화로 돌아가기
           </button>
@@ -121,7 +135,7 @@ const AnalysisPage = ({ sessionId }) => {
                       cy="100"
                       r="90"
                       fill="none"
-                      stroke="#e0e0e0"
+                      stroke="rgba(50, 50, 50, 0.6)"
                       strokeWidth="20"
                     />
                     <circle
@@ -137,8 +151,8 @@ const AnalysisPage = ({ sessionId }) => {
                     />
                     <defs>
                       <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#667eea" />
-                        <stop offset="100%" stopColor="#764ba2" />
+                        <stop offset="0%" stopColor="#D4AF37" />
+                        <stop offset="100%" stopColor="#C4A030" />
                       </linearGradient>
                     </defs>
                   </svg>
@@ -169,7 +183,7 @@ const AnalysisPage = ({ sessionId }) => {
                 <span className="type-badge">{analysis.personality.type}</span>
               </div>
               <p className="description">{analysis.personality.description}</p>
-              
+
               <div className="traits-grid">
                 <div className="trait-box strengths">
                   <h3>
@@ -205,18 +219,18 @@ const AnalysisPage = ({ sessionId }) => {
             </div>
             <div className="section-content">
               <p className="description">{analysis.interest.description}</p>
-              
+
               <div className="chart-container">
                 <ResponsiveContainer width="100%" height={300}>
                   <RadarChart data={prepareInterestData()}>
-                    <PolarGrid />
-                    <PolarAngleAxis dataKey="subject" />
+                    <PolarGrid stroke="rgba(212, 175, 55, 0.2)" />
+                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#D4AF37', fontSize: 12 }} />
                     <Radar
                       name="흥미도"
                       dataKey="value"
-                      stroke="#667eea"
-                      fill="#667eea"
-                      fillOpacity={0.6}
+                      stroke="#D4AF37"
+                      fill="#D4AF37"
+                      fillOpacity={0.3}
                     />
                   </RadarChart>
                 </ResponsiveContainer>
@@ -230,8 +244,8 @@ const AnalysisPage = ({ sessionId }) => {
                       <span className="interest-level">Lv. {area.level}/10</span>
                     </div>
                     <div className="interest-bar">
-                      <div 
-                        className="interest-fill" 
+                      <div
+                        className="interest-fill"
                         style={{ width: `${area.level * 10}%` }}
                       />
                     </div>
@@ -249,9 +263,7 @@ const AnalysisPage = ({ sessionId }) => {
               <h2>종합 분석</h2>
             </div>
             <div className="section-content">
-              <div className="comprehensive-text">
-                {analysis.comprehensiveAnalysis}
-              </div>
+              <div className="comprehensive-text">{analysis.comprehensiveAnalysis}</div>
             </div>
           </section>
 
@@ -265,16 +277,23 @@ const AnalysisPage = ({ sessionId }) => {
               <div className="chart-container">
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={prepareCareerMatchData()}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(212, 175, 55, 0.2)" />
+                    <XAxis dataKey="name" tick={{ fill: '#D4AF37', fontSize: 11 }} />
+                    <YAxis tick={{ fill: '#D4AF37', fontSize: 11 }} />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'rgba(20, 20, 20, 0.95)', 
+                        border: '1px solid rgba(212, 175, 55, 0.3)',
+                        borderRadius: '8px',
+                        color: '#D4AF37'
+                      }}
+                    />
+                    <Legend wrapperStyle={{ color: '#D4AF37' }} />
                     <Bar dataKey="matchScore" fill="url(#barGradient)" name="매칭 점수" />
                     <defs>
                       <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#667eea" />
-                        <stop offset="100%" stopColor="#764ba2" />
+                        <stop offset="0%" stopColor="#D4AF37" />
+                        <stop offset="100%" stopColor="#C4A030" />
                       </linearGradient>
                     </defs>
                   </BarChart>
@@ -305,8 +324,6 @@ const AnalysisPage = ({ sessionId }) => {
         </div>
       </div>
     </div>
-  )
+  );
 }
-
-export default AnalysisPage
 
