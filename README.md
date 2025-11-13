@@ -7,7 +7,7 @@
 ### 필수 요구사항
 
 - Java 17 이상
-- Node.js 18 이상
+- Node.js 22.21.0 이상
 - Maven 3.6 이상
 - OpenAI API 키 (필수)
 
@@ -58,9 +58,9 @@ mvn spring-boot:run
 
 #### 환경변수 설정 (선택사항)
 
-`frontend/.env.development` 파일 생성:
+`frontend/.env.local` 파일 생성:
 ```env
-VITE_API_URL=http://localhost:8080/api
+NEXT_PUBLIC_API_URL=http://localhost:8080/api
 ```
 
 #### 프론트엔드 실행
@@ -72,6 +72,13 @@ npm run dev
 ```
 
 프론트엔드는 http://localhost:3000 에서 실행됩니다.
+
+#### 프로덕션 빌드
+
+```bash
+npm run build
+npm run start
+```
 
 ## 🔧 문제 해결
 
@@ -93,12 +100,8 @@ npm run dev
 ### 백엔드 연결 실패 시
 
 1. 백엔드가 8080 포트에서 실행 중인지 확인: http://localhost:8080
-2. 프론트엔드 API URL 설정 확인 (`frontend/src/services/dw/api.js`)
+2. 프론트엔드 API URL 설정 확인 (`frontend/.env.local` 또는 `next.config.js`)
 3. 방화벽 설정 확인
-
-### React Router 경고
-
-이는 정상적인 경고로, React Router v7 관련 기능 안내입니다. 애플리케이션 동작에는 영향이 없습니다.
 
 ## 📁 프로젝트 구조
 
@@ -113,11 +116,15 @@ DreamPath/
 │   │   └── config/        # 설정 (CORS 등)
 │   └── src/main/resources/
 │       └── application.yml # 백엔드 설정
-├── frontend/              # React 프론트엔드
+├── frontend/              # Next.js 프론트엔드
 │   ├── src/
-│   │   ├── pages/        # 페이지 컴포넌트
-│   │   └── services/     # API 호출 서비스
-│   └── vite.config.js    # Vite 설정
+│   │   ├── app/          # Next.js App Router
+│   │   ├── components/   # React 컴포넌트
+│   │   ├── lib/          # API 서비스 및 유틸리티
+│   │   └── types/        # TypeScript 타입 정의
+│   ├── next.config.js    # Next.js 설정
+│   └── tsconfig.json     # TypeScript 설정
+├── docker-compose.yml    # Docker 구성
 └── README.md
 ```
 
@@ -131,10 +138,11 @@ DreamPath/
 - Lombok
 
 ### 프론트엔드
-- React 18
-- Vite
+- Next.js 16.0.1
+- React 19
+- TypeScript 5.9.3
+- Node.js 22.21.0
 - Axios
-- React Router
 - Recharts (데이터 시각화)
 - Lucide React (아이콘)
 
