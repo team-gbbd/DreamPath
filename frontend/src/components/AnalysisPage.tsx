@@ -46,10 +46,13 @@ export default function AnalysisPage({ sessionId }: AnalysisPageProps) {
   const fetchAnalysis = async () => {
     try {
       setIsLoading(true);
+      console.log('🔍 분석 요청 시작 - Session ID:', sessionId);
       const data = await analysisService.analyzeSession(sessionId);
+      console.log('✅ 분석 데이터 수신:', data);
       setAnalysis(data);
     } catch (error: any) {
-      console.error('분석 실패:', error);
+      console.error('❌ 분석 실패:', error);
+      console.error('에러 상세:', error.response?.data);
       const errorMessage =
         error.response?.data?.message ||
         error.response?.data?.error ||
@@ -61,19 +64,29 @@ export default function AnalysisPage({ sessionId }: AnalysisPageProps) {
   };
 
   const prepareInterestData = (): RadarChartData[] => {
-    if (!analysis?.interest?.areas) return [];
-    return analysis.interest.areas.map((area) => ({
+    if (!analysis?.interest?.areas) {
+      console.warn('⚠️ 흥미 데이터가 없습니다:', analysis?.interest);
+      return [];
+    }
+    const chartData = analysis.interest.areas.map((area) => ({
       subject: area.name,
       value: area.level * 10, // 1-10을 10-100으로 변환
     }));
+    console.log('📊 Radar Chart 데이터:', chartData);
+    return chartData;
   };
 
   const prepareCareerMatchData = (): BarChartData[] => {
-    if (!analysis?.recommendedCareers) return [];
-    return analysis.recommendedCareers.map((career) => ({
+    if (!analysis?.recommendedCareers) {
+      console.warn('⚠️ 진로 추천 데이터가 없습니다:', analysis?.recommendedCareers);
+      return [];
+    }
+    const chartData = analysis.recommendedCareers.map((career) => ({
       name: career.careerName,
       matchScore: career.matchScore,
     }));
+    console.log('📊 Bar Chart 데이터:', chartData);
+    return chartData;
   };
 
   if (isLoading) {
@@ -115,7 +128,7 @@ export default function AnalysisPage({ sessionId }: AnalysisPageProps) {
             <ArrowLeft size={20} />
             대화로 돌아가기
           </button>
-          <h1>🎯 진로 분석 결과</h1>
+          <h1> 진로 분석 결과</h1>
           <p>AI가 대화를 통해 분석한 당신의 진로 방향입니다</p>
         </div>
 
@@ -191,9 +204,13 @@ export default function AnalysisPage({ sessionId }: AnalysisPageProps) {
                     강점
                   </h3>
                   <ul>
-                    {analysis.personality.strengths.map((strength, index) => (
-                      <li key={index}>{strength}</li>
-                    ))}
+                    {analysis.personality.strengths && analysis.personality.strengths.length > 0 ? (
+                      analysis.personality.strengths.map((strength, index) => (
+                        <li key={index}>{strength}</li>
+                      ))
+                    ) : (
+                      <li style={{ color: '#888', border: 'none' }}>강점을 분석 중입니다...</li>
+                    )}
                   </ul>
                 </div>
                 <div className="trait-box growth">
@@ -202,9 +219,13 @@ export default function AnalysisPage({ sessionId }: AnalysisPageProps) {
                     발전 영역
                   </h3>
                   <ul>
-                    {analysis.personality.growthAreas.map((area, index) => (
-                      <li key={index}>{area}</li>
-                    ))}
+                    {analysis.personality.growthAreas && analysis.personality.growthAreas.length > 0 ? (
+                      analysis.personality.growthAreas.map((area, index) => (
+                        <li key={index}>{area}</li>
+                      ))
+                    ) : (
+                      <li style={{ color: '#888', border: 'none' }}>발전 영역을 분석 중입니다...</li>
+                    )}
                   </ul>
                 </div>
               </div>
@@ -220,39 +241,47 @@ export default function AnalysisPage({ sessionId }: AnalysisPageProps) {
             <div className="section-content">
               <p className="description">{analysis.interest.description}</p>
 
-              <div className="chart-container">
-                <ResponsiveContainer width="100%" height={300}>
-                  <RadarChart data={prepareInterestData()}>
-                    <PolarGrid stroke="rgba(212, 175, 55, 0.2)" />
-                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#D4AF37', fontSize: 12 }} />
-                    <Radar
-                      name="흥미도"
-                      dataKey="value"
-                      stroke="#D4AF37"
-                      fill="#D4AF37"
-                      fillOpacity={0.3}
-                    />
-                  </RadarChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="interest-list">
-                {analysis.interest.areas.map((area, index) => (
-                  <div key={index} className="interest-item">
-                    <div className="interest-header">
-                      <span className="interest-name">{area.name}</span>
-                      <span className="interest-level">Lv. {area.level}/10</span>
-                    </div>
-                    <div className="interest-bar">
-                      <div
-                        className="interest-fill"
-                        style={{ width: `${area.level * 10}%` }}
+              {analysis.interest.areas && analysis.interest.areas.length > 0 ? (
+                <div className="chart-container">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <RadarChart data={prepareInterestData()}>
+                      <PolarGrid stroke="rgba(212, 175, 55, 0.2)" />
+                      <PolarAngleAxis dataKey="subject" tick={{ fill: '#D4AF37', fontSize: 12 }} />
+                      <Radar
+                        name="흥미도"
+                        dataKey="value"
+                        stroke="#D4AF37"
+                        fill="#D4AF37"
+                        fillOpacity={0.3}
                       />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div style={{ padding: '40px', textAlign: 'center', color: '#888' }}>
+                  <p>흥미 분야 데이터를 분석 중입니다...</p>
+                </div>
+              )}
+
+              {analysis.interest.areas && analysis.interest.areas.length > 0 && (
+                <div className="interest-list">
+                  {analysis.interest.areas.map((area, index) => (
+                    <div key={index} className="interest-item">
+                      <div className="interest-header">
+                        <span className="interest-name">{area.name}</span>
+                        <span className="interest-level">Lv. {area.level}/10</span>
+                      </div>
+                      <div className="interest-bar">
+                        <div
+                          className="interest-fill"
+                          style={{ width: `${area.level * 10}%` }}
+                        />
+                      </div>
+                      <p className="interest-description">{area.description}</p>
                     </div>
-                    <p className="interest-description">{area.description}</p>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
 
@@ -274,51 +303,59 @@ export default function AnalysisPage({ sessionId }: AnalysisPageProps) {
               <h2>추천 진로</h2>
             </div>
             <div className="section-content">
-              <div className="chart-container">
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={prepareCareerMatchData()}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(212, 175, 55, 0.2)" />
-                    <XAxis dataKey="name" tick={{ fill: '#D4AF37', fontSize: 11 }} />
-                    <YAxis tick={{ fill: '#D4AF37', fontSize: 11 }} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'rgba(20, 20, 20, 0.95)', 
-                        border: '1px solid rgba(212, 175, 55, 0.3)',
-                        borderRadius: '8px',
-                        color: '#D4AF37'
-                      }}
-                    />
-                    <Legend wrapperStyle={{ color: '#D4AF37' }} />
-                    <Bar dataKey="matchScore" fill="url(#barGradient)" name="매칭 점수" />
-                    <defs>
-                      <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#D4AF37" />
-                        <stop offset="100%" stopColor="#C4A030" />
-                      </linearGradient>
-                    </defs>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              {analysis.recommendedCareers && analysis.recommendedCareers.length > 0 ? (
+                <div className="chart-container">
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={prepareCareerMatchData()}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(212, 175, 55, 0.2)" />
+                      <XAxis dataKey="name" tick={{ fill: '#D4AF37', fontSize: 11 }} />
+                      <YAxis tick={{ fill: '#D4AF37', fontSize: 11 }} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'rgba(20, 20, 20, 0.95)', 
+                          border: '1px solid rgba(212, 175, 55, 0.3)',
+                          borderRadius: '8px',
+                          color: '#D4AF37'
+                        }}
+                      />
+                      <Legend wrapperStyle={{ color: '#D4AF37' }} />
+                      <Bar dataKey="matchScore" fill="url(#barGradient)" name="매칭 점수" />
+                      <defs>
+                        <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#D4AF37" />
+                          <stop offset="100%" stopColor="#C4A030" />
+                        </linearGradient>
+                      </defs>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div style={{ padding: '40px', textAlign: 'center', color: '#888' }}>
+                  <p>진로 추천 데이터를 분석 중입니다...</p>
+                </div>
+              )}
 
-              <div className="career-list">
-                {analysis.recommendedCareers.map((career, index) => (
-                  <div key={index} className="career-card">
-                    <div className="career-header">
-                      <h3>{career.careerName}</h3>
-                      <span className="match-badge">{career.matchScore}% 매칭</span>
+              {analysis.recommendedCareers && analysis.recommendedCareers.length > 0 && (
+                <div className="career-list">
+                  {analysis.recommendedCareers.map((career, index) => (
+                    <div key={index} className="career-card">
+                      <div className="career-header">
+                        <h3>{career.careerName}</h3>
+                        <span className="match-badge">{career.matchScore}% 매칭</span>
+                      </div>
+                      <p className="career-description">{career.description}</p>
+                      <div className="career-reasons">
+                        <h4>추천 이유:</h4>
+                        <ul>
+                          {career.reasons.map((reason, idx) => (
+                            <li key={idx}>{reason}</li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
-                    <p className="career-description">{career.description}</p>
-                    <div className="career-reasons">
-                      <h4>추천 이유:</h4>
-                      <ul>
-                        {career.reasons.map((reason, idx) => (
-                          <li key={idx}>{reason}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
         </div>

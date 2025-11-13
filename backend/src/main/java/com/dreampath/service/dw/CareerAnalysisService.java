@@ -91,6 +91,7 @@ public class CareerAnalysisService {
         sessionRepository.save(session);
 
         return AnalysisResponse.builder()
+                .sessionId(sessionId)
                 .emotion(emotionAnalysis)
                 .personality(personalityAnalysis)
                 .interest(interestAnalysis)
