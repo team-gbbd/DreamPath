@@ -13,6 +13,9 @@ import java.util.List;
 @AllArgsConstructor
 public class AnalysisResponse {
     
+    // 세션 ID
+    private String sessionId;
+    
     // 감정 분석
     private EmotionAnalysis emotion;
     
