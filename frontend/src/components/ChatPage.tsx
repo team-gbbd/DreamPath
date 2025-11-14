@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { chatService } from '@/lib/api';
 import { Send, BarChart3, Loader2 } from 'lucide-react';
 import type { ChatMessage } from '@/types';
+import IdentityPanel from './IdentityPanel';
 import './ChatPage.css';
 
 interface ChatPageProps {
@@ -17,6 +18,8 @@ export default function ChatPage({ sessionId, setSessionId }: ChatPageProps) {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [identityStatus, setIdentityStatus] = useState<any>(null);
+  const [stageChanged, setStageChanged] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -89,6 +92,17 @@ export default function ChatPage({ sessionId, setSessionId }: ChatPageProps) {
           timestamp: response.timestamp,
         },
       ]);
+
+      // 실시간 정체성 상태 업데이트
+      if (response.identityStatus) {
+        setIdentityStatus(response.identityStatus);
+      }
+
+      // 단계 변경 알림
+      if (response.stageChanged) {
+        setStageChanged(true);
+        setTimeout(() => setStageChanged(false), 1000);
+      }
     } catch (error: any) {
       console.error('메시지 전송 실패:', error);
       const errorMessage =
@@ -126,7 +140,7 @@ export default function ChatPage({ sessionId, setSessionId }: ChatPageProps) {
 
   return (
     <div className="chat-page">
-      <div className="chat-container">
+      <div className="chat-container chat-with-panel">
         <div className="chat-header">
           <div className="header-content">
             <h1>🎯 DreamPath</h1>
@@ -200,6 +214,7 @@ export default function ChatPage({ sessionId, setSessionId }: ChatPageProps) {
           </button>
         </form>
       </div>
+      <IdentityPanel identityStatus={identityStatus} stageChanged={stageChanged} />
     </div>
   );
 }

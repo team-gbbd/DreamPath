@@ -30,6 +30,8 @@ Thumbs.db
 # 데이터베이스
 *.db
 *.sqlite
+data/
+backend/data/
 
 # 빌드 아티팩트
 *.jar
