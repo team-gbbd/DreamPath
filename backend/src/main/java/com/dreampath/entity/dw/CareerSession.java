@@ -44,6 +44,15 @@ public class CareerSession {
     @Builder.Default
     private SessionStatus status = SessionStatus.ACTIVE;
     
+    @Enumerated(EnumType.STRING)
+    @Column(name = "conversation_stage")
+    @Builder.Default
+    private ConversationStage currentStage = ConversationStage.PRESENT;
+    
+    @Column(name = "stage_message_count")
+    @Builder.Default
+    private Integer stageMessageCount = 0;
+    
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

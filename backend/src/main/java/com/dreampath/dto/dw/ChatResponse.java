@@ -14,5 +14,15 @@ public class ChatResponse {
     private String message;
     private String role;
     private Long timestamp;
+    
+    /**
+     * 실시간 정체성 상태 (선택적)
+     */
+    private IdentityStatus identityStatus;
+    
+    /**
+     * 단계가 변경되었는지 여부
+     */
+    private Boolean stageChanged;
 }
 

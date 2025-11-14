@@ -2,15 +2,15 @@
   width: 100%;
   height: 100vh;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
   padding: 0;
   background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
 }
 
 .chat-container {
-  width: 100%;
-  max-width: 1400px;
+  flex: 1;
+  max-width: 1050px;
   height: 100vh;
   background: #0f0f0f;
   border-radius: 0;
@@ -19,6 +19,10 @@
   flex-direction: column;
   overflow: hidden;
   position: relative;
+}
+
+.chat-container.chat-with-panel {
+  border-right: 1px solid rgba(212, 175, 55, 0.1);
 }
 
 .chat-header {
@@ -301,10 +305,17 @@
 }
 
 /* 반응형 디자인 */
+@media (max-width: 1200px) {
+  .chat-page {
+    flex-direction: column;
+  }
+}
+
 @media (max-width: 768px) {
   .chat-container {
     height: 100vh;
     border-radius: 0;
+    max-width: none;
   }
 
   .chat-header {
