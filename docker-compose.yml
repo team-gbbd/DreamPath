@@ -3,7 +3,7 @@ services:
     build: ./frontend
     container_name: dreampath-frontend
     ports:
-      - "3000:80"
+      - "0.0.0.0:3000:80"
     depends_on:
       - backend
     restart: always
