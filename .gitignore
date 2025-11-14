@@ -30,3 +30,6 @@ start-server.bat
 stop-server.bat
 quick-update.bat
 check-status.bat
+
+# 백업 폴더
+frontend_backup_cra/
