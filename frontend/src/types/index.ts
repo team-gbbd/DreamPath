@@ -15,11 +15,36 @@ export interface ChatResponse {
   sessionId: string;
   message: string;
   timestamp: number;
+  identityStatus?: IdentityStatus;
+  stageChanged?: boolean;
 }
 
 export interface StartSessionResponse {
   sessionId: string;
   message: string;
+}
+
+// Identity Analysis Types
+export interface RecentInsight {
+  type: string;
+  description: string;
+  relevanceScore: number;
+}
+
+export interface StageProgress {
+  PRESENT: number;
+  PAST: number;
+  VALUES: number;
+  FUTURE: number;
+}
+
+export interface IdentityStatus {
+  currentStage: string;
+  clarity: number;
+  identityCore: string;
+  recentInsight: RecentInsight | null;
+  nextStageSuggestion: boolean;
+  stageProgress: StageProgress;
 }
 
 // Analysis Types

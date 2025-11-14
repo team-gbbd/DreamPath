@@ -3,7 +3,7 @@ spring:
     name: dreampath-backend
   
   datasource:
-    url: jdbc:h2:mem:dreampath
+    url: jdbc:h2:file:./data/dreampath
     driver-class-name: org.h2.Driver
     username: sa
     password: 

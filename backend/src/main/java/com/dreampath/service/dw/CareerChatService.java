@@ -6,17 +6,22 @@ import com.dreampath.entity.dw.CareerSession;
 import com.dreampath.entity.dw.ChatMessage;
 import com.dreampath.repository.dw.CareerSessionRepository;
 import com.dreampath.repository.dw.ChatMessageRepository;
+import com.dreampath.service.dw.ai.CareerAssistant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * 진로 상담 채팅 서비스
+ * 
+ * 4단계 대화 프로세스를 통해 학생의 진로 정체성을 점진적으로 확립합니다.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -24,23 +29,12 @@ public class CareerChatService {
 
     private final CareerSessionRepository sessionRepository;
     private final ChatMessageRepository messageRepository;
-    private final OpenAIService openAIService;
-
-    private static final String SYSTEM_PROMPT = """
-            당신은 친근하고 공감적인 진로 상담 전문가입니다.
-            학생들과 대화하면서 다음을 파악해주세요:
-            
-            1. 감정 상태: 현재 느끼는 감정, 진로에 대한 불안이나 기대
-            2. 성향: 성격적 특성, 선호하는 활동 방식, 대인관계 스타일
-            3. 흥미: 관심 분야, 좋아하는 활동, 배우고 싶은 것
-            
-            자연스러운 대화를 통해 학생을 이해하고, 적절한 질문으로 더 깊은 대화를 이끌어주세요.
-            대화는 한국어로 진행하며, 친근하고 따뜻한 톤을 유지해주세요.
-            한 번에 너무 많은 질문을 하지 말고, 학생의 답변에 공감하며 자연스럽게 대화를 이어가세요.
-            """;
+    private final CareerAssistant careerAssistant;
 
     @Transactional
     public ChatResponse chat(ChatRequest request) {
+        log.info("채팅 요청 - 세션: {}, 사용자: {}", request.getSessionId(), request.getUserId());
+        
         // 세션 찾기 또는 생성
         CareerSession session = getOrCreateSession(request.getSessionId(), request.getUserId());
         
@@ -53,23 +47,16 @@ public class CareerChatService {
         messageRepository.save(userMessage);
         session.getMessages().add(userMessage);
 
-        // OpenAI에 전송할 메시지 구성
-        List<com.theokanning.openai.completion.chat.ChatMessage> openAIMessages = new ArrayList<>();
-        
-        // 시스템 프롬프트 추가
-        openAIMessages.add(new com.theokanning.openai.completion.chat.ChatMessage("system", SYSTEM_PROMPT));
-        
-        // 대화 히스토리 추가 (최근 10개)
-        session.getMessages().stream()
-                .sorted((m1, m2) -> m1.getTimestamp().compareTo(m2.getTimestamp()))
-                .limit(10)
-                .forEach(msg -> {
-                    String role = msg.getRole() == ChatMessage.MessageRole.USER ? "user" : "assistant";
-                    openAIMessages.add(new com.theokanning.openai.completion.chat.ChatMessage(role, msg.getContent()));
-                });
+        // 단계별 메시지 카운트 증가
+        session.setStageMessageCount(session.getStageMessageCount() + 1);
 
-        // AI 응답 받기
-        String aiResponse = openAIService.getChatCompletion(openAIMessages);
+        // LangChain4j AI Service를 통해 응답 생성
+        // 현재 대화 단계를 전달하여 단계별 질문 유도
+        String aiResponse = careerAssistant.chat(
+            session.getSessionId(), 
+            request.getMessage(),
+            session.getCurrentStage().name()
+        );
 
         // AI 응답 저장
         ChatMessage assistantMessage = ChatMessage.builder()
@@ -81,6 +68,11 @@ public class CareerChatService {
         session.getMessages().add(assistantMessage);
 
         sessionRepository.save(session);
+
+        log.info("응답 생성 완료 - 세션: {}, 단계: {}, 메시지 수: {}", 
+            session.getSessionId(), 
+            session.getCurrentStage().getDisplayName(),
+            session.getStageMessageCount());
 
         return ChatResponse.builder()
                 .sessionId(session.getSessionId())
@@ -106,6 +98,9 @@ public class CareerChatService {
                 .status(CareerSession.SessionStatus.ACTIVE)
                 .messages(new ArrayList<>())
                 .build();
+        log.info("새 세션 생성 - ID: {}, 초기 단계: {}", 
+            session.getSessionId(), 
+            session.getCurrentStage().getDisplayName());
         return sessionRepository.save(session);
     }
 
@@ -123,5 +118,41 @@ public class CareerChatService {
                         .build())
                 .collect(Collectors.toList());
     }
-}
 
+    /**
+     * 세션의 전체 대화 내용을 텍스트로 반환
+     * 정체성 분석 시 사용됩니다
+     */
+    @Transactional(readOnly = true)
+    public String getConversationHistory(String sessionId) {
+        CareerSession session = sessionRepository.findBySessionId(sessionId)
+                .orElseThrow(() -> new RuntimeException("세션을 찾을 수 없습니다."));
+
+        return session.getMessages().stream()
+                .sorted((m1, m2) -> m1.getTimestamp().compareTo(m2.getTimestamp()))
+                .map(msg -> {
+                    String role = msg.getRole() == ChatMessage.MessageRole.USER ? "학생" : "상담사";
+                    return role + ": " + msg.getContent();
+                })
+                .collect(Collectors.joining("\n\n"));
+    }
+    
+    /**
+     * 최근 N개 메시지를 텍스트로 반환
+     */
+    @Transactional(readOnly = true)
+    public String getRecentMessages(String sessionId, int count) {
+        CareerSession session = sessionRepository.findBySessionId(sessionId)
+                .orElseThrow(() -> new RuntimeException("세션을 찾을 수 없습니다."));
+
+        return session.getMessages().stream()
+                .sorted((m1, m2) -> m2.getTimestamp().compareTo(m1.getTimestamp()))
+                .limit(count)
+                .sorted((m1, m2) -> m1.getTimestamp().compareTo(m2.getTimestamp()))
+                .map(msg -> {
+                    String role = msg.getRole() == ChatMessage.MessageRole.USER ? "학생" : "상담사";
+                    return role + ": " + msg.getContent();
+                })
+                .collect(Collectors.joining("\n\n"));
+    }
+}
