@@ -1,3 +1,14 @@
-# 임시 테스트용 Dockerfile (Spring Boot 프로젝트 대신)
-FROM eclipse-temurin:21-jdk
-CMD ["java", "-version"]
+FROM eclipse-temurin:21-jdk-alpine AS build
+WORKDIR /app
+COPY gradlew .
+COPY gradle gradle
+COPY build.gradle .
+COPY settings.gradle .
+COPY src src
+RUN ./gradlew clean bootJar
+
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+COPY --from=build /app/build/libs/*.jar app.jar
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]
