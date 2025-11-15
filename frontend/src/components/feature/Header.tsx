@@ -1,7 +1,36 @@
 
-import Button from '../base/Button';
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import Button from "../base/Button";
 
 export default function Header() {
+  const navigate = useNavigate();
+  const [currentUser, setCurrentUser] = useState<{ name: string } | null>(null);
+
+  useEffect(() => {
+    const syncUser = () => {
+      const stored = localStorage.getItem("dreampath:user");
+      setCurrentUser(stored ? JSON.parse(stored) : null);
+    };
+
+    syncUser();
+    const authHandler = () => syncUser();
+    const storageHandler = () => syncUser();
+    window.addEventListener("dreampath-auth-change", authHandler as EventListener);
+    window.addEventListener("storage", storageHandler as EventListener);
+    return () => {
+      window.removeEventListener("dreampath-auth-change", authHandler as EventListener);
+      window.removeEventListener("storage", storageHandler as EventListener);
+    };
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("dreampath:user");
+    window.dispatchEvent(new Event("dreampath-auth-change"));
+    alert("로그아웃되었습니다.");
+    navigate("/", { replace: true });
+  };
+
   const navItems = [
     { name: 'Features', href: '#features' },
     { name: 'About', href: '#about' },
@@ -39,9 +68,17 @@ export default function Header() {
 
           {/* Login Button */}
           <div className="flex items-center space-x-4">
-            <Button size="sm">
-              로그인하기
-            </Button>
+            {currentUser ? (
+              <Button size="sm" onClick={handleLogout}>
+                로그아웃
+              </Button>
+            ) : (
+              <Link to="/login">
+                <Button size="sm">
+                  로그인하기
+                </Button>
+              </Link>
+            )}
           </div>
 
           {/* Mobile menu button */}
