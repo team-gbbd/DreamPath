@@ -1,29 +1,22 @@
-import type { RouteObject } from "react-router-dom";
-import NotFound from "../pages/NotFound";
-import Home from "../pages/home/page";
+import React, { lazy } from "react";
+import { RouteObject } from "react-router-dom";
 
-import LoginPage from "../pages/auth/LoginPage";
-import RegisterPage from "../pages/auth/RegisterPage";
+const HomePage = lazy(() => import("../pages/home/page"));
+const NotFoundPage = lazy(() => import("../pages/NotFound"));
+const VideoInterviewPage = lazy(() => import("../pages/video-interview/page"));
 
 const routes: RouteObject[] = [
   {
     path: "/",
-    element: <Home />,
+    element: <HomePage />,
   },
-
   {
-    path: "/login",
-    element: <LoginPage />,
+    path: "/video-interview",
+    element: <VideoInterviewPage />,
   },
-
-  {
-    path: "/register",
-    element: <RegisterPage />,
-  },
-
   {
     path: "*",
-    element: <NotFound />,
+    element: <NotFoundPage />,
   },
 ];
 
