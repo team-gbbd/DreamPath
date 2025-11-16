@@ -62,7 +62,7 @@ export default function VideoControls({
         <button
           onClick={onLeave}
           className="w-14 h-14 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-all duration-200 cursor-pointer ml-8"
-          title="면접 종료"
+          title="통화 종료"
         >
           <i className="ri-phone-line text-2xl"></i>
         </button>
