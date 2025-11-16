@@ -103,9 +103,12 @@ export default function MentoringPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] rounded-lg flex items-center justify-center">
+              <button
+                onClick={() => navigate('/')}
+                className="w-10 h-10 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity"
+              >
                 <i className="ri-video-chat-line text-white text-xl"></i>
-              </div>
+              </button>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">멘토링 화상통화</h1>
                 <p className="text-sm text-gray-500">멘토와 실시간으로 소통하세요</p>
