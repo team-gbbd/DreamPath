@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/video")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:3002")
+@CrossOrigin(origins = {"http://localhost:3002", "http://192.168.123.100:3002"})
 public class VideoController {
 
     private final LiveKitService liveKitService;
