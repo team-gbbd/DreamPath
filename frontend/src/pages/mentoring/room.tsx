@@ -11,6 +11,7 @@ import {
   Track,
   LogLevel,
   setLogLevel,
+  Participant,
 } from 'livekit-client';
 import VideoControls from './components/VideoControls';
 import ChatPanel from './components/ChatPanel';
@@ -42,6 +43,8 @@ export default function VideoInterviewPage() {
   const [participantName, setParticipantName] = useState(searchParams.get('name') || '');
   const [roomName, setRoomName] = useState(searchParams.get('room') || '');
   const [showJoinForm, setShowJoinForm] = useState(!searchParams.get('room') || !searchParams.get('name'));
+  const [isLocalSpeaking, setIsLocalSpeaking] = useState(false);
+  const [isRemoteSpeaking, setIsRemoteSpeaking] = useState(false);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -221,6 +224,18 @@ export default function VideoInterviewPage() {
         setLocalVideoTrack(null);
       }
     });
+
+    // 음성 활동 감지 (디스코드 스타일 초록색 테두리)
+    newRoom.on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
+      const localSpeaking = speakers.some(
+        (speaker) => speaker.identity === newRoom.localParticipant.identity
+      );
+      const remoteSpeaking = speakers.some(
+        (speaker) => speaker.identity !== newRoom.localParticipant.identity
+      );
+      setIsLocalSpeaking(localSpeaking);
+      setIsRemoteSpeaking(remoteSpeaking);
+    });
   };
 
   const toggleAudio = () => {
@@ -330,9 +345,12 @@ export default function VideoInterviewPage() {
         <div className="max-w-[1920px] mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] rounded-lg flex items-center justify-center">
+              <button
+                onClick={() => navigate('/')}
+                className="w-10 h-10 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] rounded-lg flex items-center justify-center hover:opacity-80 transition-opacity"
+              >
                 <i className="ri-video-chat-line text-white text-xl"></i>
-              </div>
+              </button>
               <div>
                 <h1 className="text-xl font-bold text-white">화상 면접</h1>
                 <p className="text-sm text-gray-400">{isConnected ? `연결됨 - ${roomName}` : '연결 중...'}</p>
@@ -352,7 +370,7 @@ export default function VideoInterviewPage() {
       <div className="max-w-[1920px] mx-auto px-6 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100vh-140px)]">
           <div className="lg:col-span-3 flex flex-col space-y-4">
-            <div className="flex-1 bg-gray-800 rounded-2xl overflow-hidden relative shadow-2xl">
+            <div className={`flex-1 bg-gray-800 rounded-2xl overflow-hidden relative shadow-2xl transition-all duration-200 ${isRemoteSpeaking ? 'ring-4 ring-green-500 ring-opacity-75' : ''}`}>
               {remoteVideoTrack ? (
                 <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
               ) : (
@@ -369,7 +387,7 @@ export default function VideoInterviewPage() {
                 </div>
               )}
 
-              <div className="absolute bottom-6 right-6 w-64 h-48 bg-gray-900 rounded-xl overflow-hidden shadow-2xl border-2 border-gray-700">
+              <div className={`absolute bottom-6 right-6 w-64 h-48 bg-gray-900 rounded-xl overflow-hidden shadow-2xl transition-all duration-200 ${isLocalSpeaking ? 'ring-4 ring-green-500 ring-opacity-75' : 'border-2 border-gray-700'}`}>
                 {/* 비디오 엘리먼트는 항상 유지, 숨기기만 함 */}
                 <video
                   ref={localVideoRef}
@@ -386,8 +404,9 @@ export default function VideoInterviewPage() {
                     </div>
                   </div>
                 )}
-                <div className="absolute bottom-2 left-2 bg-black/70 px-2 py-1 rounded text-xs text-white">
-                  {participantName || '나'}
+                <div className="absolute bottom-2 left-2 bg-black/70 px-2 py-1 rounded text-xs text-white flex items-center space-x-1">
+                  {isLocalSpeaking && <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>}
+                  <span>{participantName || '나'}</span>
                 </div>
               </div>
             </div>
