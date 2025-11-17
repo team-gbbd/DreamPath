@@ -2,6 +2,7 @@ package com.dreampath.service.dw;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -55,12 +56,18 @@ public class PythonChatService {
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
 
             log.debug("채팅 응답 생성 요청: sessionId={}, stage={}", sessionId, currentStage);
-            @SuppressWarnings("unchecked")
-            ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                url, 
+                org.springframework.http.HttpMethod.POST, 
+                request, 
+                new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
 
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> responseBody = (Map<String, Object>) response.getBody();
+            if (response.getStatusCode().is2xxSuccessful()) {
+                Map<String, Object> responseBody = response.getBody();
+                if (responseBody == null) {
+                    throw new RuntimeException("Python AI 서비스 응답 본문이 null입니다.");
+                }
                 String message = (String) responseBody.get("message");
                 if (message == null) {
                     throw new RuntimeException("Python AI 서비스 응답에 message가 없습니다.");
