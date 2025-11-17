@@ -1,39 +1,35 @@
-# 환경 변수
+# Node.js
+node_modules/
 .env
+.env.local
+
+# Java
+target/
+*.jar
+*.war
+*.class
 
 # IDE
-.idea/
 .vscode/
-*.iml
-*.ipr
-*.iws
+.idea/
 
-# Backend (Maven)
-backend/target/
-backend/.mvn/
-backend/mvnw
-backend/mvnw.cmd
+# Docker
+.dockerignore
 
-# Frontend (Node)
-frontend/node_modules/
-frontend/dist/
-frontend/.vite/
-frontend/package-lock.json
-
-# 로그
+# Logs
 *.log
+logs/
 
 # OS
 .DS_Store
 Thumbs.db
 
-# 데이터베이스
-*.db
-*.sqlite
-data/
-backend/data/
+# .bat
+*.bat
+start-server.bat
+stop-server.bat
+quick-update.bat
+check-status.bat
 
-# 빌드 아티팩트
-*.jar
-*.war
-*.class
+# 백업 폴더
+frontend_backup_cra/
