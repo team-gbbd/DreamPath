@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import SurveyModal from '../../components/SurveyModal';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -41,6 +42,8 @@ export default function CareerChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [identityStatus, setIdentityStatus] = useState<IdentityStatus | null>(null);
+  const [showSurvey, setShowSurvey] = useState(false);
+  const [surveyQuestions, setSurveyQuestions] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -129,6 +132,12 @@ export default function CareerChatPage() {
       
       // localStorage에 세션 ID 저장
       localStorage.setItem('career_chat_session_id', data.sessionId);
+      
+      // 설문조사 필요 여부 확인
+      if (data.needsSurvey && data.surveyQuestions) {
+        setSurveyQuestions(data.surveyQuestions);
+        setShowSurvey(true);
+      }
       
       // 초기 메시지 추가
       setMessages([{
@@ -242,11 +251,32 @@ export default function CareerChatPage() {
     setMessages([]);
     setSessionId(null);
     setIdentityStatus(null);
+    setShowSurvey(false);
+    setSurveyQuestions([]);
     startNewSession();
+  };
+
+  const handleSurveyComplete = () => {
+    setShowSurvey(false);
+    // 설문조사 완료 후 환영 메시지 업데이트
+    setMessages(prev => [...prev, {
+      role: 'assistant',
+      content: '설문조사가 완료되었습니다! 이제 진로 정체성 탐색을 시작해볼까요? 😊',
+      timestamp: new Date(),
+    }]);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-50">
+      {/* 설문조사 모달 */}
+      {sessionId && (
+        <SurveyModal
+          isOpen={showSurvey}
+          questions={surveyQuestions}
+          sessionId={sessionId}
+          onComplete={handleSurveyComplete}
+        />
+      )}
       {/* Header */}
       <div className="bg-white/95 backdrop-blur-sm border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
