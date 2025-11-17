@@ -25,6 +25,16 @@ services:
       - db
     restart: always
 
+  ai-service:
+    build: ./python-ai-service
+    container_name: dreampath-ai-service
+    ports:
+      - "8000:8000"
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+    restart: always
+
   db:
     image: mysql:8.0
     container_name: dreampath-mysql
