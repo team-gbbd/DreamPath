@@ -27,9 +27,10 @@
 
 ### 필수 요구사항
 
-- Java 17 이상
-- Node.js 22.21.0 이상
-- Maven 3.6 이상
+- Java 21
+- Node.js 18+ 
+- Gradle 8.10+
+- MySQL 8.0+ (또는 H2 for development)
 - OpenAI API 키 (필수)
 
 ### 1. OpenAI API 키 발급
@@ -38,53 +39,32 @@
 2. API Keys 메뉴에서 새 API 키 생성
 3. 발급받은 키를 안전하게 보관
 
-### 2. 백엔드 설정
+### 2. 환경 설정
 
-#### 환경변수 설정 (권장)
+`.env` 파일 생성 또는 환경변수 설정:
 
-**Windows (PowerShell):**
-```powershell
-$env:OPENAI_API_KEY="your-actual-api-key-here"
-```
-
-**Windows (Command Prompt):**
-```cmd
-set OPENAI_API_KEY=your-actual-api-key-here
-```
-
-**Linux/Mac:**
 ```bash
+# OpenAI API Key
 export OPENAI_API_KEY="your-actual-api-key-here"
+
+# Database (선택사항 - 기본값 사용 가능)
+export DB_HOST=localhost
+export DB_PORT=3306
+export DB_NAME=dreampath
+export DB_USER=root
+export DB_PASSWORD=1111
 ```
 
-또는 `backend/src/main/resources/application.yml` 파일에서 직접 설정:
-```yaml
-openai:
-  api:
-    key: your-actual-api-key-here  # 여기에 실제 API 키 입력
-    model: gpt-4o-mini
-```
-
-#### 백엔드 실행
+### 3. 백엔드 실행
 
 ```bash
 cd backend
-mvn clean install
-mvn spring-boot:run
+./gradlew bootRun
 ```
 
 백엔드는 http://localhost:8080 에서 실행됩니다.
 
-### 3. 프론트엔드 설정
-
-#### 환경변수 설정 (선택사항)
-
-`frontend/.env.local` 파일 생성:
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8080/api
-```
-
-#### 프론트엔드 실행
+### 4. 프론트엔드 실행
 
 ```bash
 cd frontend
@@ -92,13 +72,16 @@ npm install
 npm run dev
 ```
 
-프론트엔드는 http://localhost:3000 에서 실행됩니다.
+프론트엔드는 http://localhost:5173 에서 실행됩니다.
 
-#### 프로덕션 빌드
+### 5. Docker로 실행
 
 ```bash
-npm run build
-npm run start
+# OpenAI API 키 환경변수 설정
+export OPENAI_API_KEY="your-actual-api-key-here"
+
+# Docker Compose로 전체 서비스 실행
+docker-compose up -d
 ```
 
 ## 🔧 문제 해결
@@ -112,61 +95,53 @@ npm run start
 
 2. **백엔드 로그 확인**
    - 콘솔에서 상세한 에러 메시지 확인
-   - `logs/spring.log` 파일 확인 (있는 경우)
 
 3. **CORS 오류**
-   - `application.yml`의 `cors.allowed-origins` 설정 확인
-   - 프론트엔드 포트(3000)가 허용 목록에 있는지 확인
-
-### 백엔드 연결 실패 시
-
-1. 백엔드가 8080 포트에서 실행 중인지 확인: http://localhost:8080
-2. 프론트엔드 API URL 설정 확인 (`frontend/.env.local` 또는 `next.config.js`)
-3. 방화벽 설정 확인
+   - `application.properties`의 `cors.allowed-origins` 설정 확인
+   - 프론트엔드 포트(5173)가 허용 목록에 있는지 확인
 
 ## 📁 프로젝트 구조
 
 ```
 DreamPath/
-├── backend/                # Spring Boot 백엔드
+├── backend/                    # Spring Boot 백엔드
 │   ├── src/main/java/com/dreampath/
-│   │   ├── controller/    # REST API 컨트롤러
-│   │   ├── service/       # 비즈니스 로직
-│   │   ├── entity/        # 데이터베이스 엔티티
-│   │   ├── repository/    # JPA 레포지토리
-│   │   └── config/        # 설정 (CORS 등)
-│   └── src/main/resources/
-│       └── application.yml # 백엔드 설정
-├── frontend/              # Next.js 프론트엔드
+│   │   ├── config/dw/         # LangChain4j, CORS 설정
+│   │   ├── controller/dw/     # REST API 컨트롤러
+│   │   ├── service/dw/        # 비즈니스 로직
+│   │   │   └── ai/            # LangChain4j AI Services
+│   │   ├── entity/dw/         # JPA 엔티티
+│   │   ├── repository/dw/     # JPA 레포지토리
+│   │   └── dto/dw/            # 데이터 전송 객체
+│   └── build.gradle           # Gradle 빌드 설정
+├── frontend/                  # React + Vite 프론트엔드
 │   ├── src/
-│   │   ├── app/          # Next.js App Router
-│   │   ├── components/   # React 컴포넌트
-│   │   ├── lib/          # API 서비스 및 유틸리티
-│   │   └── types/        # TypeScript 타입 정의
-│   ├── next.config.js    # Next.js 설정
-│   └── tsconfig.json     # TypeScript 설정
-├── docker-compose.yml    # Docker 구성
+│   │   ├── pages/            # 페이지 컴포넌트
+│   │   ├── components/       # 재사용 가능 컴포넌트
+│   │   └── router/           # 라우팅 설정
+│   └── package.json
+├── docker-compose.yml        # Docker Compose 설정
+├── BACKLOG.md               # 프로젝트 백로그
 └── README.md
 ```
 
 ## 🛠️ 기술 스택
 
 ### 백엔드
-- Spring Boot 3.x
+- Spring Boot 3.5.7
 - Spring Data JPA
-- H2 Database (개발), MySQL/PostgreSQL (프로덕션)
+- Spring Security + OAuth2
+- H2 / MySQL Database
 - **LangChain4j** - AI 애플리케이션 프레임워크
 - OpenAI API (GPT-4o-mini)
 - Lombok
 
 ### 프론트엔드
-- Next.js 16.0.1
-- React 19
-- TypeScript 5.9.3
-- Node.js 22.21.0
-- Axios
-- Recharts (데이터 시각화)
-- Lucide React (아이콘)
+- React 18
+- Vite 6
+- TypeScript 5
+- React Router
+- Tailwind CSS
 
 ## 📝 API 엔드포인트
 
@@ -193,19 +168,6 @@ DreamPath/
 | 1회성 분석 | 지속적 진화 |
 | 직업 리스트 제시 | "너는 ~한 사람" 확립 |
 
-### 대화 예시
-
-```
-AI: "방금 말한 게 흥미로운데, 창작을 통해 사람들과 
-     연결되는 게 너에게 정말 중요한 것 같아"
-
-학생: "맞아요! 혼자 그림 그리는 것도 좋지만, 
-       사람들이 봐주고 반응해줄 때 더 뿌듯해요"
-
-AI: "그렇다면 너는 '창작을 통해 사람들과 연결되는 사람'이야.
-     이런 정체성을 가진 너에게는..."
-```
-
 ## 🤖 LangChain4j 통합
 
 이 프로젝트는 **LangChain4j**를 활용하여 더 강력하고 유지보수가 쉬운 AI 기능을 제공합니다.
@@ -214,11 +176,6 @@ AI: "그렇다면 너는 '창작을 통해 사람들과 연결되는 사람'이�
 - **CareerAssistant**: 4단계 대화 프로세스 가이드
 - **IdentityAnalyzer**: 실시간 정체성 분석
 - **CareerAnalysisAssistant**: 최종 진로 분석 및 추천
-
-### 상세 가이드
-- [정체성 중심 시스템 가이드](backend/IDENTITY_DRIVEN_CAREER_GUIDE.md) ⭐
-- [LangChain4j 통합 가이드](backend/LANGCHAIN4J_INTEGRATION.md)
-- [아키텍처 문서](backend/ARCHITECTURE.md)
 
 ## 🔒 보안 주의사항
 

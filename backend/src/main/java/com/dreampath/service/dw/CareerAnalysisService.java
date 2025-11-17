@@ -3,7 +3,6 @@ package com.dreampath.service.dw;
 import com.dreampath.dto.dw.AnalysisResponse;
 import com.dreampath.entity.dw.CareerAnalysis;
 import com.dreampath.entity.dw.CareerSession;
-import com.dreampath.entity.dw.ChatMessage;
 import com.dreampath.repository.dw.CareerAnalysisRepository;
 import com.dreampath.repository.dw.CareerSessionRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;

@@ -18,11 +18,11 @@ public class OpenAIService {
     private final String model;
 
     public OpenAIService(
-            @Value("${openai.api.key}") String apiKey,
-            @Value("${openai.api.model}") String model) {
+            @Value("${openai.api.key:your-api-key-here}") String apiKey,
+            @Value("${openai.api.model:gpt-4o-mini}") String model) {
         if (apiKey == null || apiKey.isEmpty() || apiKey.equals("your-api-key-here")) {
-            log.error("OpenAI API 키가 설정되지 않았습니다. application.yml 또는 환경변수 OPENAI_API_KEY를 확인하세요.");
-            throw new IllegalStateException("OpenAI API 키가 설정되지 않았습니다. 환경변수 OPENAI_API_KEY를 설정하거나 application.yml에 유효한 API 키를 입력하세요.");
+            log.error("OpenAI API 키가 설정되지 않았습니다. application.properties 또는 환경변수 OPENAI_API_KEY를 확인하세요.");
+            throw new IllegalStateException("OpenAI API 키가 설정되지 않았습니다. 환경변수 OPENAI_API_KEY를 설정하거나 application.properties에 유효한 API 키를 입력하세요.");
         }
         this.openAiService = new OpenAiService(apiKey, Duration.ofSeconds(60));
         this.model = model;

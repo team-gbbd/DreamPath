@@ -156,3 +156,4 @@ public class CareerChatService {
                 .collect(Collectors.joining("\n\n"));
     }
 }
+

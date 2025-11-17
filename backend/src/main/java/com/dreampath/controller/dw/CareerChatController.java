@@ -45,10 +45,16 @@ public class CareerChatController {
             // 실시간 정체성 상태 조회
             try {
                 String recentMessages = chatService.getRecentMessages(response.getSessionId(), 2);
+                log.debug("최근 메시지: {}", recentMessages);
+                
                 IdentityStatus identityStatus = identityService.updateIdentityStatus(
                     response.getSessionId(), 
                     recentMessages
                 );
+                
+                log.info("정체성 상태 업데이트 완료: clarity={}, traits={}", 
+                    identityStatus != null ? identityStatus.getClarity() : null,
+                    identityStatus != null && identityStatus.getTraits() != null ? identityStatus.getTraits().size() : 0);
                 response.setIdentityStatus(identityStatus);
                 
                 if (stageChanged) {
@@ -57,7 +63,7 @@ public class CareerChatController {
                         identityStatus.getCurrentStage());
                 }
             } catch (Exception e) {
-                log.warn("정체성 상태 업데이트 실패 (무시됨): {}", e.getMessage());
+                log.error("정체성 상태 업데이트 실패 (무시됨): {}", e.getMessage(), e);
             }
             
             return ResponseEntity.ok(response);
