@@ -47,6 +47,7 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
                     .queryParam("social", "success")
                     .queryParam("user", encodedUser)
                     .build()
+                    .encode()
                     .toUriString();
 
             response.sendRedirect(targetUrl);
@@ -61,6 +62,7 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
                 .queryParam("social", "error")
                 .queryParam("message", message)
                 .build()
+                .encode()
                 .toUriString();
         response.sendRedirect(targetUrl);
     }

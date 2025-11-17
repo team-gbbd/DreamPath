@@ -1,6 +1,8 @@
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import Button from "../../components/base/Button";
+import Header from "../../components/feature/Header";
 
 const SPECIAL_CHAR_REGEX = /[!@#$%^&*()_+\-=\[\]{}|;:',.<>/?]/;
 
@@ -175,19 +177,39 @@ export default function RegisterPage() {
     }
   };
 
-  return (
-    <div className="w-full min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-100 to-blue-100">
-      <div className="w-full max-w-lg bg-white/80 backdrop-blur-xl shadow-xl rounded-2xl p-10">
+  const heroBackgroundImage =
+    "https://readdy.ai/api/search-image?query=Modern%20professional%20woman%20using%20AI%20technology%20for%20career%20guidance%2C%20futuristic%20interface%20with%20holographic%20career%20paths%2C%20soft%20blue%20and%20purple%20lighting%2C%20minimalist%20background%2C%20digital%20innovation%20concept%2C%20clean%20and%20inspiring%20atmosphere&width=800&height=1000&seq=hero-dreampath&orientation=portrait";
 
-        <h2 className="text-3xl font-bold text-center text-purple-600 mb-8">
-          회원가입
-        </h2>
-        <div className="grid grid-cols-1 gap-4">
+  return (
+    <div className="relative min-h-screen flex flex-col overflow-hidden bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-50">
+      <Header />
+      <div className="absolute inset-0 bg-gradient-to-r from-[#5A7BFF]/10 to-[#8F5CFF]/10"></div>
+      <div className="absolute top-20 left-10 w-20 h-20 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] rounded-full opacity-20 animate-pulse"></div>
+      <div className="absolute top-40 right-20 w-16 h-16 bg-gradient-to-r from-[#8F5CFF] to-[#5A7BFF] rounded-full opacity-30 animate-bounce"></div>
+      <div className="absolute bottom-32 left-20 w-12 h-12 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] rounded-full opacity-25"></div>
+      <div className="absolute right-0 top-1/2 transform -translate-y-1/2 w-1/2 h-full opacity-30 hidden lg:block">
+        <img
+          src={heroBackgroundImage}
+          alt="AI Career Guidance"
+          className="w-full h-full object-cover object-top"
+        />
+      </div>
+      <div className="relative flex-1 flex items-center justify-center z-10 px-4">
+        <div className="w-full max-w-lg bg-white/80 backdrop-blur-xl shadow-xl rounded-2xl p-6">
+
+          <h2 className="text-4xl font-bold text-center mb-4">
+            <span className="bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] bg-clip-text text-transparent">
+              회원가입
+            </span>
+          </h2>
+          <div className="grid grid-cols-1 gap-2.5">
           <input
             name="username"
             placeholder="아이디"
             onChange={handleChange}
-            className={`p-3 border rounded-xl ${isUsernameInvalid ? "border-red-500" : "border-gray-300"}`}
+            className={`w-full px-4 py-3 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-[#8F5CFF]/60 focus:border-[#5A7BFF]/60 ${
+              isUsernameInvalid ? "border-red-500" : "border-purple-200"
+            } border`}
           />
           <p className={`text-xs mt-1 ${isUsernameInvalid ? "text-red-500" : "text-gray-600"}`}>
             아이디는 6~20자의 영문과 숫자 조합만 가능합니다. (특수문자/공백 불가)
@@ -198,7 +220,9 @@ export default function RegisterPage() {
             type="password"
             placeholder="비밀번호"
             onChange={handleChange}
-            className={`p-3 border rounded-xl ${isPasswordInvalid ? "border-red-500" : "border-gray-300"}`}
+            className={`w-full px-4 py-3 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-[#8F5CFF]/60 focus:border-[#5A7BFF]/60 ${
+              isPasswordInvalid ? "border-red-500" : "border-purple-200"
+            } border`}
           />
           <p className={`text-xs mt-1 ${isPasswordInvalid ? "text-red-500" : "text-gray-600"}`}>
             비밀번호는 8~20자이며 영문/숫자/특수문자 중 2가지 이상 조합이어야 합니다.
@@ -212,7 +236,9 @@ export default function RegisterPage() {
             type="password"
             placeholder="비밀번호 확인"
             onChange={handleChange}
-            className={`p-3 border rounded-xl ${isConfirmPasswordInvalid ? "border-red-500" : "border-gray-300"}`}
+            className={`w-full px-4 py-3 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-[#8F5CFF]/60 focus:border-[#5A7BFF]/60 ${
+              isConfirmPasswordInvalid ? "border-red-500" : "border-purple-200"
+            } border`}
           />
           {isConfirmPasswordInvalid && (
             <p className="text-xs text-red-500 mt-1">비밀번호와 비밀번호 확인이 일치하지 않습니다.</p>
@@ -222,14 +248,14 @@ export default function RegisterPage() {
             name="name"
             placeholder="이름"
             onChange={handleChange}
-            className="p-3 border rounded-xl"
+            className="w-full px-4 py-3 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8F5CFF]/60 focus:border-[#5A7BFF]/60 transition"
           />
 
           <input
             name="phone"
             placeholder="휴대폰 번호"
             onChange={handleChange}
-            className="p-3 border rounded-xl"
+            className="w-full px-4 py-3 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8F5CFF]/60 focus:border-[#5A7BFF]/60 transition"
           />
 
           <div>
@@ -239,20 +265,20 @@ export default function RegisterPage() {
                 type="email"
                 placeholder="이메일"
                 onChange={handleChange}
-                className={`flex-1 p-3 border rounded-xl ${isEmailInvalid ? "border-red-500" : "border-gray-300"}`}
+                className={`flex-1 px-4 py-3 rounded-xl border transition focus:outline-none focus:ring-2 focus:ring-[#8F5CFF]/60 focus:border-[#5A7BFF]/60 ${
+                  isEmailInvalid ? "border-red-500" : "border-purple-200"
+                }`}
               />
-              <button
+              <Button
                 type="button"
                 onClick={handleSendVerificationCode}
                 disabled={isSendingCode}
-                className="px-4 py-2 rounded-xl bg-blue-500 text-white text-sm font-semibold hover:bg-blue-600 disabled:opacity-60"
+                size="sm"
+                className="min-w-[120px]"
               >
                 {isSendingCode ? "전송 중..." : "인증코드 전송"}
-              </button>
+              </Button>
             </div>
-            <p className={`text-xs mt-1 ${isEmailInvalid ? "text-red-500" : "text-gray-600"}`}>
-              이메일 입력 후 인증 코드를 발송해주세요.
-            </p>
           </div>
 
           <div>
@@ -262,22 +288,25 @@ export default function RegisterPage() {
                 placeholder="인증 코드 입력"
                 value={emailVerificationCode}
                 onChange={(e) => setEmailVerificationCode(e.target.value)}
-                className={`flex-1 p-3 border rounded-xl ${
-                  isEmailVerified ? "border-green-500" : "border-gray-300"
+                className={`flex-1 px-4 py-3 rounded-xl border transition focus:outline-none focus:ring-2 focus:ring-[#8F5CFF]/60 focus:border-[#5A7BFF]/60 ${
+                  isEmailVerified ? "border-green-500" : "border-purple-200"
                 }`}
               />
-              <button
+              <Button
                 type="button"
                 onClick={handleVerifyCode}
                 disabled={isVerifyingCode}
-                className="px-4 py-2 rounded-xl bg-green-500 text-white text-sm font-semibold hover:bg-green-600 disabled:opacity-60"
+                size="sm"
+                className="min-w-[120px]"
               >
                 {isVerifyingCode ? "확인 중..." : "인증 확인"}
-              </button>
+              </Button>
             </div>
-            <p className={`text-xs mt-1 ${isEmailVerified ? "text-green-600" : "text-gray-600"}`}>
-              {emailStatus || "이메일로 받은 인증 코드를 입력하고 확인을 눌러주세요."}
-            </p>
+            {emailStatus && (
+              <p className={`text-xs mt-1 ${isEmailVerified ? "text-green-600" : "text-gray-600"}`}>
+                {emailStatus}
+              </p>
+            )}
           </div>
 
           <input
@@ -288,18 +317,24 @@ export default function RegisterPage() {
           />
         </div>
 
-        <button
+        <Button
+          size="md"
+          variant="primary"
+          className="w-full mt-6"
           onClick={handleRegister}
-          className="w-full mt-6 py-3 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition"
         >
           회원가입
-        </button>
+        </Button>
 
-        <div className="text-center mt-6">
-          <span className="text-gray-600">이미 계정이 있으신가요?</span>
-          <Link to="/login" className="text-purple-600 font-semibold ml-1">
-            로그인
-          </Link>
+          <div className="text-center mt-6">
+            <span className="text-gray-600">이미 계정이 있으신가요?</span>
+            <Link
+              to="/login"
+              className="ml-1 font-semibold bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] bg-clip-text text-transparent underline-offset-2 hover:underline"
+            >
+              로그인
+            </Link>
+          </div>
         </div>
       </div>
     </div>
