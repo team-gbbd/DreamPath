@@ -141,11 +141,18 @@ public class AuthService {
         }
 
         if (user == null && attributes.email() != null && !attributes.email().isBlank()) {
+            boolean enforceByEmail = provider != null;
             user = userRepository.findByEmail(attributes.email()).orElse(null);
-            if (user != null && (user.getProvider() == null || user.getProviderId() == null)) {
-                user.setProvider(provider);
-                user.setProviderId(providerId);
-                user = userRepository.save(user);
+            if (user != null) {
+                String existingProvider = normalizeProvider(user.getProvider());
+                if (enforceByEmail && (existingProvider == null || !existingProvider.equals(provider))) {
+                    throw new RuntimeException("해당 이메일로 가입된 계정이 이미 있습니다. 기존 로그인 방식을 사용해주세요.");
+                }
+                if (user.getProvider() == null || user.getProviderId() == null) {
+                    user.setProvider(provider);
+                    user.setProviderId(providerId);
+                    user = userRepository.save(user);
+                }
             }
         }
 
