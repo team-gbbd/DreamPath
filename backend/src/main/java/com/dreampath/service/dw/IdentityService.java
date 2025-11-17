@@ -4,9 +4,6 @@ import com.dreampath.dto.dw.IdentityStatus;
 import com.dreampath.entity.dw.CareerSession;
 import com.dreampath.entity.dw.ConversationStage;
 import com.dreampath.repository.dw.CareerSessionRepository;
-import com.dreampath.service.dw.ai.IdentityAnalyzer;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -14,11 +11,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 실시간 정체성 분석 서비스
  * 
  * 대화가 진행되는 동안 학생의 진로 정체성을 지속적으로 분석하고 업데이트합니다.
+ * Python AI 서비스의 LangChain 기반 정체성 분석을 사용합니다.
  */
 @Slf4j
 @Service
@@ -27,8 +26,7 @@ public class IdentityService {
 
     private final CareerSessionRepository sessionRepository;
     private final CareerChatService chatService;
-    private final IdentityAnalyzer identityAnalyzer;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final PythonIdentityService pythonIdentityService;
 
     /**
      * 현재 정체성 상태를 조회합니다.
@@ -42,11 +40,11 @@ public class IdentityService {
         
         String conversationHistory = chatService.getConversationHistory(sessionId);
         
-        // AI를 통한 분석
-        String clarityJson = identityAnalyzer.assessClarity(conversationHistory);
-        String identityJson = identityAnalyzer.extractIdentity(conversationHistory);
+        // Python AI 서비스를 통한 분석
+        Map<String, Object> clarityResult = pythonIdentityService.assessClarity(conversationHistory);
+        Map<String, Object> identityResult = pythonIdentityService.extractIdentity(conversationHistory);
         
-        return buildIdentityStatus(session, clarityJson, identityJson, null);
+        return buildIdentityStatus(session, clarityResult, identityResult, null);
     }
 
     /**
@@ -61,16 +59,44 @@ public class IdentityService {
         
         String conversationHistory = chatService.getConversationHistory(sessionId);
         
-        // AI 분석
-        String clarityJson = identityAnalyzer.assessClarity(conversationHistory);
-        String identityJson = identityAnalyzer.extractIdentity(conversationHistory);
+        // Python AI 서비스를 통한 분석
+        Map<String, Object> clarityResult = pythonIdentityService.assessClarity(conversationHistory);
+        Map<String, Object> identityResult = pythonIdentityService.extractIdentity(conversationHistory);
         
         // 최근 인사이트 생성
-        String insightJson = identityAnalyzer.generateInsight(recentMessages, conversationHistory);
+        Map<String, Object> insightResult = pythonIdentityService.generateInsight(recentMessages, conversationHistory);
         
-        return buildIdentityStatus(session, clarityJson, identityJson, insightJson);
+        return buildIdentityStatus(session, clarityResult, identityResult, insightResult);
     }
 
+    /**
+     * 기본 정체성 상태 반환 (설문조사 미완료 시 사용)
+     */
+    @Transactional(readOnly = true)
+    public IdentityStatus getDefaultIdentityStatus(String sessionId) {
+        log.info("기본 정체성 상태 조회 - 세션: {}", sessionId);
+        
+        CareerSession session = sessionRepository.findBySessionId(sessionId)
+                .orElseThrow(() -> new RuntimeException("세션을 찾을 수 없습니다."));
+        
+        ConversationStage stage = session.getCurrentStage();
+        
+        return IdentityStatus.builder()
+                .sessionId(session.getSessionId())
+                .currentStage(stage.getDisplayName())
+                .stageDescription(stage.getDescription())
+                .overallProgress(stage.getProgress())
+                .clarity(0)
+                .clarityReason("설문조사를 완료하면 정체성 탐색을 시작할 수 있습니다")
+                .identityCore("탐색 전")
+                .confidence(0)
+                .traits(new ArrayList<>())
+                .insights(new ArrayList<>())
+                .nextFocus("설문조사를 완료해주세요")
+                .recentInsight(null)
+                .build();
+    }
+    
     /**
      * 다음 단계로 진행 가능한지 평가합니다.
      */
@@ -84,16 +110,15 @@ public class IdentityService {
             return false;
         }
         
-        // AI의 판단 요청
+        // Python AI 서비스의 판단 요청
         String conversationHistory = chatService.getConversationHistory(sessionId);
-        String progressJson = identityAnalyzer.assessStageProgress(
+        Map<String, Object> progressResult = pythonIdentityService.assessStageProgress(
             conversationHistory,
             session.getCurrentStage().name()
         );
         
         try {
-            JsonNode node = objectMapper.readTree(extractJson(progressJson));
-            boolean ready = node.get("readyToProgress").asBoolean(false);
+            boolean ready = (Boolean) progressResult.get("readyToProgress");
             
             if (ready) {
                 log.info("단계 진행 준비 완료 - 세션: {}, 현재 단계: {}", 
@@ -116,52 +141,52 @@ public class IdentityService {
     /**
      * IdentityStatus 객체 구축
      */
+    @SuppressWarnings("unchecked")
     private IdentityStatus buildIdentityStatus(
             CareerSession session,
-            String clarityJson,
-            String identityJson,
-            String insightJson) {
+            Map<String, Object> clarityResult,
+            Map<String, Object> identityResult,
+            Map<String, Object> insightResult) {
         
         try {
             // Clarity 파싱
-            JsonNode clarityNode = objectMapper.readTree(extractJson(clarityJson));
-            int clarity = clarityNode.get("clarity").asInt(0);
-            String clarityReason = clarityNode.get("reason").asText("");
+            int clarity = ((Number) clarityResult.get("clarity")).intValue();
+            String clarityReason = (String) clarityResult.get("reason");
             
             // Identity 파싱
-            JsonNode identityNode = objectMapper.readTree(extractJson(identityJson));
-            String identityCore = identityNode.get("identityCore").asText("탐색 중...");
-            int confidence = identityNode.get("confidence").asInt(0);
-            String nextFocus = identityNode.get("nextFocus").asText("");
+            String identityCore = (String) identityResult.getOrDefault("identityCore", "탐색 중...");
+            int confidence = ((Number) identityResult.getOrDefault("confidence", 0)).intValue();
+            String nextFocus = (String) identityResult.getOrDefault("nextFocus", "");
             
             // Traits 파싱
             List<IdentityStatus.IdentityTrait> traits = new ArrayList<>();
-            if (identityNode.has("traits")) {
-                for (JsonNode traitNode : identityNode.get("traits")) {
+            List<Map<String, Object>> traitsList = (List<Map<String, Object>>) identityResult.get("traits");
+            if (traitsList != null) {
+                for (Map<String, Object> traitMap : traitsList) {
                     traits.add(IdentityStatus.IdentityTrait.builder()
-                        .category(traitNode.get("category").asText())
-                        .trait(traitNode.get("trait").asText())
-                        .evidence(traitNode.get("evidence").asText())
+                        .category((String) traitMap.get("category"))
+                        .trait((String) traitMap.get("trait"))
+                        .evidence((String) traitMap.get("evidence"))
                         .build());
                 }
             }
             
             // Insights 파싱
             List<String> insights = new ArrayList<>();
-            if (identityNode.has("insights")) {
-                for (JsonNode insightNode : identityNode.get("insights")) {
-                    insights.add(insightNode.asText());
+            List<Object> insightsList = (List<Object>) identityResult.get("insights");
+            if (insightsList != null) {
+                for (Object insight : insightsList) {
+                    insights.add(insight.toString());
                 }
             }
             
             // Recent Insight 파싱
             IdentityStatus.RecentInsight recentInsight = null;
-            if (insightJson != null) {
-                JsonNode insightNode = objectMapper.readTree(extractJson(insightJson));
+            if (insightResult != null) {
                 recentInsight = IdentityStatus.RecentInsight.builder()
-                    .hasInsight(insightNode.get("hasInsight").asBoolean(false))
-                    .insight(insightNode.has("insight") ? insightNode.get("insight").asText() : null)
-                    .type(insightNode.has("type") ? insightNode.get("type").asText() : null)
+                    .hasInsight((Boolean) insightResult.getOrDefault("hasInsight", false))
+                    .insight((String) insightResult.get("insight"))
+                    .type((String) insightResult.get("type"))
                     .build();
             }
             
@@ -201,23 +226,6 @@ public class IdentityService {
                 .nextFocus("대화를 계속해주세요")
                 .build();
         }
-    }
-
-    private String extractJson(String response) {
-        if (response.contains("```json")) {
-            int start = response.indexOf("```json") + 7;
-            int end = response.lastIndexOf("```");
-            if (end > start) {
-                return response.substring(start, end).trim();
-            }
-        } else if (response.contains("```")) {
-            int start = response.indexOf("```") + 3;
-            int end = response.lastIndexOf("```");
-            if (end > start) {
-                return response.substring(start, end).trim();
-            }
-        }
-        return response.trim();
     }
 }
 

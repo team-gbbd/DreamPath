@@ -86,33 +86,6 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- OpenAI Java Client -->
-        <dependency>
-            <groupId>com.theokanning.openai-gpt3-java</groupId>
-            <artifactId>service</artifactId>
-            <version>0.18.2</version>
-        </dependency>
-
-        <!-- LangChain4j -->
-        <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j</artifactId>
-            <version>0.34.0</version>
-        </dependency>
-
-        <!-- LangChain4j OpenAI Integration -->
-        <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-open-ai</artifactId>
-            <version>0.34.0</version>
-        </dependency>
-
-        <!-- LangChain4j Memory Stores -->
-        <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-embeddings-all-minilm-l6-v2</artifactId>
-            <version>0.34.0</version>
-        </dependency>
 
         <!-- Spring Boot DevTools -->
         <dependency>
