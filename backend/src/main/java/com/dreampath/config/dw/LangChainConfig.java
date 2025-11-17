@@ -24,10 +24,10 @@ import java.time.Duration;
 @Configuration
 public class LangChainConfig {
 
-    @Value("${openai.api.key}")
+    @Value("${openai.api.key:your-api-key-here}")
     private String openAiApiKey;
 
-    @Value("${openai.api.model}")
+    @Value("${openai.api.model:gpt-4o-mini}")
     private String modelName;
 
     /**
