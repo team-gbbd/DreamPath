@@ -10,5 +10,6 @@ import java.util.Optional;
 @Repository
 public interface CareerAnalysisRepository extends JpaRepository<CareerAnalysis, Long> {
     Optional<CareerAnalysis> findBySession(CareerSession session);
+    Optional<CareerAnalysis> findBySession_SessionId(String sessionId);
 }
 

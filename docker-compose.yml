@@ -21,8 +21,20 @@ services:
       DB_USER: dreamuser
       DB_PASSWORD: dreampass
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      PYTHON_AI_SERVICE_URL: http://ai-service:8000
     depends_on:
       - db
+      - ai-service
+    restart: always
+
+  ai-service:
+    build: ./python-ai-service
+    container_name: dreampath-ai-service
+    ports:
+      - "8000:8000"
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
     restart: always
 
   db:

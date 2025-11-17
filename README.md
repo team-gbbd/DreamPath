@@ -156,6 +156,7 @@ DreamPath/
 
 ### 분석 API
 - `POST /api/analysis/{sessionId}` - 최종 진로 분석 및 추천
+- `GET /api/analysis/{sessionId}` - 분석 결과 조회
 
 ## 🎯 정체성 중심 접근
 
