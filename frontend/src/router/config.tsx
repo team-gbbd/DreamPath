@@ -5,6 +5,7 @@ const HomePage = lazy(() => import("../pages/home/page"));
 const NotFoundPage = lazy(() => import("../pages/NotFound"));
 const CareerChatPage = lazy(() => import("../pages/career-chat/page"));
 const AnalysisResultPage = lazy(() => import("../pages/analysis-result/page"));
+const JobListingsPage = lazy(() => import("../pages/job-listings/page"));
 const LoginPage = lazy(() => import("../pages/auth/LoginPage"));
 const RegisterPage = lazy(() => import("../pages/auth/RegisterPage"));
 const MentoringPage = lazy(() => import("../pages/mentoring/page"));
@@ -22,6 +23,10 @@ const routes: RouteObject[] = [
   {
     path: "/analysis/:sessionId",
     element: <AnalysisResultPage />,
+  },
+  {
+    path: "/job-listings",
+    element: <JobListingsPage />,
   },
   {
     path: "/login",
