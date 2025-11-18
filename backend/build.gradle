@@ -40,7 +40,9 @@ dependencies {
 	// Database
 	runtimeOnly 'com.h2database:h2'
 	runtimeOnly 'com.mysql:mysql-connector-j'
-	
+	runtimeOnly 'org.postgresql:postgresql:42.7.2'
+
+
 	// Lombok
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'

@@ -1,5 +1,6 @@
 import React, { lazy } from "react";
 import { RouteObject } from "react-router-dom";
+import ProfileInputPage from "@/pages/profile/ProfileInputPage";
 
 const HomePage = lazy(() => import("../pages/home/page"));
 const NotFoundPage = lazy(() => import("../pages/NotFound"));
@@ -43,6 +44,10 @@ const routes: RouteObject[] = [
     path: "*",
     element: <NotFoundPage />,
   },
+  {
+  path: "/profile/input",
+  element: <ProfileInputPage />
+  }
 ];
 
 export default routes;
