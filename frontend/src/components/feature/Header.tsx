@@ -32,9 +32,11 @@ export default function Header() {
   };
 
   const navItems = [
+    { name: '진로 상담', href: '/career-chat', isRoute: true },
     { name: 'Features', href: '#features' },
     { name: 'About', href: '#about' },
-    { name: 'Contact', href: '#contact' }
+    { name: 'Contact', href: '#contact' },
+    { name: '멘토링', href: '/mentoring', isRoute: true, requiresAuth: true }
   ];
 
   return (
@@ -56,13 +58,36 @@ export default function Header() {
           {/* Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
             {navItems.map((item) => (
-              <a
-                key={item.name}
-                href={item.href}
-                className="text-gray-700 hover:text-[#5A7BFF] transition-colors duration-200 font-medium"
-              >
-                {item.name}
-              </a>
+              item.isRoute ? (
+                item.requiresAuth && !currentUser ? (
+                  <button
+                    key={item.name}
+                    onClick={() => {
+                      alert('로그인이 필요합니다.');
+                      navigate('/login');
+                    }}
+                    className="text-gray-700 hover:text-[#5A7BFF] transition-colors duration-200 font-medium"
+                  >
+                    {item.name}
+                  </button>
+                ) : (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    className="text-gray-700 hover:text-[#5A7BFF] transition-colors duration-200 font-medium"
+                  >
+                    {item.name}
+                  </Link>
+                )
+              ) : (
+                <a
+                  key={item.name}
+                  href={item.href}
+                  className="text-gray-700 hover:text-[#5A7BFF] transition-colors duration-200 font-medium"
+                >
+                  {item.name}
+                </a>
+              )
             ))}
           </nav>
 

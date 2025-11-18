@@ -30,3 +30,10 @@ start-server.bat
 stop-server.bat
 quick-update.bat
 check-status.bat
+
+# 백업 폴더
+frontend_backup_cra/
+
+# OpenVidu/LiveKit 로컬 설정 (개인 IP 포함)
+openvidu-local-deployment/community/.env
+openvidu-local-deployment/community/.env-e
