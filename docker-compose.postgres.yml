@@ -14,12 +14,12 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_PROFILES_ACTIVE: dev
+      SPRING_PROFILES_ACTIVE: postgres
       DB_HOST: db
-      DB_PORT: 3306
+      DB_PORT: 5432
       DB_NAME: dreampath
-      DB_USER: dreamuser
-      DB_PASSWORD: dreampass
+      DB_USER: postgres
+      DB_PASSWORD: postgres
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       PYTHON_AI_SERVICE_URL: http://ai-service:8000
     depends_on:
@@ -35,33 +35,27 @@ services:
     environment:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
-      DB_HOST: db
-      DB_PORT: 3306
-      DB_NAME: dreampath
-      DB_USER: dreamuser
-      DB_PASSWORD: dreampass
-    depends_on:
-      - db
     restart: always
 
   db:
-    image: mysql:8.0
-    container_name: dreampath-mysql
+    image: postgres:16-alpine
+    container_name: dreampath-postgres
     ports:
-      - "0.0.0.0:3333:3306"
+      - "0.0.0.0:5432:5432"
     environment:
-      MYSQL_ROOT_PASSWORD: rootpass
-      MYSQL_DATABASE: dreampath
-      MYSQL_USER: dreamuser
-      MYSQL_PASSWORD: dreampass
+      POSTGRES_DB: dreampath
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpass"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: always
 
 volumes:
-  mysql_data:
+  postgres_data:
+
+

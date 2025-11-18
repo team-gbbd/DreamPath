@@ -368,7 +368,7 @@ export default function AnalysisResultPage() {
         )}
 
         {/* Actions */}
-        <div className="flex justify-center space-x-4">
+        <div className="flex justify-center space-x-4 flex-wrap gap-4">
           <button
             onClick={() => navigate('/career-chat')}
             className="bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white px-8 py-3 rounded-xl hover:opacity-90 transition-opacity font-medium"
@@ -376,6 +376,17 @@ export default function AnalysisResultPage() {
             <i className="ri-chat-3-line mr-2"></i>
             상담 계속하기
           </button>
+          {result.recommendedCareers && result.recommendedCareers.length > 0 && (
+            <button
+              onClick={() => navigate('/job-listings', { 
+                state: { careerRecommendations: result.recommendedCareers } 
+              })}
+              className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-8 py-3 rounded-xl hover:opacity-90 transition-opacity font-medium"
+            >
+              <i className="ri-briefcase-line mr-2"></i>
+              채용 정보 보기
+            </button>
+          )}
           <button
             onClick={() => window.print()}
             className="bg-white text-gray-700 border-2 border-gray-300 px-8 py-3 rounded-xl hover:bg-gray-50 transition-colors font-medium"
