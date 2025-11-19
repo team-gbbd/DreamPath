@@ -97,6 +97,17 @@ export const jobSiteService = {
     const response = await pythonApi.get('/api/job-sites/all');
     return response.data;
   },
+
+  // DB에서 채용 공고 검색
+  searchJobListings: async (siteName?: string, searchKeyword?: string, limit: number = 100, offset: number = 0) => {
+    const response = await pythonApi.post('/api/job-sites/listings/query', {
+      siteName,
+      searchKeyword,
+      limit,
+      offset,
+    });
+    return response.data;
+  },
 };
 
 export default api;

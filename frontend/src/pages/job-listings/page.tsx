@@ -10,11 +10,10 @@ export default function JobListingsPage() {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [results, setResults] = useState<CrawlResponse[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [fromCache, setFromCache] = useState(false);
-  const [maxResults, setMaxResults] = useState(0); // 0 = 모든 결과 가져오기
   const [currentPages, setCurrentPages] = useState<{ [key: string]: number }>({}); // 탭별 현재 페이지
   const [activeTab, setActiveTab] = useState<'all' | 'wanted' | 'saramin' | 'jobkorea'>('all'); // 활성 탭
   const itemsPerPage = 10; // 페이지당 표시할 항목 수
+  const maxResults = 1000; // 크롤링 시 최대 결과 수 (10페이지 기준)
 
   // URL에서 추천된 직업 정보 가져오기
   const careerRecommendations = location.state?.careerRecommendations as CareerRecommendation[] | undefined;
@@ -25,8 +24,46 @@ export default function JobListingsPage() {
       const firstCareer = careerRecommendations[0];
       setSearchKeyword(firstCareer.careerName);
       handleSearch(firstCareer.careerName);
+    } else {
+      // 추천된 직업이 없으면 전체 공고 표시
+      loadAllJobListings();
     }
   }, [careerRecommendations]);
+
+  const loadAllJobListings = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // DB에서 전체 공고 가져오기 (사이트별로, 제한 없음)
+      const [wantedResult, saraminResult, jobkoreaResult] = await Promise.all([
+        jobSiteService.searchJobListings('원티드', undefined, 100000),
+        jobSiteService.searchJobListings('사람인', undefined, 100000),
+        jobSiteService.searchJobListings('잡코리아', undefined, 100000)
+      ]);
+      
+      const allResults: CrawlResponse[] = [];
+      if (wantedResult.success && wantedResult.totalResults > 0) {
+        allResults.push(wantedResult);
+      }
+      if (saraminResult.success && saraminResult.totalResults > 0) {
+        allResults.push(saraminResult);
+      }
+      if (jobkoreaResult.success && jobkoreaResult.totalResults > 0) {
+        allResults.push(jobkoreaResult);
+      }
+      
+      if (allResults.length > 0) {
+        setResults(allResults);
+        setCurrentPages({ all: 1, wanted: 1, saramin: 1, jobkorea: 1 });
+      }
+    } catch (err: any) {
+      console.error('공고 로드 실패:', err);
+      // 에러는 표시하지 않고 조용히 실패 (사용자가 검색하거나 크롤링 가능)
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSearch = async (keyword?: string) => {
     const searchTerm = keyword || searchKeyword;
@@ -39,119 +76,66 @@ export default function JobListingsPage() {
       setIsLoading(true);
       setError(null);
 
-      // 원티드, 사람인, 잡코리아 동시 크롤링
+      // DB에서 검색 (원티드, 사람인, 잡코리아 각각, 제한 없음)
       const [wantedResult, saraminResult, jobkoreaResult] = await Promise.all([
-        jobSiteService.crawlWanted(searchTerm, maxResults, false),
-        jobSiteService.crawlJobSite('사람인', 'https://www.saramin.co.kr', searchTerm, maxResults, false),
-        jobSiteService.crawlJobSite('잡코리아', 'https://www.jobkorea.co.kr', searchTerm, maxResults, false)
+        jobSiteService.searchJobListings('원티드', searchTerm, 100000),
+        jobSiteService.searchJobListings('사람인', searchTerm, 100000),
+        jobSiteService.searchJobListings('잡코리아', searchTerm, 100000)
       ]);
       
       const allResults: CrawlResponse[] = [];
-      if (wantedResult.success) {
+      if (wantedResult.success && wantedResult.totalResults > 0) {
         allResults.push(wantedResult);
       }
-      if (saraminResult.success) {
+      if (saraminResult.success && saraminResult.totalResults > 0) {
         allResults.push(saraminResult);
       }
-      if (jobkoreaResult.success) {
+      if (jobkoreaResult.success && jobkoreaResult.totalResults > 0) {
         allResults.push(jobkoreaResult);
       }
       
       if (allResults.length > 0) {
         setResults(allResults);
-        setFromCache(wantedResult.fromCache || saraminResult.fromCache || jobkoreaResult.fromCache || false);
         // 탭별로 첫 페이지로 리셋
         setCurrentPages({ all: 1, wanted: 1, saramin: 1, jobkorea: 1 });
       } else {
-        setError('채용 정보를 가져오는데 실패했습니다.');
+        setError('검색 결과가 없습니다. "크롤링 시작" 버튼을 눌러 최신 채용 정보를 가져오세요.');
       }
     } catch (err: any) {
-      console.error('크롤링 실패:', err);
-      setError(err.message || '채용 정보를 가져오는데 실패했습니다.');
+      console.error('검색 실패:', err);
+      setError(err.message || '채용 정보를 검색하는데 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleRefresh = async () => {
-    if (!searchKeyword.trim()) return;
-    
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // 원티드, 사람인, 잡코리아 강제 새로고침
-      const [wantedResult, saraminResult, jobkoreaResult] = await Promise.all([
-        jobSiteService.crawlWanted(searchKeyword, maxResults, true),
-        jobSiteService.crawlJobSite('사람인', 'https://www.saramin.co.kr', searchKeyword, maxResults, true),
-        jobSiteService.crawlJobSite('잡코리아', 'https://www.jobkorea.co.kr', searchKeyword, maxResults, true)
-      ]);
-      
-      const allResults: CrawlResponse[] = [];
-      if (wantedResult.success) {
-        allResults.push(wantedResult);
-      }
-      if (saraminResult.success) {
-        allResults.push(saraminResult);
-      }
-      if (jobkoreaResult.success) {
-        allResults.push(jobkoreaResult);
-      }
-      
-      if (allResults.length > 0) {
-        setResults(allResults);
-        setFromCache(false);
-        // 탭별로 첫 페이지로 리셋
-        setCurrentPages({ all: 1, wanted: 1, saramin: 1, jobkorea: 1 });
-      } else {
-        setError('채용 정보를 가져오는데 실패했습니다.');
-      }
-    } catch (err: any) {
-      console.error('크롤링 실패:', err);
-      setError(err.message || '채용 정보를 가져오는데 실패했습니다.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleCrawl = async () => {
-    const keyword = searchKeyword.trim() || '개발자'; // 기본값 설정
+    const keyword = searchKeyword.trim() || undefined; // 빈 문자열이면 undefined로 (전체 크롤링)
     
     try {
       setIsLoading(true);
       setError(null);
-      setResults([]);
 
       // 원티드, 사람인, 잡코리아 크롤링 시작 (강제 새로고침)
-      const [wantedResult, saraminResult, jobkoreaResult] = await Promise.all([
+      await Promise.all([
         jobSiteService.crawlWanted(keyword, maxResults, true),
         jobSiteService.crawlJobSite('사람인', 'https://www.saramin.co.kr', keyword, maxResults, true),
         jobSiteService.crawlJobSite('잡코리아', 'https://www.jobkorea.co.kr', keyword, maxResults, true)
       ]);
       
-      const allResults: CrawlResponse[] = [];
-      if (wantedResult.success) {
-        allResults.push(wantedResult);
-      }
-      if (saraminResult.success) {
-        allResults.push(saraminResult);
-      }
-      if (jobkoreaResult.success) {
-        allResults.push(jobkoreaResult);
+      // 크롤링 완료 후 DB에서 검색
+      if (keyword) {
+        setSearchKeyword(keyword);
+        await handleSearch(keyword);
+      } else {
+        // 검색어 없이 크롤링했으면 전체 목록 로드
+        await loadAllJobListings();
       }
       
-      if (allResults.length > 0) {
-        setResults(allResults);
-        setFromCache(false);
-        setSearchKeyword(keyword);
-        // 탭별로 첫 페이지로 리셋
-        setCurrentPages({ all: 1, wanted: 1, saramin: 1, jobkorea: 1 });
-      } else {
-        setError('크롤링에 실패했습니다.');
-      }
     } catch (err: any) {
       console.error('크롤링 실패:', err);
-      setError(err.message || '크롤링에 실패했습니다.');
+      setError(err.message || '크롤링에 실패했습니다. 다시 시도해주세요.');
     } finally {
       setIsLoading(false);
     }
@@ -204,6 +188,7 @@ export default function JobListingsPage() {
                 onClick={() => handleSearch()}
                 disabled={isLoading}
                 className="bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white px-6 py-3 rounded-xl hover:opacity-90 transition-opacity font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                title="DB에 저장된 채용 공고에서 검색 (빠름)"
               >
                 {isLoading ? (
                   <span className="flex items-center">
@@ -221,7 +206,7 @@ export default function JobListingsPage() {
                 onClick={handleCrawl}
                 disabled={isLoading}
                 className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-3 rounded-xl hover:opacity-90 transition-opacity font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                title="크롤링 시작 (모든 채용 공고 수집)"
+                title="실시간으로 웹사이트에서 최신 채용 공고 수집 (느림)"
               >
                 {isLoading ? (
                   <span className="flex items-center">
@@ -235,16 +220,6 @@ export default function JobListingsPage() {
                   </span>
                 )}
               </button>
-              {results.length > 0 && (
-                <button
-                  onClick={handleRefresh}
-                  disabled={isLoading}
-                  className="bg-white text-gray-700 border-2 border-gray-300 px-6 py-3 rounded-xl hover:bg-gray-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="캐시를 무시하고 새로고침"
-                >
-                  <i className="ri-refresh-line"></i>
-                </button>
-              )}
             </div>
           </div>
 
@@ -269,15 +244,6 @@ export default function JobListingsPage() {
             </div>
           )}
 
-          {/* 캐시 정보 */}
-          {fromCache && (
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <div className="flex items-center text-sm text-gray-600">
-                <i className="ri-information-line mr-2 text-blue-500"></i>
-                <span>캐시된 데이터를 표시하고 있습니다. 최신 정보를 보려면 새로고침 버튼을 클릭하세요.</span>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Error Message */}
@@ -471,7 +437,7 @@ export default function JobListingsPage() {
                 <>
                   {/* 페이징된 채용 공고 목록 */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {paginatedJobs.map((job, jobIdx) => (
+                    {paginatedJobs.map((job: JobListing, jobIdx: number) => (
                       <div
                         key={jobIdx}
                         className="border border-gray-200 rounded-xl p-5 hover:shadow-lg transition-shadow cursor-pointer"
