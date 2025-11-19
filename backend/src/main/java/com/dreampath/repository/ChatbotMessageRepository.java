@@ -3,6 +3,10 @@ package com.dreampath.repository;
 import com.dreampath.entity.ChatbotMessage;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface ChatbotMessageRepository extends JpaRepository<ChatbotMessage, Long> {
+import java.util.List;
+import java.util.UUID;
 
+public interface ChatbotMessageRepository extends JpaRepository<ChatbotMessage, UUID> {
+
+    List<ChatbotMessage> findBySessionIdOrderByCreatedAtAsc(UUID sessionId);
 }

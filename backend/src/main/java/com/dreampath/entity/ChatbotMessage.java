@@ -6,24 +6,27 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Getter
-@Setter
 @Entity
 @Table(name = "chatbot_messages")
+@Getter
+@Setter
 public class ChatbotMessage {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
-    private UUID session_id;
+    @Column(name = "cb_session_id")
+    private UUID sessionId;
 
-    private UUID user_id;
+    @Column(name = "cb_user_id")
+    private UUID userId;
 
     private String role;
 
     @Column(columnDefinition = "text")
     private String message;
 
-    private LocalDateTime created_at;
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
 }

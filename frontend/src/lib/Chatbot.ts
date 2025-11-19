@@ -9,3 +9,9 @@ export async function sendChatMessage(body: any) {
 
   return res.json();
 }
+export async function getChatHistory(sessionId: string) {
+  const res = await fetch(
+    `http://localhost:8080/api/chat/history/${sessionId}`
+  );
+  return res.json();
+}
