@@ -1,13 +1,23 @@
 """
 데이터베이스 서비스
-MySQL 데이터베이스 연결 및 채용 공고 저장/조회 기능
+MySQL/PostgreSQL 데이터베이스 연결 및 채용 공고 저장/조회 기능
 """
 import os
 from typing import List, Dict, Optional
 from datetime import datetime
-import pymysql
-from pymysql.cursors import DictCursor
 from contextlib import contextmanager
+
+# DB 타입에 따라 다른 드라이버 사용
+DB_TYPE = os.getenv('DB_TYPE', 'mysql').lower()
+
+if DB_TYPE == 'postgres' or DB_TYPE == 'postgresql':
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+    USE_POSTGRES = True
+else:
+    import pymysql
+    from pymysql.cursors import DictCursor
+    USE_POSTGRES = False
 
 
 class DatabaseService:
@@ -15,16 +25,27 @@ class DatabaseService:
     
     def __init__(self):
         """데이터베이스 연결 정보 초기화"""
-        self.db_config = {
-            'host': os.getenv('DB_HOST', 'db'),
-            'port': int(os.getenv('DB_PORT', 3306)),
-            'user': os.getenv('DB_USER', 'dreamuser'),
-            'password': os.getenv('DB_PASSWORD', 'dreampass'),
-            'database': os.getenv('DB_NAME', 'dreampath'),
-            'charset': 'utf8mb4',
-            'cursorclass': DictCursor,
-            'autocommit': False
-        }
+        if USE_POSTGRES:
+            self.db_config = {
+                'host': os.getenv('DB_HOST', 'localhost'),
+                'port': int(os.getenv('DB_PORT', 5432)),
+                'user': os.getenv('DB_USER', 'postgres'),
+                'password': os.getenv('DB_PASSWORD', 'postgres'),
+                'database': os.getenv('DB_NAME', 'postgres'),
+                'sslmode': os.getenv('DB_SSLMODE', 'prefer'),
+                'cursor_factory': RealDictCursor
+            }
+        else:
+            self.db_config = {
+                'host': os.getenv('DB_HOST', 'db'),
+                'port': int(os.getenv('DB_PORT', 3306)),
+                'user': os.getenv('DB_USER', 'dreamuser'),
+                'password': os.getenv('DB_PASSWORD', 'dreampass'),
+                'database': os.getenv('DB_NAME', 'dreampath'),
+                'charset': 'utf8mb4',
+                'cursorclass': DictCursor,
+                'autocommit': False
+            }
         self._ensure_table_exists()
     
     @contextmanager
@@ -32,7 +53,10 @@ class DatabaseService:
         """데이터베이스 연결 컨텍스트 매니저"""
         conn = None
         try:
-            conn = pymysql.connect(**self.db_config)
+            if USE_POSTGRES:
+                conn = psycopg2.connect(**self.db_config)
+            else:
+                conn = pymysql.connect(**self.db_config)
             yield conn
             conn.commit()
         except Exception as e:
@@ -50,38 +74,51 @@ class DatabaseService:
                 cursor = conn.cursor()
                 
                 # 테이블 존재 여부 확인
-                cursor.execute("""
-                    SELECT COUNT(*) as count
-                    FROM information_schema.tables
-                    WHERE table_schema = %s AND table_name = 'job_listings'
-                """, (self.db_config['database'],))
+                if USE_POSTGRES:
+                    cursor.execute("""
+                        SELECT COUNT(*) as count
+                        FROM information_schema.tables
+                        WHERE table_schema = 'public' AND table_name = 'job_listings'
+                    """)
+                else:
+                    cursor.execute("""
+                        SELECT COUNT(*) as count
+                        FROM information_schema.tables
+                        WHERE table_schema = %s AND table_name = 'job_listings'
+                    """, (self.db_config['database'],))
                 
                 result = cursor.fetchone()
                 if result['count'] == 0:
-                    # 테이블 생성 SQL 읽기
-                    sql_file = os.path.join(
-                        os.path.dirname(__file__),
-                        '..',
-                        'db',
-                        'migrations',
-                        '001_create_job_listings_table.sql'
-                    )
-                    
-                    if os.path.exists(sql_file):
-                        with open(sql_file, 'r', encoding='utf-8') as f:
-                            create_sql = f.read()
-                            # 주석 제거 및 SQL 실행
-                            sql_statements = [
-                                s.strip() for s in create_sql.split(';')
-                                if s.strip() and not s.strip().startswith('--')
-                            ]
-                            for sql in sql_statements:
-                                if sql:
-                                    cursor.execute(sql)
-                        conn.commit()
-                        print("job_listings 테이블이 생성되었습니다.")
+                    # PostgreSQL과 MySQL 각각 테이블 생성
+                    if USE_POSTGRES:
+                        # PostgreSQL 전용 테이블 생성
+                        cursor.execute("""
+                            CREATE TABLE IF NOT EXISTS job_listings (
+                                id BIGSERIAL PRIMARY KEY,
+                                site_name VARCHAR(100) NOT NULL,
+                                site_url VARCHAR(500) NOT NULL,
+                                job_id VARCHAR(255),
+                                title VARCHAR(500) NOT NULL,
+                                company VARCHAR(255),
+                                location VARCHAR(255),
+                                description TEXT,
+                                url VARCHAR(1000) NOT NULL,
+                                reward VARCHAR(255),
+                                experience VARCHAR(255),
+                                search_keyword VARCHAR(255),
+                                crawled_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                UNIQUE (site_name, job_id)
+                            )
+                        """)
+                        cursor.execute("CREATE INDEX IF NOT EXISTS idx_site_name ON job_listings (site_name)")
+                        cursor.execute("CREATE INDEX IF NOT EXISTS idx_search_keyword ON job_listings (search_keyword)")
+                        cursor.execute("CREATE INDEX IF NOT EXISTS idx_company ON job_listings (company)")
+                        cursor.execute("CREATE INDEX IF NOT EXISTS idx_crawled_at ON job_listings (crawled_at)")
+                        cursor.execute("CREATE INDEX IF NOT EXISTS idx_site_job_id ON job_listings (site_name, job_id)")
                     else:
-                        # SQL 파일이 없으면 직접 생성
+                        # MySQL 전용 테이블 생성
                         cursor.execute("""
                             CREATE TABLE IF NOT EXISTS job_listings (
                                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -107,8 +144,8 @@ class DatabaseService:
                                 UNIQUE KEY uk_site_job_id (site_name, job_id)
                             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='채용 공고 정보'
                         """)
-                        conn.commit()
-                        print("job_listings 테이블이 생성되었습니다.")
+                    conn.commit()
+                    print("job_listings 테이블이 생성되었습니다.")
         except Exception as e:
             print(f"테이블 생성 확인 중 오류 발생: {str(e)}")
             # 테이블 생성 실패해도 계속 진행 (이미 존재할 수 있음)
@@ -142,6 +179,37 @@ class DatabaseService:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 
+                # 1단계: 모든 job_id를 한 번에 추출
+                job_ids_to_check = []
+                job_data_map = {}  # job_id -> job data
+                
+                for job in job_listings:
+                    job_id = job.get("id") or job.get("job_id") or None
+                    url = job.get("url") or site_url
+                    
+                    # job_id가 없으면 URL에서 추출 시도
+                    if not job_id and url:
+                        import re
+                        match = re.search(r'/(\d+)(?:[/?#]|$)', url)
+                        if match:
+                            job_id = match.group(1)
+                    
+                    if job_id:
+                        job_ids_to_check.append(str(job_id))
+                        job_data_map[str(job_id)] = job
+                
+                # 2단계: 배치로 중복 체크 (IN 절 사용)
+                existing_job_ids = set()
+                if job_ids_to_check:
+                    placeholders = ','.join(['%s'] * len(job_ids_to_check))
+                    check_sql = f"""
+                        SELECT job_id FROM job_listings 
+                        WHERE site_name = %s AND job_id IN ({placeholders})
+                    """
+                    cursor.execute(check_sql, [site_name] + job_ids_to_check)
+                    existing_job_ids = {row['job_id'] for row in cursor.fetchall()}
+                
+                # 3단계: 새 공고만 INSERT
                 insert_sql = """
                     INSERT INTO job_listings (
                         site_name, site_url, job_id, title, company,
@@ -152,17 +220,9 @@ class DatabaseService:
                         %s, %s, %s, %s, %s,
                         %s, %s
                     )
-                    ON DUPLICATE KEY UPDATE
-                        title = VALUES(title),
-                        company = VALUES(company),
-                        location = VALUES(location),
-                        description = VALUES(description),
-                        url = VALUES(url),
-                        reward = VALUES(reward),
-                        experience = VALUES(experience),
-                        search_keyword = VALUES(search_keyword),
-                        updated_at = CURRENT_TIMESTAMP
                 """
+                
+                skipped_count = len(existing_job_ids)
                 
                 for job in job_listings:
                     try:
@@ -172,11 +232,14 @@ class DatabaseService:
                         
                         # job_id가 없으면 URL에서 추출 시도
                         if not job_id and url:
-                            # URL에서 ID 추출 (예: /wd/12345 -> 12345)
                             import re
                             match = re.search(r'/(\d+)(?:[/?#]|$)', url)
                             if match:
                                 job_id = match.group(1)
+                        
+                        # 이미 존재하는 공고는 건너뛰기
+                        if job_id and str(job_id) in existing_job_ids:
+                            continue
                         
                         # reward가 딕셔너리인 경우 문자열로 변환
                         reward = job.get("reward")
@@ -210,7 +273,12 @@ class DatabaseService:
                         continue
                 
                 conn.commit()
-                print(f"{saved_count}개의 채용 공고가 데이터베이스에 저장되었습니다.")
+                print(f"[DEBUG] Commit completed. Saved={saved_count}, Skipped={skipped_count}")
+                print(f"[DEBUG] Connected to: {self.db_config['host']}, DB: {self.db_config['database']}")
+                if saved_count > 0:
+                    print(f"{saved_count}개의 새로운 채용 공고가 데이터베이스에 저장되었습니다.")
+                if skipped_count > 0:
+                    print(f"{skipped_count}개의 채용 공고는 이미 존재하여 건너뛰었습니다.")
                 
         except Exception as e:
             print(f"데이터베이스 저장 중 오류 발생: {str(e)}")

@@ -317,7 +317,7 @@ class WebCrawlerService:
             all_job_listings = []
             offset = 0
             page_size = 100  # 한 번에 가져올 최대 개수
-            max_pages = 100  # 최대 페이지 수 (안전장치) - 원티드는 페이지당 100개
+            max_pages = 10  # 최대 페이지 수 (테스트용)
             page = 0
             
             while page < max_pages:
@@ -400,15 +400,31 @@ class WebCrawlerService:
                     reward = job.get("reward", "") or job.get("compensation", "")
                     experience = job.get("experience_level", "") or job.get("years", "")
                     
-                    if job_id or title:
+                    # 필터링: 유효한 공고만 추가
+                    # 1. job_id가 반드시 있어야 함
+                    # 2. 회사명이 있어야 함
+                    # 3. 제목이 유효해야 함 (검색 결과, UI 요소 등 제외)
+                    # 필터/메뉴 항목만 제외 (완화된 필터)
+                    invalid_patterns = [
+                        "..검색 결과", ".. 검색"
+                    ]
+                    
+                    if job_id and company_name and title:
+                        # 제목에 이상한 패턴이 있으면 제외
+                        if any(invalid in title for invalid in invalid_patterns):
+                            continue
+                        # 제목이 온점(.)으로 시작하면서 "검색"이 포함되면 제외
+                        if title.startswith('..') and '검색' in title:
+                            continue
+                        
                         page_job_listings.append({
                             "id": str(job_id),
-                            "title": title or "채용 공고",
+                            "title": title,
                             "company": company_name,
                             "location": location,
                             "reward": reward,
                             "experience": experience,
-                            "url": f"https://www.wanted.co.kr/wd/{job_id}" if job_id else f"https://www.wanted.co.kr/search?query={quote(keyword)}"
+                            "url": f"https://www.wanted.co.kr/wd/{job_id}"
                         })
                 
                 all_job_listings.extend(page_job_listings)
@@ -561,13 +577,14 @@ class WebCrawlerService:
             if search_keyword:
                 base_search_url = f"https://www.jobkorea.co.kr/Search/?stext={quote(search_keyword)}"
             else:
-                base_search_url = "https://www.jobkorea.co.kr/Recruit"
+                # 검색어 없으면 전체 채용 공고 페이지
+                base_search_url = "https://www.jobkorea.co.kr/recruit/joblist"
             
             print(f"[잡코리아] 크롤링 시작: {base_search_url}, 키워드: {search_keyword}, max_results: {max_results}")
             
             all_job_listings = []
             page = 1
-            max_pages = 100  # 최대 페이지 수 (안전장치)
+            max_pages = 10  # 최대 페이지 수 (테스트용)
             
             # 타임아웃을 더 길게 설정하고 재시도 로직 추가
             timeout = httpx.Timeout(60.0, connect=30.0)  # 전체 60초, 연결 30초
@@ -739,7 +756,20 @@ class WebCrawlerService:
                             company = company_elem.get_text(strip=True) if company_elem else ""
                             location = location_elem.get_text(strip=True) if location_elem else ""
                             
-                            if title:  # 제목이 있으면 추가
+                            # 필터/메뉴 항목만 제외 (완화된 필터)
+                            invalid_patterns = [
+                                "근무요일...", "근무형태...", "업종...", 
+                                "재택근무...", "직업 선택...", "지역...", "경력..."
+                            ]
+                            
+                            if title:  # 제목이 있으면 검증
+                                # 제목에 이상한 패턴이 있으면 제외
+                                if any(invalid in title for invalid in invalid_patterns):
+                                    continue
+                                # 제목이 온점(.)으로만 시작하거나 "..."로만 구성되면 제외
+                                if title.strip() in ['...', '..', '.'] or title.startswith('...'):
+                                    continue
+                                
                                 final_url = job_url if job_url else search_url
                                 
                                 page_job_listings.append({
@@ -851,13 +881,14 @@ class WebCrawlerService:
             if search_keyword:
                 base_search_url = f"https://www.saramin.co.kr/zf_user/search?searchType=search&searchword={quote(search_keyword)}"
             else:
+                # 검색어 없으면 전체 채용 공고 페이지
                 base_search_url = "https://www.saramin.co.kr/zf_user/jobs/list/domestic"
             
             print(f"[사람인] 크롤링 시작: {base_search_url}, 키워드: {search_keyword}, max_results: {max_results}")
             
             all_job_listings = []
             page = 1
-            max_pages = 100  # 최대 페이지 수 (안전장치) - 사람인은 페이지당 약 20-40개
+            max_pages = 10  # 최대 페이지 수 (테스트용)
             
             # 타임아웃을 더 길게 설정하고 재시도 로직 추가
             timeout = httpx.Timeout(60.0, connect=30.0)  # 전체 60초, 연결 30초
@@ -988,7 +1019,20 @@ class WebCrawlerService:
                             company = company_elem.get_text(strip=True) if company_elem else ""
                             location = location_elem.get_text(strip=True) if location_elem else ""
                             
-                            if title:  # 제목이 있으면 추가
+                            # 필터/메뉴 항목만 제외 (완화된 필터)
+                            invalid_patterns = [
+                                "근무요일...", "근무형태...", "업종...", 
+                                "재택근무...", "직업 선택...", "지역...", "경력..."
+                            ]
+                            
+                            if title:  # 제목이 있으면 검증
+                                # 제목에 이상한 패턴이 있으면 제외
+                                if any(invalid in title for invalid in invalid_patterns):
+                                    continue
+                                # 제목이 온점(.)으로만 시작하거나 "..."로만 구성되면 제외
+                                if title.strip() in ['...', '..', '.'] or title.startswith('...'):
+                                    continue
+                                
                                 # URL이 없으면 기본 검색 URL 사용
                                 final_url = job_url if job_url else search_url
                                 
