@@ -9,6 +9,7 @@ const LoginPage = lazy(() => import("../pages/auth/LoginPage"));
 const RegisterPage = lazy(() => import("../pages/auth/RegisterPage"));
 const MentoringPage = lazy(() => import("../pages/mentoring/page"));
 const MentoringRoomPage = lazy(() => import("../pages/mentoring/room"));
+const ChatbotPage = lazy(() => import("../pages/chatbot/ChatbotPage"));
 
 const routes: RouteObject[] = [
   {
@@ -42,6 +43,10 @@ const routes: RouteObject[] = [
   {
     path: "*",
     element: <NotFoundPage />,
+  },
+  {
+    path: "/chatbot",
+    element: <ChatbotPage />,
   },
 ];
 

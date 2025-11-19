@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { sendChatMessage } from "@/lib/api";
+import { sendChatMessage } from "@/lib/Chatbot";
 
 interface Message {
   role: "user" | "assistant";
