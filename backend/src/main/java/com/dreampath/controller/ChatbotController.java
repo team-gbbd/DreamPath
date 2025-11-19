@@ -5,6 +5,8 @@ import com.dreampath.service.ChatbotService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -15,15 +17,21 @@ public class ChatbotController {
     private final ChatbotService chatbotService;
 
     @PostMapping("/message")
-    public Object sendMessage(@RequestBody ChatRequestDto dto) {
+    public Map<String, Object> chat(@RequestBody ChatRequestDto dto) {
 
+        // 1. 사용자 메시지 저장 + 세션 생성
         UUID sessionId = chatbotService.handleMessage(dto);
-        String answer = chatbotService.generateAnswer(sessionId, dto.getMessage());
-        chatbotService.saveAssistantMessage(sessionId, dto.getUserId(), answer);
 
-        return new Object() {
-            public UUID session = sessionId;
-            public String response = answer;
-        };
+        // 2. AI 답변 생성
+        String aiResponse = chatbotService.generateAnswer(sessionId, dto.getMessage());
+
+        // 3. AI 메시지 저장
+        chatbotService.saveAssistantMessage(sessionId, dto.getUserId(), aiResponse);
+
+        // 4. 프론트에 반환
+        return Map.of(
+                "session", sessionId,
+                "response", aiResponse
+        );
     }
 }

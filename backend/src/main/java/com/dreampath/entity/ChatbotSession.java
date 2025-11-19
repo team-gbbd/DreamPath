@@ -3,21 +3,26 @@ package com.dreampath.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Getter
-@Setter
 @Entity
 @Table(name = "chatbot_sessions")
+@Getter
+@Setter
 public class ChatbotSession {
 
     @Id
-    private UUID id;
+    private UUID id;   // 직접 생성하는 방식으로 변경
 
-    private UUID user_id;
+    @Column(name = "cb_user_id")
+    private UUID userId;
 
-    private String conversation_title;
+    @Column(name = "conversation_title")
+    private String conversationTitle;
 
-    private LocalDateTime created_at;
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
 }
+

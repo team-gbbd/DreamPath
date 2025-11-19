@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -19,6 +20,7 @@ public class ChatbotService {
     private final ChatbotMessageRepository messageRepository;
     private final OpenAIService openAIService;
 
+    // 📌 1) 사용자 메시지 저장 + 세션 생성
     public UUID handleMessage(ChatRequestDto dto) {
 
         UUID sessionId = dto.getSessionId();
@@ -26,42 +28,48 @@ public class ChatbotService {
         if (sessionId == null) {
             ChatbotSession newSession = new ChatbotSession();
             newSession.setId(UUID.randomUUID());
-            newSession.setUser_id(dto.getUserId());
-            newSession.setConversation_title(dto.getConversationTitle());
-            newSession.setCreated_at(LocalDateTime.now());
+            newSession.setUserId(dto.getUserId());
+            newSession.setConversationTitle(dto.getConversationTitle());
+            newSession.setCreatedAt(LocalDateTime.now());
 
             sessionRepository.save(newSession);
             sessionId = newSession.getId();
         }
 
         ChatbotMessage msg = new ChatbotMessage();
-        msg.setSession_id(sessionId);
-        msg.setUser_id(dto.getUserId());
+        msg.setSessionId(sessionId);
+        msg.setUserId(dto.getUserId());
         msg.setRole("user");
         msg.setMessage(dto.getMessage());
-        msg.setCreated_at(LocalDateTime.now());
+        msg.setCreatedAt(LocalDateTime.now());
 
         messageRepository.save(msg);
 
         return sessionId;
     }
 
-    // ⭐️ 여기에서 실제 AI 답변 생성
     public String generateAnswer(UUID sessionId, String message) {
+        // 세션Id는 지금은 안 쓰더라도 향후 대화 이력이나 문맥 반영에 필요
         return openAIService.generate(message);
     }
 
+
+    // 📌 3) AI 메시지 저장
     public void saveAssistantMessage(UUID sessionId, UUID userId, String answer) {
         ChatbotMessage msg = new ChatbotMessage();
-        msg.setSession_id(sessionId);
-        msg.setUser_id(userId);
+        msg.setSessionId(sessionId);
+        msg.setUserId(userId);
         msg.setRole("assistant");
         msg.setMessage(answer);
-        msg.setCreated_at(LocalDateTime.now());
+        msg.setCreatedAt(LocalDateTime.now());
 
         messageRepository.save(msg);
     }
+
+    // 📌 4) 세션 메시지 전체 조회
+    public List<ChatbotMessage> getChatHistory(UUID sessionId) {
+        return messageRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
+    }
+
+
 }
-
-
-
