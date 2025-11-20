@@ -120,27 +120,31 @@ class WebCrawlerService:
             크롤링 결과 딕셔너리
         """
         # 캐시 키 생성
-        cache_key = self._generate_cache_key("원티드", "https://www.wanted.co.kr", search_keyword, max_results)
+        cache_key = self._generate_cache_key("wanted", "https://www.wanted.co.kr", search_keyword, max_results)
+        
+        print(f"[원티드] force_refresh: {force_refresh}, cache_key: {cache_key[:16]}...")
         
         # 강제 새로고침이 아니고 캐시가 있으면 캐시 반환
         if not force_refresh:
             cached_data = self._get_cached_data(cache_key)
             if cached_data:
+                print(f"[원티드] 캐시에서 데이터 반환 (총 {cached_data.get('totalResults', 0)}개)")
                 cached_data["fromCache"] = True
                 cached_data["cachedAt"] = self.cache[cache_key].expires_at.isoformat()
                 return cached_data
+            else:
+                print(f"[원티드] 캐시에 데이터 없음, 새로 크롤링 시작")
+        else:
+            print(f"[원티드] force_refresh=True, 캐시 무시하고 새로 크롤링")
         
         try:
+            base_url = "https://www.wanted.co.kr"
+            search_url = f"{base_url}/wdlist" if not search_keyword else f"{base_url}/search?query={quote(search_keyword)}"
+            
+            print(f"[원티드] 크롤링 시작, 키워드: {search_keyword}, max_results: {max_results}")
+            
             # 요청 간 딜레이 (IP 차단 방지)
             await self._wait_if_needed()
-            
-            base_url = "https://www.wanted.co.kr"
-            
-            # 검색 URL 생성
-            if search_keyword:
-                search_url = f"{base_url}/search?query={quote(search_keyword)}"
-            else:
-                search_url = f"{base_url}/wd/list"
             
             async with httpx.AsyncClient(
                 timeout=30.0, 
@@ -148,122 +152,17 @@ class WebCrawlerService:
                 follow_redirects=True,
                 limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)  # 연결 제한
             ) as client:
-                # 검색 페이지 접근
-                response = await client.get(search_url)
+                # 원티드는 React/Next.js 기반이므로 HTML 파싱 대신 바로 API 호출
+                print(f"[원티드] API 직접 호출 시도...")
+                job_listings = await self._crawl_wanted_api(client, search_keyword or "", max_results)
                 
-                if response.status_code != 200:
-                    return {
-                        "success": False,
-                        "error": f"HTTP {response.status_code}",
-                        "message": "페이지 접근 실패"
-                    }
-                
-                html = response.text
-                soup = BeautifulSoup(html, "lxml")
-                
-                # 원티드는 주로 API를 통해 데이터를 가져오므로, API 엔드포인트를 찾아야 함
-                # 또는 페이지에서 JavaScript로 렌더링된 데이터를 찾아야 함
-                
-                # 방법 1: API 엔드포인트 찾기 시도
-                job_listings = []
-                
-                # 페이지에서 채용 공고 링크 찾기
-                job_links = soup.find_all("a", href=re.compile(r"/wd/\d+"))
-                
-                for link in job_links[:max_results]:
-                    job_path = link.get("href", "")
-                    if job_path:
-                        job_url = urljoin(base_url, job_path)
-                        
-                        # 요청 간 딜레이 (각 상세 페이지 크롤링 전)
-                        await self._wait_if_needed()
-                        
-                        # 각 채용 공고 상세 페이지 크롤링
-                        job_detail = await self._crawl_wanted_job_detail(client, job_url)
-                        if job_detail:
-                            job_listings.append(job_detail)
-                
-                # 방법 2: API 직접 호출 시도
-                if not job_listings and search_keyword:
-                    api_results = await self._crawl_wanted_api(client, search_keyword, max_results)
-                    if api_results:
-                        job_listings = api_results
-                
-                # 방법 3: HTML에서 JSON 데이터 찾기 (Next.js의 __NEXT_DATA__ 등)
-                if not job_listings:
-                    # 원티드는 Next.js를 사용하므로 __NEXT_DATA__ 스크립트 태그에서 데이터 찾기
-                    script_tags = soup.find_all("script")
-                    for script in script_tags:
-                        script_text = script.string or ""
-                        if "__NEXT_DATA__" in script_text or "pageProps" in script_text:
-                            try:
-                                # JSON 데이터 추출 시도
-                                if "__NEXT_DATA__" in script_text:
-                                    # __NEXT_DATA__ = {...} 형태에서 JSON 추출
-                                    json_match = re.search(r'__NEXT_DATA__\s*=\s*({.+?});', script_text, re.DOTALL)
-                                    if json_match:
-                                        json_data = json.loads(json_match.group(1))
-                                        # pageProps에서 채용 공고 데이터 찾기
-                                        page_props = json_data.get("props", {}).get("pageProps", {})
-                                        
-                                        # 다양한 가능한 키 확인
-                                        jobs_data = None
-                                        if "jobs" in page_props:
-                                            jobs_data = page_props["jobs"]
-                                        elif "data" in page_props and isinstance(page_props["data"], list):
-                                            jobs_data = page_props["data"]
-                                        elif "results" in page_props:
-                                            jobs_data = page_props["results"]
-                                        
-                                        if jobs_data and isinstance(jobs_data, list):
-                                            for job in jobs_data[:max_results]:
-                                                job_id = job.get("id") or job.get("job_id", "")
-                                                title = job.get("position") or job.get("title") or job.get("name", "")
-                                                company_info = job.get("company", {})
-                                                if isinstance(company_info, dict):
-                                                    company_name = company_info.get("name", "")
-                                                else:
-                                                    company_name = str(company_info) if company_info else ""
-                                                
-                                                location_info = job.get("address", {}) or job.get("location", {})
-                                                if isinstance(location_info, dict):
-                                                    location = location_info.get("location", "") or location_info.get("name", "")
-                                                else:
-                                                    location = str(location_info) if location_info else ""
-                                                
-                                                reward = job.get("reward", "") or job.get("compensation", "")
-                                                
-                                                if job_id or title:
-                                                    job_listings.append({
-                                                        "id": str(job_id),
-                                                        "title": title or "채용 공고",
-                                                        "company": company_name,
-                                                        "location": location,
-                                                        "reward": reward,
-                                                        "url": f"https://www.wanted.co.kr/wd/{job_id}" if job_id else search_url
-                                                    })
-                                            
-                                            if job_listings:
-                                                print(f"원티드 __NEXT_DATA__에서 {len(job_listings)}개 공고 발견")
-                                                break
-                            except Exception as e:
-                                print(f"JSON 파싱 실패: {str(e)}")
-                                continue
-                    
-                    # 검색 URL만 제공하는 fallback
-                    if not job_listings:
-                        print(f"원티드 크롤링: HTML 파싱으로 데이터를 찾을 수 없음. 검색 URL: {search_url}")
-                        # 최소한 검색 URL은 제공
-                        job_listings = [{
-                            "title": f"{search_keyword} 검색 결과",
-                            "url": search_url,
-                            "description": "원티드 사이트에서 직접 확인해주세요.",
-                            "note": "JavaScript로 렌더링되는 페이지이므로 직접 사이트에서 확인이 필요합니다."
-                        }]
-                
+                if job_listings:
+                    print(f"[원티드] API에서 {len(job_listings)}개 공고 발견")
+                else:
+                    print(f"[원티드] API 호출 결과 없음")
                 result = {
                     "success": True,
-                    "site": "원티드",
+                    "site": "wanted",
                     "searchKeyword": search_keyword,
                     "totalResults": len(job_listings),
                     "jobListings": job_listings,
@@ -272,20 +171,24 @@ class WebCrawlerService:
                     "cachedAt": datetime.now().isoformat()
                 }
                 
+                print(f"[원티드] 총 {len(job_listings)}개 공고 크롤링 완료")
+                
                 # 데이터베이스에 저장
                 if self.db_service and job_listings:
                     try:
                         saved_count = self.db_service.save_job_listings(
-                            site_name="원티드",
+                            site_name="wanted",
                             site_url=base_url,
                             job_listings=job_listings,
                             search_keyword=search_keyword
                         )
                         result["savedToDatabase"] = saved_count
-                        print(f"원티드 크롤링 결과 {saved_count}개를 데이터베이스에 저장했습니다.")
+                        print(f"[원티드] {saved_count}개의 채용 공고가 데이터베이스에 저장되었습니다.")
                     except Exception as e:
-                        print(f"데이터베이스 저장 실패: {str(e)}")
+                        print(f"[원티드] 데이터베이스 저장 실패: {str(e)}")
                         result["databaseError"] = str(e)
+                else:
+                    print(f"[원티드] 저장할 공고가 없거나 DB 서비스가 없습니다.")
                 
                 # 결과를 캐시에 저장
                 self._set_cached_data(cache_key, result)
@@ -293,6 +196,9 @@ class WebCrawlerService:
                 return result
                 
         except Exception as e:
+            print(f"[원티드] 크롤링 중 오류 발생: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return {
                 "success": False,
                 "error": str(e),
@@ -313,6 +219,8 @@ class WebCrawlerService:
         try:
             # 원티드의 실제 API 엔드포인트 시도
             api_url = "https://www.wanted.co.kr/api/v4/jobs"
+            
+            print(f"[원티드 API] 크롤링 시작 - 키워드: '{keyword}', max_results: {max_results}")
             
             all_job_listings = []
             offset = 0
@@ -337,13 +245,16 @@ class WebCrawlerService:
                 
                 # API 호출 시도
                 await self._wait_if_needed()  # IP 차단 방지
+                print(f"[원티드 API] 페이지 {page} 요청 - offset: {offset}, limit: {page_size}")
                 response = await client.get(api_url, params=params)
                 
                 if response.status_code != 200:
-                    print(f"원티드 API 호출 실패: HTTP {response.status_code}")
+                    print(f"[원티드 API] 페이지 {page} 호출 실패: HTTP {response.status_code}")
+                    print(f"[원티드 API] 응답 내용: {response.text[:200]}")
                     break
                 
                 data = response.json()
+                print(f"[원티드 API] 페이지 {page} 응답 수신 완료")
                 
                 # 디버깅: 첫 페이지에서 응답 구조 확인
                 if page == 0:
@@ -400,6 +311,26 @@ class WebCrawlerService:
                     reward = job.get("reward", "") or job.get("compensation", "")
                     experience = job.get("experience_level", "") or job.get("years", "")
                     
+                    # 상세정보 추출 (description 필드)
+                    details = []
+                    
+                    # 마감일 (due_time, deadline 등)
+                    deadline = job.get("due_time") or job.get("deadline") or job.get("closing_timestamp")
+                    if deadline:
+                        details.append(f"마감: {deadline}")
+                    
+                    # 학력 (education, required_education 등)
+                    education = job.get("required_education_level") or job.get("education")
+                    if education:
+                        details.append(f"학력: {education}")
+                    
+                    # 고용형태 (employment_type, job_type 등)
+                    employment_type = job.get("employment_type") or job.get("job_type")
+                    if employment_type:
+                        details.append(f"고용형태: {employment_type}")
+                    
+                    description = " | ".join(details) if details else ""
+                    
                     # 필터링: 유효한 공고만 추가
                     # 1. job_id가 반드시 있어야 함
                     # 2. 회사명이 있어야 함
@@ -424,6 +355,7 @@ class WebCrawlerService:
                             "location": location,
                             "reward": reward,
                             "experience": experience,
+                            "description": description,
                             "url": f"https://www.wanted.co.kr/wd/{job_id}"
                         })
                 
@@ -584,7 +516,7 @@ class WebCrawlerService:
             
             all_job_listings = []
             page = 1
-            max_pages = 10  # 최대 페이지 수 (테스트용)
+            max_pages = 30  # 최대 30페이지까지 크롤링
             
             # 타임아웃을 더 길게 설정하고 재시도 로직 추가
             timeout = httpx.Timeout(60.0, connect=30.0)  # 전체 60초, 연결 30초
@@ -677,8 +609,16 @@ class WebCrawlerService:
                         # 공고가 없으면 마지막 페이지
                         break
                     
+                    # 디버깅: 첫 5개 item HTML 샘플 출력 (페이지 1에서만)
+                    if page == 1 and job_items:
+                        for idx in range(min(3, len(job_items))):
+                            item_html = str(job_items[idx])[:800]  # 첫 800자만
+                            print(f"[잡코리아 DEBUG {idx+1}] item HTML:\n{item_html}\n")
+                    
+                    item_count = 0
                     for item in job_items:
                         try:
+                            item_count += 1
                             # 제목 추출 - 잡코리아는 여러 구조를 사용
                             title_elem = None
                             
@@ -704,12 +644,18 @@ class WebCrawlerService:
                             if not title_elem:
                                 title_elem = item.find("a", href=True)
                             
-                            # 회사명 추출
+                            # 회사명 추출 - 더 넓은 패턴 시도
                             company_elem = (
-                                item.find("a", class_=re.compile(r".*company.*|.*corp.*", re.I)) or
-                                item.find("strong", class_=re.compile(r".*company.*", re.I)) or
-                                item.find("span", class_=re.compile(r".*company.*", re.I))
+                                item.find("a", class_=re.compile(r".*company.*|.*corp.*|.*name.*", re.I)) or
+                                item.find("strong", class_=re.compile(r".*company.*|.*name.*", re.I)) or
+                                item.find("span", class_=re.compile(r".*company.*|.*name.*", re.I)) or
+                                item.find("div", class_=re.compile(r".*company.*|.*name.*", re.I)) or
+                                item.find("p", class_=re.compile(r".*company.*|.*name.*", re.I))
                             )
+                            
+                            # 디버깅: 페이지 1의 첫 3개 아이템에서 회사명 추출 시도 과정 출력
+                            if page == 1 and item_count <= 3:
+                                print(f"[잡코리아 DEBUG] Item {item_count} - company_elem: {company_elem}")
                             
                             # 지역 추출
                             location_elem = (
@@ -752,9 +698,71 @@ class WebCrawlerService:
                                     if href and not href.startswith("#") and not href.startswith("javascript:") and not href.startswith("mailto:"):
                                         job_url = urljoin("https://www.jobkorea.co.kr", href)
                             
+                            # 전체 텍스트 추출 (item 전체에서)
+                            full_text = item.get_text(strip=True)
+                            
+                            # 기본 정보 추출
                             title = title_elem.get_text(strip=True) if title_elem else ""
                             company = company_elem.get_text(strip=True) if company_elem else ""
                             location = location_elem.get_text(strip=True) if location_elem else ""
+                            
+                            # 경력 정보 추출 (experience 필드)
+                            experience = ""
+                            experience_patterns = [
+                                r'신입',
+                                r'경력무관',
+                                r'경력\s*\d+년',
+                                r'\d+년\s*이상',
+                                r'신입/경력',
+                                r'경력'
+                            ]
+                            for pattern in experience_patterns:
+                                exp_match = re.search(pattern, full_text)
+                                if exp_match:
+                                    experience = exp_match.group(0)
+                                    break
+                            
+                            # 상세정보 추출 (description 필드)
+                            details = []
+                            
+                            # 마감일
+                            deadline_match = re.search(r'(~\d+\.\d+\([월화수목금토일]\)|D-\d+|마감임박)', full_text)
+                            if deadline_match:
+                                details.append(f"마감: {deadline_match.group(1)}")
+                            
+                            # 학력
+                            education_patterns = [
+                                r'학력무관', r'고졸\s*이상', r'대졸\s*이상',
+                                r'초대졸\s*이상', r'석사', r'박사'
+                            ]
+                            for pattern in education_patterns:
+                                edu_match = re.search(pattern, full_text)
+                                if edu_match:
+                                    details.append(f"학력: {edu_match.group(0)}")
+                                    break
+                            
+                            # 고용형태
+                            employment_patterns = [
+                                r'정규직', r'계약직', r'인턴', r'아르바이트',
+                                r'파견직', r'프리랜서'
+                            ]
+                            for pattern in employment_patterns:
+                                emp_match = re.search(pattern, full_text)
+                                if emp_match:
+                                    details.append(f"고용형태: {emp_match.group(0)}")
+                                    break
+                            
+                            description = " | ".join(details) if details else ""
+                            
+                            # 제목 정리
+                            clean_title = title
+                            clean_title = re.sub(r'~\d+\.\d+\([월화수목금토일]\).*$', '', clean_title)
+                            clean_title = re.sub(r'D-\d+', '', clean_title)
+                            clean_title = re.sub(r'(신입|경력무관|경력\s*\d+년|\d+년\s*이상|경력|신입/경력)', '', clean_title)
+                            clean_title = re.sub(r'(학력무관|고졸|대졸|초대졸|석사|박사)\s*(이상)?', '', clean_title)
+                            clean_title = re.sub(r'(정규직|계약직|인턴|아르바이트|파견직|프리랜서)', '', clean_title)
+                            clean_title = re.sub(r'마감임박', '', clean_title)
+                            clean_title = re.sub(r'\s+', ' ', clean_title).strip()
                             
                             # 필터/메뉴 항목만 제외 (완화된 필터)
                             invalid_patterns = [
@@ -762,23 +770,41 @@ class WebCrawlerService:
                                 "재택근무...", "직업 선택...", "지역...", "경력..."
                             ]
                             
-                            if title:  # 제목이 있으면 검증
+                            if clean_title:  # 제목이 있으면 검증
                                 # 제목에 이상한 패턴이 있으면 제외
-                                if any(invalid in title for invalid in invalid_patterns):
+                                if any(invalid in clean_title for invalid in invalid_patterns):
                                     continue
                                 # 제목이 온점(.)으로만 시작하거나 "..."로만 구성되면 제외
-                                if title.strip() in ['...', '..', '.'] or title.startswith('...'):
+                                if clean_title.strip() in ['...', '..', '.'] or clean_title.startswith('...'):
                                     continue
                                 
                                 final_url = job_url if job_url else search_url
                                 
+                                # job_id 추출: gno가 없으면 URL에서 추출
+                                job_id = gno
+                                if not job_id and final_url:
+                                    # URL에서 GI_Read/숫자 패턴 또는 일반 숫자 ID 패턴 추출
+                                    job_id_match = re.search(r'/GI_Read/(\d+)', final_url)
+                                    if not job_id_match:
+                                        # 일반적인 URL 패턴: /숫자
+                                        job_id_match = re.search(r'/(\d+)(?:[/?#]|$)', final_url)
+                                    if job_id_match:
+                                        job_id = job_id_match.group(1)
+                                
+                                # job_id가 없으면 건너뛰기 (저장 불가)
+                                if not job_id:
+                                    print(f"[잡코리아] job_id 추출 실패 - gno: {gno}, URL: {final_url[:100]}")
+                                    continue
+                                
+                                # 중복 체크 없이 모두 수집 (DB 저장 시에 중복 처리)
                                 page_job_listings.append({
-                                    "id": gno or "",
-                                    "title": title,
+                                    "id": job_id,
+                                    "title": clean_title,
                                     "company": company,
                                     "location": location,
                                     "url": final_url,
-                                    "description": ""
+                                    "description": description,
+                                    "experience": experience
                                 })
                                 
                                 # 디버깅: URL 추출 확인
@@ -788,17 +814,12 @@ class WebCrawlerService:
                             print(f"[잡코리아] 페이지 {page} 공고 파싱 실패: {str(e)}")
                             continue
                     
-                    print(f"[잡코리아] 페이지 {page} 파싱된 공고 수: {len(page_job_listings)}")
+                    print(f"[잡코리아] 페이지 {page} 파싱된 공고 수: {len(page_job_listings)} (누적 {len(all_job_listings) + len(page_job_listings)}개)")
                     all_job_listings.extend(page_job_listings)
                     
                     # max_results 제한이 있으면 확인
                     if max_results > 0 and len(all_job_listings) >= max_results:
                         all_job_listings = all_job_listings[:max_results]
-                        break
-                    
-                    # 이번 페이지에 공고가 없으면 종료
-                    if len(page_job_listings) == 0:
-                        print(f"[잡코리아] 페이지 {page}에 파싱된 공고가 없어 종료")
                         break
                     
                     # 다음 페이지가 있는지 확인 (페이지네이션 링크 확인)
@@ -829,11 +850,43 @@ class WebCrawlerService:
                     
                     page += 1
                 
-                print(f"[잡코리아] 총 파싱된 공고 수: {len(all_job_listings)} (페이지: {page})")
+                print(f"[잡코리아] 총 파싱된 공고 수 (중복 포함): {len(all_job_listings)} (페이지: {page})")
+                
+                # 디버깅: 첫 10개 공고의 제목+회사명 확인
+                if all_job_listings:
+                    debug_sample = [(job.get("title", "")[:40], job.get("company", "")[:20]) for job in all_job_listings[:10]]
+                    print(f"[잡코리아 DEBUG] 첫 10개 공고 샘플:")
+                    for i, (t, c) in enumerate(debug_sample):
+                        print(f"  {i+1}. 제목: '{t}' | 회사: '{c}'")
+                
+                # 중복 제거: 제목+회사명 조합으로만 체크 (job_id 무시)
+                seen_keys = set()
+                unique_listings = []
+                duplicate_count = 0
+                for job in all_job_listings:
+                    title = job.get("title", "").strip()
+                    company = job.get("company", "").strip()
+                    
+                    # 제목+회사명 조합으로 중복 체크
+                    unique_key = f"{title}|{company}"
+                    
+                    if unique_key and unique_key not in seen_keys:
+                        seen_keys.add(unique_key)
+                        unique_listings.append(job)
+                    else:
+                        duplicate_count += 1
+                
+                all_job_listings = unique_listings
+                print(f"[잡코리아] 중복 제거: {duplicate_count}개 중복, {len(all_job_listings)}개 고유")
+                
+                # 디버깅: job_id 확인
+                if all_job_listings:
+                    job_ids_sample = [(job.get("id", "NO_ID"), job.get("title", "NO_TITLE")[:30]) for job in all_job_listings[:5]]
+                    print(f"[잡코리아] 첫 5개 job_id 샘플: {job_ids_sample}")
                 
                 result = {
                     "success": True,
-                    "site": "잡코리아",
+                    "site": "jobkorea",
                     "searchKeyword": search_keyword,
                     "totalResults": len(all_job_listings),
                     "jobListings": all_job_listings,
@@ -846,7 +899,7 @@ class WebCrawlerService:
                 if self.db_service and all_job_listings:
                     try:
                         saved_count = self.db_service.save_job_listings(
-                            site_name="잡코리아",
+                            site_name="jobkorea",
                             site_url="https://www.jobkorea.co.kr",
                             job_listings=all_job_listings,
                             search_keyword=search_keyword
@@ -875,11 +928,12 @@ class WebCrawlerService:
         search_keyword: Optional[str],
         max_results: int
     ) -> Dict:
-        """사람인 크롤링 - 페이지네이션 지원"""
+        """사람인 크롤링 - 채용공고 페이지 크롤링, 페이지네이션 지원"""
         try:
             base_search_url = ""
             if search_keyword:
-                base_search_url = f"https://www.saramin.co.kr/zf_user/search?searchType=search&searchword={quote(search_keyword)}"
+                # 채용공고 검색 (채용정보가 아닌 채용공고)
+                base_search_url = f"https://www.saramin.co.kr/zf_user/jobs/list/domestic?searchword={quote(search_keyword)}"
             else:
                 # 검색어 없으면 전체 채용 공고 페이지
                 base_search_url = "https://www.saramin.co.kr/zf_user/jobs/list/domestic"
@@ -937,17 +991,30 @@ class WebCrawlerService:
                     # 사람인 채용 공고 추출
                     page_job_listings = []
                     
-                    # 사람인 HTML 구조에 맞게 파싱
-                    # 채용 공고는 보통 .item_recruit 또는 .list_item 등의 클래스를 가짐
-                    job_items = soup.find_all("div", class_=re.compile(r".*item.*recruit.*|.*recruit.*item.*|.*list.*item.*", re.I))
+                    # 사람인 채용공고 페이지 HTML 구조에 맞게 파싱
+                    # 1순위: 채용공고 리스트 아이템 (일반적으로 data-recruit-no 속성 보유)
+                    job_items = soup.find_all("div", {"data-recruit-no": True})
                     
+                    # 2순위: 채용공고 아이템 클래스
                     if not job_items:
-                        # 다른 가능한 선택자 시도
-                        job_items = soup.find_all("div", {"data-recruit-no": True})
+                        job_items = soup.find_all("div", class_=re.compile(r".*item.*recruit.*|.*recruit.*item.*", re.I))
                     
+                    # 3순위: 리스트 아이템
                     if not job_items:
-                        # 더 일반적인 선택자
-                        job_items = soup.find_all("div", class_=re.compile(r".*job.*|.*position.*", re.I))
+                        job_items = soup.find_all("div", class_=re.compile(r".*list.*item.*|.*job.*list.*", re.I))
+                    
+                    # 4순위: article 태그로 채용공고 찾기
+                    if not job_items:
+                        job_items = soup.find_all("article", class_=re.compile(r".*recruit.*|.*job.*", re.I))
+                    
+                    # 5순위: 채용공고 상세 링크가 있는 부모 요소 찾기
+                    if not job_items:
+                        recruit_links = soup.find_all("a", href=re.compile(r"/zf_user/jobs/relay/view"))
+                        job_items = []
+                        for link in recruit_links:
+                            parent = link.find_parent("div") or link.find_parent("article") or link.find_parent("li")
+                            if parent and parent not in job_items:
+                                job_items.append(parent)
                     
                     print(f"[사람인] 페이지 {page} 발견된 공고 아이템 수: {len(job_items)}")
                     
@@ -957,12 +1024,14 @@ class WebCrawlerService:
                     
                     for item in job_items:
                         try:
-                            # 제목 추출
+                            # 제목 추출 (채용공고용)
                             title_elem = (
-                                item.find("a", class_=re.compile(r".*title.*|.*subject.*|.*job.*title.*", re.I)) or
+                                item.find("a", class_=re.compile(r".*job_tit.*|.*title.*|.*subject.*", re.I)) or
+                                item.find("h2", class_=re.compile(r".*job_tit.*|.*title.*", re.I)) or
+                                item.find("a", href=re.compile(r"/zf_user/jobs/relay/view")) or
+                                item.find("a", href=re.compile(r"/zf_user/jobs/recruit/view")) or
                                 item.find("h2") or
-                                item.find("h3") or
-                                item.find("a", href=re.compile(r"/zf_user/jobs/recruit"))
+                                item.find("h3")
                             )
                             
                             # 회사명 추출
@@ -978,21 +1047,22 @@ class WebCrawlerService:
                                 item.find("div", class_=re.compile(r".*location.*", re.I))
                             )
                             
-                            # URL 추출 - 사람인 상세 페이지 URL 형식: /zf_user/jobs/recruit/view?rec_idx=숫자
+                            # URL 추출 - 사람인 채용공고 상세 페이지 URL 형식
+                            # /zf_user/jobs/relay/view?rec_idx=숫자 또는 /zf_user/jobs/recruit/view?rec_idx=숫자
                             job_url = ""
                             
                             # 1. data-recruit-no가 있으면 URL 생성 (가장 확실한 방법)
                             recruit_no = item.get("data-recruit-no")
                             if recruit_no:
-                                job_url = f"https://www.saramin.co.kr/zf_user/jobs/recruit/view?rec_idx={recruit_no}"
+                                job_url = f"https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx={recruit_no}"
                             
                             # 2. item 내의 모든 링크에서 채용 공고 상세 페이지 링크 찾기
                             if not job_url:
                                 all_links = item.find_all("a", href=True)
                                 for link in all_links:
                                     href = link.get("href", "")
-                                    # 사람인 상세 페이지 URL 패턴 확인
-                                    if href and ("/zf_user/jobs/recruit/view" in href or "rec_idx=" in href):
+                                    # 사람인 채용공고 상세 페이지 URL 패턴 확인
+                                    if href and ("/zf_user/jobs/relay/view" in href or "/zf_user/jobs/recruit/view" in href or "rec_idx=" in href):
                                         job_url = urljoin("https://www.saramin.co.kr", href)
                                         break
                             
@@ -1015,7 +1085,70 @@ class WebCrawlerService:
                                     if href and not href.startswith("#") and not href.startswith("javascript:") and not href.startswith("mailto:"):
                                         job_url = urljoin("https://www.saramin.co.kr", href)
                             
-                            title = title_elem.get_text(strip=True) if title_elem else ""
+                            # 전체 텍스트 추출
+                            full_text = title_elem.get_text(strip=True) if title_elem else ""
+                            
+                            # 경력 정보 추출 (experience 필드에 저장)
+                            experience = ""
+                            experience_patterns = [
+                                r'신입',
+                                r'경력무관',
+                                r'경력\s*\d+년',
+                                r'\d+년\s*이상',
+                                r'신입/경력',
+                                r'경력'
+                            ]
+                            for pattern in experience_patterns:
+                                exp_match = re.search(pattern, full_text)
+                                if exp_match:
+                                    experience = exp_match.group(0)
+                                    break
+                            
+                            # 상세정보 추출 (description 필드에 저장할 학력, 고용형태, 마감일)
+                            details = []
+                            
+                            # 마감일
+                            deadline_match = re.search(r'(~\d+\.\d+\([월화수목금토일]\)|D-\d+)', full_text)
+                            if deadline_match:
+                                details.append(f"마감: {deadline_match.group(1)}")
+                            
+                            # 학력
+                            education_patterns = [
+                                r'학력무관', r'고졸\s*이상', r'대졸\s*이상', 
+                                r'초대졸\s*이상', r'석사', r'박사'
+                            ]
+                            for pattern in education_patterns:
+                                edu_match = re.search(pattern, full_text)
+                                if edu_match:
+                                    details.append(f"학력: {edu_match.group(0)}")
+                                    break
+                            
+                            # 고용형태
+                            employment_patterns = [
+                                r'정규직', r'계약직', r'인턴', r'아르바이트',
+                                r'파견직', r'프리랜서'
+                            ]
+                            for pattern in employment_patterns:
+                                emp_match = re.search(pattern, full_text)
+                                if emp_match:
+                                    details.append(f"고용형태: {emp_match.group(0)}")
+                                    break
+                            
+                            description = " | ".join(details) if details else ""
+                            
+                            # 제목 정리 - 깔끔한 제목만 남김
+                            title = full_text
+                            title = re.sub(r'~\d+\.\d+\([월화수목금토일]\).*$', '', title)
+                            title = re.sub(r'D-\d+', '', title)
+                            title = re.sub(r'\([^)]*[서울|경기|인천|부산|대구|광주|대전|울산|세종|강원|충북|충남|전북|전남|경북|경남|제주][^)]*\)', '', title)
+                            title = re.sub(r'(신입|경력무관|경력\s*\d+년|\d+년\s*이상|경력|신입/경력)', '', title)
+                            title = re.sub(r'(학력무관|고졸|대졸|초대졸|석사|박사)\s*(이상)?', '', title)
+                            title = re.sub(r'(정규직|계약직|인턴|아르바이트|파견직|프리랜서)', '', title)
+                            title = re.sub(r'\([^)]*\)$', '', title)
+                            title = re.sub(r'\s+', ' ', title).strip()
+                            if len(title) > 200:
+                                title = title[:200] + '...'
+                            
                             company = company_elem.get_text(strip=True) if company_elem else ""
                             location = location_elem.get_text(strip=True) if location_elem else ""
                             
@@ -1042,7 +1175,8 @@ class WebCrawlerService:
                                     "company": company,
                                     "location": location,
                                     "url": final_url,
-                                    "description": ""
+                                    "description": description,
+                                    "experience": experience
                                 })
                                 
                                 # 디버깅: URL 추출 확인
@@ -1100,7 +1234,7 @@ class WebCrawlerService:
                 
                 result = {
                     "success": True,
-                    "site": "사람인",
+                    "site": "saramin",
                     "searchKeyword": search_keyword,
                     "totalResults": len(all_job_listings),
                     "jobListings": all_job_listings,
@@ -1113,7 +1247,7 @@ class WebCrawlerService:
                 if self.db_service and all_job_listings:
                     try:
                         saved_count = self.db_service.save_job_listings(
-                            site_name="사람인",
+                            site_name="saramin",
                             site_url="https://www.saramin.co.kr",
                             job_listings=all_job_listings,
                             search_keyword=search_keyword
