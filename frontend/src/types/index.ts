@@ -79,6 +79,18 @@ export interface CareerRecommendation {
   reasons: string[];
 }
 
+// Profile Types
+export interface UserProfile {
+  profileId: number;
+  userId: number;
+  personalityTraits: string;
+  values: string;
+  interests: string;
+  emotions: string;
+  confidenceScore?: number;
+  lastAnalyzedAt?: string;
+}
+
 export interface AnalysisResponse {
   sessionId: string;
   emotion: EmotionAnalysis;
@@ -98,4 +110,3 @@ export interface BarChartData {
   name: string;
   matchScore: number;
 }
-

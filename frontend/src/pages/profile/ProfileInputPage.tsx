@@ -1,6 +1,32 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+const API_BASE_URL =
+  (import.meta?.env?.NEXT_PUBLIC_API_URL as string | undefined) ||
+  'http://localhost:8080/api';
+const PROFILE_CACHE_KEY = 'dreampath:profile-cache';
+
+const getStoredUserId = (): number | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem('dreampath:user');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return typeof parsed?.userId === 'number' ? parsed.userId : null;
+  } catch {
+    return null;
+  }
+};
+
+type ProfileRequestDto = {
+  userId: number;
+  personalityTraits: string;
+  values: string;
+  interests: string;
+  emotions: string;
+  confidenceScore?: number;
+};
+
 const STORAGE_KEYS = {
   traits: 'profileTraits',
   values: 'profileValues',
@@ -13,13 +39,52 @@ const getInitialValue = (key: string) => {
   return localStorage.getItem(key) ?? '';
 };
 
+const setProfileCache = (userId: number, profile: unknown) => {
+  if (typeof window === 'undefined' || !userId || !profile) return;
+  try {
+    const raw = localStorage.getItem(PROFILE_CACHE_KEY);
+    const cache = raw ? JSON.parse(raw) : {};
+    cache[userId] = { profile, timestamp: Date.now() };
+    localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // ignore cache errors
+  }
+};
+
 export default function ProfileInputPage() {
   const navigate = useNavigate();
+  const [userId] = useState<number | null>(() => getStoredUserId());
+  const [profileId, setProfileId] = useState<number | null>(null);
   const [traits, setTraits] = useState(() => getInitialValue(STORAGE_KEYS.traits));
   const [values, setValues] = useState(() => getInitialValue(STORAGE_KEYS.values));
   const [interests, setInterests] = useState(() => getInitialValue(STORAGE_KEYS.interests));
   const [emotions, setEmotions] = useState(() => getInitialValue(STORAGE_KEYS.emotions));
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isSubmittingProfile, setIsSubmittingProfile] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  useEffect(() => {
+    if (!userId) return;
+    const controller = new AbortController();
+    const loadProfile = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/profiles/${userId}`, { signal: controller.signal });
+        if (response.ok) {
+          const data = await response.json();
+          setProfileId(data.profileId ?? null);
+          setTraits(data.personalityTraits ?? '');
+          setValues(data.values ?? '');
+          setInterests(data.interests ?? '');
+          setEmotions(data.emotions ?? '');
+          setProfileCache(userId, data);
+        }
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return;
+        console.error('프로필 로딩 실패', err);
+      }
+    };
+    loadProfile();
+    return () => controller.abort();
+  }, [userId]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.traits, traits);
@@ -74,6 +139,73 @@ export default function ProfileInputPage() {
     setValues('');
     setInterests('');
     setEmotions('');
+  };
+
+  const submitProfile = async () => {
+    const currentUserId = userId ?? getStoredUserId();
+    if (!currentUserId) {
+      alert('프로필을 저장하려면 먼저 로그인해주세요.');
+      navigate('/login');
+      return;
+    }
+
+    const trimmedTraits = traits.trim();
+    const trimmedValues = values.trim();
+    const trimmedInterests = interests.trim();
+    const trimmedEmotions = emotions.trim();
+
+    if (!trimmedTraits || !trimmedValues || !trimmedInterests || !trimmedEmotions) {
+      alert('모든 항목을 입력한 후 저장할 수 있습니다.');
+      return;
+    }
+
+    const payload: ProfileRequestDto = {
+      userId: currentUserId,
+      personalityTraits: trimmedTraits,
+      values: trimmedValues,
+      interests: trimmedInterests,
+      emotions: trimmedEmotions,
+      confidenceScore: completion,
+    };
+
+    try {
+      setIsSubmittingProfile(true);
+      setErrorMessage(null);
+      const isEditMode = Boolean(profileId);
+      const url = isEditMode ? `${API_BASE_URL}/profiles/${profileId}` : `${API_BASE_URL}/profiles`;
+      const method = isEditMode ? 'PUT' : 'POST';
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || '프로필 저장에 실패했습니다.');
+      }
+
+      const saved = await response.json();
+      setProfileId(saved?.profileId ?? profileId);
+      if (saved) {
+        setProfileCache(currentUserId, saved);
+      }
+
+      if (isEditMode) {
+        navigate('/profile/dashboard', { replace: true });
+      } else {
+        navigate('/profile/success');
+      }
+      return;
+    } catch (error) {
+      console.error('프로필 저장 실패', error);
+      const message = error instanceof Error ? error.message : '프로필 저장 중 오류가 발생했습니다.';
+      setErrorMessage(message);
+    } finally {
+      setIsSubmittingProfile(false);
+    }
   };
 
   return (
@@ -180,7 +312,15 @@ export default function ProfileInputPage() {
                 </p>
               </div>
               <button
-                className="w-full py-3 rounded-2xl bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white font-semibold shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white font-semibold shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                onClick={submitProfile}
+                disabled={isSubmittingProfile}
+              >
+                <i className="ri-save-3-line text-xl" />
+                {isSubmittingProfile ? '저장 중...' : '프로필 저장'}
+              </button>
+              <button
+                className="w-full py-3 rounded-2xl border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
                 onClick={() => navigate('/career-chat')}
               >
                 <i className="ri-check-double-line text-xl" />
@@ -192,6 +332,11 @@ export default function ProfileInputPage() {
               >
                 전체 초기화
               </button>
+              {errorMessage && (
+                <p className="text-sm text-red-500 bg-red-50 border border-red-100 rounded-xl p-3">
+                  {errorMessage}
+                </p>
+              )}
             </div>
           </div>
         </div>

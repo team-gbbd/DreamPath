@@ -13,6 +13,7 @@ from services.career_analysis_service import CareerAnalysisService
 from services.openai_service import OpenAIService
 from services.identity_analysis_service import IdentityAnalysisService
 from services.chat_service import ChatService
+from routers.vector_router import router as vector_router
 
 # 환경 변수 로드
 load_dotenv()
@@ -40,6 +41,7 @@ openai_service = OpenAIService()
 analysis_service = CareerAnalysisService(openai_service)
 identity_service = IdentityAnalysisService(api_key, model) if api_key else None
 chat_service = ChatService(api_key, model) if api_key else None
+app.include_router(vector_router, prefix="/api")
 
 
 # 요청/응답 모델
@@ -297,4 +299,3 @@ async def chat(request: ChatRequest):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-

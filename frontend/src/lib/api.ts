@@ -48,5 +48,10 @@ export const analysisService = {
   },
 };
 
-export default api;
+export const profileService = {
+  deleteProfile: async (profileId: number): Promise<void> => {
+    await api.delete(`/profiles/${profileId}`);
+  },
+};
 
+export default api;
