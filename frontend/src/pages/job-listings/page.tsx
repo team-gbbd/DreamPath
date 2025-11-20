@@ -37,9 +37,9 @@ export default function JobListingsPage() {
 
       // DB에서 전체 공고 가져오기 (사이트별로, 제한 없음)
       const [wantedResult, saraminResult, jobkoreaResult] = await Promise.all([
-        jobSiteService.searchJobListings('원티드', undefined, 100000),
-        jobSiteService.searchJobListings('사람인', undefined, 100000),
-        jobSiteService.searchJobListings('잡코리아', undefined, 100000)
+        jobSiteService.searchJobListings('wanted', undefined, 100000),
+        jobSiteService.searchJobListings('saramin', undefined, 100000),
+        jobSiteService.searchJobListings('jobkorea', undefined, 100000)
       ]);
       
       const allResults: CrawlResponse[] = [];
@@ -78,9 +78,9 @@ export default function JobListingsPage() {
 
       // DB에서 검색 (원티드, 사람인, 잡코리아 각각, 제한 없음)
       const [wantedResult, saraminResult, jobkoreaResult] = await Promise.all([
-        jobSiteService.searchJobListings('원티드', searchTerm, 100000),
-        jobSiteService.searchJobListings('사람인', searchTerm, 100000),
-        jobSiteService.searchJobListings('잡코리아', searchTerm, 100000)
+        jobSiteService.searchJobListings('wanted', searchTerm, 100000),
+        jobSiteService.searchJobListings('saramin', searchTerm, 100000),
+        jobSiteService.searchJobListings('jobkorea', searchTerm, 100000)
       ]);
       
       const allResults: CrawlResponse[] = [];
@@ -120,8 +120,8 @@ export default function JobListingsPage() {
       // 원티드, 사람인, 잡코리아 크롤링 시작 (강제 새로고침)
       await Promise.all([
         jobSiteService.crawlWanted(keyword, maxResults, true),
-        jobSiteService.crawlJobSite('사람인', 'https://www.saramin.co.kr', keyword, maxResults, true),
-        jobSiteService.crawlJobSite('잡코리아', 'https://www.jobkorea.co.kr', keyword, maxResults, true)
+        jobSiteService.crawlJobSite('saramin', 'https://www.saramin.co.kr', keyword, maxResults, true),
+        jobSiteService.crawlJobSite('jobkorea', 'https://www.jobkorea.co.kr', keyword, maxResults, true)
       ]);
       
       // 크롤링 완료 후 DB에서 검색
@@ -258,10 +258,17 @@ export default function JobListingsPage() {
 
         {/* Results */}
         {results.length > 0 && (() => {
+          // 사이트 이름 매핑
+          const siteNameMap: {[key: string]: string} = {
+            'wanted': '원티드',
+            'saramin': '사람인',
+            'jobkorea': '잡코리아'
+          };
+          
           // 탭별 데이터 준비
-          const wantedResult = results.find(r => r.site === '원티드');
-          const saraminResult = results.find(r => r.site === '사람인');
-          const jobkoreaResult = results.find(r => r.site === '잡코리아');
+          const wantedResult = results.find(r => r.site === 'wanted' || r.site === '원티드');
+          const saraminResult = results.find(r => r.site === 'saramin' || r.site === '사람인');
+          const jobkoreaResult = results.find(r => r.site === 'jobkorea' || r.site === '잡코리아');
           
           // 종합보기: 모든 채용 공고 합치기
           const allJobListings: JobListing[] = [];
@@ -287,20 +294,20 @@ export default function JobListingsPage() {
             ? { 
                 jobListings: wantedResult?.jobListings || [], 
                 totalResults: wantedResult?.totalResults || 0, 
-                site: '원티드', 
+                site: siteNameMap[wantedResult?.site || 'wanted'] || '원티드', 
                 searchUrl: wantedResult?.searchUrl 
               }
             : activeTab === 'saramin'
             ? { 
                 jobListings: saraminResult?.jobListings || [], 
                 totalResults: saraminResult?.totalResults || 0, 
-                site: '사람인', 
+                site: siteNameMap[saraminResult?.site || 'saramin'] || '사람인', 
                 searchUrl: saraminResult?.searchUrl 
               }
             : { 
                 jobListings: jobkoreaResult?.jobListings || [], 
                 totalResults: jobkoreaResult?.totalResults || 0, 
-                site: '잡코리아', 
+                site: siteNameMap[jobkoreaResult?.site || 'jobkorea'] || '잡코리아', 
                 searchUrl: jobkoreaResult?.searchUrl 
               };
           

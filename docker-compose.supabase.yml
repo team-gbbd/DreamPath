@@ -16,11 +16,11 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: postgres
       DB_HOST: aws-1-ap-northeast-1.pooler.supabase.com
-      DB_PORT: 5432
+      DB_PORT: 6543
       DB_NAME: postgres
       DB_USER: postgres.ssindowhjsowftiglvsz
       DB_PASSWORD: dreampath1118
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-REMOVED}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
       PYTHON_AI_SERVICE_URL: http://ai-service:8000
     depends_on:
       - ai-service
@@ -32,11 +32,11 @@ services:
     ports:
       - "8000:8000"
     environment:
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-REMOVED}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       DB_TYPE: postgres
       DB_HOST: aws-1-ap-northeast-1.pooler.supabase.com
-      DB_PORT: 5432
+      DB_PORT: 6543
       DB_NAME: postgres
       DB_USER: postgres.ssindowhjsowftiglvsz
       DB_PASSWORD: dreampath1118

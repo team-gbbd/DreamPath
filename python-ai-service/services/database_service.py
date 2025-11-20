@@ -253,12 +253,15 @@ class DatabaseService:
                         if experience is not None:
                             experience = str(experience)
                         
+                        # company가 None이면 빈 문자열로 처리
+                        company = job.get("company") or ""
+                        
                         cursor.execute(insert_sql, (
                             site_name,
                             site_url,
                             job_id,
                             title,
-                            job.get("company"),
+                            company,
                             job.get("location"),
                             job.get("description"),
                             url,
@@ -267,12 +270,12 @@ class DatabaseService:
                             search_keyword,
                             datetime.now()
                         ))
+                        conn.commit()  # 각 INSERT 후 즉시 커밋
                         saved_count += 1
                     except Exception as e:
+                        conn.rollback()  # 에러 발생 시 rollback
                         print(f"채용 공고 저장 실패: {job}, 에러: {str(e)}")
                         continue
-                
-                conn.commit()
                 print(f"[DEBUG] Commit completed. Saved={saved_count}, Skipped={skipped_count}")
                 print(f"[DEBUG] Connected to: {self.db_config['host']}, DB: {self.db_config['database']}")
                 if saved_count > 0:
