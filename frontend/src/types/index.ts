@@ -99,3 +99,91 @@ export interface BarChartData {
   matchScore: number;
 }
 
+// Learning Path Types
+export interface LearningPath {
+  pathId: number;
+  userId: number;
+  domain: string;
+  status: 'ACTIVE' | 'COMPLETED';
+  totalQuestions: number;
+  correctCount: number;
+  correctRate: number;
+  weaknessTags: string[];
+  createdAt: string;
+  updatedAt: string;
+  weeklySessions: WeeklySessionInfo[];
+}
+
+export interface WeeklySessionInfo {
+  weeklyId: number;
+  weekNumber: number;
+  status: 'LOCKED' | 'UNLOCKED' | 'COMPLETED';
+  questionCount: number;
+  correctCount: number;
+  aiSummary: string | null;
+  createdAt: string;
+}
+
+export interface Question {
+  questionId: number;
+  questionType: 'MCQ' | 'SCENARIO' | 'CODING' | 'DESIGN';
+  difficulty: 'EASY' | 'MEDIUM' | 'HARD';
+  maxScore: number;
+  orderNum: number;
+  questionText: string;
+  options: string[] | null;
+  createdAt: string;
+}
+
+export interface StudentAnswer {
+  answerId: number;
+  questionId: number;
+  userId: number;
+  userAnswer: string;
+  score: number;
+  aiFeedback: string;
+  submittedAt: string;
+}
+
+export interface DashboardStats {
+  pathId: number;
+  domain: string;
+  totalQuestions: number;
+  answeredQuestions: number;
+  correctCount: number;
+  correctRate: number;
+  weeklyProgress: WeeklyProgress[];
+  typeAccuracy: TypeAccuracy[];
+  weaknessAnalysis: WeaknessAnalysis;
+}
+
+export interface WeeklyProgress {
+  weekNumber: number;
+  status: string;
+  questionCount: number;
+  correctCount: number;
+  correctRate: number;
+}
+
+export interface TypeAccuracy {
+  questionType: string;
+  totalQuestions: number;
+  correctCount: number;
+  accuracy: number;
+}
+
+export interface WeaknessAnalysis {
+  totalWeak: number;
+  weakTags: string[];
+}
+
+export interface CreateLearningPathRequest {
+  userId: number;
+  domain: string;
+}
+
+export interface SubmitAnswerRequest {
+  userId: number;
+  answer: string;
+}
+

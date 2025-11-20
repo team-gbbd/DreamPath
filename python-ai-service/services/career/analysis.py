@@ -4,7 +4,7 @@
 """
 import json
 from typing import List
-from services.openai_service import OpenAIService
+from services.common import OpenAIService
 
 
 class CareerAnalysisService:

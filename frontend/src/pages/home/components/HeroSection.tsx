@@ -39,7 +39,7 @@ export default function HeroSection() {
               <i className="ri-play-circle-line mr-2"></i>
               서비스 둘러보기
             </Button>
-          </div>
+          </div>1
 
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-2xl mx-auto">
