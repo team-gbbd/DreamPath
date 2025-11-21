@@ -5,10 +5,19 @@ Fully merged version (HEAD + dev)
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional
-import os
-from dotenv import load_dotenv
+
+from config import settings
+from routers import api_router
+
+# FastAPI 앱 초기화
+app = FastAPI(
+    title=settings.API_TITLE,
+    description=settings.API_DESCRIPTION,
+    version=settings.API_VERSION
+)
+
+# API 라우터 등록
+app.include_router(api_router)
 
 # =============================
 # IMPORTS (HEAD services)
@@ -138,6 +147,7 @@ async def root():
 
 @app.get("/health")
 async def health_check():
+    """헬스 체크 엔드포인트"""
     return {"status": "healthy"}
 
 
