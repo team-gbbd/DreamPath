@@ -16,9 +16,11 @@ public class ChatbotMessage {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    // 실제 사용하는 세션 ID
     @Column(name = "cb_session_id")
     private UUID sessionId;
 
+    // 실제 사용하는 사용자 ID
     @Column(name = "cb_user_id")
     private UUID userId;
 

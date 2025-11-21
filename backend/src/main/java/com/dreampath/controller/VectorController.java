@@ -1,0 +1,19 @@
+package com.dreampath.controller;
+
+import com.dreampath.entity.ProfileVector;
+import com.dreampath.service.ProfileVectorService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/vector")
+public class VectorController {
+
+    private final ProfileVectorService vectorService;
+
+    @PostMapping("/generate/{profileId}")
+    public ProfileVector generate(@PathVariable Long profileId, @RequestBody String document) {
+        return vectorService.generateVector(profileId, document);
+    }
+}

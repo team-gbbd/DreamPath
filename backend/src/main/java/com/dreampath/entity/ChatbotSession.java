@@ -9,12 +9,11 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "chatbot_sessions")
-@Getter
-@Setter
+@Getter @Setter
 public class ChatbotSession {
 
     @Id
-    private UUID id;   // 직접 생성하는 방식으로 변경
+    private UUID id;
 
     @Column(name = "cb_user_id")
     private UUID userId;
@@ -22,7 +21,11 @@ public class ChatbotSession {
     @Column(name = "conversation_title")
     private String conversationTitle;
 
+    @Column(name = "conversation_stage")
+    private String conversationStage;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 }
+
 

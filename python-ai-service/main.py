@@ -1,63 +1,111 @@
 """
-DreamPath 진로 분석 AI 서비스
-Python FastAPI를 사용한 진로 분석 마이크로서비스
+DreamPath – Career Analysis + Identity + Chat + Learning Path + Vector Service
+Fully merged version (HEAD + dev)
 """
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional
-import os
-from dotenv import load_dotenv
 
-from services.career_analysis_service import CareerAnalysisService
-from services.openai_service import OpenAIService
-from services.identity_analysis_service import IdentityAnalysisService
-from services.chat_service import ChatService
+from config import settings
+from routers import api_router
 
-# 환경 변수 로드
-load_dotenv()
-
+# FastAPI 앱 초기화
 app = FastAPI(
-    title="DreamPath Career Analysis AI Service",
-    description="AI 기반 진로 분석, 정체성 분석 및 대화형 상담 서비스",
+    title=settings.API_TITLE,
+    description=settings.API_DESCRIPTION,
+    version=settings.API_VERSION
+)
+
+# API 라우터 등록
+app.include_router(api_router)
+
+# =============================
+# IMPORTS (HEAD services)
+# =============================
+from services.career_analysis_service import CareerAnalysisService
+from services.chat_service import ChatService
+from services.identity_analysis_service import IdentityAnalysisService
+from services.openai_service import OpenAIService as OpenAIServiceHead
+
+# =============================
+# IMPORTS (dev services)
+# =============================
+from services.common.openai_client import OpenAIService as OpenAIServiceDev
+from services.learning import (
+    QuestionGeneratorService,
+    AnswerEvaluatorService,
+    CodeExecutorService,
+)
+
+# Vector Router
+from routers.vector_router import router as vector_router
+
+# =========================================
+# Environment
+# =========================================
+load_dotenv()
+api_key = os.getenv("OPENAI_API_KEY", "")
+model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
+# =========================================
+# FastAPI App
+# =========================================
+app = FastAPI(
+    title="DreamPath AI Server",
+    description="Career Analysis + Identity + Chat + Learning Path API Gateway",
     version="1.0.0"
 )
 
-# CORS 설정
+# =========================================
+# CORS
+# =========================================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 프로덕션에서는 특정 도메인으로 제한
+    allow_origins=["*"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 서비스 초기화
-api_key = os.getenv("OPENAI_API_KEY", "")
-model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+# =========================================
+# Initialize Services
+# =========================================
 
-openai_service = OpenAIService()
+# OpenAI Service — choose dev/common version first, fallback to HEAD
+try:
+    openai_service = OpenAIServiceDev()
+except Exception:
+    openai_service = OpenAIServiceHead()
+
+# HEAD services
 analysis_service = CareerAnalysisService(openai_service)
 identity_service = IdentityAnalysisService(api_key, model) if api_key else None
 chat_service = ChatService(api_key, model) if api_key else None
 
+# Learning Path services (dev)
+question_generator = QuestionGeneratorService() if api_key else None
+answer_evaluator = AnswerEvaluatorService() if api_key else None
+code_executor = CodeExecutorService()
 
-# 요청/응답 모델
+# Vector router
+app.include_router(vector_router, prefix="/api")
+
+# =========================================
+# MODELS
+# =========================================
+
 class ConversationMessage(BaseModel):
-    role: str  # USER, ASSISTANT, SYSTEM
+    role: str  
     content: str
-
 
 class AnalysisRequest(BaseModel):
     sessionId: str
     conversationHistory: List[ConversationMessage]
 
-
 class EmotionAnalysis(BaseModel):
     description: str
-    score: int  # 1-100
-    emotionalState: str  # 긍정적, 중립적, 부정적, 혼합
-
+    score: int
+    emotionalState: str
 
 class PersonalityAnalysis(BaseModel):
     description: str
@@ -65,24 +113,20 @@ class PersonalityAnalysis(BaseModel):
     strengths: List[str]
     growthAreas: List[str]
 
-
 class InterestArea(BaseModel):
     name: str
-    level: int  # 1-10
+    level: int
     description: str
-
 
 class InterestAnalysis(BaseModel):
     description: str
     areas: List[InterestArea]
 
-
 class CareerRecommendation(BaseModel):
     careerName: str
     description: str
-    matchScore: int  # 1-100
+    matchScore: int
     reasons: List[str]
-
 
 class AnalysisResponse(BaseModel):
     sessionId: str
@@ -93,76 +137,66 @@ class AnalysisResponse(BaseModel):
     recommendedCareers: List[CareerRecommendation]
 
 
+# =========================================
+# Root + Health
+# =========================================
+
 @app.get("/")
 async def root():
-    return {"message": "DreamPath Career Analysis AI Service", "status": "running"}
-
+    return {"message": "DreamPath AI Service Running"}
 
 @app.get("/health")
 async def health_check():
+    """헬스 체크 엔드포인트"""
     return {"status": "healthy"}
 
 
+# =========================================
+# Career Analysis
+# =========================================
+
 @app.post("/api/analyze", response_model=AnalysisResponse)
 async def analyze_career(request: AnalysisRequest):
-    """
-    대화 내용을 기반으로 진로 분석을 수행합니다.
-    
-    - 감정 분석
-    - 성향 분석
-    - 흥미 분석
-    - 종합 분석
-    - 진로 추천
-    """
+
     try:
-        # 대화 내용을 문자열로 변환
-        conversation_text = "\n\n".join([
-            f"{msg.role}: {msg.content}" 
-            for msg in request.conversationHistory
-        ])
-        
-        # 분석 수행
+        text = "\n\n".join([f"{m.role}: {m.content}" for m in request.conversationHistory])
         result = await analysis_service.analyze_session(
             session_id=request.sessionId,
-            conversation_history=conversation_text
+            conversation_history=text
         )
-        
         return result
-        
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"분석 중 오류 발생: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"분석 오류: {str(e)}")
 
 
-# 정체성 분석 요청 모델
+# =========================================
+# Identity Analysis
+# =========================================
+
 class ClarityRequest(BaseModel):
     conversationHistory: str
-
 
 class IdentityRequest(BaseModel):
     conversationHistory: str
 
-
 class InsightRequest(BaseModel):
     recentMessages: str
     previousContext: str
-
 
 class ProgressRequest(BaseModel):
     conversationHistory: str
     currentStage: str
 
 
-# 정체성 분석 응답 모델
 class ClarityResponse(BaseModel):
     clarity: int
     reason: str
-
 
 class IdentityTrait(BaseModel):
     category: str
     trait: str
     evidence: str
-
 
 class IdentityResponse(BaseModel):
     identityCore: str
@@ -171,12 +205,10 @@ class IdentityResponse(BaseModel):
     insights: List[str]
     nextFocus: str
 
-
 class InsightResponse(BaseModel):
     hasInsight: bool
     insight: Optional[str] = None
     type: Optional[str] = None
-
 
 class ProgressResponse(BaseModel):
     readyToProgress: bool
@@ -185,79 +217,63 @@ class ProgressResponse(BaseModel):
 
 
 @app.post("/api/identity/clarity", response_model=ClarityResponse)
-async def assess_clarity(request: ClarityRequest):
-    """정체성 명확도 평가"""
+async def identity_clarity(request: ClarityRequest):
+
     if not identity_service:
-        raise HTTPException(status_code=500, detail="OpenAI API 키가 설정되지 않았습니다.")
-    
-    try:
-        result = await identity_service.assess_clarity(request.conversationHistory)
-        return ClarityResponse(**result)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"명확도 평가 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail="OpenAI API Key 설정 필요")
+
+    result = await identity_service.assess_clarity(request.conversationHistory)
+    return ClarityResponse(**result)
 
 
 @app.post("/api/identity/extract", response_model=IdentityResponse)
 async def extract_identity(request: IdentityRequest):
-    """정체성 특징 추출"""
+
     if not identity_service:
-        raise HTTPException(status_code=500, detail="OpenAI API 키가 설정되지 않았습니다.")
-    
-    try:
-        result = await identity_service.extract_identity(request.conversationHistory)
-        # traits 변환
-        traits = [IdentityTrait(**t) for t in result.get("traits", [])]
-        return IdentityResponse(
-            identityCore=result.get("identityCore", "탐색 중..."),
-            confidence=result.get("confidence", 0),
-            traits=traits,
-            insights=result.get("insights", []),
-            nextFocus=result.get("nextFocus", "")
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"정체성 추출 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail="OpenAI API Key 설정 필요")
+
+    result = await identity_service.extract_identity(request.conversationHistory)
+    traits = [IdentityTrait(**t) for t in result.get("traits", [])]
+
+    return IdentityResponse(
+        identityCore=result.get("identityCore", ""),
+        confidence=result.get("confidence", 0),
+        traits=traits,
+        insights=result.get("insights", []),
+        nextFocus=result.get("nextFocus", "")
+    )
 
 
 @app.post("/api/identity/insight", response_model=InsightResponse)
-async def generate_insight(request: InsightRequest):
-    """최근 인사이트 생성"""
-    if not identity_service:
-        raise HTTPException(status_code=500, detail="OpenAI API 키가 설정되지 않았습니다.")
-    
-    try:
-        result = await identity_service.generate_insight(
-            request.recentMessages,
-            request.previousContext
-        )
-        return InsightResponse(**result)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"인사이트 생성 실패: {str(e)}")
+async def generate_identity_insight(request: InsightRequest):
+
+    result = await identity_service.generate_insight(
+        request.recentMessages,
+        request.previousContext
+    )
+    return InsightResponse(**result)
 
 
 @app.post("/api/identity/progress", response_model=ProgressResponse)
-async def assess_progress(request: ProgressRequest):
-    """단계 진행 평가"""
-    if not identity_service:
-        raise HTTPException(status_code=500, detail="OpenAI API 키가 설정되지 않았습니다.")
-    
-    try:
-        result = await identity_service.assess_stage_progress(
-            request.conversationHistory,
-            request.currentStage
-        )
-        return ProgressResponse(**result)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"진행 평가 실패: {str(e)}")
+async def identity_stage_progress(request: ProgressRequest):
+
+    result = await identity_service.assess_stage_progress(
+        request.conversationHistory,
+        request.currentStage
+    )
+    return ProgressResponse(**result)
 
 
-# 채팅 요청/응답 모델
+# =========================================
+# Chat API
+# =========================================
+
 class ChatRequest(BaseModel):
     sessionId: str
     userMessage: str
-    currentStage: str  # PRESENT, PAST, VALUES, FUTURE, IDENTITY
+    currentStage: str
     conversationHistory: List[ConversationMessage]
-    surveyData: Optional[dict] = None  # 설문조사 정보
-
+    surveyData: Optional[dict] = None
 
 class ChatResponse(BaseModel):
     sessionId: str
@@ -266,35 +282,81 @@ class ChatResponse(BaseModel):
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
-    """대화형 진로 상담 응답 생성"""
-    if not chat_service:
-        raise HTTPException(status_code=500, detail="OpenAI API 키가 설정되지 않았습니다.")
-    
-    try:
-        # 대화 이력을 딕셔너리 리스트로 변환
-        history = [
-            {"role": msg.role, "content": msg.content}
-            for msg in request.conversationHistory
-        ]
-        
-        # 채팅 응답 생성
-        response_message = await chat_service.generate_response(
-            session_id=request.sessionId,
-            user_message=request.userMessage,
-            current_stage=request.currentStage,
-            conversation_history=history,
-            survey_data=request.surveyData
-        )
-        
-        return ChatResponse(
-            sessionId=request.sessionId,
-            message=response_message
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"채팅 응답 생성 실패: {str(e)}")
+
+    history = [{"role": m.role, "content": m.content} for m in request.conversationHistory]
+
+    message = await chat_service.generate_response(
+        session_id=request.sessionId,
+        user_message=request.userMessage,
+        current_stage=request.currentStage,
+        conversation_history=history,
+        survey_data=request.surveyData
+    )
+
+    return ChatResponse(sessionId=request.sessionId, message=message)
 
 
+# =========================================
+# Learning Path API
+# =========================================
+
+from pydantic import BaseModel
+
+class GenerateQuestionsRequest(BaseModel):
+    domain: str
+    weekNumber: int
+    count: int = 5
+
+class EvaluateAnswerRequest(BaseModel):
+    questionType: str
+    questionText: str
+    userAnswer: str
+    correctAnswer: str
+    maxScore: int
+
+class ExecuteCodeRequest(BaseModel):
+    code: str
+    language: str
+    stdin: str = ""
+
+@app.post("/api/learning/generate-questions")
+async def generate_questions(req: GenerateQuestionsRequest):
+    if not question_generator:
+        raise HTTPException(status_code=500, detail="OpenAI 설정 필요")
+
+    result = await question_generator.generate_questions(
+        domain=req.domain,
+        week_number=req.weekNumber,
+        count=req.count
+    )
+    return {"questions": result}
+
+@app.post("/api/learning/evaluate-answer")
+async def evaluate_answer(req: EvaluateAnswerRequest):
+
+    result = await answer_evaluator.evaluate_answer(
+        question_type=req.questionType,
+        question_text=req.questionText,
+        user_answer=req.userAnswer,
+        correct_answer=req.correctAnswer,
+        max_score=req.maxScore
+    )
+    return result
+
+@app.post("/api/learning/execute-code")
+async def execute_code(req: ExecuteCodeRequest):
+
+    result = await code_executor.execute_code(
+        code=req.code,
+        language=req.language,
+        stdin=req.stdin
+    )
+    return result
+
+
+# =========================================
+# Run (Only when executed directly)
+# =========================================
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-

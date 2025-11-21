@@ -15,14 +15,15 @@ public class Faq {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(columnDefinition = "text", nullable = false)
+    @Column(columnDefinition = "text")
     private String question;
 
-    @Column(columnDefinition = "text", nullable = false)
+    @Column(columnDefinition = "text")
     private String answer;
 
-    @Column(length = 100)
+    // DB에서는 varchar(length unspecified) → length 미지정이 1:1 매칭
     private String category;
 
-    private LocalDateTime updated_at;
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 }
