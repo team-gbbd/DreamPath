@@ -1,22 +1,45 @@
 package com.dreampath.entity;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
+import java.time.LocalDateTime;
 
-@Getter
-@Setter
 @Entity
 @Table(name = "user_profiles")
+@Getter @Setter
+@NoArgsConstructor @AllArgsConstructor @Builder
 public class UserProfile {
 
     @Id
-    @Column(name = "id")
-    private String id; // supabase auth uid (uuid)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long profileId;
 
-    @Column(name = "full_name")
-    private String fullName;
+    @OneToOne
+    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    private User user;
 
-    @Column(name = "updated_at")
-    private String updatedAt;
+    @Column(columnDefinition = "jsonb")
+    private String personalityTraits;
+
+    @Column(columnDefinition = "jsonb")
+    private String values;
+
+    @Column(columnDefinition = "jsonb")
+    private String emotions;
+
+    @Column(columnDefinition = "jsonb")
+    private String interests;
+
+    private Double confidenceScore;
+
+    private LocalDateTime lastAnalyzedAt;
+
+    public String toDocument() {
+        return String.join(" ",
+                this.personalityTraits == null ? "" : this.personalityTraits,
+                this.values == null ? "" : this.values,
+                this.emotions == null ? "" : this.emotions,
+                this.interests == null ? "" : this.interests
+        );
+    }
 }

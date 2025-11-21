@@ -35,7 +35,7 @@ export default function FloatingChatButton() {
               : "scale-90 opacity-0 pointer-events-none"
           }`}
         >
-          <Chatbot />
+          <Chatbot onClose={() => setOpen(false)} />
         </div>
       )}
     </>

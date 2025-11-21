@@ -33,6 +33,7 @@ export default function Header() {
 
   const navItems = [
     { name: '진로 상담', href: '/career-chat', isRoute: true },
+    { name: '채용 정보', href: '/job-listings', isRoute: true },
     { name: 'Features', href: '#features' },
     { name: 'About', href: '#about' },
     { name: 'Contact', href: '#contact' },
