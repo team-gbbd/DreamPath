@@ -1,12 +1,19 @@
 import { useState } from 'react';
 
+interface DeleteProfileModalProps {
+  isOpen: boolean;
+  onClose?: () => void;
+  profileId?: number | null;
+  onDeleted?: (profileId: number) => void;
+}
+
 const API_BASE_URL =
   (typeof import.meta !== 'undefined' && import.meta?.env?.NEXT_PUBLIC_API_URL) ||
   'http://localhost:8080/api';
 
-const DeleteProfileModal = ({ isOpen, onClose, profileId, onDeleted }) => {
+const DeleteProfileModal = ({ isOpen, onClose, profileId, onDeleted }: DeleteProfileModalProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   if (!isOpen || !profileId) return null;
 

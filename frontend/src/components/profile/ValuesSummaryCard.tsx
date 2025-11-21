@@ -1,7 +1,7 @@
 import { Fragment, useMemo } from 'react';
 import { Sparkles } from 'lucide-react';
 
-const VALUES_LABELS = {
+const VALUES_LABELS: Record<string, string> = {
   creativity: '창의성',
   growth: '성장 지향',
   security: '안정성',
@@ -10,13 +10,23 @@ const VALUES_LABELS = {
   passion: '열정',
 };
 
-const ValuesSummaryCard = ({ valuesJSON }) => {
-  const topValues = useMemo(() => {
+interface ValuesSummaryCardProps {
+  valuesJSON?: string | Record<string, unknown> | null;
+}
+
+type ValueSummary = {
+  key: string;
+  label: string;
+  score: number;
+};
+
+const ValuesSummaryCard = ({ valuesJSON }: ValuesSummaryCardProps) => {
+  const topValues = useMemo<ValueSummary[]>(() => {
     if (!valuesJSON) return [];
     try {
       const parsed =
-        typeof valuesJSON === 'string' ? JSON.parse(valuesJSON) : valuesJSON;
-      return Object.entries(parsed)
+        typeof valuesJSON === 'string' ? (JSON.parse(valuesJSON) as Record<string, unknown>) : valuesJSON;
+      return Object.entries(parsed as Record<string, unknown>)
         .map(([key, value]) => ({
           key,
           label: VALUES_LABELS[key] || key,

@@ -26,7 +26,7 @@ public class UserProfileService {
 
     private final UserProfileRepository repo;
     private final UserRepository userRepo;
-    private final ProfileAnalysisService analysisService; // 🔥 추가됨
+    private final ProfileAnalysisService analysisService;
     private final ProfileAnalysisRepository analysisRepository;
     private final ProfileHistoryRepository historyRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -90,9 +90,8 @@ public class UserProfileService {
 
         UserProfile saved = repo.save(p);
 
-        // 🔥 프로필 전체 수정 후 분석 재생성
+        // 🔥 전체 수정 후 분석 재생성
         analysisService.generateAnalysis(saved);
-
         saveHistory(saved.getProfileId(), "UPDATE", beforeData, toJsonString(saved));
 
         return saved;
@@ -159,9 +158,7 @@ public class UserProfileService {
     }
 
     private String toJsonString(UserProfile profile) {
-        if (profile == null) {
-            return null;
-        }
+        if (profile == null) return null;
         try {
             return objectMapper.writeValueAsString(profile);
         } catch (JsonProcessingException e) {
