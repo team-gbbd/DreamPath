@@ -13,6 +13,7 @@ const LoginPage = lazy(() => import("../pages/auth/LoginPage"));
 const RegisterPage = lazy(() => import("../pages/auth/RegisterPage"));
 const MentoringPage = lazy(() => import("../pages/mentoring/page"));
 const MentoringRoomPage = lazy(() => import("../pages/mentoring/room"));
+const ChatbotPage = lazy(() => import("../pages/chatbot/ChatbotPage"));
 const LearningPathListPage = lazy(() => import("../pages/learning/LearningPathList"));
 const LearningPathDetailPage = lazy(() => import("../pages/learning/LearningPathDetail"));
 const WeeklyQuizPage = lazy(() => import("../pages/learning/WeeklyQuiz"));
@@ -115,6 +116,10 @@ const routes: RouteObject[] = [
   {
     path: "*",
     element: <NotFoundPage />,
+  },
+  {
+    path: "/chatbot",
+    element: <ChatbotPage />,
   },
 ];
 

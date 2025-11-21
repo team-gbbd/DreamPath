@@ -5,9 +5,9 @@
 }
 
 body {
-  font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+    "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: #0f0f0f;
@@ -16,7 +16,7 @@ body {
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
     monospace;
 }
 
@@ -56,10 +56,27 @@ code {
 }
 
 /* 로딩 스피너 */
+/* 기존 스피너 */
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* 챗봇 팝업 부드럽게 나타나는 효과 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
 }
 
 .spinner {
@@ -68,13 +85,37 @@ code {
   height: 20px;
   border: 3px solid rgba(212, 175, 55, 0.3);
   border-radius: 50%;
-  border-top-color: #D4AF37;
+  border-top-color: #d4af37;
   animation: spin 1s ease-in-out infinite;
 }
 
 /* 골드 텍스트 강조 */
 .gold-text {
-  color: #D4AF37;
+  color: #d4af37;
   font-weight: 600;
 }
-
+/* 챗봇 버튼 흔들기 */
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+  25% {
+    transform: rotate(3deg) scale(1.05);
+  }
+  75% {
+    transform: rotate(-3deg) scale(1.05);
+  }
+}
+/* 채팅 로딩 점 3개 */
+@keyframes typing {
+  0% {
+    opacity: 0.2;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.2;
+  }
+}
