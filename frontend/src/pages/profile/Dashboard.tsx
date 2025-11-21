@@ -25,28 +25,53 @@ const API_BASE_URL =
 const PROFILE_CACHE_KEY = 'dreampath:profile-cache';
 const PROFILE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-const getStoredUserId = () => {
+type TabKey = 'overview' | 'personality' | 'values';
+
+interface ProfileData {
+  profileId?: number;
+  values?: string | Record<string, number> | null;
+  emotions?: string | Record<string, number | string> | null;
+}
+
+interface AnalysisData {
+  mbti?: string | null;
+  personality?: string | Record<string, number> | null;
+  values?: string | Record<string, number> | null;
+  emotions?: string | Record<string, number | string> | null;
+  confidenceScore?: number | null;
+  createdAt?: string | null;
+  summary?: string | null;
+}
+
+type ProfileCache = Record<string, { timestamp: number; profile: ProfileData }>;
+
+interface FetchOptions {
+  signal?: AbortSignal;
+}
+
+const getStoredUserId = (): number | null => {
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem('dreampath:user');
     if (!raw) return null;
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw) as { userId?: number };
     return typeof parsed?.userId === 'number' ? parsed.userId : null;
   } catch {
     return null;
   }
 };
 
-const getCachedProfile = (userId) => {
+const getCachedProfile = (userId: number | null): ProfileData | null => {
   if (typeof window === 'undefined' || !userId) return null;
   try {
     const raw = localStorage.getItem(PROFILE_CACHE_KEY);
     if (!raw) return null;
-    const cache = JSON.parse(raw);
-    const entry = cache?.[userId];
+    const cache = JSON.parse(raw) as ProfileCache;
+    const key = String(userId);
+    const entry = cache?.[key];
     if (!entry) return null;
     if (Date.now() - entry.timestamp > PROFILE_CACHE_TTL) {
-      delete cache[userId];
+      delete cache[key];
       localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(cache));
       return null;
     }
@@ -56,12 +81,13 @@ const getCachedProfile = (userId) => {
   }
 };
 
-const setCachedProfile = (userId, profile) => {
+const setCachedProfile = (userId: number | null, profile: ProfileData | null): void => {
   if (typeof window === 'undefined' || !userId || !profile) return;
   try {
     const raw = localStorage.getItem(PROFILE_CACHE_KEY);
-    const cache = raw ? JSON.parse(raw) : {};
-    cache[userId] = {
+    const cache = raw ? (JSON.parse(raw) as ProfileCache) : {};
+    const key = String(userId);
+    cache[key] = {
       timestamp: Date.now(),
       profile,
     };
@@ -71,33 +97,34 @@ const setCachedProfile = (userId, profile) => {
   }
 };
 
-const removeCachedProfile = (userId) => {
+const removeCachedProfile = (userId: number | null): void => {
   if (typeof window === 'undefined' || !userId) return;
   try {
     const raw = localStorage.getItem(PROFILE_CACHE_KEY);
     if (!raw) return;
-    const cache = JSON.parse(raw);
-    if (!cache?.[userId]) return;
-    delete cache[userId];
+    const cache = JSON.parse(raw) as ProfileCache;
+    const key = String(userId);
+    if (!cache?.[key]) return;
+    delete cache[key];
     localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(cache));
   } catch {
     // ignore cache errors
   }
 };
 
-const TAB_LIST = [
+const TAB_LIST: Array<{ key: TabKey; label: string }> = [
   { key: 'overview', label: '전체 개요' },
   { key: 'personality', label: '성향 분석' },
   { key: 'values', label: '가치관' },
 ];
 
-const TAB_DESCRIPTIONS = {
+const TAB_DESCRIPTIONS: Record<TabKey, string> = {
   overview: '핵심 지표와 요약 정보를 통해 현재 분석 상태를 빠르게 확인하세요.',
   personality: '성격 및 감정 지표를 시각화하여 나의 성향을 파악해보세요.',
   values: '중요하게 생각하는 가치가 어떤 양상을 보이는지 비교해보세요.',
 };
 
-const traitLabels = {
+const traitLabels: Record<string, string> = {
   openness: '개방성',
   conscientiousness: '성실성',
   stability: '정서 안정성',
@@ -105,13 +132,19 @@ const traitLabels = {
   extraversion: '외향성',
 };
 
-const valueLabels = {
+const valueLabels: Record<string, string> = {
   creativity: '창의성',
   growth: '성장 지향',
   security: '안정성',
 };
 
-const MBTI_DETAILS = {
+const MBTI_DETAILS: Record<
+  string,
+  {
+    title: string;
+    description: string;
+  }
+> = {
   ESTJ: { title: '체계적인 리더', description: '명확한 목표와 조직적인 실행을 중시하는 유형입니다.' },
   ENTJ: { title: '전략가 리더', description: '비전을 세우고 팀을 이끄는 데 강한 능력을 보입니다.' },
   ENFJ: { title: '공감형 리더', description: '타인의 감정을 이해하고 협업을 이끄는 힘이 있습니다.' },
@@ -130,16 +163,30 @@ const MBTI_DETAILS = {
   ISFP: { title: '감성형 크리에이터', description: '자유롭고 따뜻한 태도로 조화를 추구합니다.' },
 };
 
-const safeParseJson = (value) => {
-  if (!value) return null;
+const getMbtiDetails = (mbti?: string | null) => {
+  if (!mbti) return null;
+  return MBTI_DETAILS[mbti as keyof typeof MBTI_DETAILS] ?? null;
+};
+
+const safeParseJson = <T,>(value: string | T | null | undefined): T | null => {
+  if (value == null) return null;
+  if (typeof value !== 'string') {
+    return value as T;
+  }
   try {
-    return JSON.parse(value);
+    return JSON.parse(value) as T;
   } catch {
     return null;
   }
 };
 
-const ProgressBar = ({ label, value, color = 'bg-indigo-500' }) => {
+interface ProgressBarProps {
+  label: string;
+  value: number | string | null | undefined;
+  color?: string;
+}
+
+const ProgressBar = ({ label, value, color = 'bg-indigo-500' }: ProgressBarProps) => {
   const percent = Math.min(Math.max(Number(value) || 0, 0), 1) * 100;
   return (
     <div className="space-y-1">
@@ -155,37 +202,37 @@ const ProgressBar = ({ label, value, color = 'bg-indigo-500' }) => {
 };
 
 const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState(TAB_LIST[0].key);
-  const [userId, setUserId] = useState(null);
-  const [analysisData, setAnalysisData] = useState(null);
-  const [profileData, setProfileData] = useState(null);
+  const [activeTab, setActiveTab] = useState<TabKey>(TAB_LIST[0].key);
+  const [userId, setUserId] = useState<number | null>(null);
+  const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const navigate = useNavigate();
 
   const fetchProfileData = useCallback(
-    async (targetUserId, options = {}) => {
+    async (targetUserId: number, options: FetchOptions = {}) => {
       const { signal } = options;
       const response = await fetch(`${API_BASE_URL}/profiles/${targetUserId}`, { signal });
       if (!response.ok) throw new Error('프로필 정보를 불러오지 못했습니다.');
-      return response.json();
+      return (await response.json()) as ProfileData;
     },
     [],
   );
 
   const fetchAnalysisData = useCallback(
-    async (targetUserId, options = {}) => {
+    async (targetUserId: number, options: FetchOptions = {}) => {
       const { signal } = options;
       const response = await fetch(`${API_BASE_URL}/profiles/${targetUserId}/analysis`, { signal });
       if (!response.ok) throw new Error('분석 데이터를 불러오지 못했습니다.');
-      return response.json();
+      return (await response.json()) as AnalysisData;
     },
     [],
   );
 
   const fetchInitialData = useCallback(
-    async (targetUserId, options = {}) => {
+    async (targetUserId: number, options: FetchOptions = {}) => {
       const [profile, analysis] = await Promise.all([
         fetchProfileData(targetUserId, options),
         fetchAnalysisData(targetUserId, options),
@@ -218,8 +265,9 @@ const Dashboard = () => {
         setError(null);
         await fetchInitialData(storedId, { signal: controller.signal });
       } catch (err) {
-        if (err.name === 'AbortError') return;
-        setError(err?.message || '알 수 없는 오류가 발생했습니다.');
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        const message = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.';
+        setError(message);
       } finally {
         setIsLoading(false);
       }
@@ -230,33 +278,10 @@ const Dashboard = () => {
     return () => controller.abort();
   }, [fetchInitialData]);
 
-  const refreshDashboardData = useCallback(async () => {
-    if (!userId) return;
-    try {
-      setIsLoading(true);
-      const [profileRes, analysisRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/profiles/${userId}`),
-        fetch(`${API_BASE_URL}/profiles/${userId}/analysis`),
-      ]);
-      if (profileRes.ok) {
-        const profile = await profileRes.json();
-        setProfileData(profile);
-      }
-      if (analysisRes.ok) {
-        const analysis = await analysisRes.json();
-        setAnalysisData(analysis);
-      }
-    } catch (err) {
-      console.error('대시보드 데이터 갱신 실패', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [userId, fetchInitialData]);
-
   const currentTabLabel = useMemo(() => TAB_LIST.find((tab) => tab.key === activeTab)?.label, [activeTab]);
 
   const personalityChartData = useMemo(() => {
-    const personality = safeParseJson(analysisData?.personality);
+    const personality = safeParseJson<Record<string, number>>(analysisData?.personality);
     if (!personality) return null;
     return Object.entries(personality).map(([key, value]) => ({
       key,
@@ -266,7 +291,7 @@ const Dashboard = () => {
   }, [analysisData]);
 
   const valuesChartData = useMemo(() => {
-    const values = safeParseJson(analysisData?.values ?? profileData?.values);
+    const values = safeParseJson<Record<string, number>>(analysisData?.values ?? profileData?.values);
     if (!values) return null;
     return Object.entries(values).map(([key, value]) => ({
       key,
@@ -281,10 +306,10 @@ const Dashboard = () => {
           ? '#9c27b0'
           : '#f97316',
     }));
-  }, [analysisData]);
+  }, [analysisData, profileData]);
 
   const emotionJson = useMemo(
-    () => safeParseJson(analysisData?.emotions ?? profileData?.emotions),
+    () => safeParseJson<Record<string, number | string>>(analysisData?.emotions ?? profileData?.emotions),
     [analysisData, profileData],
   );
 
@@ -305,8 +330,9 @@ const Dashboard = () => {
       .filter((value) => priority.includes(value.key))
       .sort((a, b) => priority.indexOf(a.key) - priority.indexOf(b.key));
   }, [valuesChartData]);
+
   const mbtiTraits = useMemo(() => {
-    const personality = safeParseJson(analysisData?.personality);
+    const personality = safeParseJson<Record<string, number>>(analysisData?.personality);
     if (!personality) return null;
     const extraversion = Number(personality.extraversion ?? 0.5);
     const openness = Number(personality.openness ?? 0.5);
@@ -366,8 +392,11 @@ const Dashboard = () => {
     </div>
   );
 
-  const renderPersonalitySection = () => (
-    <div className="mt-6 space-y-6">
+  const renderPersonalitySection = () => {
+    const selectedMbtiDetail = getMbtiDetails(analysisData?.mbti);
+
+    return (
+      <div className="mt-6 space-y-6">
       <div className="rounded-xl border p-4">
         <h3 className="text-lg font-semibold text-gray-800">성격 특성 분포</h3>
         {personalityChartData ? (
@@ -410,8 +439,8 @@ const Dashboard = () => {
           {analysisData?.mbti ? `${analysisData.mbti} 유형` : 'MBTI 정보 없음'}
         </p>
         <p className="mt-3 text-gray-700">
-          {analysisData?.mbti && MBTI_DETAILS[analysisData.mbti]
-            ? MBTI_DETAILS[analysisData.mbti].description
+          {selectedMbtiDetail
+            ? selectedMbtiDetail.description
             : 'MBTI 데이터가 준비되면 이 영역에서 해석을 확인할 수 있습니다.'}
         </p>
       </div>
@@ -432,7 +461,8 @@ const Dashboard = () => {
         </div>
       )}
     </div>
-  );
+    );
+  };
 
   const renderValuesSection = () => (
     <div className="mt-6 space-y-6">

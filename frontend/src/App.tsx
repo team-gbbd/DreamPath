@@ -8,7 +8,13 @@ function App() {
   return (
     <I18nextProvider i18n={i18n}>
       <BrowserRouter basename={__BASE_PATH__}>
-        <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-gray-500">로딩 중...</div>}>
+        <Suspense
+          fallback={
+            <div className="min-h-screen flex items-center justify-center text-gray-500">
+              로딩 중...
+            </div>
+          }
+        >
           <AppRoutes />
         </Suspense>
       </BrowserRouter>

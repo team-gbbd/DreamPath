@@ -1,6 +1,14 @@
 import { TrendingUp, Shield, Lightbulb } from 'lucide-react';
 
-const VALUE_PROPS = {
+const VALUE_PROPS: Record<
+  'growth' | 'security' | 'creativity',
+  {
+    title: string;
+    description: string;
+    icon: typeof Lightbulb;
+    color: string;
+  }
+> = {
   growth: {
     title: '성장 지향',
     description: '도전과 발전을 최우선으로 생각합니다.',
@@ -21,8 +29,13 @@ const VALUE_PROPS = {
   },
 };
 
-const ValueDetailCard = ({ type, score }) => {
-  const config = VALUE_PROPS[type] || {
+interface ValueDetailCardProps {
+  type: string;
+  score?: number | string | null;
+}
+
+const ValueDetailCard = ({ type, score }: ValueDetailCardProps) => {
+  const config = VALUE_PROPS[type as keyof typeof VALUE_PROPS] || {
     title: type,
     description: '다양한 가치가 균형 있게 나타납니다.',
     icon: Lightbulb,

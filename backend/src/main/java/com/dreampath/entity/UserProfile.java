@@ -18,12 +18,16 @@ public class UserProfile {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
+    @Column(columnDefinition = "jsonb")
     private String personalityTraits;
 
+    @Column(columnDefinition = "jsonb")
     private String values;
 
+    @Column(columnDefinition = "jsonb")
     private String emotions;
 
+    @Column(columnDefinition = "jsonb")
     private String interests;
 
     private Double confidenceScore;
