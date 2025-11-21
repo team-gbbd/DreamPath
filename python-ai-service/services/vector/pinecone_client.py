@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 API_KEY = os.getenv("PINECONE_API_KEY")
-ENV = os.getenv("PINECONE_ENV")
-INDEX_NAME = os.getenv("PINECONE_INDEX")
+ENV = os.getenv("PINECONE_ENVIRONMENT")
+INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
 
 pc = Pinecone(api_key=API_KEY)
 
