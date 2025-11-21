@@ -3,32 +3,37 @@ spring:
     name: dreampath-backend
   
   datasource:
-    url: jdbc:h2:file:./data/dreampath
-    driver-class-name: org.h2.Driver
-    username: sa
-    password: 
-  
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
-  
+    # Supabase PostgreSQL 연결
+    url: jdbc:postgresql://db.ssnidowhjsowfftiglvsz.supabase.co:5432/postgres
+    username: postgres
+    password: 1234
+    driver-class-name: org.postgresql.Driver
+
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: none   # Supabase에서 테이블을 직접 만들었으므로 update 대신 none 사용
     show-sql: true
     properties:
       hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
 server:
   port: 8080
 
+# 🔥 OpenAI 설정
 openai:
   api:
-    key: ${OPENAI_API_KEY:your-api-key-here}
+    key: ${OPENAI_API_KEY}
     model: gpt-4o-mini
 
+# 🔥 Pinecone 설정 (필수)
+pinecone:
+  api-key: pcsk_JRbgT_SEbZYApJSYNJ44f8BHS9c3Zp6xa9uBWGqQX9anC3Ao5L7tkfSRCqe2FSUwQbsVc
+  index-host: "https://faq-index-hkqluzf.svc.aped-4627-b74a.pinecone.io"
+  namespace: ""
+
+# Python 서버(선택)
 python:
   ai:
     service:

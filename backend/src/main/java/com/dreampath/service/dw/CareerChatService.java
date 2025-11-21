@@ -42,10 +42,10 @@ public class CareerChatService {
     @Transactional
     public ChatResponse chat(ChatRequest request) {
         log.info("채팅 요청 - 세션: {}, 사용자: {}", request.getSessionId(), request.getUserId());
-        
+
         // 세션 찾기 또는 생성
         CareerSession session = getOrCreateSession(request.getSessionId(), request.getUserId());
-        
+
         // 설문조사가 완료되지 않았다면 설문조사 완료 요청 메시지 반환
         // (정체성 상태는 컨트롤러에서 처리)
         if (session.getSurveyCompleted() == null || !session.getSurveyCompleted()) {
@@ -148,8 +148,14 @@ public class CareerChatService {
 
     @Transactional(readOnly = true)
     public List<ChatResponse> getSessionHistory(String sessionId) {
+
+        // 🚀 세션이 없으면 그냥 빈 리스트 반환 (오류 X)
         CareerSession session = sessionRepository.findBySessionId(sessionId)
-                .orElseThrow(() -> new RuntimeException("세션을 찾을 수 없습니다."));
+                .orElse(null);
+
+        if (session == null) {
+            return List.of(); // 빈 배열 반환
+        }
 
         return session.getMessages().stream()
                 .map(msg -> ChatResponse.builder()
@@ -160,6 +166,7 @@ public class CareerChatService {
                         .build())
                 .collect(Collectors.toList());
     }
+
 
     /**
      * 세션의 전체 대화 내용을 텍스트로 반환
