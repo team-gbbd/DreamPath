@@ -241,7 +241,7 @@ export default function CareerChatPage() {
 
   const handleAnalyze = () => {
     if (!sessionId) return;
-    navigate(`/analysis/${sessionId}`);
+    navigate('/profile/input');
   };
 
   const handleNewChat = () => {
@@ -549,4 +549,3 @@ export default function CareerChatPage() {
     </div>
   );
 }
-
