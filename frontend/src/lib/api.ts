@@ -5,7 +5,6 @@ import type {
   AnalysisResponse,
   ChatMessage,
   CareerRecommendation,
-} from '@/types';
   LearningPath,
   Question,
   StudentAnswer,
@@ -123,7 +122,6 @@ export const jobSiteService = {
   },
 };
 
-export default api;
 /* ================================
    🔹 DreamPath – Profile Service
    ================================ */

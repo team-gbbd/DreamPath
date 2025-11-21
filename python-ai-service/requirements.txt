@@ -13,4 +13,5 @@ lxml>=4.9.0
 pymysql>=1.1.0
 psycopg2-binary>=2.9.9
 sqlalchemy>=2.0.0
+pinecone>=5.0.0
 

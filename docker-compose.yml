@@ -14,16 +14,28 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_PROFILES_ACTIVE: dev
-      DB_HOST: db
-      DB_PORT: 3306
-      DB_NAME: dreampath
-      DB_USER: dreamuser
-      DB_PASSWORD: dreampass
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: ${DB_URL}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       PYTHON_AI_SERVICE_URL: http://ai-service:8000
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      KAKAO_CLIENT_ID: ${KAKAO_CLIENT_ID}
+      KAKAO_REDIRECT_URI: ${KAKAO_REDIRECT_URI}
+      NAVER_CLIENT_ID: ${NAVER_CLIENT_ID}
+      NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+      LIVEKIT_URL: ${LIVEKIT_URL}
+      PINECONE_API_KEY: ${PINECONE_API_KEY:-dummykey}
+      PINECONE_ENVIRONMENT: ${PINECONE_ENVIRONMENT:-us-west1-gcp}
+      PINECONE_INDEX_NAME: ${PINECONE_INDEX_NAME:-dreampath}
     depends_on:
-      - db
       - ai-service
     restart: always
 
@@ -35,33 +47,7 @@ services:
     environment:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
-      DB_HOST: db
-      DB_PORT: 3306
-      DB_NAME: dreampath
-      DB_USER: dreamuser
-      DB_PASSWORD: dreampass
-    depends_on:
-      - db
+      PINECONE_API_KEY: ${PINECONE_API_KEY:-dummykey}
+      PINECONE_ENVIRONMENT: ${PINECONE_ENVIRONMENT:-us-west1-gcp}
+      PINECONE_INDEX_NAME: ${PINECONE_INDEX_NAME:-dreampath}
     restart: always
-
-  db:
-    image: mysql:8.0
-    container_name: dreampath-mysql
-    ports:
-      - "0.0.0.0:3333:3306"
-    environment:
-      MYSQL_ROOT_PASSWORD: rootpass
-      MYSQL_DATABASE: dreampath
-      MYSQL_USER: dreamuser
-      MYSQL_PASSWORD: dreampass
-    volumes:
-      - mysql_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpass"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: always
-
-volumes:
-  mysql_data:
