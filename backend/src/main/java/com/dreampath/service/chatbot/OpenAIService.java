@@ -1,4 +1,4 @@
-package com.dreampath.service;
+package com.dreampath.service.chatbot;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;

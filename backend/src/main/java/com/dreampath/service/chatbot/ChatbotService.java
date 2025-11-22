@@ -1,12 +1,12 @@
-package com.dreampath.service;
+package com.dreampath.service.chatbot;
 
-import com.dreampath.dto.ChatRequestDto;
-import com.dreampath.entity.ChatbotMessage;
-import com.dreampath.entity.ChatbotSession;
-import com.dreampath.entity.Faq;
-import com.dreampath.repository.ChatbotMessageRepository;
-import com.dreampath.repository.ChatbotSessionRepository;
-import com.dreampath.repository.FaqRepository;
+import com.dreampath.dto.chatbot.ChatRequestDto;
+import com.dreampath.entity.chatbot.ChatbotMessage;
+import com.dreampath.entity.chatbot.ChatbotSession;
+import com.dreampath.entity.chatbot.Faq;
+import com.dreampath.repository.chatbot.ChatbotMessageRepository;
+import com.dreampath.repository.chatbot.ChatbotSessionRepository;
+import com.dreampath.repository.chatbot.FaqRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

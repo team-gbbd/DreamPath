@@ -1,4 +1,4 @@
-package com.dreampath.dto;
+package com.dreampath.dto.chatbot;
 
 import lombok.Getter;
 import lombok.Setter;

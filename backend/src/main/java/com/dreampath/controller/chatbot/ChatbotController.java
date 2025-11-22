@@ -1,7 +1,7 @@
-package com.dreampath.controller;
+package com.dreampath.controller.chatbot;
 
-import com.dreampath.dto.ChatRequestDto;
-import com.dreampath.service.ChatbotService;
+import com.dreampath.dto.chatbot.ChatRequestDto;
+import com.dreampath.service.chatbot.ChatbotService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
