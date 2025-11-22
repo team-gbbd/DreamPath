@@ -1,4 +1,4 @@
-package com.dreampath.entity;
+package com.dreampath.entity.chatbot;
 
 import jakarta.persistence.*;
 import lombok.Getter;

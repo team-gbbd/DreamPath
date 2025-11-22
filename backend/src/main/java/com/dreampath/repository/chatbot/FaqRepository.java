@@ -1,6 +1,6 @@
-package com.dreampath.repository;
+package com.dreampath.repository.chatbot;
 
-import com.dreampath.entity.Faq;
+import com.dreampath.entity.chatbot.Faq;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import org.springframework.data.jpa.repository.Query;

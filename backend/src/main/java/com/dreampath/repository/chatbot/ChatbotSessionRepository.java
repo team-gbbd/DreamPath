@@ -1,6 +1,6 @@
-package com.dreampath.repository;
+package com.dreampath.repository.chatbot;
 
-import com.dreampath.entity.ChatbotSession;
+import com.dreampath.entity.chatbot.ChatbotSession;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.UUID;
