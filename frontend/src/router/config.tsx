@@ -20,6 +20,7 @@ const DashboardPage = lazy(() => import("../pages/learning/Dashboard"));
 const DeveloperExperiencePage = lazy(() => import("../pages/career-simulation/DeveloperExperience"));
 const CareerSimulationResultPage = lazy(() => import("../pages/career-simulation/Result"));
 const CodingTestPage = lazy(() => import("../pages/career-simulation/CodingTest"));
+const AIAgentDashboardPage = lazy(() => import("../pages/ai-agent/Dashboard"));
 
 const routes: RouteObject[] = [
   {
@@ -109,6 +110,14 @@ const routes: RouteObject[] = [
   {
     path: "/career-simulation/coding-test",
     element: <CodingTestPage />,
+  },
+
+  /* ----------------------
+     🔹 AI AGENT (dw)
+     ---------------------- */
+  {
+    path: "/ai-agent",
+    element: <AIAgentDashboardPage />,
   },
 
   /* 마지막 NotFound */

@@ -59,6 +59,66 @@ from .crawler import (
     JobListingsQueryRequest
 )
 
+# AI 에이전트 모델
+from .agent import (
+    # 채용 공고 추천
+    JobRecommendationRequest,
+    JobRecommendation,
+    JobRecommendationResponse,
+    RealTimeRecommendationRequest,
+
+    # 지원 현황 추적
+    Application,
+    ApplicationStatus,
+    ApplicationStatistics,
+    NextAction,
+    ApplicationAnalysisRequest,
+    ApplicationAnalysisResponse,
+    StatusAdvice,
+    ApplicationTrackingRequest,
+    ApplicationTrackingResponse,
+
+    # 커리어 성장
+    GapAnalysis,
+    GrowthStep,
+    RecommendedResource,
+    CareerGapRequest,
+    CareerGapResponse,
+    SkillDevelopmentRequest,
+    RequiredSkill,
+    SkillDevelopmentResponse,
+    GrowthTimelineRequest,
+    TimelinePeriod,
+    Milestone,
+    GrowthTimelineResponse,
+    MarketTrendsRequest,
+    MarketTrendsResponse,
+
+    # 이력서 최적화
+    Resume,
+    JobPosting,
+    KeywordMatch,
+    OptimizationSuggestion,
+    ResumeOptimizationRequest,
+    ResumeOptimizationResponse,
+    ResumeQualityRequest,
+    CategoryScores,
+    ImprovementPriority,
+    ResumeQualityResponse,
+    CoverLetterRequest,
+    CoverLetterStructure,
+    CoverLetterResponse,
+    KeywordSuggestionRequest,
+    KeywordSuggestionResponse,
+
+    # Enums
+    DifficultyLevel,
+    ResourceType,
+    Priority,
+    SkillLevel,
+    ResumeSection
+)
+
 __all__ = [
     # 공통
     "ConversationMessage",
@@ -106,4 +166,61 @@ __all__ = [
     "CrawlResponse",
     "CrawlMultipleSitesResponse",
     "JobListingsQueryRequest",
+
+    # AI 에이전트 - 채용 공고 추천
+    "JobRecommendationRequest",
+    "JobRecommendation",
+    "JobRecommendationResponse",
+    "RealTimeRecommendationRequest",
+
+    # AI 에이전트 - 지원 현황 추적
+    "Application",
+    "ApplicationStatus",
+    "ApplicationStatistics",
+    "NextAction",
+    "ApplicationAnalysisRequest",
+    "ApplicationAnalysisResponse",
+    "StatusAdvice",
+    "ApplicationTrackingRequest",
+    "ApplicationTrackingResponse",
+
+    # AI 에이전트 - 커리어 성장
+    "GapAnalysis",
+    "GrowthStep",
+    "RecommendedResource",
+    "CareerGapRequest",
+    "CareerGapResponse",
+    "SkillDevelopmentRequest",
+    "RequiredSkill",
+    "SkillDevelopmentResponse",
+    "GrowthTimelineRequest",
+    "TimelinePeriod",
+    "Milestone",
+    "GrowthTimelineResponse",
+    "MarketTrendsRequest",
+    "MarketTrendsResponse",
+
+    # AI 에이전트 - 이력서 최적화
+    "Resume",
+    "JobPosting",
+    "KeywordMatch",
+    "OptimizationSuggestion",
+    "ResumeOptimizationRequest",
+    "ResumeOptimizationResponse",
+    "ResumeQualityRequest",
+    "CategoryScores",
+    "ImprovementPriority",
+    "ResumeQualityResponse",
+    "CoverLetterRequest",
+    "CoverLetterStructure",
+    "CoverLetterResponse",
+    "KeywordSuggestionRequest",
+    "KeywordSuggestionResponse",
+
+    # AI 에이전트 - Enums
+    "DifficultyLevel",
+    "ResourceType",
+    "Priority",
+    "SkillLevel",
+    "ResumeSection",
 ]
