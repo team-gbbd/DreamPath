@@ -1,5 +1,6 @@
 package com.dreampath.entity.chatbot;
 
+import com.dreampath.entity.User;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -16,13 +17,16 @@ public class ChatbotMessage {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    // 실제 사용하는 세션 ID
-    @Column(name = "cb_session_id")
-    private UUID sessionId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cb_session_id", referencedColumnName = "id")
+    private ChatbotSession session;
 
-    // 실제 사용하는 사용자 ID
-    @Column(name = "cb_user_id")
-    private UUID userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cb_user_id", referencedColumnName = "userId", nullable = true)
+    private User user; // 로그인 사용자
+
+    @Column(name = "guest_id")
+    private String guestId; // 비회원 게스트 ID
 
     private String role;
 
