@@ -21,6 +21,9 @@ const DeveloperExperiencePage = lazy(() => import("../pages/career-simulation/De
 const CareerSimulationResultPage = lazy(() => import("../pages/career-simulation/Result"));
 const CodingTestPage = lazy(() => import("../pages/career-simulation/CodingTest"));
 const AIAgentDashboardPage = lazy(() => import("../pages/ai-agent/Dashboard"));
+const CompanyListPage = lazy(() => import("../pages/company/CompanyListPage"));
+const CompanyDetailPage = lazy(() => import("../pages/company/CompanyDetailPage"));
+const CrawlerPage = lazy(() => import("../pages/admin/CrawlerPage"));
 
 const routes: RouteObject[] = [
   {
@@ -118,6 +121,26 @@ const routes: RouteObject[] = [
   {
     path: "/ai-agent",
     element: <AIAgentDashboardPage />,
+  },
+
+  /* ----------------------
+     🔹 COMPANY INFO
+     ---------------------- */
+  {
+    path: "/company-list",
+    element: <CompanyListPage />,
+  },
+  {
+    path: "/company/:id",
+    element: <CompanyDetailPage />,
+  },
+
+  /* ----------------------
+     🔹 ADMIN / CRAWLER
+     ---------------------- */
+  {
+    path: "/admin/crawler",
+    element: <CrawlerPage />,
   },
 
   /* 마지막 NotFound */

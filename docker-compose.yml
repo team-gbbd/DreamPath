@@ -14,10 +14,13 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_PROFILES_ACTIVE: prod
-      DB_URL: ${DB_URL}
-      DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/dreampath?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: dreamuser
+      SPRING_DATASOURCE_PASSWORD: dreampass
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.MySQLDialect
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       PYTHON_AI_SERVICE_URL: http://ai-service:8000
@@ -36,7 +39,29 @@ services:
       PINECONE_ENVIRONMENT: ${PINECONE_ENVIRONMENT:-us-west1-gcp}
       PINECONE_INDEX_NAME: ${PINECONE_INDEX_NAME:-dreampath}
     depends_on:
-      - ai-service
+      db:
+        condition: service_healthy
+      ai-service:
+        condition: service_started
+    restart: always
+
+  db:
+    image: mysql:8.0
+    container_name: dreampath-mysql
+    ports:
+      - "3333:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: dreampath
+      MYSQL_USER: dreamuser
+      MYSQL_PASSWORD: dreampass
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: always
 
   ai-service:
@@ -50,4 +75,15 @@ services:
       PINECONE_API_KEY: ${PINECONE_API_KEY:-dummykey}
       PINECONE_ENVIRONMENT: ${PINECONE_ENVIRONMENT:-us-west1-gcp}
       PINECONE_INDEX_NAME: ${PINECONE_INDEX_NAME:-dreampath}
+      # Supabase PostgreSQL
+      DB_TYPE: postgres
+      DB_HOST: ${DB_HOST:-aws-1-ap-northeast-1.pooler.supabase.com}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-postgres}
+      DB_SSLMODE: ${DB_SSLMODE:-require}
     restart: always
+
+volumes:
+  mysql_data:

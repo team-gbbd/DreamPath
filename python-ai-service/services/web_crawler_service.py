@@ -15,6 +15,7 @@ from bs4 import BeautifulSoup
 import httpx
 from urllib.parse import urljoin, urlencode, quote
 from services.database_service import DatabaseService
+from services.company_crawler_service import CompanyCrawlerService
 
 
 class CacheEntry:
@@ -54,9 +55,11 @@ class WebCrawlerService:
         # 데이터베이스 서비스 초기화
         try:
             self.db_service = DatabaseService()
+            self.company_service = CompanyCrawlerService()
         except Exception as e:
             print(f"데이터베이스 서비스 초기화 실패: {str(e)}")
             self.db_service = None
+            self.company_service = None
     
     def _generate_cache_key(self, site_name: str, site_url: str, search_keyword: Optional[str] = None, max_results: int = 10) -> str:
         """캐시 키 생성"""
@@ -184,6 +187,17 @@ class WebCrawlerService:
                         )
                         result["savedToDatabase"] = saved_count
                         print(f"[원티드] {saved_count}개의 채용 공고가 데이터베이스에 저장되었습니다.")
+
+                        # 기업정보도 저장
+                        if self.company_service:
+                            try:
+                                company_count = await self.company_service.crawl_and_save_companies_from_jobs(
+                                    site_name="wanted",
+                                    job_listings=job_listings
+                                )
+                                result["savedCompanies"] = company_count
+                            except Exception as e:
+                                print(f"[원티드] 기업정보 저장 실패: {str(e)}")
                     except Exception as e:
                         print(f"[원티드] 데이터베이스 저장 실패: {str(e)}")
                         result["databaseError"] = str(e)
@@ -307,8 +321,14 @@ class WebCrawlerService:
                         location = location_info.get("location", "") or location_info.get("name", "") or location_info.get("address", "")
                     else:
                         location = str(location_info) if location_info else ""
-                    
-                    reward = job.get("reward", "") or job.get("compensation", "")
+
+                    # reward 처리 - dict인 경우 문자열로 변환
+                    reward_data = job.get("reward", "") or job.get("compensation", "")
+                    if isinstance(reward_data, dict):
+                        reward = reward_data.get("formatted_total") or reward_data.get("formatted_recommender") or str(reward_data)
+                    else:
+                        reward = str(reward_data) if reward_data else ""
+
                     experience = job.get("experience_level", "") or job.get("years", "")
                     
                     # 상세정보 추출 (description 필드)
@@ -509,8 +529,8 @@ class WebCrawlerService:
             if search_keyword:
                 base_search_url = f"https://www.jobkorea.co.kr/Search/?stext={quote(search_keyword)}"
             else:
-                # 검색어 없으면 전체 채용 공고 페이지
-                base_search_url = "https://www.jobkorea.co.kr/recruit/joblist"
+                # 검색어 없으면 전체 채용 공고 페이지 (menucode=local 추가)
+                base_search_url = "https://www.jobkorea.co.kr/recruit/joblist?menucode=local"
             
             print(f"[잡코리아] 크롤링 시작: {base_search_url}, 키워드: {search_keyword}, max_results: {max_results}")
             
@@ -566,42 +586,24 @@ class WebCrawlerService:
                     page_job_listings = []
                     
                     # 잡코리아 HTML 구조에 맞게 파싱
-                    # 잡코리아는 여러 가지 구조를 사용할 수 있음
                     job_items = []
-                    
-                    # 1. data-gno 속성을 가진 요소 찾기 (가장 확실한 방법)
-                    job_items = soup.find_all("div", {"data-gno": True})
-                    
-                    # 2. list-item 클래스 찾기
+
+                    # 1. devloopArea 클래스를 가진 li 요소 찾기 (2024년 기준 실제 구조)
+                    job_items = soup.find_all("li", class_="devloopArea")
+
+                    # 2. data-gno 속성을 가진 요소 찾기
                     if not job_items:
-                        job_items = soup.find_all("div", class_=re.compile(r".*list-item.*|.*listItem.*", re.I))
-                    
-                    # 3. recruit 관련 클래스 찾기
-                    if not job_items:
-                        job_items = soup.find_all("div", class_=re.compile(r".*recruit.*", re.I))
-                    
-                    # 4. tplJobList 클래스 찾기 (잡코리아 검색 결과 리스트)
-                    if not job_items:
-                        job_items = soup.find_all("div", class_=re.compile(r".*tplJobList.*|.*job-list.*", re.I))
-                    
-                    # 5. li 태그 내의 공고 찾기
-                    if not job_items:
-                        list_items = soup.find_all("li", class_=re.compile(r".*list.*|.*item.*", re.I))
-                        for li in list_items:
-                            if li.find("a", href=re.compile(r"/Recruit/GI_Read")):
-                                job_items.append(li)
-                    
-                    # 6. 더 일반적인 선택자
-                    if not job_items:
-                        job_items = soup.find_all("div", class_=re.compile(r".*list.*post.*|.*post.*list.*|.*item.*recruit.*|.*recruit.*item.*", re.I))
-                    
-                    # 7. 모든 링크에서 /Recruit/GI_Read 패턴 찾기
+                        job_items = soup.find_all("div", {"data-gno": True})
+
+                    # 3. 채용 링크에서 부모 li 찾기
                     if not job_items:
                         recruit_links = soup.find_all("a", href=re.compile(r"/Recruit/GI_Read"))
+                        seen_parents = set()
                         for link in recruit_links:
-                            parent = link.find_parent("div") or link.find_parent("li")
-                            if parent and parent not in job_items:
+                            parent = link.find_parent("li")
+                            if parent and id(parent) not in seen_parents:
                                 job_items.append(parent)
+                                seen_parents.add(id(parent))
                     
                     print(f"[잡코리아] 페이지 {page} 발견된 공고 아이템 수: {len(job_items)}")
                     
@@ -646,16 +648,29 @@ class WebCrawlerService:
                             
                             # 회사명 추출 - 더 넓은 패턴 시도
                             company_elem = (
-                                item.find("a", class_=re.compile(r".*company.*|.*corp.*|.*name.*", re.I)) or
-                                item.find("strong", class_=re.compile(r".*company.*|.*name.*", re.I)) or
-                                item.find("span", class_=re.compile(r".*company.*|.*name.*", re.I)) or
-                                item.find("div", class_=re.compile(r".*company.*|.*name.*", re.I)) or
-                                item.find("p", class_=re.compile(r".*company.*|.*name.*", re.I))
+                                item.find("a", class_=re.compile(r".*company.*|.*corp.*", re.I)) or
+                                item.find("strong", class_=re.compile(r".*company.*", re.I)) or
+                                item.find("span", class_=re.compile(r".*company.*", re.I)) or
+                                item.find("div", class_=re.compile(r".*company.*", re.I)) or
+                                item.find("p", class_=re.compile(r".*company.*", re.I)) or
+                                # 추가 패턴: 기업명, 회사명 등
+                                item.find("a", class_=re.compile(r".*corp.*|.*name.*", re.I)) or
+                                item.find("span", attrs={"class": re.compile(r".*name.*", re.I)}) or
+                                # data-company 속성
+                                item.find(attrs={"data-company": True})
                             )
-                            
-                            # 디버깅: 페이지 1의 첫 3개 아이템에서 회사명 추출 시도 과정 출력
-                            if page == 1 and item_count <= 3:
-                                print(f"[잡코리아 DEBUG] Item {item_count} - company_elem: {company_elem}")
+
+                            # 회사명이 없으면 전체 텍스트에서 추출 시도
+                            if not company_elem:
+                                # 제목이 아닌 다른 링크에서 회사명 찾기
+                                all_links = item.find_all("a", href=True)
+                                for link in all_links:
+                                    link_text = link.get_text(strip=True)
+                                    href = link.get("href", "")
+                                    # 채용공고 링크가 아니고, 회사 관련 링크면 회사명으로 추정
+                                    if link_text and "/Recruit/Co_" in href:
+                                        company_elem = link
+                                        break
                             
                             # 지역 추출
                             location_elem = (
@@ -859,23 +874,31 @@ class WebCrawlerService:
                     for i, (t, c) in enumerate(debug_sample):
                         print(f"  {i+1}. 제목: '{t}' | 회사: '{c}'")
                 
-                # 중복 제거: 제목+회사명 조합으로만 체크 (job_id 무시)
+                # 중복 제거: job_id 기반으로 체크 (회사명 없어도 문제없도록)
                 seen_keys = set()
                 unique_listings = []
                 duplicate_count = 0
                 for job in all_job_listings:
+                    job_id = job.get("id", "").strip()
                     title = job.get("title", "").strip()
                     company = job.get("company", "").strip()
-                    
-                    # 제목+회사명 조합으로 중복 체크
-                    unique_key = f"{title}|{company}"
-                    
+
+                    # 1순위: job_id로 중복 체크
+                    if job_id:
+                        unique_key = job_id
+                    # 2순위: 제목+회사명 조합 (회사명이 있는 경우만)
+                    elif company:
+                        unique_key = f"{title}|{company}"
+                    # 3순위: 제목만 (회사명이 없는 경우)
+                    else:
+                        unique_key = title
+
                     if unique_key and unique_key not in seen_keys:
                         seen_keys.add(unique_key)
                         unique_listings.append(job)
                     else:
                         duplicate_count += 1
-                
+
                 all_job_listings = unique_listings
                 print(f"[잡코리아] 중복 제거: {duplicate_count}개 중복, {len(all_job_listings)}개 고유")
                 
@@ -906,6 +929,17 @@ class WebCrawlerService:
                         )
                         print(f"[잡코리아] {saved_count}개의 채용 공고가 데이터베이스에 저장되었습니다.")
                         result["savedToDatabase"] = saved_count
+
+                        # 기업정보도 저장
+                        if self.company_service:
+                            try:
+                                company_count = await self.company_service.crawl_and_save_companies_from_jobs(
+                                    site_name="jobkorea",
+                                    job_listings=all_job_listings
+                                )
+                                result["savedCompanies"] = company_count
+                            except Exception as e:
+                                print(f"[잡코리아] 기업정보 저장 실패: {str(e)}")
                     except Exception as e:
                         print(f"[잡코리아] 데이터베이스 저장 실패: {str(e)}")
                         result["databaseError"] = str(e)
@@ -1034,12 +1068,21 @@ class WebCrawlerService:
                                 item.find("h3")
                             )
                             
-                            # 회사명 추출
+                            # 회사명 추출 - 여러 방법 시도
                             company_elem = (
                                 item.find("a", class_=re.compile(r".*company.*|.*corp.*", re.I)) or
                                 item.find("strong", class_=re.compile(r".*company.*", re.I)) or
                                 item.find("span", class_=re.compile(r".*company.*", re.I))
                             )
+
+                            # 회사명이 비어있거나 없으면 title에서 추출 시도
+                            company = company_elem.get_text(strip=True) if company_elem else ""
+                            if not company and title_elem:
+                                # 제목에서 [회사명] 패턴 추출
+                                title_text = title_elem.get_text(strip=True)
+                                company_match = re.search(r'^\[([^\]]+)\]', title_text)
+                                if company_match:
+                                    company = company_match.group(1)
                             
                             # 지역 추출
                             location_elem = (
@@ -1138,6 +1181,8 @@ class WebCrawlerService:
                             
                             # 제목 정리 - 깔끔한 제목만 남김
                             title = full_text
+                            # [회사명] 패턴 제거
+                            title = re.sub(r'^\[[^\]]+\]\s*', '', title)
                             title = re.sub(r'~\d+\.\d+\([월화수목금토일]\).*$', '', title)
                             title = re.sub(r'D-\d+', '', title)
                             title = re.sub(r'\([^)]*[서울|경기|인천|부산|대구|광주|대전|울산|세종|강원|충북|충남|전북|전남|경북|경남|제주][^)]*\)', '', title)
@@ -1148,8 +1193,7 @@ class WebCrawlerService:
                             title = re.sub(r'\s+', ' ', title).strip()
                             if len(title) > 200:
                                 title = title[:200] + '...'
-                            
-                            company = company_elem.get_text(strip=True) if company_elem else ""
+
                             location = location_elem.get_text(strip=True) if location_elem else ""
                             
                             # 필터/메뉴 항목만 제외 (완화된 필터)
@@ -1254,10 +1298,26 @@ class WebCrawlerService:
                         )
                         print(f"[사람인] {saved_count}개의 채용 공고가 데이터베이스에 저장되었습니다.")
                         result["savedToDatabase"] = saved_count
+
+                        # 기업정보도 저장
+                        print(f"[사람인] company_service 존재 여부: {self.company_service is not None}")
+                        if self.company_service:
+                            try:
+                                print(f"[사람인] 기업정보 추출 시작... (job_listings: {len(all_job_listings)}개)")
+                                company_count = await self.company_service.crawl_and_save_companies_from_jobs(
+                                    site_name="saramin",
+                                    job_listings=all_job_listings
+                                )
+                                print(f"[사람인] {company_count}개 기업 정보 저장 완료")
+                                result["savedCompanies"] = company_count
+                            except Exception as e:
+                                import traceback
+                                print(f"[사람인] 기업정보 저장 실패: {str(e)}")
+                                print(f"[사람인] Traceback: {traceback.format_exc()}")
                     except Exception as e:
                         print(f"[사람인] 데이터베이스 저장 실패: {str(e)}")
                         result["databaseError"] = str(e)
-                
+
                 return result
             
         except Exception as e:
