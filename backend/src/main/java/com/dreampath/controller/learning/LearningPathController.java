@@ -31,9 +31,68 @@ public class LearningPathController {
     private final QuestionGeneratorService questionGeneratorService;
     private final AnswerEvaluationService answerEvaluationService;
     private final DashboardService dashboardService;
+    private final CareerToLearningDomainMapper careerDomainMapper;
     private final UserRepository userRepository;
     private final CareerAnalysisRepository careerAnalysisRepository;
     private final com.dreampath.repository.learning.WeeklyQuestionRepository weeklyQuestionRepository;
+    private final com.dreampath.repository.dw.CareerSessionRepository careerSessionRepository;
+
+    /**
+     * 진로 상담 결과에서 직업 선택 후 학습 경로 생성
+     * POST /api/learning-paths/from-career
+     */
+    @PostMapping("/from-career")
+    public ResponseEntity<CareerSelectionResponse> createLearningPathFromCareer(
+            @Valid @RequestBody CareerSelectionRequest request) {
+        log.info("직업 선택 기반 로드맵 생성 요청 - userId: {}, sessionId: {}, selectedCareer: {}",
+                request.getUserId(), request.getSessionId(), request.getSelectedCareer());
+
+        try {
+            // 1. 사용자 조회
+            User user = userRepository.findById(request.getUserId())
+                    .orElseThrow(() -> new ResourceNotFoundException("User", "id", request.getUserId()));
+
+            // 2. sessionId가 있으면 CareerAnalysis 조회, 없으면 null
+            CareerAnalysis analysis = null;
+            if (request.getSessionId() != null && !request.getSessionId().isBlank()) {
+                var session = careerSessionRepository.findBySessionId(request.getSessionId())
+                        .orElse(null);
+
+                if (session != null) {
+                    analysis = careerAnalysisRepository.findBySession(session)
+                            .orElse(null);
+                    log.info("CareerAnalysis 연결됨 - analysisId: {}", analysis != null ? analysis.getId() : "null");
+                } else {
+                    log.warn("sessionId가 제공되었지만 CareerSession을 찾을 수 없음: {}", request.getSessionId());
+                }
+            } else {
+                log.info("sessionId가 제공되지 않음 - CareerAnalysis 없이 학습 경로 생성");
+            }
+
+            // 3. 직업명 → 학습 도메인 매핑
+            String learningDomain = careerDomainMapper.mapCareerToDomain(request.getSelectedCareer());
+            log.info("직업 '{}' → 학습 도메인 '{}'로 매핑됨", request.getSelectedCareer(), learningDomain);
+
+            // 4. 학습 경로 생성 (analysis는 null일 수 있음)
+            LearningPath path = learningPathService.createLearningPath(user, analysis, learningDomain);
+
+            // 5. 응답 생성
+            return ResponseEntity.ok(CareerSelectionResponse.builder()
+                    .learningPathId(path.getPathId())
+                    .selectedCareer(request.getSelectedCareer())
+                    .learningDomain(learningDomain)
+                    .totalWeeks(path.getWeeklySessions() != null ? path.getWeeklySessions().size() : 0)
+                    .message("학습 경로가 성공적으로 생성되었습니다.")
+                    .build());
+
+        } catch (ResourceNotFoundException e) {
+            log.error("리소스를 찾을 수 없음: {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("학습 경로 생성 중 오류 발생", e);
+            throw new RuntimeException("학습 경로 생성에 실패했습니다: " + e.getMessage());
+        }
+    }
 
     /**
      * 로드맵 생성

@@ -1,0 +1,32 @@
+package com.dreampath.repository;
+
+import com.dreampath.entity.Mentor;
+import com.dreampath.entity.MentoringSession;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+public interface MentoringSessionRepository extends JpaRepository<MentoringSession, Long> {
+
+    /**
+     * 특정 멘토의 활성화된 세션 조회
+     */
+    List<MentoringSession> findByMentorAndIsActiveTrueOrderBySessionDateAsc(Mentor mentor);
+
+    /**
+     * 특정 멘토의 모든 세션 조회
+     */
+    List<MentoringSession> findByMentorOrderBySessionDateDesc(Mentor mentor);
+
+    /**
+     * 활성화된 모든 세션 조회 (미래 날짜만)
+     */
+    List<MentoringSession> findByIsActiveTrueAndSessionDateAfterOrderBySessionDateAsc(LocalDateTime now);
+
+    /**
+     * 특정 날짜 이후의 활성화된 세션 조회
+     */
+    List<MentoringSession> findByIsActiveTrueAndSessionDateBetweenOrderBySessionDateAsc(
+            LocalDateTime startDate, LocalDateTime endDate);
+}

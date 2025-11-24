@@ -49,6 +49,7 @@ public class LearningPathResponse {
         private Long weeklyId;
         private Integer weekNumber;
         private String status;
+        private Boolean isCompleted;
         private Integer questionCount;
         private Integer correctCount;
         private String aiSummary;
@@ -59,6 +60,7 @@ public class LearningPathResponse {
             info.weeklyId = session.getWeeklyId();
             info.weekNumber = session.getWeekNumber();
             info.status = session.getStatus().name();
+            info.isCompleted = session.getStatus() == com.dreampath.enums.WeeklyStatus.COMPLETED;
 
             // LAZY 로딩: questions 컬렉션 초기화
             try {
