@@ -11,8 +11,8 @@ const AnalysisResultPage = lazy(() => import("../pages/analysis-result/page"));
 const JobListingsPage = lazy(() => import("../pages/job-listings/page"));
 const LoginPage = lazy(() => import("../pages/auth/LoginPage"));
 const RegisterPage = lazy(() => import("../pages/auth/RegisterPage"));
-const MentoringPage = lazy(() => import("../pages/mentoring/page"));
-const MentoringRoomPage = lazy(() => import("../pages/mentoring/room"));
+const MentoringPage = lazy(() => import("../pages/mentoring/MentoringPage"));
+const ChatbotPage = lazy(() => import("../pages/chatbot/ChatbotPage"));
 const LearningPathListPage = lazy(() => import("../pages/learning/LearningPathList"));
 const LearningPathDetailPage = lazy(() => import("../pages/learning/LearningPathDetail"));
 const WeeklyQuizPage = lazy(() => import("../pages/learning/WeeklyQuiz"));
@@ -24,6 +24,21 @@ const AIAgentDashboardPage = lazy(() => import("../pages/ai-agent/Dashboard"));
 const CompanyListPage = lazy(() => import("../pages/company/CompanyListPage"));
 const CompanyDetailPage = lazy(() => import("../pages/company/CompanyDetailPage"));
 const CrawlerPage = lazy(() => import("../pages/admin/CrawlerPage"));
+const MyPage = lazy(() => import("../pages/mypage/page"));
+const MentorApplyPage = lazy(() => import("../pages/mentor/MentorApply"));
+const AdminDashboardPage = lazy(() => import("../pages/admin/AdminDashboard"));
+const MentorApplicationsPage = lazy(() => import("../pages/admin/MentorApplications"));
+const MentorsListPage = lazy(() => import("../pages/mentors/MentorsList"));
+const MentorDetailPage = lazy(() => import("../pages/mentors/MentorDetail"));
+const MentorEditPage = lazy(() => import("../pages/mentors/MentorEdit"));
+const PaymentPurchasePage = lazy(() => import("../pages/payments/PaymentPurchase"));
+const PaymentHistoryPage = lazy(() => import("../pages/payments/PaymentHistory"));
+const PaymentSuccessPage = lazy(() => import("../pages/payments/PaymentSuccess"));
+const PaymentFailPage = lazy(() => import("../pages/payments/PaymentFail"));
+const BookMentoringPage = lazy(() => import("../pages/mentoring/BookMentoring"));
+const MyBookingsPage = lazy(() => import("../pages/my-bookings/page"));
+const MentorSessionsPage = lazy(() => import("../pages/mentor/MentorSessions"));
+const MentoringMeetingPage = lazy(() => import("../pages/mentoring/MentoringMeeting"));
 
 const routes: RouteObject[] = [
   {
@@ -54,13 +69,9 @@ const routes: RouteObject[] = [
     path: "/mentoring",
     element: <MentoringPage />,
   },
-  {
-    path: "/mentoring/room",
-    element: <MentoringRoomPage />,
-  },
 
   /* ----------------------
-     🔹 PROFILE (HEAD)
+     🔹 PROFILE
      ---------------------- */
   {
     path: "/profile/input",
@@ -80,7 +91,7 @@ const routes: RouteObject[] = [
   },
 
   /* ----------------------
-     🔹 LEARNING PATH (dev)
+     🔹 LEARNING PATH
      ---------------------- */
   {
     path: "/learning",
@@ -95,7 +106,7 @@ const routes: RouteObject[] = [
     element: <WeeklyQuizPage />,
   },
   {
-    path: "/learning/:pathId/dashboard",
+    path: "/learning/dashboard",
     element: <DashboardPage />,
   },
 
@@ -145,8 +156,72 @@ const routes: RouteObject[] = [
 
   /* 마지막 NotFound */
   {
+    path: "/mypage",
+    element: <MyPage />,
+  },
+  {
+    path: "/mentor/apply",
+    element: <MentorApplyPage />,
+  },
+  {
+    path: "/admin/dashboard",
+    element: <AdminDashboardPage />,
+  },
+  {
+    path: "/admin/mentor-applications",
+    element: <MentorApplicationsPage />,
+  },
+  {
+    path: "/mentors",
+    element: <MentorsListPage />,
+  },
+  {
+    path: "/mentors/:id",
+    element: <MentorDetailPage />,
+  },
+  {
+    path: "/mentors/:id/edit",
+    element: <MentorEditPage />,
+  },
+  {
+    path: "/payments/purchase",
+    element: <PaymentPurchasePage />,
+  },
+  {
+    path: "/payments/history",
+    element: <PaymentHistoryPage />,
+  },
+  {
+    path: "/payments/success",
+    element: <PaymentSuccessPage />,
+  },
+  {
+    path: "/payments/fail",
+    element: <PaymentFailPage />,
+  },
+  {
+    path: "/mentoring/book/:sessionId",
+    element: <BookMentoringPage />,
+  },
+  {
+    path: "/my-bookings",
+    element: <MyBookingsPage />,
+  },
+  {
+    path: "/mentor/sessions",
+    element: <MentorSessionsPage />,
+  },
+  {
+    path: "/mentoring/meeting/:bookingId",
+    element: <MentoringMeetingPage />,
+  },
+  {
     path: "*",
     element: <NotFoundPage />,
+  },
+  {
+    path: "/chatbot",
+    element: <ChatbotPage />,
   },
 ];
 
