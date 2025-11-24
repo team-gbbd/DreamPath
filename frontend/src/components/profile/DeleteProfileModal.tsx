@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { API_BASE_URL } from '@/lib/api';
 
 interface DeleteProfileModalProps {
   isOpen: boolean;
@@ -6,10 +7,6 @@ interface DeleteProfileModalProps {
   profileId?: number | null;
   onDeleted?: (profileId: number) => void;
 }
-
-const API_BASE_URL =
-  (typeof import.meta !== 'undefined' && import.meta?.env?.NEXT_PUBLIC_API_URL) ||
-  'http://localhost:8080/api';
 
 const DeleteProfileModal = ({ isOpen, onClose, profileId, onDeleted }: DeleteProfileModalProps) => {
   const [isDeleting, setIsDeleting] = useState(false);

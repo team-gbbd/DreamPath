@@ -3,6 +3,7 @@ import { useNavigate, Link, useLocation } from "react-router-dom";
 import axios from "axios";
 import Button from "../../components/base/Button";
 import Header from "../../components/feature/Header";
+import { API_BASE_URL, BACKEND_BASE_URL } from "@/lib/api";
 
 const resolveErrorMessage = (err: any, fallback: string) => {
   const data = err?.response?.data;
@@ -75,7 +76,7 @@ export default function LoginPage() {
 
     try {
       setIsSubmitting(true);
-      const res = await axios.post("http://localhost:8080/api/auth/login", { username, password });
+      const res = await axios.post(`${API_BASE_URL}/auth/login`, { username, password });
       localStorage.setItem("dreampath:user", JSON.stringify(res.data));
       window.dispatchEvent(new Event("dreampath-auth-change"));
       alert(`${res.data.name}님 환영합니다!`);
@@ -88,7 +89,7 @@ export default function LoginPage() {
   };
 
   const handleSocialLogin = (provider: "google" | "kakao" | "naver") => {
-    window.location.href = `http://localhost:8080/oauth2/authorization/${provider}`;
+    window.location.href = `${BACKEND_BASE_URL}/oauth2/authorization/${provider}`;
   };
 
   return (

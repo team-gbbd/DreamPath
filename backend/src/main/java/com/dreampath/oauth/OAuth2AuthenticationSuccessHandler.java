@@ -24,7 +24,7 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
     private final AuthService authService;
     private final ObjectMapper objectMapper;
 
-    @Value("${app.frontend-url:http://localhost:3000}")
+    @Value("${app.frontend-url:http://localhost:3002}")
     private String frontendUrl;
 
     @Override

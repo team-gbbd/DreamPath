@@ -30,6 +30,10 @@ from services.learning import (
 
 # Vector Router
 from routers.vector_router import router as vector_router
+from routers.rag_router import router as rag_router
+from routers.profile_match_router import router as profile_match_router
+from services.recommend.recommend_service import RecommendService
+from services.recommend.hybrid_recommend_service import HybridRecommendService
 
 # =========================================
 # Environment
@@ -77,9 +81,13 @@ chat_service = ChatService(api_key, model) if api_key else None
 question_generator = QuestionGeneratorService() if api_key else None
 answer_evaluator = AnswerEvaluatorService() if api_key else None
 code_executor = CodeExecutorService()
+recommend_service = RecommendService()
+hybrid_recommender = HybridRecommendService()
 
 # Vector router
 app.include_router(vector_router, prefix="/api")
+app.include_router(rag_router)
+app.include_router(profile_match_router, prefix="/api")
 
 # =========================================
 # MODELS
@@ -237,6 +245,9 @@ async def extract_identity(request: IdentityRequest):
 @app.post("/api/identity/insight", response_model=InsightResponse)
 async def generate_identity_insight(request: InsightRequest):
 
+    if not identity_service:
+        raise HTTPException(status_code=500, detail="OpenAI API Key 설정 필요")
+
     result = await identity_service.generate_insight(
         request.recentMessages,
         request.previousContext
@@ -246,6 +257,9 @@ async def generate_identity_insight(request: InsightRequest):
 
 @app.post("/api/identity/progress", response_model=ProgressResponse)
 async def identity_stage_progress(request: ProgressRequest):
+
+    if not identity_service:
+        raise HTTPException(status_code=500, detail="OpenAI API Key 설정 필요")
 
     result = await identity_service.assess_stage_progress(
         request.conversationHistory,
@@ -273,6 +287,9 @@ class ChatResponse(BaseModel):
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
 
+    if not chat_service:
+        raise HTTPException(status_code=500, detail="OpenAI API Key 설정 필요")
+
     history = [{"role": m.role, "content": m.content} for m in request.conversationHistory]
 
     message = await chat_service.generate_response(
@@ -284,6 +301,85 @@ async def chat(request: ChatRequest):
     )
 
     return ChatResponse(sessionId=request.sessionId, message=message)
+
+
+# =========================================
+# Recommendation API
+# =========================================
+
+@app.get("/recommend/jobs")
+async def recommend_jobs(user_vector_id: str, top_k: int = 10):
+    """
+    사용자 벡터 기반 직업 Top-K 추천
+    """
+    try:
+        jobs = recommend_service.recommend_jobs(user_vector_id, top_k)
+        return {"recommended": jobs}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/recommend/hybrid")
+async def recommend_hybrid(user_vector_id: str, top_k: int = 20):
+    """
+    벡터 기반 후보군 + LLM 재정렬 하이브리드 추천
+    """
+    try:
+        result = hybrid_recommender.recommend(user_vector_id, top_k)
+        return {"recommended": result}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/recommend/worknet")
+async def recommend_worknet(payload: dict):
+    """
+    WorkNet 채용 데이터를 기반으로 한 추천 프록시
+    """
+    vector_id = payload.get("vectorId")
+    if not vector_id:
+        raise HTTPException(status_code=400, detail="vectorId is required")
+
+    try:
+        service = RecommendService()
+        results = service.recommend_worknet(vector_id)
+        return {"items": results}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/recommend/majors")
+async def recommend_majors(payload: dict):
+    """
+    학과 추천 프록시
+    """
+    vector_id = payload.get("vectorId")
+    if not vector_id:
+        raise HTTPException(status_code=400, detail="vectorId is required")
+
+    try:
+        service = RecommendService()
+        results = service.recommend_major(vector_id)
+        return {"items": results}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/recommend/schools")
+async def recommend_schools(payload: dict):
+    """
+    학교 추천 프록시
+    """
+    vector_id = payload.get("vectorId")
+    if not vector_id:
+        raise HTTPException(status_code=400, detail="vectorId is required")
+
+    try:
+        service = RecommendService()
+        results = service.recommend_school(vector_id)
+        return {"items": results}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 # =========================================
@@ -323,6 +419,9 @@ async def generate_questions(req: GenerateQuestionsRequest):
 
 @app.post("/api/learning/evaluate-answer")
 async def evaluate_answer(req: EvaluateAnswerRequest):
+
+    if not answer_evaluator:
+        raise HTTPException(status_code=500, detail="OpenAI 설정 필요")
 
     result = await answer_evaluator.evaluate_answer(
         question_type=req.questionType,
