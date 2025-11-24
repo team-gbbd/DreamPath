@@ -148,9 +148,11 @@ export interface CrawlResponse {
 // Learning Path Types (dev)
 // ===============================
 export interface LearningPath {
+  id: number;
   pathId: number;
   userId: number;
   domain: string;
+  subDomain?: string;
   status: 'ACTIVE' | 'COMPLETED';
   totalQuestions: number;
   correctCount: number;
@@ -159,6 +161,8 @@ export interface LearningPath {
   createdAt: string;
   updatedAt: string;
   weeklySessions: WeeklySessionInfo[];
+  overallProgress?: number;
+  currentWeek?: number;
 }
 
 export interface WeeklySessionInfo {

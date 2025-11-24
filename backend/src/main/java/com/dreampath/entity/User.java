@@ -56,4 +56,7 @@ public class User {
 
     @Column(nullable = false)
     private Boolean isActive = true;
+
+    @Column(nullable = false, columnDefinition = "INTEGER DEFAULT 0")
+    private int remainingSessions = 0; // 잔여 멘토링 횟수
 }
