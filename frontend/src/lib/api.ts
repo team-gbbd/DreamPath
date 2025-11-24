@@ -12,7 +12,15 @@ import type {
   SubmitAnswerRequest,
 } from '@/types/index';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+const stripTrailingSlash = (value?: string) => (value ? value.replace(/\/+$/, '') : '');
+const removeApiSuffix = (value: string) => (value.endsWith('/api') ? value.slice(0, -4) : value);
+
+const rawApiBase = stripTrailingSlash(import.meta.env.VITE_API_URL);
+export const API_BASE_URL = rawApiBase || 'http://localhost:8080/api';
+
+const rawBackendBase = stripTrailingSlash(import.meta.env.VITE_BACKEND_URL);
+export const BACKEND_BASE_URL =
+  rawBackendBase || removeApiSuffix(API_BASE_URL) || 'http://localhost:8080';
 
 const api = axios.create({
   baseURL: API_BASE_URL,

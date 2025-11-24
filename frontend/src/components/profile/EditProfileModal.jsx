@@ -1,8 +1,5 @@
 import { useEffect, useState } from 'react';
-
-const API_BASE_URL =
-  (typeof import.meta !== 'undefined' && import.meta?.env?.NEXT_PUBLIC_API_URL) ||
-  'http://localhost:8080/api';
+import { API_BASE_URL } from '@/lib/api';
 
 const defaultFormState = (initial) => ({
   name: initial?.user?.name ?? initial?.name ?? '',
