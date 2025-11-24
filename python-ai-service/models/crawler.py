@@ -2,7 +2,7 @@
 웹 크롤링 관련 Pydantic 모델
 """
 from pydantic import BaseModel
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Union, Any
 
 
 class JobListing(BaseModel):
@@ -13,7 +13,7 @@ class JobListing(BaseModel):
     description: Optional[str] = None
     url: str
     id: Optional[str] = None
-    reward: Optional[str] = None
+    reward: Optional[str] = None  # 라우터에서 dict → str 변환 처리됨
 
 
 class CrawlRequest(BaseModel):

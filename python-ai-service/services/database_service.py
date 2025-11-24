@@ -146,9 +146,141 @@ class DatabaseService:
                         """)
                     conn.commit()
                     print("job_listings 테이블이 생성되었습니다.")
+
+                # company_info 테이블 생성
+                self._ensure_company_info_table(conn)
         except Exception as e:
             print(f"테이블 생성 확인 중 오류 발생: {str(e)}")
             # 테이블 생성 실패해도 계속 진행 (이미 존재할 수 있음)
+
+    def _ensure_company_info_table(self, conn):
+        """company_info 테이블 생성"""
+        try:
+            cursor = conn.cursor()
+
+            # 테이블 존재 여부 확인
+            if USE_POSTGRES:
+                cursor.execute("""
+                    SELECT COUNT(*) as count
+                    FROM information_schema.tables
+                    WHERE table_schema = 'public' AND table_name = 'company_info'
+                """)
+            else:
+                cursor.execute("""
+                    SELECT COUNT(*) as count
+                    FROM information_schema.tables
+                    WHERE table_schema = %s AND table_name = 'company_info'
+                """, (self.db_config['database'],))
+
+            result = cursor.fetchone()
+            if result['count'] == 0:
+                if USE_POSTGRES:
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS company_info (
+                            id BIGSERIAL PRIMARY KEY,
+                            site_name VARCHAR(100) NOT NULL,
+                            company_id VARCHAR(255),
+                            company_name VARCHAR(255) NOT NULL,
+                            industry VARCHAR(255),
+                            established_year VARCHAR(50),
+                            employee_count VARCHAR(100),
+                            location VARCHAR(500),
+                            address TEXT,
+                            description TEXT,
+                            vision TEXT,
+                            benefits TEXT,
+                            culture TEXT,
+                            average_salary VARCHAR(100),
+                            company_type VARCHAR(100),
+                            revenue VARCHAR(100),
+                            ceo_name VARCHAR(100),
+                            capital VARCHAR(100),
+                            homepage_url VARCHAR(1000),
+                            recruitment_url VARCHAR(1000),
+                            logo_url VARCHAR(1000),
+                            crawled_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            UNIQUE (site_name, company_id)
+                        )
+                    """)
+                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_company_site_name ON company_info (site_name)")
+                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_company_name ON company_info (company_name)")
+                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_company_industry ON company_info (industry)")
+                else:
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS company_info (
+                            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                            site_name VARCHAR(100) NOT NULL COMMENT '사이트 이름',
+                            company_id VARCHAR(255) COMMENT '사이트별 기업 ID',
+                            company_name VARCHAR(255) NOT NULL COMMENT '회사명',
+                            industry VARCHAR(255) COMMENT '업종',
+                            established_year VARCHAR(50) COMMENT '설립연도',
+                            employee_count VARCHAR(100) COMMENT '직원수',
+                            location VARCHAR(500) COMMENT '위치',
+                            address TEXT COMMENT '주소',
+                            description TEXT COMMENT '회사 설명',
+                            vision TEXT COMMENT '비전/미션',
+                            benefits TEXT COMMENT '복지/혜택',
+                            culture TEXT COMMENT '기업문화',
+                            average_salary VARCHAR(100) COMMENT '평균 연봉',
+                            company_type VARCHAR(100) COMMENT '기업구분',
+                            revenue VARCHAR(100) COMMENT '매출액',
+                            ceo_name VARCHAR(100) COMMENT '대표자',
+                            capital VARCHAR(100) COMMENT '자본금',
+                            homepage_url VARCHAR(1000) COMMENT '홈페이지',
+                            recruitment_url VARCHAR(1000) COMMENT '채용 페이지',
+                            logo_url VARCHAR(1000) COMMENT '로고 URL',
+                            crawled_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '크롤링 시간',
+                            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 시간',
+                            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정 시간',
+                            INDEX idx_company_site_name (site_name),
+                            INDEX idx_company_name (company_name),
+                            INDEX idx_company_industry (industry),
+                            UNIQUE KEY uk_site_company_id (site_name, company_id)
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='기업 정보'
+                    """)
+                conn.commit()
+                print("company_info 테이블이 생성되었습니다.")
+            else:
+                # 테이블이 이미 존재하는 경우, 새 컬럼 추가 (ALTER TABLE)
+                print("company_info 테이블이 이미 존재합니다. 새 컬럼을 추가합니다...")
+                if USE_POSTGRES:
+                    # PostgreSQL: ADD COLUMN IF NOT EXISTS
+                    try:
+                        cursor.execute("ALTER TABLE company_info ADD COLUMN IF NOT EXISTS company_type VARCHAR(100)")
+                        cursor.execute("ALTER TABLE company_info ADD COLUMN IF NOT EXISTS revenue VARCHAR(100)")
+                        cursor.execute("ALTER TABLE company_info ADD COLUMN IF NOT EXISTS ceo_name VARCHAR(100)")
+                        cursor.execute("ALTER TABLE company_info ADD COLUMN IF NOT EXISTS capital VARCHAR(100)")
+                        conn.commit()
+                        print("✓ 새 컬럼 추가 완료 (company_type, revenue, ceo_name, capital)")
+                    except Exception as alter_error:
+                        print(f"컬럼 추가 중 오류 (무시 가능): {str(alter_error)}")
+                else:
+                    # MySQL: 컬럼 존재 여부 확인 후 추가
+                    new_columns = [
+                        ("company_type", "VARCHAR(100) COMMENT '기업구분'"),
+                        ("revenue", "VARCHAR(100) COMMENT '매출액'"),
+                        ("ceo_name", "VARCHAR(100) COMMENT '대표자'"),
+                        ("capital", "VARCHAR(100) COMMENT '자본금'"),
+                    ]
+                    for col_name, col_def in new_columns:
+                        try:
+                            cursor.execute(f"""
+                                SELECT COUNT(*) as count
+                                FROM information_schema.columns
+                                WHERE table_schema = %s AND table_name = 'company_info' AND column_name = %s
+                            """, (self.db_config['database'], col_name))
+                            col_result = cursor.fetchone()
+                            if col_result['count'] == 0:
+                                cursor.execute(f"ALTER TABLE company_info ADD COLUMN {col_name} {col_def}")
+                                print(f"✓ 컬럼 추가: {col_name}")
+                        except Exception as alter_error:
+                            print(f"컬럼 {col_name} 추가 중 오류 (무시 가능): {str(alter_error)}")
+                    conn.commit()
+            cursor.close()
+        except Exception as e:
+            print(f"company_info 테이블 생성 중 오류: {str(e)}")
     
     def save_job_listings(
         self,
@@ -390,5 +522,169 @@ class DatabaseService:
                 
         except Exception as e:
             print(f"데이터베이스 카운트 조회 중 오류 발생: {str(e)}")
+            return 0
+
+    def save_company_info(
+        self,
+        site_name: str,
+        companies: List[Dict]
+    ) -> int:
+        """
+        기업 정보를 데이터베이스에 저장합니다.
+        중복된 기업은 업데이트됩니다.
+
+        Args:
+            site_name: 사이트 이름
+            companies: 기업 정보 리스트
+
+        Returns:
+            저장된 기업 수
+        """
+        if not companies:
+            return 0
+
+        saved_count = 0
+        skipped_count = 0
+
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                for company in companies:
+                    try:
+                        if USE_POSTGRES:
+                            # PostgreSQL UPSERT (ON CONFLICT UPDATE)
+                            cursor.execute("""
+                                INSERT INTO company_info (
+                                    site_name, company_id, company_name, industry,
+                                    established_year, employee_count, location, address,
+                                    description, vision, benefits, culture, average_salary,
+                                    company_type, revenue, ceo_name, capital,
+                                    homepage_url, recruitment_url, logo_url, crawled_at
+                                ) VALUES (
+                                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP
+                                )
+                                ON CONFLICT (site_name, company_id)
+                                DO UPDATE SET
+                                    company_name = EXCLUDED.company_name,
+                                    industry = EXCLUDED.industry,
+                                    established_year = EXCLUDED.established_year,
+                                    employee_count = EXCLUDED.employee_count,
+                                    location = EXCLUDED.location,
+                                    address = EXCLUDED.address,
+                                    description = EXCLUDED.description,
+                                    vision = EXCLUDED.vision,
+                                    benefits = EXCLUDED.benefits,
+                                    culture = EXCLUDED.culture,
+                                    average_salary = EXCLUDED.average_salary,
+                                    company_type = EXCLUDED.company_type,
+                                    revenue = EXCLUDED.revenue,
+                                    ceo_name = EXCLUDED.ceo_name,
+                                    capital = EXCLUDED.capital,
+                                    homepage_url = EXCLUDED.homepage_url,
+                                    recruitment_url = EXCLUDED.recruitment_url,
+                                    logo_url = EXCLUDED.logo_url,
+                                    crawled_at = CURRENT_TIMESTAMP,
+                                    updated_at = CURRENT_TIMESTAMP
+                            """, (
+                                site_name,
+                                company.get('company_id'),
+                                company.get('company_name'),
+                                company.get('industry'),
+                                company.get('established_year'),
+                                company.get('employee_count'),
+                                company.get('location'),
+                                company.get('address'),
+                                company.get('description'),
+                                company.get('vision'),
+                                company.get('benefits'),
+                                company.get('culture'),
+                                company.get('average_salary'),
+                                company.get('company_type'),
+                                company.get('revenue'),
+                                company.get('ceo_name'),
+                                company.get('capital'),
+                                company.get('homepage_url'),
+                                company.get('recruitment_url'),
+                                company.get('logo_url')
+                            ))
+                        else:
+                            # MySQL UPSERT (ON DUPLICATE KEY UPDATE)
+                            cursor.execute("""
+                                INSERT INTO company_info (
+                                    site_name, company_id, company_name, industry,
+                                    established_year, employee_count, location, address,
+                                    description, vision, benefits, culture, average_salary,
+                                    company_type, revenue, ceo_name, capital,
+                                    homepage_url, recruitment_url, logo_url
+                                ) VALUES (
+                                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                                )
+                                ON DUPLICATE KEY UPDATE
+                                    company_name = VALUES(company_name),
+                                    industry = VALUES(industry),
+                                    established_year = VALUES(established_year),
+                                    employee_count = VALUES(employee_count),
+                                    location = VALUES(location),
+                                    address = VALUES(address),
+                                    description = VALUES(description),
+                                    vision = VALUES(vision),
+                                    benefits = VALUES(benefits),
+                                    culture = VALUES(culture),
+                                    average_salary = VALUES(average_salary),
+                                    company_type = VALUES(company_type),
+                                    revenue = VALUES(revenue),
+                                    ceo_name = VALUES(ceo_name),
+                                    capital = VALUES(capital),
+                                    homepage_url = VALUES(homepage_url),
+                                    recruitment_url = VALUES(recruitment_url),
+                                    logo_url = VALUES(logo_url),
+                                    crawled_at = CURRENT_TIMESTAMP,
+                                    updated_at = CURRENT_TIMESTAMP
+                            """, (
+                                site_name,
+                                company.get('company_id'),
+                                company.get('company_name'),
+                                company.get('industry'),
+                                company.get('established_year'),
+                                company.get('employee_count'),
+                                company.get('location'),
+                                company.get('address'),
+                                company.get('description'),
+                                company.get('vision'),
+                                company.get('benefits'),
+                                company.get('culture'),
+                                company.get('average_salary'),
+                                company.get('company_type'),
+                                company.get('revenue'),
+                                company.get('ceo_name'),
+                                company.get('capital'),
+                                company.get('homepage_url'),
+                                company.get('recruitment_url'),
+                                company.get('logo_url')
+                            ))
+
+                        saved_count += 1
+                    except Exception as e:
+                        print(f"기업 정보 저장 실패 ({company.get('company_name')}): {str(e)}")
+                        skipped_count += 1
+                        continue
+
+                conn.commit()
+                cursor.close()
+
+                print(f"[DEBUG] Commit completed. Saved={saved_count}, Skipped={skipped_count}")
+
+                if saved_count > 0:
+                    print(f"{saved_count}개의 기업 정보가 데이터베이스에 저장되었습니다.")
+                if skipped_count > 0:
+                    print(f"{skipped_count}개의 기업 정보 저장 중 오류가 발생했습니다.")
+
+                return saved_count
+
+        except Exception as e:
+            print(f"기업 정보 저장 중 오류 발생: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return 0
 

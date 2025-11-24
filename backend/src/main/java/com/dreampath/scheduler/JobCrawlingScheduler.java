@@ -57,8 +57,8 @@ public class JobCrawlingScheduler {
             // 2. 잡코리아 크롤링 (선택적)
             // crawlJobKorea();
 
-            // 3. 사람인 크롤링 (선택적)
-            // crawlSaramin();
+            // 3. 사람인 크롤링
+            crawlSaramin();
 
             LocalDateTime endTime = LocalDateTime.now();
             log.info("=== 채용 공고 크롤링 완료. 소요 시간: {}초 ===",

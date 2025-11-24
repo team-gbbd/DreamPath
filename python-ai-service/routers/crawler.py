@@ -40,6 +40,13 @@ async def crawl_job_site(
         # JobListing 모델로 변환 (모델에 없는 필드 제거)
         job_listings = []
         for job in result.get("jobListings", []):
+            # reward가 딕셔너리인 경우 문자열로 변환
+            reward = job.get("reward")
+            if isinstance(reward, dict):
+                reward = reward.get("formatted_total") or reward.get("formatted_recommender") or str(reward)
+            elif reward is not None:
+                reward = str(reward)
+
             job_data = {
                 "title": job.get("title", ""),
                 "company": job.get("company"),
@@ -47,9 +54,13 @@ async def crawl_job_site(
                 "description": job.get("description"),
                 "url": job.get("url", ""),
                 "id": job.get("id"),
-                "reward": job.get("reward")
+                "reward": reward
             }
-            job_listings.append(JobListing(**job_data))
+            try:
+                job_listings.append(JobListing(**job_data))
+            except Exception as e:
+                print(f"JobListing 변환 실패: {job_data}, 에러: {str(e)}")
+                continue
         
         return CrawlResponse(
             success=result.get("success", False),
@@ -155,9 +166,30 @@ async def crawl_multiple_sites(
         # 각 사이트 결과를 CrawlResponse로 변환
         site_responses = []
         for site_result in result.get("sites", []):
-            job_listings = [
-                JobListing(**job) for job in site_result.get("jobListings", [])
-            ]
+            job_listings = []
+            for job in site_result.get("jobListings", []):
+                # reward가 딕셔너리인 경우 문자열로 변환
+                reward = job.get("reward")
+                if isinstance(reward, dict):
+                    reward = reward.get("formatted_total") or reward.get("formatted_recommender") or str(reward)
+                elif reward is not None:
+                    reward = str(reward)
+
+                job_data = {
+                    "title": job.get("title", ""),
+                    "company": job.get("company"),
+                    "location": job.get("location"),
+                    "description": job.get("description"),
+                    "url": job.get("url", ""),
+                    "id": job.get("id"),
+                    "reward": reward
+                }
+                try:
+                    job_listings.append(JobListing(**job_data))
+                except Exception as e:
+                    print(f"JobListing 변환 실패: {job_data}, 에러: {str(e)}")
+                    continue
+
             site_responses.append(
                 CrawlResponse(
                     success=site_result.get("success", False),
