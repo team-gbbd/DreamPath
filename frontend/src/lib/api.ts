@@ -1,25 +1,25 @@
-import axios from 'axios';
+import axios from "axios";
 import type {
   StartSessionResponse,
   ChatResponse,
   AnalysisResponse,
   ChatMessage,
   CareerRecommendation,
-} from '@/types';
   LearningPath,
   Question,
   StudentAnswer,
   DashboardStats,
   CreateLearningPathRequest,
   SubmitAnswerRequest,
-} from '@/types/index';
+} from "@/types/index";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:8080/api";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
   withCredentials: true,
 });
@@ -28,8 +28,12 @@ const api = axios.create({
    🔹 DreamPath – Chat Service
    ================================ */
 export const chatService = {
-  startSession: async (userId: string | null = null): Promise<StartSessionResponse> => {
-    const response = await api.post<StartSessionResponse>('/chat/start', { userId });
+  startSession: async (
+    userId: string | null = null
+  ): Promise<StartSessionResponse> => {
+    const response = await api.post<StartSessionResponse>("/chat/start", {
+      userId,
+    });
     return response.data;
   },
 
@@ -38,7 +42,7 @@ export const chatService = {
     message: string,
     userId: string | null = null
   ): Promise<ChatResponse> => {
-    const response = await api.post<ChatResponse>('/chat', {
+    const response = await api.post<ChatResponse>("/chat", {
       sessionId,
       message,
       userId,
@@ -63,19 +67,24 @@ export const analysisService = {
 };
 
 // Python AI Service URL (채용 정보 크롤링용)
-const PYTHON_AI_SERVICE_URL = process.env.NEXT_PUBLIC_PYTHON_AI_SERVICE_URL || 'http://localhost:8000';
+const PYTHON_AI_SERVICE_URL =
+  process.env.NEXT_PUBLIC_PYTHON_AI_SERVICE_URL || "http://localhost:8000";
 
 const pythonApi = axios.create({
   baseURL: PYTHON_AI_SERVICE_URL,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
 export const jobSiteService = {
   // 취업 사이트 추천
-  recommendJobSites: async (careerRecommendations: CareerRecommendation[], userInterests?: string[], userExperienceLevel?: string) => {
-    const response = await pythonApi.post('/api/job-sites/recommend', {
+  recommendJobSites: async (
+    careerRecommendations: CareerRecommendation[],
+    userInterests?: string[],
+    userExperienceLevel?: string
+  ) => {
+    const response = await pythonApi.post("/api/job-sites/recommend", {
       careerRecommendations,
       userInterests,
       userExperienceLevel,
@@ -84,8 +93,12 @@ export const jobSiteService = {
   },
 
   // 원티드 크롤링
-  crawlWanted: async (searchKeyword?: string, maxResults: number = 10, forceRefresh: boolean = false) => {
-    const response = await pythonApi.post('/api/job-sites/crawl/wanted', {
+  crawlWanted: async (
+    searchKeyword?: string,
+    maxResults: number = 10,
+    forceRefresh: boolean = false
+  ) => {
+    const response = await pythonApi.post("/api/job-sites/crawl/wanted", {
       searchKeyword,
       maxResults,
       forceRefresh,
@@ -94,8 +107,14 @@ export const jobSiteService = {
   },
 
   // 특정 사이트 크롤링
-  crawlJobSite: async (siteName: string, siteUrl: string, searchKeyword?: string, maxResults: number = 10, forceRefresh: boolean = false) => {
-    const response = await pythonApi.post('/api/job-sites/crawl', {
+  crawlJobSite: async (
+    siteName: string,
+    siteUrl: string,
+    searchKeyword?: string,
+    maxResults: number = 10,
+    forceRefresh: boolean = false
+  ) => {
+    const response = await pythonApi.post("/api/job-sites/crawl", {
       siteName,
       siteUrl,
       searchKeyword,
@@ -107,13 +126,18 @@ export const jobSiteService = {
 
   // 모든 취업 사이트 목록 조회
   getAllJobSites: async () => {
-    const response = await pythonApi.get('/api/job-sites/all');
+    const response = await pythonApi.get("/api/job-sites/all");
     return response.data;
   },
 
   // DB에서 채용 공고 검색
-  searchJobListings: async (siteName?: string, searchKeyword?: string, limit: number = 100, offset: number = 0) => {
-    const response = await pythonApi.post('/api/job-sites/listings/query', {
+  searchJobListings: async (
+    siteName?: string,
+    searchKeyword?: string,
+    limit: number = 100,
+    offset: number = 0
+  ) => {
+    const response = await pythonApi.post("/api/job-sites/listings/query", {
       siteName,
       searchKeyword,
       limit,
@@ -138,8 +162,10 @@ export const profileService = {
    ================================ */
 export const learningPathService = {
   // Learning Path 생성
-  createLearningPath: async (data: CreateLearningPathRequest): Promise<LearningPath> => {
-    const response = await api.post<LearningPath>('/learning-paths', data);
+  createLearningPath: async (
+    data: CreateLearningPathRequest
+  ): Promise<LearningPath> => {
+    const response = await api.post<LearningPath>("/learning-paths", data);
     return response.data;
   },
 
@@ -151,20 +177,30 @@ export const learningPathService = {
 
   // 사용자별 Learning Path 목록 조회
   getUserLearningPaths: async (userId: number): Promise<LearningPath[]> => {
-    const response = await api.get<LearningPath[]>(`/learning-paths/user/${userId}`);
+    const response = await api.get<LearningPath[]>(
+      `/learning-paths/user/${userId}`
+    );
     return response.data;
   },
 
   // 주차별 문제 생성
-  generateQuestions: async (weeklyId: number, count: number = 5): Promise<void> => {
-    await api.post(`/learning-paths/weekly-sessions/${weeklyId}/generate-questions`, {
-      count,
-    });
+  generateQuestions: async (
+    weeklyId: number,
+    count: number = 5
+  ): Promise<void> => {
+    await api.post(
+      `/learning-paths/weekly-sessions/${weeklyId}/generate-questions`,
+      {
+        count,
+      }
+    );
   },
 
   // 주차별 문제 목록 조회
   getWeeklyQuestions: async (weeklyId: number): Promise<Question[]> => {
-    const response = await api.get<Question[]>(`/learning-paths/weekly-sessions/${weeklyId}/questions`);
+    const response = await api.get<Question[]>(
+      `/learning-paths/weekly-sessions/${weeklyId}/questions`
+    );
     return response.data;
   },
 
@@ -187,7 +223,9 @@ export const learningPathService = {
 
   // Dashboard 통계 조회
   getDashboard: async (pathId: number): Promise<DashboardStats> => {
-    const response = await api.get<DashboardStats>(`/learning-paths/${pathId}/dashboard`);
+    const response = await api.get<DashboardStats>(
+      `/learning-paths/${pathId}/dashboard`
+    );
     return response.data;
   },
 };

@@ -1,5 +1,5 @@
 export async function sendChatMessage(body: any) {
-  const res = await fetch("http://localhost:8080/api/chat/message", {
+  const res = await fetch("http://localhost:8080/api/chat-rag/message", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -9,9 +9,14 @@ export async function sendChatMessage(body: any) {
 
   return res.json();
 }
+
 export async function getChatHistory(sessionId: string) {
   const res = await fetch(
-    `http://localhost:8080/api/chat/history/${sessionId}`
+    `http://localhost:8080/api/chat-rag/history/${sessionId}`
   );
-  return res.json();
+
+  if (!res.ok) throw new Error("대화 내역 조회 오류");
+
+  const data = await res.json();
+  return data.history;
 }
