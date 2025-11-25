@@ -32,16 +32,21 @@ public class LiveKitService {
         roomServiceClient = RoomServiceClient.createClient(livekitUrl, apiKey, apiSecret);
     }
 
-    public String createToken(String roomName, String participantName) {
+    public String createToken(String roomName, String participantName, String participantIdentity) {
         AccessToken token = new AccessToken(apiKey, apiSecret);
 
-        token.setName(participantName);
-        token.setIdentity(participantName);
+        token.setName(participantName);  // 표시용 이름
+        token.setIdentity(participantIdentity);  // 고유 식별자
         token.setTtl(6 * 60 * 60 * 1000L); // 6시간 (밀리초)
 
         token.addGrants(new RoomJoin(true), new RoomName(roomName));
 
         return token.toJwt();
+    }
+
+    // 하위 호환성을 위한 오버로드 (identity = name)
+    public String createToken(String roomName, String participantName) {
+        return createToken(roomName, participantName, participantName);
     }
 
     public String getLivekitUrl() {

@@ -1,54 +1,52 @@
 """
-DreamPath – Career Analysis + Identity + Chat + Learning Path + Vector Service
-Fully merged version (HEAD + dev)
+DreamPath Career Analysis AI Service
+Python FastAPI Microservice
 """
 
+import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-import os
 from dotenv import load_dotenv
 
-# =============================
-# IMPORTS (HEAD services)
-# =============================
-from services.career_analysis_service import CareerAnalysisService
-from services.chat_service import ChatService
-from services.identity_analysis_service import IdentityAnalysisService
-from services.openai_service import OpenAIService as OpenAIServiceHead
+from config import settings
+from routers import api_router
 
-# =============================
-# IMPORTS (dev services)
-# =============================
+# ====== Routers (kyoungjin additions) ======
+from routers.vector_router import router as vector_router
+from routers.rag_router import router as rag_router
+from routers.profile_match_router import router as profile_match_router
+
+# ====== Services ======
 from services.common.openai_client import OpenAIService as OpenAIServiceDev
 from services.learning import (
     QuestionGeneratorService,
     AnswerEvaluatorService,
     CodeExecutorService,
 )
-
-# Vector Router
-from routers.vector_router import router as vector_router
-from routers.rag_router import router as rag_router
-from routers.profile_match_router import router as profile_match_router
 from services.recommend.recommend_service import RecommendService
 from services.recommend.hybrid_recommend_service import HybridRecommendService
 
+from services.career_analysis_service import CareerAnalysisService
+from services.identity_analysis_service import IdentityAnalysisService
+from services.chat_service import ChatService
+
+
 # =========================================
-# Environment
+# Environment Variables
 # =========================================
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY", "")
 model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 # =========================================
-# FastAPI App
+# FastAPI Application Init
 # =========================================
 app = FastAPI(
-    title="DreamPath AI Server",
-    description="Career Analysis + Identity + Chat + Learning Path API Gateway",
-    version="1.0.0"
+    title=settings.API_TITLE,
+    description=settings.API_DESCRIPTION,
+    version=settings.API_VERSION
 )
 
 # =========================================
@@ -56,45 +54,61 @@ app = FastAPI(
 # =========================================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=settings.CORS_CREDENTIALS,
+    allow_methods=settings.CORS_METHODS,
+    allow_headers=settings.CORS_HEADERS,
 )
+
+# =========================================
+# Core Routers
+# =========================================
+app.include_router(api_router)              # 기존 chat, analysis, identity, job_sites API
+app.include_router(vector_router, prefix="/api")
+app.include_router(rag_router, prefix="/api")
+app.include_router(profile_match_router, prefix="/api")
+
 
 # =========================================
 # Initialize Services
 # =========================================
 
-# OpenAI Service — choose dev/common version first, fallback to HEAD
 try:
     openai_service = OpenAIServiceDev()
 except Exception:
-    openai_service = OpenAIServiceHead()
+    openai_service = None
 
-# HEAD services
 analysis_service = CareerAnalysisService(openai_service)
 identity_service = IdentityAnalysisService(api_key, model) if api_key else None
 chat_service = ChatService(api_key, model) if api_key else None
 
-# Learning Path services (dev)
 question_generator = QuestionGeneratorService() if api_key else None
 answer_evaluator = AnswerEvaluatorService() if api_key else None
 code_executor = CodeExecutorService()
+
 recommend_service = RecommendService()
 hybrid_recommender = HybridRecommendService()
 
-# Vector router
-app.include_router(vector_router, prefix="/api")
-app.include_router(rag_router)
-app.include_router(profile_match_router, prefix="/api")
 
 # =========================================
-# MODELS
+# Basic Endpoints
+# =========================================
+@app.get("/")
+async def root():
+    return {"message": "DreamPath Career Analysis AI Service", "status": "running"}
+
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy"}
+
+
+# =========================================
+# Models
 # =========================================
 
 class ConversationMessage(BaseModel):
-    role: str  
+    role: str
     content: str
 
 class AnalysisRequest(BaseModel):
@@ -137,39 +151,21 @@ class AnalysisResponse(BaseModel):
 
 
 # =========================================
-# Root + Health
-# =========================================
-
-@app.get("/")
-async def root():
-    return {"message": "DreamPath AI Service Running"}
-
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
-
-
-# =========================================
-# Career Analysis
+# Analysis API
 # =========================================
 
 @app.post("/api/analyze", response_model=AnalysisResponse)
-async def analyze_career(request: AnalysisRequest):
-
+async def analyze(request: AnalysisRequest):
     try:
         text = "\n\n".join([f"{m.role}: {m.content}" for m in request.conversationHistory])
-        result = await analysis_service.analyze_session(
-            session_id=request.sessionId,
-            conversation_history=text
-        )
+        result = await analysis_service.analyze_session(request.sessionId, text)
         return result
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"분석 오류: {str(e)}")
 
 
 # =========================================
-# Identity Analysis
+# Identity API
 # =========================================
 
 class ClarityRequest(BaseModel):
@@ -215,55 +211,55 @@ class ProgressResponse(BaseModel):
 
 
 @app.post("/api/identity/clarity", response_model=ClarityResponse)
-async def identity_clarity(request: ClarityRequest):
+async def identity_clarity(req: ClarityRequest):
 
     if not identity_service:
-        raise HTTPException(status_code=500, detail="OpenAI API Key 설정 필요")
+        raise HTTPException(status_code=500, detail="OpenAI API Key 필요")
 
-    result = await identity_service.assess_clarity(request.conversationHistory)
-    return ClarityResponse(**result)
+    return ClarityResponse(**await identity_service.assess_clarity(req.conversationHistory))
 
 
 @app.post("/api/identity/extract", response_model=IdentityResponse)
-async def extract_identity(request: IdentityRequest):
+async def extract_identity(req: IdentityRequest):
 
     if not identity_service:
-        raise HTTPException(status_code=500, detail="OpenAI API Key 설정 필요")
+        raise HTTPException(status_code=500, detail="OpenAI API Key 필요")
 
-    result = await identity_service.extract_identity(request.conversationHistory)
+    result = await identity_service.extract_identity(req.conversationHistory)
     traits = [IdentityTrait(**t) for t in result.get("traits", [])]
 
     return IdentityResponse(
-        identityCore=result.get("identityCore", ""),
-        confidence=result.get("confidence", 0),
-        traits=traits,
-        insights=result.get("insights", []),
-        nextFocus=result.get("nextFocus", "")
+    identityCore=result.get("identityCore", "탐색 중..."),
+    confidence=result.get("confidence", 0),
+    traits=[IdentityTrait(**t) for t in result.get("traits", [])],
+    insights=result.get("insights", []),
+    nextFocus=result.get("nextFocus", "")
     )
 
 
+
 @app.post("/api/identity/insight", response_model=InsightResponse)
-async def generate_identity_insight(request: InsightRequest):
+async def identity_insight(req: InsightRequest):
 
     if not identity_service:
-        raise HTTPException(status_code=500, detail="OpenAI API Key 설정 필요")
+        raise HTTPException(status_code=500, detail="OpenAI API Key 필요")
 
     result = await identity_service.generate_insight(
-        request.recentMessages,
-        request.previousContext
+        req.recentMessages,
+        req.previousContext
     )
     return InsightResponse(**result)
 
 
 @app.post("/api/identity/progress", response_model=ProgressResponse)
-async def identity_stage_progress(request: ProgressRequest):
+async def identity_progress(req: ProgressRequest):
 
     if not identity_service:
-        raise HTTPException(status_code=500, detail="OpenAI API Key 설정 필요")
+        raise HTTPException(status_code=500, detail="OpenAI API Key 필요")
 
     result = await identity_service.assess_stage_progress(
-        request.conversationHistory,
-        request.currentStage
+        req.conversationHistory,
+        req.currentStage
     )
     return ProgressResponse(**result)
 
@@ -279,28 +275,28 @@ class ChatRequest(BaseModel):
     conversationHistory: List[ConversationMessage]
     surveyData: Optional[dict] = None
 
-class ChatResponse(BaseModel):
+class ChatRes(BaseModel):
     sessionId: str
     message: str
 
 
-@app.post("/api/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
+@app.post("/api/chat", response_model=ChatRes)
+async def chat(req: ChatRequest):
 
     if not chat_service:
-        raise HTTPException(status_code=500, detail="OpenAI API Key 설정 필요")
+        raise HTTPException(status_code=500, detail="OpenAI API Key 필요")
 
-    history = [{"role": m.role, "content": m.content} for m in request.conversationHistory]
+    history = [{"role": m.role, "content": m.content} for m in req.conversationHistory]
 
-    message = await chat_service.generate_response(
-        session_id=request.sessionId,
-        user_message=request.userMessage,
-        current_stage=request.currentStage,
+    msg = await chat_service.generate_response(
+        session_id=req.sessionId,
+        user_message=req.userMessage,
+        current_stage=req.currentStage,
         conversation_history=history,
-        survey_data=request.surveyData
+        survey_data=req.surveyData
     )
 
-    return ChatResponse(sessionId=request.sessionId, message=message)
+    return ChatRes(sessionId=req.sessionId, message=msg)
 
 
 # =========================================
@@ -309,84 +305,69 @@ async def chat(request: ChatRequest):
 
 @app.get("/recommend/jobs")
 async def recommend_jobs(user_vector_id: str, top_k: int = 10):
-    """
-    사용자 벡터 기반 직업 Top-K 추천
-    """
+
     try:
         jobs = recommend_service.recommend_jobs(user_vector_id, top_k)
         return {"recommended": jobs}
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/recommend/hybrid")
 async def recommend_hybrid(user_vector_id: str, top_k: int = 20):
-    """
-    벡터 기반 후보군 + LLM 재정렬 하이브리드 추천
-    """
+
     try:
         result = hybrid_recommender.recommend(user_vector_id, top_k)
         return {"recommended": result}
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/recommend/worknet")
 async def recommend_worknet(payload: dict):
-    """
-    WorkNet 채용 데이터를 기반으로 한 추천 프록시
-    """
+
     vector_id = payload.get("vectorId")
     if not vector_id:
-        raise HTTPException(status_code=400, detail="vectorId is required")
+        raise HTTPException(status_code=400, detail="vectorId 필요")
 
     try:
-        service = RecommendService()
-        results = service.recommend_worknet(vector_id)
-        return {"items": results}
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        svc = RecommendService()
+        return {"items": svc.recommend_worknet(vector_id)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/recommend/majors")
 async def recommend_majors(payload: dict):
-    """
-    학과 추천 프록시
-    """
+
     vector_id = payload.get("vectorId")
     if not vector_id:
-        raise HTTPException(status_code=400, detail="vectorId is required")
+        raise HTTPException(status_code=400, detail="vectorId 필요")
 
     try:
-        service = RecommendService()
-        results = service.recommend_major(vector_id)
-        return {"items": results}
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        svc = RecommendService()
+        return {"items": svc.recommend_major(vector_id)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/recommend/schools")
 async def recommend_schools(payload: dict):
-    """
-    학교 추천 프록시
-    """
+
     vector_id = payload.get("vectorId")
     if not vector_id:
-        raise HTTPException(status_code=400, detail="vectorId is required")
+        raise HTTPException(status_code=400, detail="vectorId 필요")
 
     try:
-        service = RecommendService()
-        results = service.recommend_school(vector_id)
-        return {"items": results}
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        svc = RecommendService()
+        return {"items": svc.recommend_school(vector_id)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # =========================================
-# Learning Path API
+# Learning APIs
 # =========================================
-
-from pydantic import BaseModel
 
 class GenerateQuestionsRequest(BaseModel):
     domain: str
@@ -405,17 +386,18 @@ class ExecuteCodeRequest(BaseModel):
     language: str
     stdin: str = ""
 
+
 @app.post("/api/learning/generate-questions")
 async def generate_questions(req: GenerateQuestionsRequest):
+
     if not question_generator:
         raise HTTPException(status_code=500, detail="OpenAI 설정 필요")
 
     result = await question_generator.generate_questions(
-        domain=req.domain,
-        week_number=req.weekNumber,
-        count=req.count
+        req.domain, req.weekNumber, req.count
     )
     return {"questions": result}
+
 
 @app.post("/api/learning/evaluate-answer")
 async def evaluate_answer(req: EvaluateAnswerRequest):
@@ -423,29 +405,28 @@ async def evaluate_answer(req: EvaluateAnswerRequest):
     if not answer_evaluator:
         raise HTTPException(status_code=500, detail="OpenAI 설정 필요")
 
-    result = await answer_evaluator.evaluate_answer(
-        question_type=req.questionType,
-        question_text=req.questionText,
-        user_answer=req.userAnswer,
-        correct_answer=req.correctAnswer,
-        max_score=req.maxScore
+    return await answer_evaluator.evaluate_answer(
+        req.questionType,
+        req.questionText,
+        req.userAnswer,
+        req.correctAnswer,
+        req.maxScore
     )
-    return result
+
 
 @app.post("/api/learning/execute-code")
 async def execute_code(req: ExecuteCodeRequest):
 
-    result = await code_executor.execute_code(
-        code=req.code,
-        language=req.language,
-        stdin=req.stdin
+    return await code_executor.execute_code(
+        req.code,
+        req.language,
+        req.stdin
     )
-    return result
 
 
 # =========================================
-# Run (Only when executed directly)
+# Run
 # =========================================
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host=settings.HOST, port=settings.PORT)

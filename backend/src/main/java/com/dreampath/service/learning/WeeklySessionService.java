@@ -4,6 +4,8 @@ import com.dreampath.entity.learning.WeeklySession;
 import com.dreampath.enums.WeeklyStatus;
 import com.dreampath.exception.ResourceNotFoundException;
 import com.dreampath.repository.learning.WeeklySessionRepository;
+import com.dreampath.repository.learning.StudentAnswerRepository;
+import com.dreampath.repository.learning.WeeklyQuestionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +17,8 @@ import java.util.List;
 public class WeeklySessionService {
 
     private final WeeklySessionRepository weeklySessionRepository;
+    private final StudentAnswerRepository studentAnswerRepository;
+    private final WeeklyQuestionRepository weeklyQuestionRepository;
 
     @Transactional(readOnly = true)
     public WeeklySession getWeeklySession(Long weeklyId) {
@@ -45,6 +49,9 @@ public class WeeklySessionService {
         WeeklySession session = getWeeklySession(weeklyId);
         session.setStatus(WeeklyStatus.COMPLETED);
 
+        // correctCount 계산 및 업데이트
+        updateCorrectCount(session);
+
         // 다음 주차 자동 잠금 해제
         Integer nextWeek = session.getWeekNumber() + 1;
         if (nextWeek <= 4) {
@@ -57,6 +64,29 @@ public class WeeklySessionService {
         }
 
         return weeklySessionRepository.save(session);
+    }
+
+    /**
+     * WeeklySession의 correctCount를 실제 정답 개수로 업데이트
+     */
+    @Transactional
+    public void updateCorrectCount(WeeklySession session) {
+        Long userId = session.getLearningPath().getUser().getUserId();
+
+        // 해당 주차의 모든 문제 가져오기
+        var questions = weeklyQuestionRepository.findByWeeklySessionWeeklyId(session.getWeeklyId());
+
+        // 각 문제에 대해 만점을 받은 답변 개수 세기
+        long correctCount = questions.stream()
+            .filter(question -> {
+                var answer = studentAnswerRepository.findByQuestionQuestionIdAndUserUserId(
+                    question.getQuestionId(), userId
+                );
+                return answer.isPresent() && answer.get().getScore() == question.getMaxScore();
+            })
+            .count();
+
+        session.setCorrectCount((int) correctCount);
     }
 
     @Transactional

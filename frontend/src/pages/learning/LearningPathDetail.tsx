@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { learningPathService } from '@/lib/api';
 import type { LearningPath, WeeklySessionInfo } from '@/types';
+import Header from '@/components/feature/Header';
 
 export default function LearningPathDetail() {
   const { pathId } = useParams<{ pathId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [path, setPath] = useState<LearningPath | null>(null);
   const [loading, setLoading] = useState(true);
   const [generatingWeek, setGeneratingWeek] = useState<number | null>(null);
@@ -15,6 +17,16 @@ export default function LearningPathDetail() {
       loadPath();
     }
   }, [pathId]);
+
+  // location.state가 변경될 때마다 새로고침
+  useEffect(() => {
+    if (location.state?.refresh && pathId) {
+      console.log('[LearningPathDetail] State refresh 트리거 - 데이터 새로고침');
+      loadPath();
+      // state 초기화
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, pathId]);
 
   const loadPath = async () => {
     try {
@@ -114,37 +126,38 @@ export default function LearningPathDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50/30 via-purple-50/20 to-blue-50/30">
+      <Header />
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-8">
         {/* Header */}
         <div className="mb-8">
           <button
             onClick={() => navigate('/learning')}
-            className="text-blue-600 hover:text-blue-700 mb-4 flex items-center gap-2"
+            className="text-pink-600 hover:text-pink-700 mb-4 flex items-center gap-2 font-medium transition-colors"
           >
-            ← 목록으로
+            <i className="ri-arrow-left-line"></i> 목록으로
           </button>
 
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-pink-100/50 p-6">
             <h1 className="text-3xl font-bold text-gray-900 mb-4">{path.domain}</h1>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
-                <div className="text-sm text-gray-600 mb-1">총 진도율</div>
-                <div className="text-2xl font-bold text-blue-600">
+                <div className="text-sm text-gray-500 mb-1">총 진도율</div>
+                <div className="text-2xl font-bold text-gray-900">
                   {((path.weeklySessions.filter((w) => w.status === 'COMPLETED').length / 4) * 100).toFixed(0)}%
                 </div>
               </div>
 
               <div>
-                <div className="text-sm text-gray-600 mb-1">정답률</div>
-                <div className="text-2xl font-bold text-green-600">
+                <div className="text-sm text-gray-500 mb-1">정답률</div>
+                <div className="text-2xl font-bold text-gray-900">
                   {path.correctRate?.toFixed(1) || 0}%
                 </div>
               </div>
 
               <div>
-                <div className="text-sm text-gray-600 mb-1">맞춘 문제</div>
+                <div className="text-sm text-gray-500 mb-1">맞춘 문제</div>
                 <div className="text-2xl font-bold text-gray-900">
                   {path.correctCount} / {path.totalQuestions}
                 </div>
@@ -154,9 +167,9 @@ export default function LearningPathDetail() {
             <div className="mt-6 flex gap-4">
               <button
                 onClick={() => navigate(`/learning/${pathId}/dashboard`)}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="bg-pink-500 hover:bg-pink-600 text-white px-6 py-3 rounded-xl font-medium transition-all flex items-center gap-2"
               >
-                📊 대시보드 보기
+                <i className="ri-dashboard-line"></i> 대시보드 보기
               </button>
             </div>
           </div>
@@ -175,10 +188,10 @@ export default function LearningPathDetail() {
               return (
                 <div
                   key={session.weeklyId}
-                  className={`bg-white rounded-lg shadow-md p-6 transition-all ${
+                  className={`bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-pink-100/50 p-6 transition-all ${
                     session.status === 'LOCKED'
                       ? 'opacity-60'
-                      : 'hover:shadow-lg cursor-pointer'
+                      : 'hover:shadow-md cursor-pointer'
                   }`}
                   onClick={() => !isGenerating && handleStartWeek(session)}
                 >
@@ -236,16 +249,16 @@ export default function LearningPathDetail() {
 
                     <div className="flex flex-col items-end gap-2">
                       {session.status === 'COMPLETED' ? (
-                        <span className="px-4 py-2 bg-green-100 text-green-800 rounded-lg font-semibold text-sm">
+                        <span className="px-4 py-2 bg-green-100 text-green-800 rounded-xl font-medium text-sm">
                           완료
                         </span>
                       ) : session.status === 'LOCKED' ? (
-                        <span className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-semibold text-sm">
+                        <span className="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl font-medium text-sm">
                           잠김
                         </span>
                       ) : (
                         <button
-                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm disabled:opacity-50"
+                          className="bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded-xl font-medium transition-all disabled:opacity-50"
                           disabled={isGenerating}
                           onClick={(e) => {
                             e.stopPropagation();

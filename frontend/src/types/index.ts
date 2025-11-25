@@ -111,13 +111,48 @@ export interface BarChartData {
   matchScore: number;
 }
 
+// Job Site Types
+export interface JobListing {
+  title: string;
+  company?: string;
+  location?: string;
+  description?: string;
+  url: string;
+  id?: string;
+  reward?: string;
+}
+
+export interface JobSiteRecommendation {
+  name: string;
+  url: string;
+  description: string;
+  matchScore: number;
+  reasons: string[];
+  categories: string[];
+}
+
+export interface CrawlResponse {
+  success: boolean;
+  site: string;
+  searchKeyword?: string;
+  totalResults: number;
+  jobListings: JobListing[];
+  searchUrl?: string;
+  error?: string;
+  message?: string;
+  fromCache?: boolean;
+  cachedAt?: string;
+}
+
 // ===============================
 // Learning Path Types (dev)
 // ===============================
 export interface LearningPath {
+  id: number;
   pathId: number;
   userId: number;
   domain: string;
+  subDomain?: string;
   status: 'ACTIVE' | 'COMPLETED';
   totalQuestions: number;
   correctCount: number;
@@ -126,6 +161,8 @@ export interface LearningPath {
   createdAt: string;
   updatedAt: string;
   weeklySessions: WeeklySessionInfo[];
+  overallProgress?: number;
+  currentWeek?: number;
 }
 
 export interface WeeklySessionInfo {
