@@ -1,4 +1,4 @@
-package com.dreampath.service.chatbot;
+package com.dreampath.service.rag;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
