@@ -34,6 +34,9 @@ public class WeeklySession {
     @Column(columnDefinition = "TEXT")
     private String aiSummary;
 
+    @Column(nullable = false)
+    private Integer correctCount = 0;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 

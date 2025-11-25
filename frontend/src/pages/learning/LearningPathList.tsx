@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { learningPathService } from '@/lib/api';
 import type { LearningPath } from '@/types';
+import Header from '@/components/feature/Header';
 
 export default function LearningPathList() {
   const navigate = useNavigate();
@@ -11,14 +12,25 @@ export default function LearningPathList() {
   const [newDomain, setNewDomain] = useState('');
   const [creating, setCreating] = useState(false);
 
-  // TODO: 실제 userId는 인증 컨텍스트에서 가져와야 함
-  const userId = 1;
+  // 현재 로그인한 유저 정보 가져오기
+  const getCurrentUserId = (): number | null => {
+    const userStr = localStorage.getItem('dreampath:user');
+    if (!userStr) return null;
+    const user = JSON.parse(userStr);
+    return user.userId || null;
+  };
 
   useEffect(() => {
-    loadPaths();
+    const userId = getCurrentUserId();
+    if (!userId) {
+      alert('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
+    loadPaths(userId);
   }, []);
 
-  const loadPaths = async () => {
+  const loadPaths = async (userId: number) => {
     try {
       setLoading(true);
       const data = await learningPathService.getUserLearningPaths(userId);
@@ -33,6 +45,13 @@ export default function LearningPathList() {
   const handleCreatePath = async () => {
     if (!newDomain.trim()) {
       alert('학습 분야를 입력해주세요');
+      return;
+    }
+
+    const userId = getCurrentUserId();
+    if (!userId) {
+      alert('로그인이 필요합니다.');
+      navigate('/login');
       return;
     }
 
@@ -75,41 +94,43 @@ export default function LearningPathList() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-50 py-8 px-4">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50/30 via-purple-50/20 to-blue-50/30">
+      <Header />
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-8">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold">
-              <span className="bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] bg-clip-text text-transparent">
-                나의 학습 경로
-              </span>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              나의 학습 경로
             </h1>
-            <p className="text-gray-600 mt-2">AI 기반 4주 학습 로드맵</p>
+            <p className="text-gray-600">AI 기반 4주 학습 로드맵</p>
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="px-6 py-3 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-300 font-semibold"
+            className="bg-pink-500 hover:bg-pink-600 text-white px-6 py-3 rounded-xl font-medium transition-all flex items-center gap-2"
           >
-            + 새 학습 경로 만들기
+            <i className="ri-add-line text-xl"></i> 새 학습 경로 만들기
           </button>
         </div>
 
         {/* Learning Paths Grid */}
         {paths.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="text-6xl mb-4">📚</div>
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-pink-100/50 p-16 text-center">
+            <div className="w-24 h-24 bg-pink-50 rounded-full flex items-center justify-center mx-auto mb-6">
+              <i className="ri-book-open-line text-5xl text-pink-500"></i>
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-3">
               아직 학습 경로가 없습니다
             </h3>
-            <p className="text-gray-500 mb-6">
-              새로운 학습 경로를 만들어 시작해보세요!
+            <p className="text-gray-600 mb-8 max-w-md mx-auto">
+              새로운 학습 경로를 만들어 시작해보세요!<br/>
+              AI가 4주 학습 로드맵을 자동으로 생성합니다.
             </p>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="px-6 py-3 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white rounded-xl hover:shadow-lg hover:scale-105 transition-all duration-300 font-semibold"
+              className="bg-pink-500 hover:bg-pink-600 text-white px-8 py-3 rounded-xl font-medium transition-all inline-flex items-center gap-2"
             >
-              시작하기
+              <i className="ri-add-line text-xl"></i> 시작하기
             </button>
           </div>
         ) : (
@@ -118,11 +139,11 @@ export default function LearningPathList() {
               <div
                 key={path.pathId}
                 onClick={() => navigate(`/learning/${path.pathId}`)}
-                className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer overflow-hidden border border-gray-100 hover:border-[#5A7BFF]/30"
+                className="group bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-pink-100/50 hover:shadow-md transition-all cursor-pointer overflow-hidden"
               >
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-xl font-bold text-gray-900 group-hover:text-[#5A7BFF] transition-colors duration-300">{path.domain}</h3>
+                    <h3 className="text-xl font-bold text-gray-900 group-hover:text-pink-600 transition-colors">{path.domain}</h3>
                     {getStatusBadge(path.status)}
                   </div>
 
@@ -130,20 +151,16 @@ export default function LearningPathList() {
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-600">진도율</span>
                       <span className="font-semibold text-gray-900">
-                        {path.weeklySessions.filter((w) => w.status === 'COMPLETED').length} / 4
-                        주차
+                        {path.weeklySessions.filter((w) => w.status === 'COMPLETED').length} / 4 주차
                       </span>
                     </div>
 
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
-                        className="bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] h-2 rounded-full transition-all"
+                        className="bg-gradient-to-r from-pink-400 to-purple-400 h-2 rounded-full transition-all"
                         style={{
                           width: `${
-                            (path.weeklySessions.filter((w) => w.status === 'COMPLETED')
-                              .length /
-                              4) *
-                            100
+                            (path.weeklySessions.filter((w) => w.status === 'COMPLETED').length / 4) * 100
                           }%`,
                         }}
                       />
@@ -165,7 +182,8 @@ export default function LearningPathList() {
                   </div>
 
                   <div className="mt-4 pt-4 border-t border-gray-200">
-                    <div className="text-xs text-gray-500">
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <i className="ri-calendar-line"></i>
                       시작일: {new Date(path.createdAt).toLocaleDateString('ko-KR')}
                     </div>
                   </div>
@@ -177,9 +195,9 @@ export default function LearningPathList() {
 
         {/* Create Modal */}
         {showCreateModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
-              <h2 className="text-2xl font-bold mb-4 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] bg-clip-text text-transparent">새 학습 경로 만들기</h2>
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-xl">
+              <h2 className="text-2xl font-bold text-gray-900 mb-3">새 학습 경로 만들기</h2>
               <p className="text-gray-600 mb-6">
                 학습하고 싶은 분야를 입력하면 AI가 4주 학습 로드맵을 생성합니다
               </p>
@@ -193,7 +211,7 @@ export default function LearningPathList() {
                   value={newDomain}
                   onChange={(e) => setNewDomain(e.target.value)}
                   placeholder="예: React, Python, Machine Learning"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#5A7BFF] focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all"
                   onKeyPress={(e) => e.key === 'Enter' && handleCreatePath()}
                 />
               </div>
@@ -204,14 +222,14 @@ export default function LearningPathList() {
                     setShowCreateModal(false);
                     setNewDomain('');
                   }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-medium"
                   disabled={creating}
                 >
                   취소
                 </button>
                 <button
                   onClick={handleCreatePath}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-50"
+                  className="flex-1 px-4 py-3 bg-pink-500 hover:bg-pink-600 text-white rounded-xl transition-all disabled:opacity-50 font-medium"
                   disabled={creating}
                 >
                   {creating ? '생성 중...' : '만들기'}
