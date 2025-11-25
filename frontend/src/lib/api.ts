@@ -13,7 +13,10 @@ import type {
   SubmitAnswerRequest,
 } from "@/types/index";
 
-const API_BASE_URL =
+// =============================
+//   🔹 API BASE URL (dev 기준)
+// =============================
+export const API_BASE_URL =
   import.meta.env.VITE_API_URL || "http://localhost:8080/api";
 
 const api = axios.create({
@@ -23,6 +26,7 @@ const api = axios.create({
   },
   withCredentials: true,
 });
+
 
 /* ================================
    🔹 DreamPath – Chat Service

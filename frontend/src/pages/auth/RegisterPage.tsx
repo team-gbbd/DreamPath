@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import Button from "../../components/base/Button";
 import Header from "../../components/feature/Header";
+import { API_BASE_URL } from "@/lib/api";
 
 const SPECIAL_CHAR_REGEX = /[!@#$%^&*()_+\-=\[\]{}|;:',.<>/?]/;
 
@@ -117,7 +118,7 @@ export default function RegisterPage() {
     }
     try {
       setIsSendingCode(true);
-      await axios.post("http://localhost:8080/api/auth/email/send", { email: form.email });
+      await axios.post(`${API_BASE_URL}/auth/email/send`, { email: form.email });
       setEmailStatus("인증 코드가 발송되었습니다. 이메일을 확인해주세요.");
       setIsEmailVerified(false);
     } catch (err: any) {
@@ -134,7 +135,7 @@ export default function RegisterPage() {
     }
     try {
       setIsVerifyingCode(true);
-      await axios.post("http://localhost:8080/api/auth/email/verify", {
+      await axios.post(`${API_BASE_URL}/auth/email/verify`, {
         email: form.email,
         code: emailVerificationCode,
       });
@@ -169,7 +170,7 @@ export default function RegisterPage() {
       }
 
       const { confirmPassword, ...payload } = form;
-      await axios.post("http://localhost:8080/api/auth/register", payload);
+      await axios.post(`${API_BASE_URL}/auth/register`, payload);
       alert("회원가입이 완료되었습니다!");
       setTimeout(() => navigate("/login", { replace: true }), 0);
     } catch (err: any) {

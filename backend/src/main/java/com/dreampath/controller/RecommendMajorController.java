@@ -1,0 +1,21 @@
+package com.dreampath.controller;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import com.dreampath.dto.RecommendRequest;
+import com.dreampath.service.RecommendService;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/recommend")
+public class RecommendMajorController {
+
+    private final RecommendService recommendService;
+
+    @PostMapping("/majors")
+    public ResponseEntity<?> recommendMajor(@RequestBody RecommendRequest req) {
+        return ResponseEntity.ok(recommendService.recommendMajor(req.getVectorId()));
+    }
+}
