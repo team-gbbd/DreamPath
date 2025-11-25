@@ -7,7 +7,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: ${DB_USER:dreamuser}
     password: ${DB_PASSWORD:dreampass}
-  
+
   jpa:
     hibernate:
       ddl-auto: update

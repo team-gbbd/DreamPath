@@ -33,9 +33,6 @@ export default function Header() {
 
   const navItems = [
     { name: '진로 상담', href: '/career-chat', isRoute: true },
-    { name: 'Features', href: '#features' },
-    { name: 'About', href: '#about' },
-    { name: 'Contact', href: '#contact' },
     { name: '멘토링', href: '/mentoring', isRoute: true, requiresAuth: true }
   ];
 
@@ -91,12 +88,20 @@ export default function Header() {
             ))}
           </nav>
 
-          {/* Login Button */}
+          {/* User Actions */}
           <div className="flex items-center space-x-4">
             {currentUser ? (
-              <Button size="sm" onClick={handleLogout}>
-                로그아웃
-              </Button>
+              <>
+                <Link to="/mypage">
+                  <Button variant="secondary" size="sm">
+                    <i className="ri-user-line mr-1"></i>
+                    마이페이지
+                  </Button>
+                </Link>
+                <Button size="sm" onClick={handleLogout}>
+                  로그아웃
+                </Button>
+              </>
             ) : (
               <Link to="/login">
                 <Button size="sm">
