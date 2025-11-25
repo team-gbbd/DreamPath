@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { bookingService } from '@/lib/api';
+import { useToast } from '@/components/common/Toast';
 import {
   LiveKitRoom,
   VideoConference,
@@ -49,11 +50,13 @@ interface ChatMessage {
 function ProfessionalMeetingUI({
   onLeave,
   onComplete,
-  isMentor
+  isMentor,
+  showToast
 }: {
   onLeave: () => void;
   onComplete: () => void;
   isMentor: boolean;
+  showToast: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
 }) {
   const participants = useParticipants();
   const { localParticipant } = useLocalParticipant();
@@ -148,7 +151,7 @@ function ProfessionalMeetingUI({
       }
     } catch (error) {
       console.error('화면 공유 오류:', error);
-      alert('화면 공유를 시작할 수 없습니다.');
+      showToast('화면 공유를 시작할 수 없습니다.', 'error');
     }
   };
 
@@ -451,6 +454,7 @@ function ProfessionalMeetingUI({
 export default function MentoringMeetingPage() {
   const { bookingId } = useParams<{ bookingId: string }>();
   const navigate = useNavigate();
+  const { showToast, ToastContainer } = useToast();
   const [token, setToken] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>('');
@@ -461,7 +465,7 @@ export default function MentoringMeetingPage() {
       try {
         const userStr = localStorage.getItem('dreampath:user');
         if (!userStr) {
-          alert('로그인이 필요합니다.');
+          showToast('로그인이 필요합니다.', 'warning');
           navigate('/login');
           return;
         }
@@ -478,16 +482,15 @@ export default function MentoringMeetingPage() {
           userId
         );
 
-        console.log('Received token:', tokenData);
         // 토큰이 문자열이면 그대로, 객체면 추출
         const actualToken = typeof tokenData === 'string' ? tokenData : tokenData.token || tokenData;
-        console.log('Actual token to use:', actualToken);
 
         setToken(actualToken);
         setIsLoading(false);
-      } catch (err: any) {
+      } catch (err) {
         console.error('토큰 로드 실패:', err);
-        setError(err.response?.data || '미팅 입장 중 오류가 발생했습니다.');
+        const apiError = err as { response?: { data?: string } };
+        setError(apiError.response?.data || '미팅 입장 중 오류가 발생했습니다.');
         setIsLoading(false);
       }
     };
@@ -498,12 +501,7 @@ export default function MentoringMeetingPage() {
   }, [bookingId, navigate]);
 
   const handleDisconnect = () => {
-    console.log('LiveKit disconnected');
-    // 사용자가 의도적으로 나가는지 확인
-    const confirmLeave = confirm('미팅을 종료하시겠습니까?');
-    if (confirmLeave) {
-      navigate('/mentoring');
-    }
+    navigate('/mentoring');
   };
 
   const handleComplete = async () => {
@@ -511,11 +509,12 @@ export default function MentoringMeetingPage() {
 
     try {
       await bookingService.completeBooking(Number(bookingId));
-      alert('멘토링이 완료 처리되었습니다.');
+      showToast('멘토링이 완료 처리되었습니다.', 'success');
       navigate('/mypage/mentor');
-    } catch (err: any) {
+    } catch (err) {
       console.error('멘토링 완료 처리 실패:', err);
-      alert(err.response?.data || '멘토링 완료 처리에 실패했습니다.');
+      const apiError = err as { response?: { data?: string } };
+      showToast(apiError.response?.data || '멘토링 완료 처리에 실패했습니다.', 'error');
     }
   };
 
@@ -550,6 +549,7 @@ export default function MentoringMeetingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-50">
+      <ToastContainer />
       <LiveKitRoom
         video={true}
         audio={true}
@@ -564,6 +564,7 @@ export default function MentoringMeetingPage() {
           onLeave={() => navigate('/mentoring')}
           onComplete={handleComplete}
           isMentor={isMentor}
+          showToast={showToast}
         />
         <RoomAudioRenderer />
       </LiveKitRoom>

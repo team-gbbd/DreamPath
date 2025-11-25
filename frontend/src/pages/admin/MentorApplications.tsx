@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { mentorService } from '@/lib/api';
 import Header from '@/components/feature/Header';
+import { useToast } from '@/components/common/Toast';
 
 interface MentorApplication {
   mentorId: number;
@@ -32,6 +33,7 @@ const DAY_LABELS: Record<string, string> = {
 
 export default function MentorApplicationsPage() {
   const navigate = useNavigate();
+  const { showToast, ToastContainer } = useToast();
   const [searchParams] = useSearchParams();
   const statusFilter = searchParams.get('status') as 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   const highlightId = searchParams.get('highlight');
@@ -63,7 +65,7 @@ export default function MentorApplicationsPage() {
 
   useEffect(() => {
     if (!userId) {
-      alert('로그인이 필요합니다.');
+      showToast('로그인이 필요합니다.', 'warning');
       navigate('/login');
       return;
     }
@@ -104,9 +106,10 @@ export default function MentorApplicationsPage() {
           setShowDetailModal(true);
         }
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('데이터 로딩 실패:', err);
-      setError(err.response?.data || '데이터를 불러오는 중 오류가 발생했습니다.');
+      const apiError = err as { response?: { data?: string } };
+      setError(apiError.response?.data || '데이터를 불러오는 중 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
     }
@@ -116,7 +119,7 @@ export default function MentorApplicationsPage() {
     if (!selectedApp || !reviewAction || !userId) return;
 
     if (reviewAction === 'reject' && reviewReason.trim().length < 10) {
-      alert('거절 사유는 최소 10자 이상 작성해주세요.');
+      showToast('거절 사유는 최소 10자 이상 작성해주세요.', 'warning');
       return;
     }
 
@@ -130,16 +133,17 @@ export default function MentorApplicationsPage() {
         userId
       );
 
-      alert(reviewAction === 'approve' ? '승인되었습니다.' : '거절되었습니다.');
+      showToast(reviewAction === 'approve' ? '승인되었습니다.' : '거절되었습니다.', 'success');
       setShowReviewModal(false);
       setShowDetailModal(false);
       setReviewReason('');
       setReviewAction(null);
       setSelectedApp(null);
       fetchData();
-    } catch (err: any) {
+    } catch (err) {
       console.error('처리 실패:', err);
-      alert(err.response?.data || '처리 중 오류가 발생했습니다.');
+      const apiError = err as { response?: { data?: string } };
+      showToast(apiError.response?.data || '처리 중 오류가 발생했습니다.', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -188,6 +192,7 @@ export default function MentorApplicationsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50/30 via-purple-50/20 to-blue-50/30">
+      <ToastContainer />
       <Header />
 
       <div className="pt-24 pb-8 min-h-screen">

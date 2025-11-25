@@ -36,6 +36,25 @@ public class MentorService {
     public MentorResponse applyForMentor(MentorApplicationRequest request) {
         log.info("멘토 신청 - userId: {}", request.getUserId());
 
+        if (request.getUserId() == null) {
+            throw new RuntimeException("사용자 ID는 필수입니다.");
+        }
+        if (request.getCompany() == null || request.getCompany().isBlank()) {
+            throw new RuntimeException("회사명은 필수입니다.");
+        }
+        if (request.getJob() == null || request.getJob().isBlank()) {
+            throw new RuntimeException("직업은 필수입니다.");
+        }
+        if (request.getExperience() == null || request.getExperience().isBlank()) {
+            throw new RuntimeException("경력은 필수입니다.");
+        }
+        if (request.getBio() == null || request.getBio().isBlank()) {
+            throw new RuntimeException("자기소개는 필수입니다.");
+        }
+        if (request.getCareer() == null || request.getCareer().isBlank()) {
+            throw new RuntimeException("경력 상세는 필수입니다.");
+        }
+
         User user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", request.getUserId()));
 
@@ -46,6 +65,9 @@ public class MentorService {
 
         Mentor mentor = new Mentor();
         mentor.setUser(user);
+        mentor.setCompany(request.getCompany());
+        mentor.setJob(request.getJob());
+        mentor.setExperience(request.getExperience());
         mentor.setBio(request.getBio());
         mentor.setCareer(request.getCareer());
         mentor.setAvailableTime(request.getAvailableTime());
@@ -207,9 +229,24 @@ public class MentorService {
         //     throw new RuntimeException("본인의 프로필만 수정할 수 있습니다.");
         // }
 
-        mentor.setBio(request.getBio());
-        mentor.setCareer(request.getCareer());
-        mentor.setAvailableTime(request.getAvailableTime());
+        if (request.getCompany() != null) {
+            mentor.setCompany(request.getCompany());
+        }
+        if (request.getJob() != null) {
+            mentor.setJob(request.getJob());
+        }
+        if (request.getExperience() != null) {
+            mentor.setExperience(request.getExperience());
+        }
+        if (request.getBio() != null) {
+            mentor.setBio(request.getBio());
+        }
+        if (request.getCareer() != null) {
+            mentor.setCareer(request.getCareer());
+        }
+        if (request.getAvailableTime() != null) {
+            mentor.setAvailableTime(request.getAvailableTime());
+        }
 
         Mentor savedMentor = mentorRepository.save(mentor);
 

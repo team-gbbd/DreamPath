@@ -201,9 +201,10 @@ export default function MentoringPage() {
       if (currentUser) {
         checkMentorStatus(currentUser.userId);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('세션 등록 실패:', error);
-      showToast(error.response?.data || '세션 등록 중 오류가 발생했습니다.', 'error');
+      const apiError = error as { response?: { data?: string } };
+      showToast(apiError.response?.data || '세션 등록 중 오류가 발생했습니다.', 'error');
     } finally {
       setIsSaving(false);
     }

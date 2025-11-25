@@ -3,10 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { learningPathService } from '@/lib/api';
 import type { Question, StudentAnswer } from '@/types';
 import Header from '@/components/feature/Header';
+import { useToast } from '@/components/common/Toast';
 
 export default function WeeklyQuiz() {
   const { pathId, weeklyId } = useParams<{ pathId: string; weeklyId: string }>();
   const navigate = useNavigate();
+  const { showToast, ToastContainer } = useToast();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Map<number, string>>(new Map());
@@ -18,7 +20,7 @@ export default function WeeklyQuiz() {
   const getCurrentUserId = (): number => {
     const userStr = localStorage.getItem('dreampath:user');
     if (!userStr) {
-      alert('로그인이 필요합니다.');
+      showToast('로그인이 필요합니다.', 'warning');
       navigate('/login');
       return 1; // fallback
     }
@@ -29,16 +31,41 @@ export default function WeeklyQuiz() {
   const userId = getCurrentUserId();
 
   useEffect(() => {
-    if (weeklyId) {
+    if (weeklyId && userId) {
       loadQuestions();
     }
-  }, [weeklyId]);
+  }, [weeklyId, userId]);
 
   const loadQuestions = async () => {
     try {
       setLoading(true);
-      const data = await learningPathService.getWeeklyQuestions(Number(weeklyId));
-      setQuestions(data.sort((a, b) => a.orderNum - b.orderNum));
+      const data = await learningPathService.getWeeklyQuestions(Number(weeklyId), userId);
+      const sortedQuestions = data.sort((a, b) => a.orderNum - b.orderNum);
+      setQuestions(sortedQuestions);
+
+      // 기존 제출 답안이 있으면 submissions에 로드
+      const existingSubmissions = new Map<number, StudentAnswer>();
+      const existingAnswers = new Map<number, string>();
+
+      sortedQuestions.forEach((q) => {
+        if (q.submittedAnswer) {
+          existingSubmissions.set(q.questionId, {
+            answerId: q.submittedAnswer.answerId,
+            questionId: q.questionId,
+            userId: userId,
+            userAnswer: q.submittedAnswer.userAnswer,
+            score: q.submittedAnswer.score,
+            aiFeedback: q.submittedAnswer.aiFeedback,
+            submittedAt: q.submittedAnswer.submittedAt,
+          });
+          existingAnswers.set(q.questionId, q.submittedAnswer.userAnswer);
+        }
+      });
+
+      if (existingSubmissions.size > 0) {
+        setSubmissions(existingSubmissions);
+        setAnswers(existingAnswers);
+      }
     } catch (error) {
       console.error('문제 로딩 실패:', error);
     } finally {
@@ -57,7 +84,7 @@ export default function WeeklyQuiz() {
     const answer = answers.get(currentQuestion.questionId);
 
     if (!answer?.trim()) {
-      alert('답을 입력해주세요');
+      showToast('답을 입력해주세요', 'warning');
       return;
     }
 
@@ -73,7 +100,7 @@ export default function WeeklyQuiz() {
       setSubmissions(newSubmissions);
     } catch (error) {
       console.error('답안 제출 실패:', error);
-      alert('답안 제출에 실패했습니다');
+      showToast('답안 제출에 실패했습니다', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -97,66 +124,66 @@ export default function WeeklyQuiz() {
     );
 
     if (unanswered.length > 0) {
-      alert(`아직 제출하지 않은 문제가 ${unanswered.length}개 있습니다`);
+      showToast(`아직 제출하지 않은 문제가 ${unanswered.length}개 있습니다`, 'warning');
       return;
     }
 
     try {
       // 주차 완료 처리
       await learningPathService.completeSession(Number(weeklyId));
-      alert('주차를 완료했습니다! 🎉');
+      showToast('주차를 완료했습니다!', 'success');
       // state를 통해 새로고침 요청
       navigate(`/learning/${pathId}`, { state: { refresh: true } });
     } catch (error) {
       console.error('주차 완료 실패:', error);
-      alert('주차 완료 처리에 실패했습니다');
+      showToast('주차 완료 처리에 실패했습니다', 'error');
     }
   };
 
-  const getDifficultyColor = (difficulty: string) => {
+  const getDifficultyBadge = (difficulty: string) => {
     switch (difficulty) {
       case 'EASY':
-        return 'bg-green-100 text-green-800';
+        return { bg: 'bg-emerald-50', text: 'text-emerald-600', label: '기초' };
       case 'MEDIUM':
-        return 'bg-orange-100 text-orange-800';
+        return { bg: 'bg-amber-50', text: 'text-amber-600', label: '중급' };
       case 'HARD':
-        return 'bg-red-100 text-red-800';
+        return { bg: 'bg-rose-50', text: 'text-rose-600', label: '고급' };
       default:
-        return 'bg-gray-100 text-gray-800';
+        return { bg: 'bg-gray-100', text: 'text-gray-600', label: difficulty };
     }
   };
 
-  const getTypeLabel = (type: string) => {
+  const getTypeBadge = (type: string) => {
     switch (type) {
       case 'MCQ':
-        return '객관식';
+        return { bg: 'bg-sky-50', text: 'text-sky-600', label: '객관식' };
       case 'SCENARIO':
-        return '시나리오';
+        return { bg: 'bg-violet-50', text: 'text-violet-600', label: '시나리오' };
       case 'CODING':
-        return '코딩';
+        return { bg: 'bg-pink-50', text: 'text-pink-600', label: '코딩' };
       case 'DESIGN':
-        return '설계';
+        return { bg: 'bg-orange-50', text: 'text-orange-600', label: '설계' };
       default:
-        return type;
+        return { bg: 'bg-gray-100', text: 'text-gray-600', label: type };
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">문제 로딩 중...</div>
+      <div className="min-h-screen bg-[#FFF5F7] flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-pink-200 border-t-pink-500 rounded-full animate-spin"></div>
       </div>
     );
   }
 
   if (questions.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-[#FFF5F7] flex items-center justify-center">
         <div className="text-center">
-          <div className="text-lg mb-4">문제가 없습니다</div>
+          <p className="text-gray-500 mb-4">문제가 없습니다</p>
           <button
             onClick={() => navigate(`/learning/${pathId}`)}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 bg-pink-500 text-white text-sm rounded hover:bg-pink-600 transition-colors"
           >
             돌아가기
           </button>
@@ -169,8 +196,10 @@ export default function WeeklyQuiz() {
   const currentAnswer = answers.get(currentQuestion.questionId) || '';
   const currentSubmission = submissions.get(currentQuestion.questionId);
   const isSubmitted = !!currentSubmission;
-  const progress = ((currentIndex + 1) / questions.length) * 100;
   const completedCount = submissions.size;
+
+  const difficultyBadge = getDifficultyBadge(currentQuestion.difficulty);
+  const typeBadge = getTypeBadge(currentQuestion.questionType);
 
   // JSONB 필드는 문자열로 올 수 있으므로 파싱
   const getQuestionOptions = (question: Question): string[] | null => {
@@ -186,143 +215,206 @@ export default function WeeklyQuiz() {
   const questionOptions = getQuestionOptions(currentQuestion);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50/30 via-purple-50/20 to-blue-50/30">
+    <div className="min-h-screen bg-[#FFF5F7]">
+      <ToastContainer />
       <Header />
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-8">
-        {/* Header */}
-        <div className="mb-6">
+      <div className="max-w-3xl mx-auto px-6 pt-24 pb-8">
+        {/* 상단 네비게이션 */}
+        <div className="flex items-center justify-between mb-5 pb-4 border-b border-pink-100">
           <button
             onClick={() => navigate(`/learning/${pathId}`)}
-            className="text-pink-600 hover:text-pink-700 mb-4 flex items-center gap-2 font-medium transition-colors"
+            className="text-sm text-gray-500 hover:text-pink-600 flex items-center gap-1 transition-colors"
           >
-            <i className="ri-arrow-left-line"></i> 돌아가기
+            <i className="ri-arrow-left-s-line"></i> 목록으로
           </button>
-
-          {/* Progress Bar */}
-          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-pink-100/50 p-4 mb-4">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-semibold text-gray-700">
-                문제 {currentIndex + 1} / {questions.length}
-              </span>
-              <span className="text-sm font-semibold text-gray-700">
-                제출: {completedCount} / {questions.length}
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div
-                className="bg-gradient-to-r from-pink-400 to-purple-400 h-2 rounded-full transition-all"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
+          <div className="flex items-center gap-4 text-sm">
+            <span className="text-gray-500">
+              문제 <span className="font-medium text-gray-900">{currentIndex + 1}</span>/{questions.length}
+            </span>
+            <span className="text-gray-300">|</span>
+            <span className="text-gray-500">
+              제출 <span className="font-medium text-pink-600">{completedCount}</span>/{questions.length}
+            </span>
           </div>
         </div>
 
-        {/* Question Card */}
-        <div className="bg-white rounded-lg shadow-md p-8 mb-6">
-          {/* Question Header */}
-          <div className="flex items-center gap-3 mb-6">
-            <span
-              className={`px-3 py-1 rounded-full text-xs font-semibold ${getDifficultyColor(
-                currentQuestion.difficulty
-              )}`}
-            >
-              {currentQuestion.difficulty}
-            </span>
-            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-              {getTypeLabel(currentQuestion.questionType)}
-            </span>
-            <span className="text-sm text-gray-600">{currentQuestion.maxScore}점</span>
+        {/* 진행률 바 */}
+        <div className="mb-5">
+          <div className="h-1 bg-pink-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-pink-500 rounded-full transition-all duration-300"
+              style={{ width: `${(completedCount / questions.length) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        {/* 문제 카드 */}
+        <div className="bg-white border border-gray-200 rounded-lg mb-5">
+          {/* 문제 헤더 */}
+          <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className={`text-xs px-2 py-0.5 rounded ${difficultyBadge.bg} ${difficultyBadge.text}`}>
+                {difficultyBadge.label}
+              </span>
+              <span className={`text-xs px-2 py-0.5 rounded ${typeBadge.bg} ${typeBadge.text}`}>
+                {typeBadge.label}
+              </span>
+            </div>
+            <span className="text-xs text-gray-400">{currentQuestion.maxScore}점</span>
           </div>
 
-          {/* Question Text */}
-          <div className="mb-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4 whitespace-pre-wrap">
+          {/* 문제 내용 */}
+          <div className="p-5">
+            <h2 className="text-base font-medium text-gray-900 leading-relaxed whitespace-pre-wrap mb-5">
               {currentQuestion.questionText}
             </h2>
 
-            {/* Options for MCQ */}
+            {/* MCQ 옵션 */}
             {currentQuestion.questionType === 'MCQ' && questionOptions && (
-              <div className="space-y-2 mt-4">
+              <div className="space-y-2">
                 {questionOptions.map((option, idx) => (
                   <div
                     key={idx}
                     onClick={() => !isSubmitted && handleAnswerChange(option)}
-                    className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    className={`p-3 border rounded cursor-pointer transition-all ${
                       currentAnswer === option
-                        ? 'border-blue-600 bg-blue-50'
-                        : 'border-gray-200 hover:border-blue-300'
-                    } ${isSubmitted ? 'cursor-not-allowed opacity-70' : ''}`}
+                        ? 'border-pink-500 bg-pink-50'
+                        : 'border-gray-200 hover:border-pink-200 hover:bg-pink-50/30'
+                    } ${isSubmitted ? 'cursor-not-allowed opacity-60' : ''}`}
                   >
                     <div className="flex items-center gap-3">
                       <div
-                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
                           currentAnswer === option
-                            ? 'border-blue-600 bg-blue-600'
+                            ? 'border-pink-500 bg-pink-500'
                             : 'border-gray-300'
                         }`}
                       >
                         {currentAnswer === option && (
-                          <div className="w-2 h-2 bg-white rounded-full" />
+                          <div className="w-1.5 h-1.5 bg-white rounded-full" />
                         )}
                       </div>
-                      <span className="text-gray-900">{option}</span>
+                      <span className="text-sm text-gray-700">{option}</span>
                     </div>
                   </div>
                 ))}
               </div>
             )}
+
+            {/* 서술형 답안 */}
+            {currentQuestion.questionType !== 'MCQ' && (
+              <div>
+                <textarea
+                  value={currentAnswer}
+                  onChange={(e) => handleAnswerChange(e.target.value)}
+                  disabled={isSubmitted}
+                  className="w-full px-4 py-3 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-pink-500 focus:border-pink-500 disabled:bg-gray-50 disabled:cursor-not-allowed resize-none"
+                  rows={currentQuestion.questionType === 'CODING' ? 12 : 6}
+                  placeholder="답안을 입력하세요..."
+                />
+              </div>
+            )}
           </div>
 
-          {/* Answer Input for non-MCQ */}
-          {currentQuestion.questionType !== 'MCQ' && (
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                답안 작성
-              </label>
-              <textarea
-                value={currentAnswer}
-                onChange={(e) => handleAnswerChange(e.target.value)}
-                disabled={isSubmitted}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                rows={currentQuestion.questionType === 'CODING' ? 10 : 6}
-                placeholder="답안을 입력하세요..."
-              />
+          {/* 제출 버튼 */}
+          {!isSubmitted && (
+            <div className="px-5 pb-5">
+              <button
+                onClick={handleSubmitAnswer}
+                disabled={submitting || !currentAnswer}
+                className="w-full py-3 bg-pink-500 text-white text-sm rounded font-medium hover:bg-pink-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    채점중...
+                  </span>
+                ) : (
+                  '제출하기'
+                )}
+              </button>
             </div>
           )}
 
-          {/* Submit Button */}
-          {!isSubmitted && (
-            <button
-              onClick={handleSubmitAnswer}
-              disabled={submitting || !currentAnswer}
-              className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {submitting ? '채점 중...' : '제출하기'}
-            </button>
-          )}
-
-          {/* Feedback */}
+          {/* 채점 결과 */}
           {isSubmitted && currentSubmission && (
-            <div className="mt-6 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-l-4 border-blue-600">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-gray-900">채점 결과</h3>
-                <div className="text-2xl font-bold text-blue-600">
-                  {currentSubmission.score} / {currentQuestion.maxScore}점
+            <div className="border-t border-gray-100">
+              {/* 결과 헤더 */}
+              <div className={`px-5 py-3 flex items-center justify-between ${
+                currentSubmission.score === currentQuestion.maxScore
+                  ? 'bg-emerald-50'
+                  : currentSubmission.score > 0
+                  ? 'bg-amber-50'
+                  : 'bg-rose-50'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white ${
+                    currentSubmission.score === currentQuestion.maxScore
+                      ? 'bg-emerald-500'
+                      : currentSubmission.score > 0
+                      ? 'bg-amber-500'
+                      : 'bg-rose-500'
+                  }`}>
+                    {currentSubmission.score === currentQuestion.maxScore ? '✓' : currentSubmission.score > 0 ? '△' : '✗'}
+                  </span>
+                  <span className={`text-sm font-semibold ${
+                    currentSubmission.score === currentQuestion.maxScore
+                      ? 'text-emerald-700'
+                      : currentSubmission.score > 0
+                      ? 'text-amber-700'
+                      : 'text-rose-700'
+                  }`}>
+                    {currentSubmission.score === currentQuestion.maxScore ? '정답입니다!' : currentSubmission.score > 0 ? '부분 정답' : '오답입니다'}
+                  </span>
                 </div>
+                <span className={`text-lg font-bold ${
+                  currentSubmission.score === currentQuestion.maxScore
+                    ? 'text-emerald-600'
+                    : currentSubmission.score > 0
+                    ? 'text-amber-600'
+                    : 'text-rose-600'
+                }`}>
+                  {currentSubmission.score}/{currentQuestion.maxScore}점
+                </span>
               </div>
 
-              <div className="space-y-3">
+              <div className="p-5 space-y-4">
+                {/* 제출한 답 */}
                 <div>
-                  <div className="text-sm font-semibold text-gray-700 mb-1">AI 피드백</div>
-                  <div className="text-gray-800 whitespace-pre-wrap">
-                    {currentSubmission.aiFeedback}
+                  <p className="text-xs font-medium text-gray-500 mb-2">내가 제출한 답</p>
+                  <div className="text-sm text-gray-800 bg-gray-50 p-3 rounded border border-gray-100">
+                    {currentSubmission.userAnswer}
                   </div>
                 </div>
 
-                <div>
-                  <div className="text-sm font-semibold text-gray-700 mb-1">제출한 답</div>
-                  <div className="text-gray-800 whitespace-pre-wrap bg-white p-3 rounded">
-                    {currentSubmission.userAnswer}
+                {/* AI 피드백 */}
+                <div className={`rounded-lg overflow-hidden border ${
+                  currentSubmission.score === currentQuestion.maxScore
+                    ? 'border-emerald-200 bg-emerald-50/50'
+                    : 'border-blue-200 bg-blue-50/50'
+                }`}>
+                  <div className={`px-4 py-2 border-b ${
+                    currentSubmission.score === currentQuestion.maxScore
+                      ? 'bg-emerald-100/50 border-emerald-200'
+                      : 'bg-blue-100/50 border-blue-200'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      <i className={`ri-sparkling-line ${
+                        currentSubmission.score === currentQuestion.maxScore
+                          ? 'text-emerald-600'
+                          : 'text-blue-600'
+                      }`}></i>
+                      <span className={`text-xs font-semibold ${
+                        currentSubmission.score === currentQuestion.maxScore
+                          ? 'text-emerald-700'
+                          : 'text-blue-700'
+                      }`}>AI 학습 피드백</span>
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                      {currentSubmission.aiFeedback}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -330,30 +422,49 @@ export default function WeeklyQuiz() {
           )}
         </div>
 
-        {/* Navigation */}
+        {/* 네비게이션 버튼 */}
         <div className="flex items-center justify-between">
           <button
             onClick={handlePrev}
             disabled={currentIndex === 0}
-            className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            ← 이전 문제
+            이전
           </button>
+
+          {/* 문제 번호 네비게이션 */}
+          <div className="flex items-center gap-1">
+            {questions.map((q, idx) => (
+              <button
+                key={q.questionId}
+                onClick={() => setCurrentIndex(idx)}
+                className={`w-8 h-8 text-xs rounded transition-colors ${
+                  idx === currentIndex
+                    ? 'bg-pink-500 text-white'
+                    : submissions.has(q.questionId)
+                    ? 'bg-pink-100 text-pink-600'
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                }`}
+              >
+                {idx + 1}
+              </button>
+            ))}
+          </div>
 
           {currentIndex === questions.length - 1 && completedCount === questions.length ? (
             <button
               onClick={handleComplete}
-              className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold"
+              className="px-4 py-2 text-sm bg-emerald-500 text-white rounded font-medium hover:bg-emerald-600 transition-colors"
             >
-              완료하기 ✓
+              완료하기
             </button>
           ) : (
             <button
               onClick={handleNext}
               disabled={currentIndex === questions.length - 1}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-sm bg-pink-500 text-white rounded font-medium hover:bg-pink-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              다음 문제 →
+              다음
             </button>
           )}
         </div>

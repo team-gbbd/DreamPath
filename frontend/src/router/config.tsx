@@ -8,10 +8,9 @@ const AnalysisResultPage = lazy(() => import("../pages/analysis-result/page"));
 const LoginPage = lazy(() => import("../pages/auth/LoginPage"));
 const RegisterPage = lazy(() => import("../pages/auth/RegisterPage"));
 const MentoringPage = lazy(() => import("../pages/mentoring/MentoringPage"));
-const LearningPathListPage = lazy(() => import("../pages/learning/LearningPathList"));
 const LearningPathDetailPage = lazy(() => import("../pages/learning/LearningPathDetail"));
 const WeeklyQuizPage = lazy(() => import("../pages/learning/WeeklyQuiz"));
-const DashboardPage = lazy(() => import("../pages/learning/Dashboard"));
+const LearningDashboardPage = lazy(() => import("../pages/learning/Dashboard"));
 const DeveloperExperiencePage = lazy(() => import("../pages/career-simulation/DeveloperExperience"));
 const CareerSimulationResultPage = lazy(() => import("../pages/career-simulation/Result"));
 const CodingTestPage = lazy(() => import("../pages/career-simulation/CodingTest"));
@@ -28,7 +27,6 @@ const PaymentSuccessPage = lazy(() => import("../pages/payments/PaymentSuccess")
 const PaymentFailPage = lazy(() => import("../pages/payments/PaymentFail"));
 const BookMentoringPage = lazy(() => import("../pages/mentoring/BookMentoring"));
 const MyBookingsPage = lazy(() => import("../pages/my-bookings/page"));
-const MentorSessionsPage = lazy(() => import("../pages/mentor/MentorSessions"));
 const MentoringMeetingPage = lazy(() => import("../pages/mentoring/MentoringMeeting"));
 
 const routes: RouteObject[] = [
@@ -58,7 +56,7 @@ const routes: RouteObject[] = [
   },
   {
     path: "/learning",
-    element: <LearningPathListPage />,
+    element: <LearningDashboardPage />,
   },
   {
     path: "/learning/:pathId",
@@ -67,10 +65,6 @@ const routes: RouteObject[] = [
   {
     path: "/learning/:pathId/week/:weeklyId",
     element: <WeeklyQuizPage />,
-  },
-  {
-    path: "/learning/dashboard",
-    element: <DashboardPage />,
   },
   {
     path: "/career-simulation/developer",
@@ -135,10 +129,6 @@ const routes: RouteObject[] = [
   {
     path: "/my-bookings",
     element: <MyBookingsPage />,
-  },
-  {
-    path: "/mentor/sessions",
-    element: <MentorSessionsPage />,
   },
   {
     path: "/mentoring/meeting/:bookingId",

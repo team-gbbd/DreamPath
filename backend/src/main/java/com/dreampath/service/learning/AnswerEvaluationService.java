@@ -88,20 +88,59 @@ public class AnswerEvaluationService {
         String correctAnswer = question.getCorrectAnswer().trim().toLowerCase();
         String studentAnswer = userAnswer.trim().toLowerCase();
 
-        if (correctAnswer.equals(studentAnswer)) {
-            // 정답
-            result.score = question.getMaxScore();
-            result.feedback = "정답입니다! 잘하셨습니다.";
-        } else {
-            // 오답
-            result.score = 0;
-            result.feedback = String.format(
-                "아쉽게도 정답이 아닙니다. 정답은 '%s'입니다. 다시 한 번 학습해보세요.",
-                question.getCorrectAnswer()
-            );
-        }
+        boolean isCorrect = correctAnswer.equals(studentAnswer);
+        result.score = isCorrect ? question.getMaxScore() : 0;
+
+        // AI로 개념 설명 피드백 생성
+        result.feedback = generateMCQFeedback(question, userAnswer, isCorrect);
 
         return result;
+    }
+
+    private String generateMCQFeedback(WeeklyQuestion question, String userAnswer, boolean isCorrect) {
+        try {
+            String prompt = String.format("""
+                당신은 친절한 학습 도우미입니다.
+
+                문제: %s
+                선택지: %s
+                정답: %s
+                학생 답변: %s
+                정답 여부: %s
+
+                %s
+
+                피드백 작성 규칙:
+                - 2-3문장으로 간결하게
+                - 핵심 개념을 명확히 설명
+                - 암기가 아닌 이해를 돕는 설명
+                - 관련된 추가 개념이나 팁 제공
+                """,
+                question.getQuestionText(),
+                question.getOptions() != null ? question.getOptions() : "없음",
+                question.getCorrectAnswer(),
+                userAnswer,
+                isCorrect ? "정답" : "오답",
+                isCorrect
+                    ? "정답을 맞췄지만, 찍어서 맞췄을 수도 있으니 이 문제의 핵심 개념을 설명해주세요."
+                    : "오답입니다. 왜 정답이 맞는지, 학생이 선택한 답이 왜 틀린지 설명해주세요."
+            );
+
+            String response = chatModel.generate(prompt);
+
+            String prefix = isCorrect
+                ? "✓ 정답!\n\n"
+                : "✗ 오답\n정답: " + question.getCorrectAnswer() + "\n\n";
+            return prefix + response.trim();
+
+        } catch (Exception e) {
+            log.error("MCQ 피드백 생성 오류: {}", e.getMessage());
+            if (isCorrect) {
+                return "정답입니다! 잘하셨습니다.";
+            } else {
+                return String.format("오답입니다. 정답은 '%s'입니다.", question.getCorrectAnswer());
+            }
+        }
     }
 
     private String buildEvaluationPrompt(WeeklyQuestion question, String userAnswer) {

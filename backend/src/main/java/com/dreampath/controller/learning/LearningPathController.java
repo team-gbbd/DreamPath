@@ -36,6 +36,7 @@ public class LearningPathController {
     private final CareerAnalysisRepository careerAnalysisRepository;
     private final com.dreampath.repository.learning.WeeklyQuestionRepository weeklyQuestionRepository;
     private final com.dreampath.repository.dw.CareerSessionRepository careerSessionRepository;
+    private final com.dreampath.repository.learning.StudentAnswerRepository studentAnswerRepository;
 
     /**
      * 진로 상담 결과에서 직업 선택 후 학습 경로 생성
@@ -167,16 +168,28 @@ public class LearningPathController {
     }
 
     /**
-     * 주차별 문제 조회
-     * GET /api/learning-paths/weekly-sessions/{weeklyId}/questions
+     * 주차별 문제 조회 (기존 제출 답안 포함)
+     * GET /api/learning-paths/weekly-sessions/{weeklyId}/questions?userId={userId}
      */
     @GetMapping("/weekly-sessions/{weeklyId}/questions")
-    public ResponseEntity<List<QuestionResponse>> getSessionQuestions(@PathVariable Long weeklyId) {
-        log.info("문제 조회 - weeklyId: {}", weeklyId);
+    public ResponseEntity<List<QuestionResponse>> getSessionQuestions(
+            @PathVariable Long weeklyId,
+            @RequestParam(required = false) Long userId) {
+        log.info("문제 조회 - weeklyId: {}, userId: {}", weeklyId, userId);
 
         List<WeeklyQuestion> questions = questionGeneratorService.getSessionQuestions(weeklyId);
+
+        // userId가 있으면 기존 제출 답안도 조회
+        java.util.Map<Long, StudentAnswer> answerMap = new java.util.HashMap<>();
+        if (userId != null) {
+            List<StudentAnswer> existingAnswers = studentAnswerRepository.findByWeeklySessionIdAndUserId(weeklyId, userId);
+            for (StudentAnswer answer : existingAnswers) {
+                answerMap.put(answer.getQuestion().getQuestionId(), answer);
+            }
+        }
+
         List<QuestionResponse> responses = questions.stream()
-                .map(QuestionResponse::from)
+                .map(q -> QuestionResponse.from(q, answerMap.get(q.getQuestionId())))
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(responses);

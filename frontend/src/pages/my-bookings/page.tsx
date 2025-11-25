@@ -49,7 +49,7 @@ export default function MyBookingsPage() {
       const data = await bookingService.getMyBookings(userId);
       setBookings(data);
       setIsLoading(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error('예약 목록 조회 실패:', error);
       setIsLoading(false);
     }
@@ -96,7 +96,7 @@ export default function MyBookingsPage() {
       setCancelReason('');
       setCustomReason('');
       fetchBookings();
-    } catch (error: any) {
+    } catch (error) {
       console.error('예약 취소 실패:', error);
       alert(error.response?.data?.message || '예약 취소 중 오류가 발생했습니다.');
     }

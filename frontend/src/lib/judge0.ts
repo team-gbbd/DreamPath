@@ -82,9 +82,6 @@ export async function submitCode(
     const encodedCode = utf8ToBase64(code);
     const encodedStdin = stdin ? utf8ToBase64(stdin) : '';
 
-    console.log('원본 코드:', code);
-    console.log('인코딩된 코드:', encodedCode);
-    console.log('언어 ID:', languageId);
 
     // 1. 코드 제출 (Base64 인코딩 + base64_encoded 플래그)
     const submitResponse = await fetch(`${JUDGE0_API_URL}/submissions?base64_encoded=true&wait=true`, {
@@ -169,7 +166,7 @@ export function runJavaScriptLocally(code: string, stdin: string = ''): Submissi
       time: '0.001',
       memory: 0,
     };
-  } catch (error: any) {
+  } catch (error) {
     console.log = console.log; // 복원
     return {
       status: { id: 6, description: 'Compilation Error' },

@@ -46,9 +46,7 @@ export default function AnalysisPage({ sessionId }: AnalysisPageProps) {
   const fetchAnalysis = async () => {
     try {
       setIsLoading(true);
-      console.log('🔍 분석 요청 시작 - Session ID:', sessionId);
       const data = await analysisService.analyzeSession(sessionId);
-      console.log('✅ 분석 데이터 수신:', data);
       setAnalysis(data);
     } catch (error: any) {
       console.error('❌ 분석 실패:', error);
@@ -72,7 +70,6 @@ export default function AnalysisPage({ sessionId }: AnalysisPageProps) {
       subject: area.name,
       value: area.level * 10, // 1-10을 10-100으로 변환
     }));
-    console.log('📊 Radar Chart 데이터:', chartData);
     return chartData;
   };
 
@@ -85,7 +82,6 @@ export default function AnalysisPage({ sessionId }: AnalysisPageProps) {
       name: career.careerName,
       matchScore: career.matchScore,
     }));
-    console.log('📊 Bar Chart 데이터:', chartData);
     return chartData;
   };
 
