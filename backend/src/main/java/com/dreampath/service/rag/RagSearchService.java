@@ -1,4 +1,4 @@
-package com.dreampath.service.chatbot;
+package com.dreampath.service.rag;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -9,19 +9,23 @@ import org.json.JSONObject;
 
 @Service
 @RequiredArgsConstructor
-public class RagEmbeddingService {
+public class RagSearchService {
 
-    @Value("${openai.api.key}")
-    private String openaiApiKey;
+    @Value("${pinecone.api.key}")
+    private String pineconeApiKey;
+
+    @Value("${pinecone.host}")
+    private String pineconeHost;
 
     private final OkHttpClient client = new OkHttpClient();
 
-    public float[] embed(String text) {
+    public JSONArray search(float[] vector) {
 
         try {
             JSONObject json = new JSONObject();
-            json.put("model", "text-embedding-3-small");
-            json.put("input", text);
+            json.put("vector", vector);
+            json.put("topK", 5);
+            json.put("includeMetadata", true);
 
             RequestBody body = RequestBody.create(
                     json.toString(),
@@ -29,8 +33,8 @@ public class RagEmbeddingService {
             );
 
             Request request = new Request.Builder()
-                    .url("https://api.openai.com/v1/embeddings")
-                    .addHeader("Authorization", "Bearer " + openaiApiKey)
+                    .url("https://" + pineconeHost + "/query")
+                    .addHeader("Api-Key", pineconeApiKey)
                     .post(body)
                     .build();
 
@@ -38,19 +42,10 @@ public class RagEmbeddingService {
             String responseBody = response.body().string();
 
             JSONObject obj = new JSONObject(responseBody);
-            var arr = obj.getJSONArray("data")
-                    .getJSONObject(0)
-                    .getJSONArray("embedding");
-
-            float[] vector = new float[arr.length()];
-            for (int i = 0; i < arr.length(); i++) {
-                vector[i] = (float) arr.getDouble(i);
-            }
-
-            return vector;
+            return obj.getJSONArray("matches");
 
         } catch (Exception e) {
-            throw new RuntimeException("임베딩 생성 실패", e);
+            throw new RuntimeException("Pinecone 검색 실패", e);
         }
     }
 }
