@@ -56,7 +56,7 @@ class JobRecommendationAgent:
 
             if match_result["matchScore"] >= 50:  # 50점 이상만 추천
                 recommendations.append({
-                    "jobId": job.get("id"),
+                    "jobId": str(job.get("id")),  # ID를 문자열로 변환
                     "title": job.get("title"),
                     "company": job.get("company"),
                     "location": job.get("location"),
@@ -271,7 +271,7 @@ class JobRecommendationAgent:
             recommendations = []
             for row in results:
                 recommendations.append({
-                    "jobId": row[0],
+                    "jobId": str(row[0]),  # ID를 문자열로 변환
                     "title": row[1],
                     "company": row[2],
                     "location": row[3],

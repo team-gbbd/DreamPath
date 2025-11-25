@@ -36,6 +36,7 @@ export default function Header() {
     { name: '채용 정보', href: '/job-listings', isRoute: true },
     { name: '기업 정보', href: '/company-list', isRoute: true },
     { name: 'AI 에이전트', href: '/ai-agent', isRoute: true },
+    { name: '🚀 채용 추천', href: '/job-recommendations', isRoute: true, isDev: true },
     { name: 'Features', href: '#features' },
     { name: 'About', href: '#about' },
     { name: 'Contact', href: '#contact' },
@@ -77,7 +78,10 @@ export default function Header() {
                   <Link
                     key={item.name}
                     to={item.href}
-                    className="text-gray-700 hover:text-[#5A7BFF] transition-colors duration-200 font-medium"
+                    className={item.isDev
+                      ? "text-blue-600 hover:text-blue-700 transition-colors duration-200 font-semibold"
+                      : "text-gray-700 hover:text-[#5A7BFF] transition-colors duration-200 font-medium"
+                    }
                   >
                     {item.name}
                   </Link>

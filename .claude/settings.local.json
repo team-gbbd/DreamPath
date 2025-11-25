@@ -14,7 +14,13 @@
       "Bash(nul)",
       "Bash(npm run build:*)",
       "Bash(pip install:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(timeout 5 bash:*)",
+      "Bash(timeout 10 bash:*)",
+      "Bash(findstr:*)",
+      "Bash(gradlew.bat bootRun:*)",
+      "Bash(./gradlew bootRun)",
+      "Bash(timeout 30 bash:*)"
     ],
     "deny": [],
     "ask": []

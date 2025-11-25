@@ -23,6 +23,10 @@ public class RagSearchService {
     private final OkHttpClient client = new OkHttpClient();
 
     public JSONArray search(float[] vector) {
+        // Pinecone이 설정되지 않았으면 빈 배열 반환
+        if ("dummykey".equals(pineconeApiKey) || "dummy-host.pinecone.io".equals(pineconeHost)) {
+            return new JSONArray();
+        }
 
         try {
             JSONObject json = new JSONObject();
@@ -48,7 +52,8 @@ public class RagSearchService {
             return obj.getJSONArray("matches");
 
         } catch (Exception e) {
-            throw new RuntimeException("Pinecone 검색 실패", e);
+            // Pinecone 검색 실패 시 빈 배열 반환 (서비스는 계속 동작)
+            return new JSONArray();
         }
     }
 }

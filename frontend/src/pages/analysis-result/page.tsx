@@ -71,6 +71,14 @@ export default function AnalysisResultPage() {
       const data = await response.json();
       console.log('분석 결과:', data);
       setResult(data);
+
+      // localStorage에 분석 결과 저장 (맞춤형 인사이트용)
+      localStorage.setItem('careerAnalysis', JSON.stringify({
+        recommendedCareers: data.recommendedCareers || [],
+        strengths: data.personality?.strengths || [],
+        values: [], // 필요시 추가
+        interests: data.interest?.areas?.map((a: any) => a.name) || []
+      }));
     } catch (err: any) {
       console.error('분석 실패:', err);
       setError(err.message || '분석 중 오류가 발생했습니다.');
@@ -477,6 +485,20 @@ export default function AnalysisResultPage() {
               채용 정보 보기
             </button>
           )}
+          <button
+            onClick={() => navigate('/job-analysis/personalized')}
+            className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-8 py-3 rounded-xl hover:opacity-90 transition-opacity font-medium"
+          >
+            <i className="ri-bar-chart-box-line mr-2"></i>
+            맞춤형 채용 분석 보기
+          </button>
+          <button
+            onClick={() => navigate('/job-recommendations')}
+            className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-8 py-3 rounded-xl hover:opacity-90 transition-opacity font-medium"
+          >
+            <i className="ri-lightbulb-line mr-2"></i>
+            AI 채용 공고 추천 보기
+          </button>
           <button
             onClick={() => window.print()}
             className="bg-white text-gray-700 border-2 border-gray-300 px-8 py-3 rounded-xl hover:bg-gray-50 transition-colors font-medium"
