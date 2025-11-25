@@ -385,3 +385,143 @@ class KeywordSuggestionRequest(BaseModel):
 class KeywordSuggestionResponse(BaseModel):
     """키워드 추천 응답"""
     keywords: List[str]
+
+
+# ============== 5. 채용 공고 분석 ==============
+
+class MarketTrendAnalysisRequest(BaseModel):
+    """시장 트렌드 분석 요청"""
+    careerField: Optional[str] = None
+    days: int = Field(default=30, ge=7, le=90)
+
+
+class TopItem(BaseModel):
+    """상위 항목"""
+    name: str
+    count: int
+
+
+class MarketTrendAnalysisResponse(BaseModel):
+    """시장 트렌드 분석 응답"""
+    success: bool
+    period: str
+    careerField: str
+    totalJobs: int
+    topCompanies: List[TopItem]
+    topLocations: List[TopItem]
+    insights: List[str]
+    trendingSkills: List[str]
+    growingFields: List[str]
+    summary: str
+
+
+class SkillRequirementsRequest(BaseModel):
+    """스킬 요구사항 분석 요청"""
+    careerField: str
+    days: int = Field(default=30, ge=7, le=90)
+
+
+class SkillDetail(BaseModel):
+    """스킬 상세 정보"""
+    skill: str
+    frequency: str
+    importance: str
+
+
+class ExperienceLevel(BaseModel):
+    """경력 레벨 정보"""
+    entry: Optional[str] = None
+    mid: Optional[str] = None
+    senior: Optional[str] = None
+
+
+class SkillRequirementsResponse(BaseModel):
+    """스킬 요구사항 분석 응답"""
+    success: bool
+    careerField: str
+    analyzedJobs: int
+    requiredSkills: List[SkillDetail]
+    preferredSkills: List[str]
+    emergingSkills: List[str]
+    experienceLevel: ExperienceLevel
+    recommendations: List[str]
+
+
+class SalaryTrendsRequest(BaseModel):
+    """연봉 트렌드 분석 요청"""
+    careerField: Optional[str] = None
+    days: int = Field(default=30, ge=7, le=90)
+
+
+class SalaryRange(BaseModel):
+    """연봉 범위"""
+    min: Optional[str] = None
+    max: Optional[str] = None
+    average: Optional[str] = None
+
+
+class SalaryTrendsResponse(BaseModel):
+    """연봉 트렌드 분석 응답"""
+    success: bool
+    careerField: str
+    analyzedJobs: int
+    salaryRange: SalaryRange
+    benefits: List[str]
+    insights: List[str]
+
+
+class PersonalizedInsightsRequest(BaseModel):
+    """맞춤형 인사이트 요청"""
+    userProfile: Dict
+    careerAnalysis: Dict
+
+
+class CareerInsight(BaseModel):
+    """직업별 인사이트"""
+    careerName: str
+    jobCount: int
+    gapAnalysis: List[str]
+    learningPath: List[str]
+    competitiveness: str
+    recommendations: List[str]
+
+
+class PersonalizedInsightsResponse(BaseModel):
+    """맞춤형 인사이트 응답"""
+    success: bool
+    insights: List[CareerInsight]
+    overallRecommendation: str
+
+
+class JobComparisonRequest(BaseModel):
+    """채용 공고 비교 요청"""
+    jobIds: List[int] = Field(min_length=2)
+
+
+class JobComparisonInfo(BaseModel):
+    """비교 공고 정보"""
+    id: int
+    title: str
+    company: str
+
+
+class ProsCons(BaseModel):
+    """장단점"""
+    job: str
+    pros: List[str]
+    cons: List[str]
+
+
+class ComparisonDetail(BaseModel):
+    """비교 상세"""
+    similarities: List[str]
+    differences: List[str]
+    pros_cons: List[ProsCons]
+
+
+class JobComparisonResponse(BaseModel):
+    """채용 공고 비교 응답"""
+    success: bool
+    jobs: List[JobComparisonInfo]
+    comparison: ComparisonDetail
+    recommendation: str

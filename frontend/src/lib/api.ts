@@ -474,4 +474,74 @@ export const userService = {
   },
 };
 
+/* ================================
+   🔹 Job Analysis Agent
+   ================================ */
+const PYTHON_API_URL = "http://localhost:8000/api";
+
+export const jobAnalysisService = {
+  analyzeMarketTrends: async (careerField?: string, days: number = 30) => {
+    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/market-trends`, {
+      careerField,
+      days,
+    });
+    return response.data;
+  },
+
+  analyzeSkillRequirements: async (careerField: string, days: number = 30) => {
+    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/skill-requirements`, {
+      careerField,
+      days,
+    });
+    return response.data;
+  },
+
+  analyzeSalaryTrends: async (careerField?: string, days: number = 30) => {
+    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/salary-trends`, {
+      careerField,
+      days,
+    });
+    return response.data;
+  },
+
+  getPersonalizedInsights: async (userProfile: any, careerAnalysis: any) => {
+    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/personalized-insights`, {
+      userProfile,
+      careerAnalysis,
+    });
+    return response.data;
+  },
+
+  compareJobs: async (jobIds: number[]) => {
+    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/compare-jobs`, {
+      jobIds,
+    });
+    return response.data;
+  },
+};
+
+/* ================================
+   🔹 Job Recommendation Agent
+   ================================ */
+export const jobRecommendationService = {
+  getRecommendations: async (userId: number, careerAnalysis: any, userProfile?: any, limit: number = 10) => {
+    const response = await axios.post(`${PYTHON_API_URL}/agent/job-recommendations`, {
+      userId,
+      careerAnalysis,
+      userProfile,
+      limit,
+    });
+    return response.data;
+  },
+
+  getRealtimeRecommendations: async (userId: number, careerKeywords: string[], limit: number = 5) => {
+    const response = await axios.post(`${PYTHON_API_URL}/agent/job-recommendations/realtime`, {
+      userId,
+      careerKeywords,
+      limit,
+    });
+    return response.data;
+  },
+};
+
 export default api;

@@ -39,6 +39,9 @@ const BookMentoringPage = lazy(() => import("../pages/mentoring/BookMentoring"))
 const MyBookingsPage = lazy(() => import("../pages/my-bookings/page"));
 const MentorSessionsPage = lazy(() => import("../pages/mentor/MentorSessions"));
 const MentoringMeetingPage = lazy(() => import("../pages/mentoring/MentoringMeeting"));
+const JobAnalysisPage = lazy(() => import("../pages/job-analysis/JobAnalysisPage"));
+const PersonalizedInsightsPage = lazy(() => import("../pages/job-analysis/PersonalizedInsightsPage"));
+const JobRecommendationsPage = lazy(() => import("../pages/job-recommendations/JobRecommendationsPage"));
 
 const routes: RouteObject[] = [
   {
@@ -222,6 +225,18 @@ const routes: RouteObject[] = [
   {
     path: "/chatbot",
     element: <ChatbotPage />,
+  },
+  {
+    path: "/job-analysis",
+    element: <JobAnalysisPage />,
+  },
+  {
+    path: "/job-analysis/personalized",
+    element: <PersonalizedInsightsPage />,
+  },
+  {
+    path: "/job-recommendations",
+    element: <JobRecommendationsPage />,
   },
 ];
 

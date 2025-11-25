@@ -688,3 +688,36 @@ class DatabaseService:
             traceback.print_exc()
             return 0
 
+    def execute_query(self, query: str, params: tuple = None):
+        """
+        SQL 쿼리 실행 (SELECT 전용)
+
+        Args:
+            query: SQL 쿼리
+            params: 쿼리 파라미터
+
+        Returns:
+            쿼리 결과 (튜플 리스트)
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                if params:
+                    cursor.execute(query, params)
+                else:
+                    cursor.execute(query)
+
+                results = cursor.fetchall()
+
+                # DictCursor/RealDictCursor 결과를 튜플 리스트로 변환
+                if results and isinstance(results[0], dict):
+                    # 딕셔너리 결과를 튜플로 변환
+                    return [tuple(row.values()) for row in results]
+
+                return results
+
+        except Exception as e:
+            print(f"쿼리 실행 실패: {str(e)}")
+            raise e
+
