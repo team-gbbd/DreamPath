@@ -23,6 +23,10 @@ public class LearningPathResponse {
     private LocalDateTime createdAt;
     private List<WeeklySessionInfo> weeklySessions;
 
+    // 추가 필드
+    private Integer overallProgress;
+    private Integer currentWeek;
+
     public static LearningPathResponse from(LearningPath path) {
         LearningPathResponse response = new LearningPathResponse();
         response.pathId = path.getPathId();
@@ -38,6 +42,23 @@ public class LearningPathResponse {
             response.weeklySessions = path.getWeeklySessions().stream()
                     .map(WeeklySessionInfo::from)
                     .collect(Collectors.toList());
+
+            // currentWeek 계산: UNLOCKED 또는 COMPLETED 중 가장 높은 주차
+            response.currentWeek = path.getWeeklySessions().stream()
+                    .filter(s -> s.getStatus() != com.dreampath.enums.WeeklyStatus.LOCKED)
+                    .mapToInt(WeeklySession::getWeekNumber)
+                    .max()
+                    .orElse(1);
+
+            // overallProgress 계산: 완료된 주차 비율
+            long completedCount = path.getWeeklySessions().stream()
+                    .filter(s -> s.getStatus() == com.dreampath.enums.WeeklyStatus.COMPLETED)
+                    .count();
+            int totalWeeks = path.getWeeklySessions().size();
+            response.overallProgress = totalWeeks > 0 ? (int) ((completedCount * 100) / totalWeeks) : 0;
+        } else {
+            response.currentWeek = 1;
+            response.overallProgress = 0;
         }
 
         return response;

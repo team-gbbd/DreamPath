@@ -57,7 +57,7 @@ export default function PaymentSuccessPage() {
 
         setPaymentInfo(response);
         setIsProcessing(false);
-      } catch (err: any) {
+      } catch (err) {
         console.error('결제 완료 처리 실패:', err);
 
         // 에러 메시지 추출

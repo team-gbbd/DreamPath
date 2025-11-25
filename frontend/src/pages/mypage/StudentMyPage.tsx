@@ -103,8 +103,7 @@ export default function StudentMyPage() {
       try {
         const mentorData = await mentorService.getMyApplication(userId);
         setMentorApplication(mentorData);
-      } catch (err: any) {
-        // 204 No Content (멘토 신청 없음) 또는 404는 정상적인 상황이므로 로그 출력 안 함
+      } catch (err) {
         if (err.response?.status !== 404 && err.response?.status !== 204) {
           console.error('멘토 신청 현황 조회 실패:', err);
         }
@@ -113,18 +112,18 @@ export default function StudentMyPage() {
       try {
         const sessions = await paymentService.getRemainingSessions(userId);
         setRemainingSessions(sessions);
-      } catch (err: any) {
+      } catch (err) {
         console.error('잔여 횟수 조회 실패:', err);
       }
 
       try {
         const bookingsData = await bookingService.getMyBookings(userId);
         setMyBookings(bookingsData);
-      } catch (err: any) {
+      } catch (err) {
         console.error('예약 목록 조회 실패:', err);
       }
 
-    } catch (err: any) {
+    } catch (err) {
       console.error('데이터 로딩 실패:', err);
       setError(err.message || '데이터를 불러오는 중 오류가 발생했습니다.');
     } finally {
@@ -145,21 +144,17 @@ export default function StudentMyPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-pink-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-lg text-gray-600 font-medium">로딩 중...</p>
-        </div>
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-pink-200 border-t-pink-500 rounded-full animate-spin"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <i className="ri-error-warning-line text-5xl text-red-400 mb-4"></i>
-          <p className="text-lg text-gray-600 font-medium mb-4">{error}</p>
+          <p className="text-gray-500 mb-4">{error}</p>
         </div>
       </div>
     );
@@ -167,7 +162,6 @@ export default function StudentMyPage() {
 
   if (!userProfile) return null;
 
-  const totalPaths = learningPaths.length;
   const totalWeeks = learningPaths.reduce((sum, path) =>
     sum + (path.weeklySessions?.length || 0), 0);
   const completedWeeks = learningPaths.reduce((sum, path) =>
@@ -181,224 +175,203 @@ export default function StudentMyPage() {
     { id: 'account' as TabType, label: '계정 설정', icon: 'ri-settings-3-line' },
   ];
 
+  const getBookingStatusStyle = (status: string) => {
+    switch (status) {
+      case 'PENDING': return { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-200', label: '승인 대기' };
+      case 'CONFIRMED': return { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-200', label: '확정' };
+      case 'REJECTED': return { bg: 'bg-rose-50', text: 'text-rose-600', border: 'border-rose-200', label: '거절됨' };
+      case 'CANCELLED': return { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-200', label: '취소됨' };
+      case 'COMPLETED': return { bg: 'bg-sky-50', text: 'text-sky-600', border: 'border-sky-200', label: '완료' };
+      default: return { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-200', label: status };
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50/30 via-purple-50/20 to-blue-50/30">
+    <div className="min-h-screen bg-white">
       <Header />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-8">
+      <div className="max-w-6xl mx-auto px-6 pt-24 pb-8">
         <div className="flex gap-6">
-          {/* Left Sidebar - Flat White */}
-          <div className="w-64 flex-shrink-0">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 sticky top-8">
-              {/* Profile Section */}
-              <div className="p-6 border-b border-gray-200">
-                <div className="w-16 h-16 bg-pink-400 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <i className="ri-user-line text-3xl text-white"></i>
+          {/* 사이드바 */}
+          <div className="w-56 flex-shrink-0">
+            <div className="bg-white border border-gray-200 rounded-lg sticky top-24">
+              {/* 프로필 */}
+              <div className="p-5 border-b border-gray-100">
+                <div className="w-14 h-14 bg-pink-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <i className="ri-user-line text-2xl text-white"></i>
                 </div>
-                <h2 className="text-center text-lg font-semibold text-gray-900 mb-1">{userProfile.name}</h2>
-                <p className="text-center text-sm text-gray-500">{userProfile.username}</p>
-                <div className="flex justify-center mt-3">
-                  <span className="bg-pink-50 text-pink-600 px-3 py-1 rounded-md text-xs font-medium border border-pink-100">
-                    학생
-                  </span>
+                <h2 className="text-center text-sm font-semibold text-gray-900">{userProfile.name}</h2>
+                <p className="text-center text-xs text-gray-500 mt-0.5">{userProfile.username}</p>
+                <div className="flex justify-center mt-2">
+                  <span className="bg-pink-50 text-pink-600 px-2 py-0.5 rounded text-xs font-medium">학생</span>
                 </div>
               </div>
 
-              {/* Navigation Tabs */}
-              <nav className="p-3">
+              {/* 탭 네비게이션 */}
+              <nav className="p-2">
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`w-full flex items-center px-3 py-2.5 rounded-md text-left transition-all mb-1 ${
+                    className={`w-full flex items-center px-3 py-2 rounded text-left transition-colors text-sm ${
                       activeTab === tab.id
-                        ? 'bg-pink-50 text-pink-600 border border-pink-100'
+                        ? 'bg-pink-50 text-pink-600'
                         : 'text-gray-600 hover:bg-gray-50'
                     }`}
                   >
-                    <i className={`${tab.icon} text-lg mr-3`}></i>
-                    <span className="font-medium text-sm">{tab.label}</span>
+                    <i className={`${tab.icon} mr-2`}></i>
+                    <span className="font-medium">{tab.label}</span>
                   </button>
                 ))}
               </nav>
             </div>
           </div>
 
-          {/* Main Content Area */}
-          <div className="flex-1">
-            {/* Overview Tab */}
+          {/* 메인 콘텐츠 */}
+          <div className="flex-1 space-y-5">
+            {/* 대시보드 탭 */}
             {activeTab === 'overview' && (
-              <div className="space-y-6">
-                {/* Stats Summary - Soft Card Style */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-pink-100/50 p-6 hover:shadow-md transition-all">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-pink-100 to-pink-50 rounded-xl flex items-center justify-center">
-                        <i className="ri-line-chart-line text-2xl text-pink-500"></i>
-                      </div>
+              <>
+                {/* 통계 카드 */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="w-8 h-8 bg-pink-50 rounded flex items-center justify-center">
+                        <i className="ri-line-chart-line text-pink-500"></i>
+                      </span>
                     </div>
-                    <p className="text-sm text-gray-500 mb-1">학습 진행률</p>
-                    <p className="text-3xl font-bold text-gray-900">{overallProgress}<span className="text-xl text-gray-500">%</span></p>
+                    <p className="text-xs text-gray-500">학습 진행률</p>
+                    <p className="text-2xl font-bold text-gray-900">{overallProgress}<span className="text-sm text-gray-400">%</span></p>
                   </div>
 
-                  <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-purple-100/50 p-6 hover:shadow-md transition-all">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-purple-50 rounded-xl flex items-center justify-center">
-                        <i className="ri-checkbox-circle-line text-2xl text-purple-500"></i>
-                      </div>
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="w-8 h-8 bg-emerald-50 rounded flex items-center justify-center">
+                        <i className="ri-checkbox-circle-line text-emerald-500"></i>
+                      </span>
                     </div>
-                    <p className="text-sm text-gray-500 mb-1">완료한 주차</p>
-                    <p className="text-3xl font-bold text-gray-900">{completedWeeks}<span className="text-xl text-gray-500">/{totalWeeks}</span></p>
+                    <p className="text-xs text-gray-500">완료한 주차</p>
+                    <p className="text-2xl font-bold text-gray-900">{completedWeeks}<span className="text-sm text-gray-400">/{totalWeeks}</span></p>
                   </div>
 
                   <div
-                    className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-orange-100/50 p-6 cursor-pointer hover:shadow-md transition-all"
+                    className="bg-white border border-gray-200 rounded-lg p-4 cursor-pointer hover:border-pink-200 transition-colors"
                     onClick={() => navigate(remainingSessions === 0 ? '/payments/purchase' : '/payments/history')}
                   >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-orange-100 to-orange-50 rounded-xl flex items-center justify-center">
-                        <i className="ri-ticket-line text-2xl text-orange-500"></i>
-                      </div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="w-8 h-8 bg-amber-50 rounded flex items-center justify-center">
+                        <i className="ri-ticket-line text-amber-500"></i>
+                      </span>
                     </div>
-                    <p className="text-sm text-gray-500 mb-1">잔여 멘토링 횟수</p>
-                    <p className="text-3xl font-bold text-gray-900">{remainingSessions}<span className="text-xl text-gray-500">회</span></p>
+                    <p className="text-xs text-gray-500">멘토링 잔여</p>
+                    <p className="text-2xl font-bold text-gray-900">{remainingSessions}<span className="text-sm text-gray-400">회</span></p>
                   </div>
                 </div>
 
-                {/* Career Summary - Soft Card */}
-                <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-pink-100/50 p-8">
-                  <div className="flex items-center mb-6">
-                    <div className="w-12 h-12 bg-pink-400 rounded-xl flex items-center justify-center mr-4 shadow-sm">
-                      <i className="ri-compass-3-line text-2xl text-white"></i>
-                    </div>
+                {/* 진로 요약 */}
+                <div className="bg-white border border-gray-200 rounded-lg">
+                  <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
+                    <span className="w-8 h-8 bg-pink-500 rounded flex items-center justify-center">
+                      <i className="ri-compass-3-line text-white"></i>
+                    </span>
                     <div>
-                      <h2 className="text-xl font-bold text-gray-900">나의 진로 요약</h2>
-                      <p className="text-gray-500 text-sm mt-0.5">AI가 분석한 당신의 진로 방향</p>
+                      <h2 className="text-sm font-semibold text-gray-900">나의 진로 요약</h2>
+                      <p className="text-xs text-gray-500">AI가 분석한 진로 방향</p>
                     </div>
                   </div>
 
-                  {learningPaths.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="bg-pink-50 rounded-xl p-6 border border-pink-100/50">
-                        <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-base font-semibold text-gray-900 flex items-center">
-                            <i className="ri-star-fill text-pink-500 mr-2"></i>
-                            추천 직업
-                          </h3>
-                          <span className="bg-pink-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-sm">
-                            TOP 1
-                          </span>
+                  <div className="p-5">
+                    {learningPaths.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-pink-50 rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs text-pink-600 font-medium">추천 직업</span>
+                            <span className="text-xs bg-pink-500 text-white px-1.5 py-0.5 rounded">TOP</span>
+                          </div>
+                          <p className="text-lg font-bold text-gray-900">{learningPaths[0].domain}</p>
+                          <p className="text-xs text-gray-500 mt-1">현재 학습 중</p>
                         </div>
-                        <div className="text-2xl font-bold text-pink-600 mb-2">{learningPaths[0].domain}</div>
-                        <p className="text-gray-600 text-sm">현재 학습 중인 경로입니다</p>
-                      </div>
 
-                      <div className="bg-white/50 rounded-xl p-6 border border-gray-200/50">
-                        <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center">
-                          <i className="ri-sparkle-fill text-green-500 mr-2"></i>
-                          강점 분석
-                        </h3>
-                        <div className="space-y-3">
-                          <div className="flex items-center">
-                            <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mr-3">
-                              <i className="ri-check-line text-green-600 text-sm"></i>
-                            </div>
-                            <span className="text-gray-700 text-sm">꾸준한 학습 의지</span>
-                          </div>
-                          <div className="flex items-center">
-                            <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mr-3">
-                              <i className="ri-check-line text-green-600 text-sm"></i>
-                            </div>
-                            <span className="text-gray-700 text-sm">체계적인 학습 접근</span>
-                          </div>
-                          <div className="flex items-center">
-                            <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mr-3">
-                              <i className="ri-check-line text-green-600 text-sm"></i>
-                            </div>
-                            <span className="text-gray-700 text-sm">진로에 대한 명확한 목표</span>
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <span className="text-xs text-gray-600 font-medium">강점 분석</span>
+                          <div className="mt-2 space-y-1.5">
+                            {['꾸준한 학습 의지', '체계적 학습 접근', '명확한 목표'].map((s, i) => (
+                              <div key={i} className="flex items-center gap-2 text-xs text-gray-600">
+                                <i className="ri-check-line text-emerald-500"></i>
+                                {s}
+                              </div>
+                            ))}
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="py-12 text-center">
-                      <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <i className="ri-compass-line text-4xl text-gray-300"></i>
-                      </div>
-                      <p className="text-gray-500 mb-6">아직 진로 분석 데이터가 없습니다</p>
-                      <button
-                        onClick={() => navigate('/career-chat')}
-                        className="bg-pink-500 hover:bg-pink-600 text-white px-8 py-3 rounded-xl transition-all font-medium"
-                      >
-                        <i className="ri-chat-3-line mr-2"></i>
-                        AI 진로 상담 시작하기
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Recent Learning */}
-                {learningPaths.length > 0 && (
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                    <div className="px-6 py-4 border-b border-gray-200">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 bg-pink-400 rounded-lg flex items-center justify-center mr-3">
-                            <i className="ri-book-open-line text-xl text-white"></i>
-                          </div>
-                          <div>
-                            <h2 className="text-lg font-semibold text-gray-900">최근 학습</h2>
-                            <p className="text-gray-500 text-sm">진행 중인 학습 로드맵</p>
-                          </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                          <i className="ri-compass-line text-2xl text-gray-300"></i>
                         </div>
+                        <p className="text-sm text-gray-500 mb-4">아직 진로 분석 데이터가 없습니다</p>
                         <button
-                          onClick={() => setActiveTab('learning')}
-                          className="text-pink-600 hover:text-pink-700 font-medium text-sm"
+                          onClick={() => navigate('/career-chat')}
+                          className="text-sm bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded transition-colors"
                         >
-                          전체 보기 <i className="ri-arrow-right-line ml-1"></i>
+                          AI 진로 상담 시작하기
                         </button>
                       </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 최근 학습 */}
+                {learningPaths.length > 0 && (
+                  <div className="bg-white border border-gray-200 rounded-lg">
+                    <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="w-8 h-8 bg-pink-500 rounded flex items-center justify-center">
+                          <i className="ri-book-open-line text-white"></i>
+                        </span>
+                        <div>
+                          <h2 className="text-sm font-semibold text-gray-900">최근 학습</h2>
+                          <p className="text-xs text-gray-500">진행 중인 학습 로드맵</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setActiveTab('learning')}
+                        className="text-xs text-pink-600 hover:text-pink-700"
+                      >
+                        전체 보기 <i className="ri-arrow-right-s-line"></i>
+                      </button>
                     </div>
 
-                    <div className="p-6">
+                    <div className="p-5">
                       {learningPaths.slice(0, 1).map((path) => {
                         const progress = calculateProgress(path);
-                        const totalWeeks = path.weeklySessions?.length || 0;
-                        const completedWeeks = path.weeklySessions?.filter(w => w.isCompleted).length || 0;
+                        const totalW = path.weeklySessions?.length || 0;
+                        const completedW = path.weeklySessions?.filter(w => w.isCompleted).length || 0;
 
                         return (
-                          <div key={path.pathId} className="border border-gray-200 rounded-lg p-6">
-                            <div className="flex items-center justify-between mb-4">
+                          <div key={path.pathId} className="border border-gray-200 rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-3">
                               <div>
-                                <h3 className="text-lg font-semibold text-gray-900 mb-1">{path.domain}</h3>
-                                <p className="text-sm text-gray-500">
-                                  <i className="ri-calendar-line mr-1"></i>
-                                  {formatDate(path.createdAt)} 시작
-                                </p>
+                                <h3 className="font-semibold text-gray-900">{path.domain}</h3>
+                                <p className="text-xs text-gray-500 mt-0.5">{formatDate(path.createdAt)} 시작</p>
                               </div>
-                              <div className="bg-gradient-to-r from-pink-500 to-purple-500 text-white px-4 py-2 rounded-lg text-base font-semibold">
-                                {progress}%
-                              </div>
+                              <span className="text-lg font-bold text-pink-600">{progress}%</span>
                             </div>
 
-                            <div className="mb-4">
-                              <div className="flex justify-between text-sm text-gray-600 mb-2">
+                            <div className="mb-3">
+                              <div className="flex justify-between text-xs text-gray-500 mb-1">
                                 <span>진행률</span>
-                                <span>{completedWeeks} / {totalWeeks} 주차</span>
+                                <span>{completedW}/{totalW} 주차</span>
                               </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2.5">
-                                <div
-                                  className="bg-gradient-to-r from-pink-500 to-purple-500 h-2.5 rounded-full transition-all duration-500"
-                                  style={{ width: `${progress}%` }}
-                                ></div>
+                              <div className="h-1.5 bg-pink-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-pink-500 rounded-full" style={{ width: `${progress}%` }}></div>
                               </div>
                             </div>
 
                             <button
                               onClick={() => navigate(`/learning/${path.pathId}`)}
-                              className="w-full bg-pink-500 hover:bg-pink-600 text-white py-2.5 rounded-lg font-medium transition-all"
+                              className="w-full text-sm bg-pink-500 hover:bg-pink-600 text-white py-2 rounded transition-colors"
                             >
-                              <i className="ri-play-circle-line mr-2"></i>
                               학습 이어하기
                             </button>
                           </div>
@@ -407,126 +380,103 @@ export default function StudentMyPage() {
                     </div>
                   </div>
                 )}
-              </div>
+              </>
             )}
 
-            {/* Learning Tab */}
+            {/* 학습 현황 탭 */}
             {activeTab === 'learning' && (
-              <div className="space-y-6">
-                {/* Dashboard Quick Access Card */}
+              <>
                 {learningPaths.length > 0 && (
-                  <div className="bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 rounded-2xl shadow-sm border border-pink-200/50 p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className="w-14 h-14 bg-gradient-to-br from-pink-400 to-purple-400 rounded-xl flex items-center justify-center mr-4 shadow-md">
-                          <i className="ri-dashboard-line text-2xl text-white"></i>
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-bold text-gray-900 mb-1">학습 대시보드</h3>
-                          <p className="text-sm text-gray-600">주차별 상세 분석, 통계, 약점 분석을 확인하세요</p>
-                        </div>
+                  <div className="bg-pink-50 border border-pink-200 rounded-lg p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="w-10 h-10 bg-pink-500 rounded-lg flex items-center justify-center">
+                        <i className="ri-dashboard-line text-white"></i>
+                      </span>
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-900">학습 대시보드</h3>
+                        <p className="text-xs text-gray-600">주차별 상세 분석, 통계, 약점 분석</p>
                       </div>
-                      <button
-                        onClick={() => navigate('/learning/dashboard')}
-                        className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md hover:shadow-lg"
-                      >
-                        대시보드 열기
-                        <i className="ri-arrow-right-line ml-2"></i>
-                      </button>
                     </div>
+                    <button
+                      onClick={() => navigate('/learning')}
+                      className="text-sm bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded transition-colors"
+                    >
+                      대시보드 열기
+                    </button>
                   </div>
                 )}
 
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                  <div className="px-6 py-4 border-b border-gray-200">
-                    <div className="flex items-center">
-                      <div className="w-10 h-10 bg-pink-400 rounded-lg flex items-center justify-center mr-3">
-                        <i className="ri-book-open-line text-xl text-white"></i>
-                      </div>
-                      <div>
-                        <h2 className="text-lg font-semibold text-gray-900">학습 로드맵</h2>
-                        <p className="text-gray-500 text-sm">주차별 학습 현황을 확인하세요</p>
-                      </div>
+                <div className="bg-white border border-gray-200 rounded-lg">
+                  <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
+                    <span className="w-8 h-8 bg-pink-500 rounded flex items-center justify-center">
+                      <i className="ri-book-open-line text-white"></i>
+                    </span>
+                    <div>
+                      <h2 className="text-sm font-semibold text-gray-900">학습 로드맵</h2>
+                      <p className="text-xs text-gray-500">주차별 학습 현황</p>
                     </div>
                   </div>
 
                   {learningPaths.length === 0 ? (
-                    <div className="p-12 text-center">
-                      <i className="ri-book-2-line text-5xl text-gray-300 mb-4"></i>
-                      <p className="text-gray-500 mb-6">아직 시작한 학습 경로가 없습니다</p>
+                    <div className="p-8 text-center">
+                      <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i className="ri-book-2-line text-2xl text-gray-300"></i>
+                      </div>
+                      <p className="text-sm text-gray-500 mb-4">아직 시작한 학습 경로가 없습니다</p>
                       <button
                         onClick={() => navigate('/career-chat')}
-                        className="bg-pink-500 hover:bg-pink-600 text-white px-6 py-2.5 rounded-lg transition-all font-medium"
+                        className="text-sm bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded transition-colors"
                       >
-                        <i className="ri-rocket-line mr-2"></i>
                         학습 시작하기
                       </button>
                     </div>
                   ) : (
-                    <div className="p-6 space-y-6">
+                    <div className="p-5 space-y-4">
                       {learningPaths.map((path) => {
                         const progress = calculateProgress(path);
-                        const totalWeeks = path.weeklySessions?.length || 0;
-                        const completedWeeks = path.weeklySessions?.filter(w => w.isCompleted).length || 0;
+                        const totalW = path.weeklySessions?.length || 0;
+                        const completedW = path.weeklySessions?.filter(w => w.isCompleted).length || 0;
 
                         return (
-                          <div
-                            key={path.pathId}
-                            className="border border-gray-200 rounded-lg p-6"
-                          >
-                            <div className="flex items-center justify-between mb-4">
+                          <div key={path.pathId} className="border border-gray-200 rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-3">
                               <div>
-                                <h3 className="text-lg font-semibold text-gray-900 mb-1">{path.domain}</h3>
-                                <p className="text-sm text-gray-500">
-                                  <i className="ri-calendar-line mr-1"></i>
-                                  {formatDate(path.createdAt)} 시작
-                                </p>
+                                <h3 className="font-semibold text-gray-900">{path.domain}</h3>
+                                <p className="text-xs text-gray-500 mt-0.5">{formatDate(path.createdAt)} 시작</p>
                               </div>
-                              <div className="bg-gradient-to-r from-pink-400 to-purple-400 text-white px-4 py-2 rounded-lg text-base font-semibold">
-                                {progress}%
-                              </div>
+                              <span className="text-lg font-bold text-pink-600">{progress}%</span>
                             </div>
 
-                            <div className="grid grid-cols-4 gap-3 mb-4">
+                            <div className="grid grid-cols-4 gap-2 mb-3">
                               {path.weeklySessions?.map((week) => (
                                 <div
                                   key={week.weeklyId}
-                                  className={`p-3 rounded-lg text-center ${
+                                  className={`p-2 rounded text-center text-xs ${
                                     week.isCompleted
-                                      ? 'bg-green-50 border border-green-200'
-                                      : 'bg-gray-50 border border-gray-200'
+                                      ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                                      : 'bg-gray-50 text-gray-500 border border-gray-200'
                                   }`}
                                 >
-                                  <div className="text-xl mb-1">
-                                    {week.isCompleted ? (
-                                      <i className="ri-checkbox-circle-fill text-green-500"></i>
-                                    ) : (
-                                      <i className="ri-lock-line text-gray-400"></i>
-                                    )}
-                                  </div>
-                                  <div className="text-xs font-medium text-gray-700">{week.weekNumber}주차</div>
+                                  <i className={week.isCompleted ? 'ri-checkbox-circle-fill' : 'ri-lock-line'}></i>
+                                  <div className="mt-0.5">{week.weekNumber}주차</div>
                                 </div>
                               ))}
                             </div>
 
-                            <div className="mb-4">
-                              <div className="flex justify-between text-sm text-gray-600 mb-2">
+                            <div className="mb-3">
+                              <div className="flex justify-between text-xs text-gray-500 mb-1">
                                 <span>진행률</span>
-                                <span>{completedWeeks} / {totalWeeks} 주차</span>
+                                <span>{completedW}/{totalW} 주차</span>
                               </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2.5">
-                                <div
-                                  className="bg-gradient-to-r from-pink-400 to-purple-400 h-2.5 rounded-full transition-all duration-500"
-                                  style={{ width: `${progress}%` }}
-                                ></div>
+                              <div className="h-1.5 bg-pink-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-pink-500 rounded-full" style={{ width: `${progress}%` }}></div>
                               </div>
                             </div>
 
                             <button
                               onClick={() => navigate(`/learning/${path.pathId}`)}
-                              className="w-full bg-pink-500 hover:bg-pink-600 text-white py-2.5 rounded-lg font-medium transition-all"
+                              className="w-full text-sm bg-pink-500 hover:bg-pink-600 text-white py-2 rounded transition-colors"
                             >
-                              <i className="ri-play-circle-line mr-2"></i>
                               학습 이어하기
                             </button>
                           </div>
@@ -535,305 +485,198 @@ export default function StudentMyPage() {
                     </div>
                   )}
                 </div>
-              </div>
+              </>
             )}
 
-            {/* Mentoring Tab */}
+            {/* 멘토링 탭 */}
             {activeTab === 'mentoring' && (
-              <div className="space-y-6">
-                {/* Quick Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <>
+                {/* 통계 */}
+                <div className="grid grid-cols-3 gap-4">
                   <div
-                    className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-orange-100/50 p-6 cursor-pointer hover:shadow-md transition-all"
+                    className="bg-white border border-gray-200 rounded-lg p-4 cursor-pointer hover:border-pink-200 transition-colors"
                     onClick={() => navigate(remainingSessions === 0 ? '/payments/purchase' : '/payments/history')}
                   >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center">
-                        <i className="ri-ticket-line text-2xl text-orange-500"></i>
-                      </div>
+                    <div className="w-8 h-8 bg-amber-50 rounded flex items-center justify-center mb-2">
+                      <i className="ri-ticket-line text-amber-500"></i>
                     </div>
-                    <p className="text-sm text-gray-500 mb-1">잔여 멘토링 횟수</p>
-                    <p className="text-3xl font-bold text-gray-900">{remainingSessions}<span className="text-xl text-gray-500">회</span></p>
+                    <p className="text-xs text-gray-500">잔여 횟수</p>
+                    <p className="text-2xl font-bold text-gray-900">{remainingSessions}<span className="text-sm text-gray-400">회</span></p>
                   </div>
 
                   <div
-                    className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-purple-100/50 p-6 cursor-pointer hover:shadow-md transition-all"
+                    className="bg-white border border-gray-200 rounded-lg p-4 cursor-pointer hover:border-pink-200 transition-colors"
                     onClick={() => navigate('/mentoring')}
                   >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center">
-                        <i className="ri-search-line text-2xl text-purple-500"></i>
-                      </div>
+                    <div className="w-8 h-8 bg-violet-50 rounded flex items-center justify-center mb-2">
+                      <i className="ri-search-line text-violet-500"></i>
                     </div>
-                    <p className="text-sm text-gray-500 mb-1">멘토 찾기</p>
-                    <p className="text-base font-semibold text-purple-600">세션 둘러보기</p>
+                    <p className="text-xs text-gray-500">멘토 찾기</p>
+                    <p className="text-sm font-medium text-violet-600 mt-1">세션 둘러보기</p>
                   </div>
 
-                  <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-pink-100/50 p-6 hover:shadow-md transition-all">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="w-12 h-12 bg-pink-50 rounded-xl flex items-center justify-center">
-                        <i className="ri-calendar-check-line text-2xl text-pink-500"></i>
-                      </div>
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <div className="w-8 h-8 bg-pink-50 rounded flex items-center justify-center mb-2">
+                      <i className="ri-calendar-check-line text-pink-500"></i>
                     </div>
-                    <p className="text-sm text-gray-500 mb-1">내 예약</p>
-                    <p className="text-3xl font-bold text-gray-900">{myBookings.length}<span className="text-xl text-gray-500">건</span></p>
+                    <p className="text-xs text-gray-500">내 예약</p>
+                    <p className="text-2xl font-bold text-gray-900">{myBookings.length}<span className="text-sm text-gray-400">건</span></p>
                   </div>
                 </div>
 
-                {/* My Bookings */}
-                <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-pink-100/50 p-8">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center">
-                      <div className="w-12 h-12 bg-pink-400 rounded-xl flex items-center justify-center mr-4 shadow-sm">
-                        <i className="ri-calendar-line text-2xl text-white"></i>
-                      </div>
-                      <div>
-                        <h2 className="text-xl font-bold text-gray-900">나의 예약</h2>
-                        <p className="text-gray-500 text-sm mt-0.5">예약한 멘토링 세션 목록</p>
-                      </div>
+                {/* 예약 목록 */}
+                <div className="bg-white border border-gray-200 rounded-lg">
+                  <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
+                    <span className="w-8 h-8 bg-pink-500 rounded flex items-center justify-center">
+                      <i className="ri-calendar-line text-white"></i>
+                    </span>
+                    <div>
+                      <h2 className="text-sm font-semibold text-gray-900">나의 예약</h2>
+                      <p className="text-xs text-gray-500">예약한 멘토링 세션</p>
                     </div>
                   </div>
 
                   {myBookings.length === 0 ? (
-                    <div className="text-center py-12">
-                      <i className="ri-calendar-line text-6xl text-gray-300 mb-4"></i>
-                      <p className="text-gray-500 mb-4">예약한 세션이 없습니다</p>
-                      <p className="text-sm text-gray-400 mb-6">멘토링 세션을 예약해보세요</p>
+                    <div className="p-8 text-center">
+                      <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <i className="ri-calendar-line text-2xl text-gray-300"></i>
+                      </div>
+                      <p className="text-sm text-gray-500 mb-4">예약한 세션이 없습니다</p>
                       <button
                         onClick={() => navigate('/mentoring')}
-                        className="bg-pink-500 hover:bg-pink-600 text-white px-6 py-2.5 rounded-lg transition-all font-medium"
+                        className="text-sm bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded transition-colors"
                       >
-                        <i className="ri-search-line mr-2"></i>
                         세션 찾아보기
                       </button>
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      {myBookings.map((booking) => (
-                        <div
-                          key={booking.bookingId}
-                          className={`rounded-xl p-6 border ${
-                            booking.status === 'PENDING' ? 'bg-yellow-50 border-yellow-100/50' :
-                            booking.status === 'CONFIRMED' ? 'bg-green-50 border-green-100/50' :
-                            booking.status === 'REJECTED' ? 'bg-red-50 border-red-100/50' :
-                            booking.status === 'CANCELLED' ? 'bg-gray-50 border-gray-100/50' :
-                            'bg-blue-50 border-blue-100/50'
-                          }`}
-                        >
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-center space-x-3">
-                              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                                booking.status === 'PENDING' ? 'bg-yellow-400' :
-                                booking.status === 'CONFIRMED' ? 'bg-green-400' :
-                                booking.status === 'REJECTED' ? 'bg-red-400' :
-                                booking.status === 'CANCELLED' ? 'bg-gray-400' :
-                                'bg-blue-400'
-                              }`}>
-                                <i className="ri-user-star-line text-xl text-white"></i>
+                    <div className="p-5 space-y-3">
+                      {myBookings.map((booking) => {
+                        const status = getBookingStatusStyle(booking.status);
+                        return (
+                          <div key={booking.bookingId} className={`border ${status.border} rounded-lg p-4 ${status.bg}`}>
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-pink-500 rounded-full flex items-center justify-center">
+                                  <i className="ri-user-star-line text-white"></i>
+                                </div>
+                                <div>
+                                  <h3 className="text-sm font-semibold text-gray-900">{booking.mentorName}</h3>
+                                  <p className="text-xs text-gray-500">멘토</p>
+                                </div>
                               </div>
-                              <div>
-                                <h3 className="text-base font-semibold text-gray-900">{booking.mentorName}</h3>
-                                <p className="text-sm text-gray-600">멘토</p>
-                              </div>
+                              <span className={`text-xs px-2 py-0.5 rounded ${status.bg} ${status.text} border ${status.border}`}>
+                                {status.label}
+                              </span>
                             </div>
-                            <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
-                              booking.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' :
-                              booking.status === 'CONFIRMED' ? 'bg-green-100 text-green-700 border-green-200' :
-                              booking.status === 'REJECTED' ? 'bg-red-100 text-red-700 border-red-200' :
-                              booking.status === 'CANCELLED' ? 'bg-gray-100 text-gray-700 border-gray-200' :
-                              'bg-blue-100 text-blue-700 border-blue-200'
-                            }`}>
-                              {booking.status === 'PENDING' && '승인 대기'}
-                              {booking.status === 'CONFIRMED' && '확정'}
-                              {booking.status === 'REJECTED' && '거절됨'}
-                              {booking.status === 'CANCELLED' && '취소됨'}
-                              {booking.status === 'COMPLETED' && '완료'}
-                            </span>
-                          </div>
 
-                          <div className="mb-4">
-                            <p className="text-sm font-semibold text-gray-900 mb-2">
-                              <i className={`ri-bookmark-line mr-1 ${
-                                booking.status === 'PENDING' ? 'text-yellow-500' :
-                                booking.status === 'CONFIRMED' ? 'text-green-500' :
-                                booking.status === 'REJECTED' ? 'text-red-500' :
-                                booking.status === 'CANCELLED' ? 'text-gray-500' :
-                                'text-blue-500'
-                              }`}></i>
-                              {booking.sessionTitle}
-                            </p>
+                            <p className="text-sm font-medium text-gray-900 mb-2">{booking.sessionTitle}</p>
+
                             {booking.rejectionReason && (
-                              <div className="bg-white/50 rounded-lg p-3 mt-2">
-                                <p className="text-sm text-red-700 font-medium">거절 사유:</p>
-                                <p className="text-sm text-gray-700">{booking.rejectionReason}</p>
+                              <div className="bg-white/50 rounded p-2 mb-2">
+                                <p className="text-xs text-rose-600">거절 사유: {booking.rejectionReason}</p>
                               </div>
                             )}
-                          </div>
 
-                          <div className="flex items-center text-gray-600 text-sm mb-4">
-                            <i className={`ri-calendar-line mr-2 ${
-                              booking.status === 'PENDING' ? 'text-yellow-500' :
-                              booking.status === 'CONFIRMED' ? 'text-green-500' :
-                              booking.status === 'REJECTED' ? 'text-red-500' :
-                              booking.status === 'CANCELLED' ? 'text-gray-500' :
-                              'text-blue-500'
-                            }`}></i>
-                            <span>신청일: {formatDate(booking.createdAt)}</span>
-                          </div>
+                            <p className="text-xs text-gray-500 mb-3">신청일: {formatDate(booking.createdAt)}</p>
 
-                          {booking.status === 'CONFIRMED' && (
-                            <button
-                              onClick={() => navigate(`/mentoring/meeting/${booking.bookingId}`)}
-                              className="w-full bg-green-500 hover:bg-green-600 text-white py-2.5 rounded-lg text-sm font-medium transition-all"
-                            >
-                              <i className="ri-video-line mr-2"></i>
-                              세션 입장하기
-                            </button>
-                          )}
-                          {booking.status === 'PENDING' && (
-                            <div className="text-center text-sm text-gray-600">
-                              <i className="ri-time-line mr-1"></i>
-                              멘토의 승인을 기다리고 있습니다
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                            {booking.status === 'CONFIRMED' && (
+                              <button
+                                onClick={() => navigate(`/mentoring/meeting/${booking.bookingId}`)}
+                                className="w-full text-sm bg-emerald-500 hover:bg-emerald-600 text-white py-2 rounded transition-colors"
+                              >
+                                세션 입장하기
+                              </button>
+                            )}
+                            {booking.status === 'PENDING' && (
+                              <p className="text-center text-xs text-gray-500">멘토의 승인을 기다리고 있습니다</p>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
 
-                {/* Mentor Application */}
+                {/* 멘토 신청 */}
                 {mentorApplication ? (
-                  <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-purple-100/50 p-8">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">멘토 신청 현황</h3>
-                      {mentorApplication.status === 'PENDING' && (
-                        <span className="bg-yellow-50 text-yellow-700 px-3 py-1.5 rounded-md text-sm font-medium border border-yellow-200">
-                          <i className="ri-time-line mr-1"></i>
-                          승인 대기 중
-                        </span>
-                      )}
-                      {mentorApplication.status === 'APPROVED' && (
-                        <span className="bg-green-50 text-green-700 px-3 py-1.5 rounded-md text-sm font-medium border border-green-200">
-                          <i className="ri-checkbox-circle-line mr-1"></i>
-                          승인됨
-                        </span>
-                      )}
-                      {mentorApplication.status === 'REJECTED' && (
-                        <span className="bg-red-50 text-red-700 px-3 py-1.5 rounded-md text-sm font-medium border border-red-200">
-                          <i className="ri-close-circle-line mr-1"></i>
-                          거절됨
-                        </span>
-                      )}
+                  <div className="bg-white border border-gray-200 rounded-lg p-5">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-gray-900">멘토 신청 현황</h3>
+                      <span className={`text-xs px-2 py-0.5 rounded ${
+                        mentorApplication.status === 'PENDING' ? 'bg-amber-50 text-amber-600' :
+                        mentorApplication.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600' :
+                        'bg-rose-50 text-rose-600'
+                      }`}>
+                        {mentorApplication.status === 'PENDING' && '승인 대기'}
+                        {mentorApplication.status === 'APPROVED' && '승인됨'}
+                        {mentorApplication.status === 'REJECTED' && '거절됨'}
+                      </span>
                     </div>
-
-                    {mentorApplication.status === 'APPROVED' && (
-                      <button
-                        onClick={() => navigate('/mypage/mentor')}
-                        className="w-full bg-pink-500 hover:bg-pink-600 text-white py-2.5 rounded-lg font-medium transition-all"
-                      >
-                        멘토 대시보드로 이동 <i className="ri-arrow-right-line ml-2"></i>
-                      </button>
-                    )}
                   </div>
                 ) : (
-                  <div className="bg-gradient-to-br from-purple-100/50 to-blue-100/50 rounded-2xl p-8 text-center border border-purple-200/30">
-                    <div className="w-16 h-16 bg-gradient-to-r from-pink-400 to-purple-400 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <i className="ri-user-star-line text-white text-3xl"></i>
+                  <div className="bg-violet-50 border border-violet-200 rounded-lg p-5 text-center">
+                    <div className="w-12 h-12 bg-violet-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <i className="ri-user-star-line text-white text-xl"></i>
                     </div>
-                    <h3 className="text-2xl font-semibold text-gray-800 mb-2">멘토가 되어보세요!</h3>
-                    <p className="text-gray-600 mb-6">
-                      후배들의 성장을 도와주실 멘토를 모집합니다.
-                    </p>
+                    <h3 className="font-semibold text-gray-900 mb-1">멘토가 되어보세요!</h3>
+                    <p className="text-xs text-gray-600 mb-4">후배들의 성장을 도와주실 멘토를 모집합니다.</p>
                     <button
                       onClick={() => navigate('/mentor/apply')}
-                      className="bg-gradient-to-r from-pink-400 to-purple-400 text-white px-8 py-3 rounded-lg hover:shadow-md transition-all font-semibold"
+                      className="text-sm bg-violet-500 hover:bg-violet-600 text-white px-4 py-2 rounded transition-colors"
                     >
-                      <i className="ri-send-plane-fill mr-2"></i>
                       멘토 신청하기
                     </button>
                   </div>
                 )}
-              </div>
+              </>
             )}
 
-            {/* Account Tab */}
+            {/* 계정 설정 탭 */}
             {activeTab === 'account' && (
-              <div className="space-y-6">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                  <div className="px-6 py-4 border-b border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 bg-pink-400 rounded-lg flex items-center justify-center mr-3">
-                          <i className="ri-settings-3-line text-xl text-white"></i>
-                        </div>
-                        <div>
-                          <h2 className="text-lg font-semibold text-gray-900">계정 정보</h2>
-                          <p className="text-gray-500 text-sm">개인정보를 확인하고 관리하세요</p>
-                        </div>
-                      </div>
-                      <button
-                        className="text-pink-600 hover:text-pink-700 font-medium text-sm"
-                        onClick={() => alert('개인정보 수정 기능은 추후 구현 예정입니다.')}
-                      >
-                        <i className="ri-edit-line mr-1"></i>
-                        수정하기
-                      </button>
+              <div className="bg-white border border-gray-200 rounded-lg">
+                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="w-8 h-8 bg-pink-500 rounded flex items-center justify-center">
+                      <i className="ri-settings-3-line text-white"></i>
+                    </span>
+                    <div>
+                      <h2 className="text-sm font-semibold text-gray-900">계정 정보</h2>
+                      <p className="text-xs text-gray-500">개인정보 확인 및 관리</p>
                     </div>
                   </div>
+                  <button className="text-xs text-pink-600 hover:text-pink-700">
+                    <i className="ri-edit-line mr-1"></i>수정하기
+                  </button>
+                </div>
 
-                  <div className="p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="border border-gray-200 rounded-lg p-4">
-                        <p className="text-sm text-gray-500 mb-1">이름</p>
-                        <p className="text-base font-medium text-gray-900">{userProfile.name}</p>
-                      </div>
-
-                      <div className="border border-gray-200 rounded-lg p-4">
-                        <p className="text-sm text-gray-500 mb-1">아이디</p>
-                        <p className="text-base font-medium text-gray-900">{userProfile.username}</p>
-                      </div>
-
-                      <div className="border border-gray-200 rounded-lg p-4">
-                        <p className="text-sm text-gray-500 mb-1">이메일</p>
-                        <p className="text-base font-medium text-gray-900">{userProfile.email || '미등록'}</p>
-                      </div>
-
-                      <div className="border border-gray-200 rounded-lg p-4">
-                        <p className="text-sm text-gray-500 mb-1">전화번호</p>
-                        <p className="text-base font-medium text-gray-900">{userProfile.phone || '미등록'}</p>
-                      </div>
-
-                      <div className="border border-gray-200 rounded-lg p-4">
-                        <p className="text-sm text-gray-500 mb-1">생년월일</p>
-                        <p className="text-base font-medium text-gray-900">
-                          {userProfile.birth ? formatDate(userProfile.birth) : '미등록'}
-                        </p>
-                      </div>
-
-                      <div className="border border-gray-200 rounded-lg p-4">
-                        <p className="text-sm text-gray-500 mb-1">가입일</p>
-                        <p className="text-base font-medium text-gray-900">{formatDate(userProfile.createdAt)}</p>
-                      </div>
-
-                      <div className="border border-gray-200 rounded-lg p-4">
-                        <p className="text-sm text-gray-500 mb-1">계정 상태</p>
-                        <span className={`inline-flex items-center px-3 py-1 rounded-md text-sm font-medium ${
-                          userProfile.isActive
-                            ? 'bg-green-50 text-green-700 border border-green-200'
-                            : 'bg-red-50 text-red-700 border border-red-200'
-                        }`}>
-                          {userProfile.isActive ? '활성' : '비활성'}
-                        </span>
-                      </div>
-
-                      <div className="border border-gray-200 rounded-lg p-4">
-                        <p className="text-sm text-gray-500 mb-1">역할</p>
-                        <span className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-pink-50 text-pink-600 border border-pink-100">
-                          {userProfile.role === 'USER' ? '학생' : userProfile.role}
-                        </span>
-                      </div>
+                <div className="p-5 grid grid-cols-2 gap-3">
+                  {[
+                    { label: '이름', value: userProfile.name },
+                    { label: '아이디', value: userProfile.username },
+                    { label: '이메일', value: userProfile.email || '미등록' },
+                    { label: '전화번호', value: userProfile.phone || '미등록' },
+                    { label: '생년월일', value: userProfile.birth ? formatDate(userProfile.birth) : '미등록' },
+                    { label: '가입일', value: formatDate(userProfile.createdAt) },
+                  ].map((item, i) => (
+                    <div key={i} className="border border-gray-200 rounded p-3">
+                      <p className="text-xs text-gray-500 mb-0.5">{item.label}</p>
+                      <p className="text-sm font-medium text-gray-900">{item.value}</p>
                     </div>
+                  ))}
+
+                  <div className="border border-gray-200 rounded p-3">
+                    <p className="text-xs text-gray-500 mb-0.5">계정 상태</p>
+                    <span className={`text-xs px-2 py-0.5 rounded ${
+                      userProfile.isActive ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                    }`}>
+                      {userProfile.isActive ? '활성' : '비활성'}
+                    </span>
+                  </div>
+
+                  <div className="border border-gray-200 rounded p-3">
+                    <p className="text-xs text-gray-500 mb-0.5">역할</p>
+                    <span className="text-xs px-2 py-0.5 rounded bg-pink-50 text-pink-600">학생</span>
                   </div>
                 </div>
               </div>
