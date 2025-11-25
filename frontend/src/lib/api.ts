@@ -16,8 +16,11 @@ import type {
 // =============================
 //   🔹 API BASE URL (dev 기준)
 // =============================
+export const BACKEND_BASE_URL =
+  import.meta.env.VITE_BACKEND_URL || "http://localhost:8080";
+
 export const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+  import.meta.env.VITE_API_URL || `${BACKEND_BASE_URL}/api`;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -72,7 +75,7 @@ export const analysisService = {
 
 // Python AI Service URL (채용 정보 크롤링용)
 const PYTHON_AI_SERVICE_URL =
-  process.env.NEXT_PUBLIC_PYTHON_AI_SERVICE_URL || "http://localhost:8000";
+  import.meta.env.VITE_PYTHON_AI_SERVICE_URL || "http://localhost:8000";
 
 const pythonApi = axios.create({
   baseURL: PYTHON_AI_SERVICE_URL,
