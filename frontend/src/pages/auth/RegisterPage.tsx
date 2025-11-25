@@ -120,7 +120,7 @@ export default function RegisterPage() {
       await axios.post("http://localhost:8080/api/auth/email/send", { email: form.email });
       setEmailStatus("인증 코드가 발송되었습니다. 이메일을 확인해주세요.");
       setIsEmailVerified(false);
-    } catch (err: any) {
+    } catch (err) {
       alert(resolveErrorMessage(err, "인증 코드 발송에 실패했습니다."));
     } finally {
       setIsSendingCode(false);
@@ -140,7 +140,7 @@ export default function RegisterPage() {
       });
       setIsEmailVerified(true);
       setEmailStatus("이메일 인증이 완료되었습니다.");
-    } catch (err: any) {
+    } catch (err) {
       setIsEmailVerified(false);
       setEmailStatus("");
       alert(resolveErrorMessage(err, "인증 코드 확인에 실패했습니다."));
@@ -172,7 +172,7 @@ export default function RegisterPage() {
       await axios.post("http://localhost:8080/api/auth/register", payload);
       alert("회원가입이 완료되었습니다!");
       setTimeout(() => navigate("/login", { replace: true }), 0);
-    } catch (err: any) {
+    } catch (err) {
       alert(resolveErrorMessage(err, "회원가입 실패"));
     }
   };

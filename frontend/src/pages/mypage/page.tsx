@@ -4,6 +4,7 @@ import { mentorService, userService } from '@/lib/api';
 import StudentMyPage from './StudentMyPage';
 import MentorMyPage from './MentorMyPage';
 import AdminMyPage from './AdminMyPage';
+import { useToast } from '@/components/common/Toast';
 
 interface UserProfile {
   userId: number;
@@ -26,6 +27,7 @@ interface MentorApplication {
 
 export default function MyPage() {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [mentorApplication, setMentorApplication] = useState<MentorApplication | null>(null);
@@ -64,13 +66,13 @@ export default function MyPage() {
       try {
         const mentorData = await mentorService.getMyApplication(userId);
         setMentorApplication(mentorData);
-      } catch (err: any) {
+      } catch (err) {
         if (err.response?.status !== 404) {
           console.error('멘토 신청 현황 조회 실패:', err);
         }
       }
 
-    } catch (err: any) {
+    } catch (err) {
       console.error('데이터 로딩 실패:', err);
       alert('데이터를 불러오는 중 오류가 발생했습니다.');
       navigate('/');

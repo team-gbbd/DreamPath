@@ -68,13 +68,13 @@ export default function MentorApplyPage() {
       setIsLoading(true);
       setError(null);
 
-      // 회사 정보를 경력에 포함
-      const fullCareer = `[현재 소속]\n회사: ${company}\n직업: ${job}\n경력: ${yearsOfExperience}년\n\n[경력 상세]\n${career}`;
-
       await mentorService.applyForMentor({
         userId,
+        company,
+        job,
+        experience: `${yearsOfExperience}년`,
         bio,
-        career: fullCareer,
+        career,
         availableTime: {},
       });
 

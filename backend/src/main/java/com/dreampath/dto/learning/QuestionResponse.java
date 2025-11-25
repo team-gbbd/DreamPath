@@ -1,5 +1,6 @@
 package com.dreampath.dto.learning;
 
+import com.dreampath.entity.learning.StudentAnswer;
 import com.dreampath.entity.learning.WeeklyQuestion;
 import lombok.Getter;
 import lombok.Setter;
@@ -19,7 +20,34 @@ public class QuestionResponse {
     private String options;
     private LocalDateTime createdAt;
 
+    // 기존 제출 답안 정보
+    private SubmittedAnswerInfo submittedAnswer;
+
+    @Getter
+    @Setter
+    public static class SubmittedAnswerInfo {
+        private Long answerId;
+        private String userAnswer;
+        private Integer score;
+        private String aiFeedback;
+        private LocalDateTime submittedAt;
+
+        public static SubmittedAnswerInfo from(StudentAnswer answer) {
+            SubmittedAnswerInfo info = new SubmittedAnswerInfo();
+            info.answerId = answer.getAnswerId();
+            info.userAnswer = answer.getUserAnswer();
+            info.score = answer.getScore();
+            info.aiFeedback = answer.getAiFeedback();
+            info.submittedAt = answer.getSubmittedAt();
+            return info;
+        }
+    }
+
     public static QuestionResponse from(WeeklyQuestion question) {
+        return from(question, null);
+    }
+
+    public static QuestionResponse from(WeeklyQuestion question, StudentAnswer existingAnswer) {
         QuestionResponse response = new QuestionResponse();
         response.questionId = question.getQuestionId();
         response.questionType = question.getQuestionType().name();
@@ -29,6 +57,11 @@ public class QuestionResponse {
         response.questionText = question.getQuestionText();
         response.options = question.getOptions();
         response.createdAt = question.getCreatedAt();
+
+        if (existingAnswer != null) {
+            response.submittedAnswer = SubmittedAnswerInfo.from(existingAnswer);
+        }
+
         return response;
     }
 }

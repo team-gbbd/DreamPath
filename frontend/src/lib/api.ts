@@ -80,10 +80,12 @@ export const learningPathService = {
     });
   },
 
-  // 주차별 문제 목록 조회
-  getWeeklyQuestions: async (weeklyId: number): Promise<Question[]> => {
+  // 주차별 문제 목록 조회 (기존 제출 답안 포함)
+  getWeeklyQuestions: async (weeklyId: number, userId?: number): Promise<Question[]> => {
+    const params = userId ? { userId } : {};
     const response = await api.get<Question[]>(
-      `/learning-paths/weekly-sessions/${weeklyId}/questions`
+      `/learning-paths/weekly-sessions/${weeklyId}/questions`,
+      { params }
     );
     return response.data;
   },
