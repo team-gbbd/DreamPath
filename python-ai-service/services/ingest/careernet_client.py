@@ -20,7 +20,6 @@ class CareerNetClient:
             'svcType': 'api',
             'svcCode': category,
             'contentType': 'json',
-            'gubun': 'detail',
             'perPage': display,
             'page': start
         }

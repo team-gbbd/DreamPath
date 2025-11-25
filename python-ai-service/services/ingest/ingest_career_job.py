@@ -12,7 +12,7 @@ class CareerJobIngest:
         self.repo = SupabaseVectorRepository()
 
     def ingest_all(self):
-        data = CareerNetClient.call('job')
+        data = CareerNetClient.call('JOB')
         rows = data.get('dataSearch', {}).get('content', [])
 
         for item in rows:
