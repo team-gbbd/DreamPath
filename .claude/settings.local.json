@@ -20,7 +20,9 @@
       "Bash(findstr:*)",
       "Bash(gradlew.bat bootRun:*)",
       "Bash(./gradlew bootRun)",
-      "Bash(timeout 30 bash:*)"
+      "Bash(timeout 30 bash:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)"
     ],
     "deny": [],
     "ask": []

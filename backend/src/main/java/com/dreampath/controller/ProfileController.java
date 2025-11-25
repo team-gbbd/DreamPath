@@ -11,7 +11,7 @@ import org.springframework.dao.DuplicateKeyException;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/profiles")
+@RequestMapping({"/api/profiles", "/api/profile"})
 @RequiredArgsConstructor
 public class ProfileController {
 
