@@ -51,7 +51,6 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
-  const [categories, setCategories] = useState<string[]>([]);
   const [chunkedCategories, setChunkedCategories] = useState<string[][]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [faqList, setFaqList] = useState<any[]>([]);
@@ -136,9 +135,8 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
       if (!all) return;
 
       const uniqueCats = [...new Set(all.map((f: any) => f.category))];
-      setCategories(uniqueCats);
 
-      // ---- 추가된 부분 (2개씩 묶기) ----
+      // ---- 2개씩 묶기 ----
       const chunked: string[][] = [];
       for (let i = 0; i < uniqueCats.length; i += 2) {
         chunked.push(uniqueCats.slice(i, i + 2));

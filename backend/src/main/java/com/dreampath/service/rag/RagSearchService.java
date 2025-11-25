@@ -1,4 +1,4 @@
-package com.dreampath.service.chatbot;
+package com.dreampath.service.rag;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,9 +13,6 @@ public class RagSearchService {
 
     @Value("${pinecone.api.key}")
     private String pineconeApiKey;
-
-    @Value("${pinecone.index}")
-    private String pineconeIndex;
 
     @Value("${pinecone.host}")
     private String pineconeHost;
