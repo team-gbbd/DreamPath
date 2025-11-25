@@ -6,6 +6,7 @@ import JobRecommend from "@/pages/profile/JobRecommend";
 import RecruitRecommend from "@/pages/profile/RecruitRecommend";
 import MajorRecommend from "@/pages/profile/MajorRecommend";
 import SchoolRecommend from "@/pages/profile/SchoolRecommend";
+
 const ProfileDashboardPage = lazy(() => import("../pages/profile/Dashboard"));
 const ProfileSuccessPage = lazy(() => import("../pages/profile/ProfileSubmitSuccess"));
 const HomePage = lazy(() => import("../pages/home/page"));
@@ -17,10 +18,9 @@ const LoginPage = lazy(() => import("../pages/auth/LoginPage"));
 const RegisterPage = lazy(() => import("../pages/auth/RegisterPage"));
 const MentoringPage = lazy(() => import("../pages/mentoring/MentoringPage"));
 const ChatbotPage = lazy(() => import("../pages/chatbot/ChatbotPage"));
-const LearningPathListPage = lazy(() => import("../pages/learning/LearningPathList"));
 const LearningPathDetailPage = lazy(() => import("../pages/learning/LearningPathDetail"));
 const WeeklyQuizPage = lazy(() => import("../pages/learning/WeeklyQuiz"));
-const DashboardPage = lazy(() => import("../pages/learning/Dashboard"));
+const LearningDashboardPage = lazy(() => import("../pages/learning/Dashboard"));
 const DeveloperExperiencePage = lazy(() => import("../pages/career-simulation/DeveloperExperience"));
 const CareerSimulationResultPage = lazy(() => import("../pages/career-simulation/Result"));
 const CodingTestPage = lazy(() => import("../pages/career-simulation/CodingTest"));
@@ -41,7 +41,6 @@ const PaymentSuccessPage = lazy(() => import("../pages/payments/PaymentSuccess")
 const PaymentFailPage = lazy(() => import("../pages/payments/PaymentFail"));
 const BookMentoringPage = lazy(() => import("../pages/mentoring/BookMentoring"));
 const MyBookingsPage = lazy(() => import("../pages/my-bookings/page"));
-const MentorSessionsPage = lazy(() => import("../pages/mentor/MentorSessions"));
 const MentoringMeetingPage = lazy(() => import("../pages/mentoring/MentoringMeeting"));
 const JobAnalysisPage = lazy(() => import("../pages/job-analysis/JobAnalysisPage"));
 const PersonalizedInsightsPage = lazy(() => import("../pages/job-analysis/PersonalizedInsightsPage"));
@@ -76,9 +75,13 @@ const routes: RouteObject[] = [
     path: "/mentoring",
     element: <MentoringPage />,
   },
+  {
+    path: "/chatbot",
+    element: <ChatbotPage />,
+  },
 
   /* ----------------------
-     🔹 PROFILE
+     PROFILE
      ---------------------- */
   {
     path: "/profile/input",
@@ -114,11 +117,11 @@ const routes: RouteObject[] = [
   },
 
   /* ----------------------
-     🔹 LEARNING PATH
+     LEARNING PATH
      ---------------------- */
   {
     path: "/learning",
-    element: <LearningPathListPage />,
+    element: <LearningDashboardPage />,
   },
   {
     path: "/learning/:pathId",
@@ -128,13 +131,9 @@ const routes: RouteObject[] = [
     path: "/learning/:pathId/week/:weeklyId",
     element: <WeeklyQuizPage />,
   },
-  {
-    path: "/learning/dashboard",
-    element: <DashboardPage />,
-  },
 
   /* ----------------------
-     🔹 CAREER SIMULATION (dev)
+     CAREER SIMULATION
      ---------------------- */
   {
     path: "/career-simulation/developer",
@@ -150,7 +149,7 @@ const routes: RouteObject[] = [
   },
 
   /* ----------------------
-     🔹 AI AGENT (dw)
+     AI AGENT
      ---------------------- */
   {
     path: "/ai-agent",
@@ -158,7 +157,7 @@ const routes: RouteObject[] = [
   },
 
   /* ----------------------
-     🔹 COMPANY INFO
+     COMPANY INFO
      ---------------------- */
   {
     path: "/company-list",
@@ -170,29 +169,35 @@ const routes: RouteObject[] = [
   },
 
   /* ----------------------
-     🔹 ADMIN / CRAWLER
+     JOB ANALYSIS & RECOMMENDATIONS
      ---------------------- */
   {
-    path: "/admin/crawler",
-    element: <CrawlerPage />,
+    path: "/job-analysis",
+    element: <JobAnalysisPage />,
+  },
+  {
+    path: "/job-analysis/personalized",
+    element: <PersonalizedInsightsPage />,
+  },
+  {
+    path: "/job-recommendations",
+    element: <JobRecommendationsPage />,
   },
 
-  /* 마지막 NotFound */
+  /* ----------------------
+     MYPAGE
+     ---------------------- */
   {
     path: "/mypage",
     element: <MyPage />,
   },
+
+  /* ----------------------
+     MENTOR
+     ---------------------- */
   {
     path: "/mentor/apply",
     element: <MentorApplyPage />,
-  },
-  {
-    path: "/admin/dashboard",
-    element: <AdminDashboardPage />,
-  },
-  {
-    path: "/admin/mentor-applications",
-    element: <MentorApplicationsPage />,
   },
   {
     path: "/mentors",
@@ -206,6 +211,26 @@ const routes: RouteObject[] = [
     path: "/mentors/:id/edit",
     element: <MentorEditPage />,
   },
+
+  /* ----------------------
+     MENTORING
+     ---------------------- */
+  {
+    path: "/mentoring/book/:sessionId",
+    element: <BookMentoringPage />,
+  },
+  {
+    path: "/mentoring/meeting/:bookingId",
+    element: <MentoringMeetingPage />,
+  },
+  {
+    path: "/my-bookings",
+    element: <MyBookingsPage />,
+  },
+
+  /* ----------------------
+     PAYMENTS
+     ---------------------- */
   {
     path: "/payments/purchase",
     element: <PaymentPurchasePage />,
@@ -222,41 +247,29 @@ const routes: RouteObject[] = [
     path: "/payments/fail",
     element: <PaymentFailPage />,
   },
+
+  /* ----------------------
+     ADMIN
+     ---------------------- */
   {
-    path: "/mentoring/book/:sessionId",
-    element: <BookMentoringPage />,
+    path: "/admin/dashboard",
+    element: <AdminDashboardPage />,
   },
   {
-    path: "/my-bookings",
-    element: <MyBookingsPage />,
+    path: "/admin/mentor-applications",
+    element: <MentorApplicationsPage />,
   },
   {
-    path: "/mentor/sessions",
-    element: <MentorSessionsPage />,
+    path: "/admin/crawler",
+    element: <CrawlerPage />,
   },
-  {
-    path: "/mentoring/meeting/:bookingId",
-    element: <MentoringMeetingPage />,
-  },
+
+  /* ----------------------
+     NOT FOUND
+     ---------------------- */
   {
     path: "*",
     element: <NotFoundPage />,
-  },
-  {
-    path: "/chatbot",
-    element: <ChatbotPage />,
-  },
-  {
-    path: "/job-analysis",
-    element: <JobAnalysisPage />,
-  },
-  {
-    path: "/job-analysis/personalized",
-    element: <PersonalizedInsightsPage />,
-  },
-  {
-    path: "/job-recommendations",
-    element: <JobRecommendationsPage />,
   },
 ];
 

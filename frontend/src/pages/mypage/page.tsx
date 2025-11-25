@@ -4,6 +4,7 @@ import { mentorService, userService } from '@/lib/api';
 import StudentMyPage from './StudentMyPage';
 import MentorMyPage from './MentorMyPage';
 import AdminMyPage from './AdminMyPage';
+import { useToast } from '@/components/common/Toast';
 
 interface UserProfile {
   userId: number;
@@ -26,6 +27,7 @@ interface MentorApplication {
 
 export default function MyPage() {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [mentorApplication, setMentorApplication] = useState<MentorApplication | null>(null);

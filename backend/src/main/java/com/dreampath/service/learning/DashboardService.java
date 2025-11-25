@@ -138,33 +138,45 @@ public class DashboardService {
     }
 
     private WeaknessAnalysis analyzeWeaknesses(List<StudentAnswer> answers) {
-        List<String> weakTags = new ArrayList<>();
+        List<FeedbackItem> feedbackList = new ArrayList<>();
 
-        // 낮은 점수를 받은 문제 유형 찾기
-        List<TypeAccuracy> typeAccuracyList = calculateTypeAccuracy(answers);
-        typeAccuracyList.forEach(typeAcc -> {
-            if (typeAcc.accuracy < 60.0f) {
-                weakTags.add(typeAcc.questionType + " 유형 (정답률: " + String.format("%.1f", typeAcc.accuracy) + "%)");
-            }
-        });
+        // 모든 답변의 피드백 수집 (최신순, 최대 10개)
+        answers.stream()
+                .filter(a -> a.getAiFeedback() != null && !a.getAiFeedback().isEmpty())
+                .sorted((a, b) -> b.getSubmittedAt().compareTo(a.getSubmittedAt()))
+                .limit(10)
+                .forEach(a -> {
+                    FeedbackItem item = new FeedbackItem();
+                    item.questionText = truncate(a.getQuestion().getQuestionText(), 50);
+                    item.feedback = a.getAiFeedback();
+                    item.isCorrect = a.getScore() != null && a.getQuestion().getMaxScore() != null
+                            && (float) a.getScore() / a.getQuestion().getMaxScore() >= 0.6f;
+                    item.score = a.getScore() != null ? a.getScore() : 0;
+                    item.maxScore = a.getQuestion().getMaxScore();
+                    item.correctAnswer = a.getQuestion().getCorrectAnswer();
+                    item.userAnswer = truncate(a.getUserAnswer(), 100);
+                    item.questionType = a.getQuestion().getQuestionType().name();
+                    feedbackList.add(item);
+                });
 
-        // 오답이 많은 문제들의 공통점 찾기
-        List<StudentAnswer> wrongAnswers = answers.stream()
-                .filter(a -> {
-                    if (a.getScore() == null || a.getQuestion().getMaxScore() == null) return false;
-                    return (float) a.getScore() / a.getQuestion().getMaxScore() < 0.6f;
-                })
-                .collect(Collectors.toList());
-
-        if (wrongAnswers.size() >= 3) {
-            weakTags.add("전반적인 이해도 향상 필요 (오답 " + wrongAnswers.size() + "개)");
-        }
+        // 오답 개수
+        long wrongCount = answers.stream()
+                .filter(a -> a.getScore() != null && a.getQuestion().getMaxScore() != null
+                        && (float) a.getScore() / a.getQuestion().getMaxScore() < 0.6f)
+                .count();
 
         WeaknessAnalysis analysis = new WeaknessAnalysis();
-        analysis.totalWeak = weakTags.size();
-        analysis.weakTags = weakTags;
+        analysis.totalWeak = (int) wrongCount;
+        analysis.weakTags = new ArrayList<>(); // 기존 호환성 유지
+        analysis.feedbackList = feedbackList;
 
         return analysis;
+    }
+
+    private String truncate(String text, int maxLength) {
+        if (text == null) return "";
+        if (text.length() <= maxLength) return text;
+        return text.substring(0, maxLength) + "...";
     }
 
     public static class DashboardData {
@@ -198,5 +210,17 @@ public class DashboardService {
     public static class WeaknessAnalysis {
         public Integer totalWeak;
         public List<String> weakTags;
+        public List<FeedbackItem> feedbackList;
+    }
+
+    public static class FeedbackItem {
+        public String questionText;
+        public String feedback;
+        public Boolean isCorrect;
+        public Integer score;
+        public Integer maxScore;
+        public String correctAnswer;
+        public String userAnswer;
+        public String questionType;
     }
 }

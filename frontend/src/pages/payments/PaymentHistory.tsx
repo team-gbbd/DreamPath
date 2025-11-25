@@ -67,7 +67,7 @@ export default function PaymentHistoryPage() {
 
       setPaymentHistory(payments);
       setUsageHistory(usage);
-    } catch (err: any) {
+    } catch (err) {
       console.error('데이터 로딩 실패:', err);
       setError(err.response?.data || '데이터를 불러오는 중 오류가 발생했습니다.');
     } finally {

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { mentorService } from '@/lib/api';
 import Header from '@/components/feature/Header';
+import { useToast } from '@/components/common/Toast';
 
 interface MentorApplication {
   mentorId: number;
@@ -16,6 +17,7 @@ interface MentorApplication {
 
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
+  const { showToast, ToastContainer } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [applications, setApplications] = useState<MentorApplication[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +37,7 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     if (!userId) {
-      alert('로그인이 필요합니다.');
+      showToast('로그인이 필요합니다.', 'warning');
       navigate('/login');
       return;
     }
@@ -92,6 +94,7 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50/30 via-purple-50/20 to-blue-50/30">
+      <ToastContainer />
       <Header />
 
       <div className="pt-24 pb-8 min-h-screen">

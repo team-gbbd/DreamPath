@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { mentoringSessionService, bookingService, paymentService, userService } from '@/lib/api';
 import Header from '@/components/feature/Header';
+import { useToast } from '@/components/common/Toast';
 
 interface MentoringSession {
   sessionId: number;
@@ -29,6 +30,7 @@ interface User {
 export default function BookMentoringPage() {
   const navigate = useNavigate();
   const { sessionId } = useParams<{ sessionId: string }>();
+  const { showToast, ToastContainer } = useToast();
 
   const [session, setSession] = useState<MentoringSession | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -66,7 +68,7 @@ export default function BookMentoringPage() {
 
         // 세션이 마감되었는지 확인
         if (sessionData.isFull) {
-          alert('이미 마감된 세션입니다.');
+          showToast('이미 마감된 세션입니다.', 'warning');
           navigate('/mentoring');
           return;
         }
@@ -78,9 +80,9 @@ export default function BookMentoringPage() {
         }
 
         setIsLoading(false);
-      } catch (error: any) {
+      } catch (error) {
         console.error('데이터 로딩 실패:', error);
-        alert('데이터를 불러오는 중 오류가 발생했습니다.');
+        showToast('데이터를 불러오는 중 오류가 발생했습니다.', 'error');
         navigate('/mentoring');
       }
     };
@@ -93,9 +95,8 @@ export default function BookMentoringPage() {
 
     // 가격이 0원이 아닌데 잔여 횟수가 부족한 경우
     if (session.price > 0 && remainingSessions < 1) {
-      if (confirm('잔여 멘토링 횟수가 부족합니다. 이용권을 구매하시겠습니까?')) {
-        navigate('/payments/purchase');
-      }
+      showToast('잔여 멘토링 횟수가 부족합니다. 이용권을 구매해주세요.', 'warning');
+      navigate('/payments/purchase');
       return;
     }
 
@@ -110,11 +111,12 @@ export default function BookMentoringPage() {
         message: message || undefined,
       });
 
-      alert('멘토링 예약이 완료되었습니다! 멘토가 확정하면 알림을 받으실 수 있습니다.');
+      showToast('멘토링 예약이 완료되었습니다! 멘토가 확정하면 알림을 받으실 수 있습니다.', 'success');
       navigate('/my-bookings');
-    } catch (error: any) {
+    } catch (error) {
       console.error('예약 생성 실패:', error);
-      alert(error.response?.data?.message || '예약 생성 중 오류가 발생했습니다.');
+      const apiError = error as { response?: { data?: { message?: string } } };
+      showToast(apiError.response?.data?.message || '예약 생성 중 오류가 발생했습니다.', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -154,6 +156,7 @@ export default function BookMentoringPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <ToastContainer />
       <Header />
 
       <div className="pt-16">

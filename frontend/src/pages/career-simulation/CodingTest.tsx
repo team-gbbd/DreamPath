@@ -172,7 +172,7 @@ export default function CodingTest() {
         // 기타 에러
         setOutput(`❌ ${result.status.description}\n\n${result.stderr || result.compile_output || ''}`);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('실행 에러:', error);
       setOutput(`❌ 실행 실패\n\n${error.message}\n\n로컬 실행으로 전환 중...`);
 

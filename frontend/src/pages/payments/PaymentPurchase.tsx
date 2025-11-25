@@ -171,7 +171,7 @@ export default function PaymentPurchasePage() {
         amount: prepareData.amount,
       });
 
-    } catch (err: any) {
+    } catch (err) {
       console.error('결제 요청 실패:', err);
       setError(err.message || '결제 요청 중 오류가 발생했습니다.');
       setIsProcessing(false);
