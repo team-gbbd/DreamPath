@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import SurveyModal from '../../components/SurveyModal';
+import SurveyModal from '../../components/profile/SurveyModal';
 
 interface Message {
   role: 'user' | 'assistant';
