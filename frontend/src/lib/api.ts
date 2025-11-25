@@ -161,6 +161,14 @@ export const profileService = {
   deleteProfile: async (profileId: number): Promise<void> => {
     await api.delete(`/profiles/${profileId}`);
   },
+
+  // 하이브리드 추천 (벡터 기반 채용 추천)
+  fetchHybridJobs: async (vectorId: string, topK: number = 20) => {
+    const response = await api.get(`/recommend/hybrid`, {
+      params: { vectorId, topK },
+    });
+    return response.data.recommended;
+  },
 };
 
 /* ================================
@@ -238,259 +246,12 @@ export const learningPathService = {
   },
 };
 
-export const mentorService = {
-  // 멘토 신청
-  applyForMentor: async (data: {
-    userId: number;
-    bio: string;
-    career: string;
-    availableTime: Record<string, string[]>;
-  }) => {
-    const response = await api.post('/mentors/apply', data);
-    return response.data;
-  },
-
-  // 내 멘토 신청 상태 조회
-  getMyApplication: async (userId: number) => {
-    const response = await api.get(`/mentors/my-application/${userId}`);
-    return response.data;
-  },
-
-  // 관리자: 모든 멘토 신청 목록 조회
-  getAllApplications: async () => {
-    const response = await api.get('/mentors/applications');
-    return response.data;
-  },
-
-  // 관리자: 상태별 멘토 신청 목록 조회
-  getApplicationsByStatus: async (status: 'PENDING' | 'APPROVED' | 'REJECTED') => {
-    const response = await api.get(`/mentors/applications/status/${status}`);
-    return response.data;
-  },
-
-  // 관리자: 멘토 신청 승인/거절
-  reviewApplication: async (
-    mentorId: number,
-    approve: boolean,
-    reason: string,
-    adminId: number
-  ) => {
-    const response = await api.patch(`/mentors/applications/${mentorId}/review`, {
-      approve,
-      reason,
-    }, {
-      headers: {
-        'X-Admin-Id': adminId.toString(),
-      },
-    });
-    return response.data;
-  },
-
-  // 승인된 멘토 목록 조회 (검색용)
-  getApprovedMentors: async () => {
-    const response = await api.get('/mentors/approved');
-    return response.data;
-  },
-
-  // 멘토 상세 정보 조회
-  getMentorDetail: async (mentorId: number) => {
-    const response = await api.get(`/mentors/${mentorId}`);
-    return response.data;
-  },
-
-  // 멘토 프로필 수정
-  updateMentorProfile: async (mentorId: number, data: {
-    userId: number;
-    bio: string;
-    career: string;
-    availableTime: Record<string, string[]>;
-  }) => {
-    const response = await api.put(`/mentors/${mentorId}`, data);
-    return response.data;
-  },
-};
-
-export const mentoringSessionService = {
-  // 멘토링 세션 생성
-  createSession: async (data: {
-    mentorId: number;
-    title: string;
-    description: string;
-    sessionDate: string;
-    durationMinutes: number;
-    price: number;
-  }) => {
-    const response = await api.post('/mentoring-sessions', data);
-    return response.data;
-  },
-
-  // 멘토링 세션 수정
-  updateSession: async (sessionId: number, data: {
-    mentorId: number;
-    title: string;
-    description: string;
-    sessionDate: string;
-    durationMinutes: number;
-    price: number;
-  }) => {
-    const response = await api.put(`/mentoring-sessions/${sessionId}`, data);
-    return response.data;
-  },
-
-  // 멘토링 세션 비활성화
-  deactivateSession: async (sessionId: number) => {
-    const response = await api.delete(`/mentoring-sessions/${sessionId}`);
-    return response.data;
-  },
-
-  // 특정 멘토의 세션 목록
-  getMentorSessions: async (mentorId: number) => {
-    const response = await api.get(`/mentoring-sessions/mentor/${mentorId}`);
-    return response.data;
-  },
-
-  // 활성화된 모든 세션 (학생용)
-  getAvailableSessions: async () => {
-    const response = await api.get('/mentoring-sessions/available');
-    return response.data;
-  },
-
-  // 세션 상세 조회
-  getSession: async (sessionId: number) => {
-    const response = await api.get(`/mentoring-sessions/${sessionId}`);
-    return response.data;
-  },
-};
-
-export const paymentService = {
-  // 결제 준비
-  preparePayment: async (userId: number, sessionPackage: string) => {
-    const response = await api.post('/payments/prepare', {
-      userId,
-      sessionPackage,
-    });
-    return response.data;
-  },
-
-  // 결제 완료 (토스페이먼츠)
-  completePayment: async (userId: number, paymentKey: string, orderId: string, amount: number) => {
-    const response = await api.post('/payments/complete', {
-      userId,
-      paymentKey,
-      orderId,
-      amount,
-    });
-    return response.data;
-  },
-
-  // 결제 내역 조회
-  getPaymentHistory: async (userId: number) => {
-    const response = await api.get(`/payments/history/${userId}`);
-    return response.data;
-  },
-
-  // 사용 내역 조회
-  getUsageHistory: async (userId: number) => {
-    const response = await api.get(`/payments/usage/${userId}`);
-    return response.data;
-  },
-
-  // 잔여 횟수 조회
-  getRemainingSessions: async (userId: number) => {
-    const response = await api.get(`/payments/remaining/${userId}`);
-    return response.data;
-  },
-};
-
-export const bookingService = {
-  // 멘토링 예약 생성 (세션 기반)
-  createBooking: async (data: {
-    sessionId: number;
-    menteeId: number;
-    message?: string;
-  }) => {
-    const response = await api.post('/mentoring-bookings', data);
-    return response.data;
-  },
-
-  // 내 예약 목록 (멘티)
-  getMyBookings: async (userId: number) => {
-    const response = await api.get(`/mentoring-bookings/mentee/${userId}`);
-    return response.data;
-  },
-
-  // 멘토의 예약 목록
-  getMentorBookings: async (mentorId: number) => {
-    const response = await api.get(`/mentoring-bookings/mentor/${mentorId}`);
-    return response.data;
-  },
-
-  // 예약 상세 조회
-  getBookingDetail: async (bookingId: number) => {
-    const response = await api.get(`/mentoring-bookings/${bookingId}`);
-    return response.data;
-  },
-
-  // 예약 확정 (멘토)
-  confirmBooking: async (bookingId: number) => {
-    const response = await api.patch(`/mentoring-bookings/${bookingId}/confirm`);
-    return response.data;
-  },
-
-  // 예약 거절 (멘토)
-  rejectBooking: async (bookingId: number, reason: string) => {
-    const response = await api.patch(`/mentoring-bookings/${bookingId}/reject`, { reason });
-    return response.data;
-  },
-
-  // 예약 취소 (멘티)
-  cancelBooking: async (bookingId: number) => {
-    const response = await api.patch(`/mentoring-bookings/${bookingId}/cancel`);
-    return response.data;
-  },
-
-  // 멘토링 완료 처리
-  completeBooking: async (bookingId: number) => {
-    const response = await api.patch(`/mentoring-bookings/${bookingId}/complete`);
-    return response.data;
-  },
-
-  // LiveKit 토큰 조회
-  getLiveKitToken: async (bookingId: number, userId: number) => {
-    const response = await api.get(`/mentoring-bookings/${bookingId}/token`, {
-      params: { userId },
-    });
-    return response.data;
-  },
-};
-
-export const userService = {
-  // 사용자 프로필 조회
-  getUserProfile: async (userId: number) => {
-    const response = await api.get(`/users/${userId}`);
-    return response.data;
-  },
-
-  // 사용자 정보 수정
-  updateUserProfile: async (userId: number, data: {
-    name: string;
-    email: string;
-    phone: string;
-    birth: string;
-  }) => {
-    const response = await api.put(`/users/${userId}`, data);
-    return response.data;
-  },
-};
-
 /* ================================
    🔹 Job Analysis Agent
    ================================ */
-const PYTHON_API_URL = "http://localhost:8000/api";
-
 export const jobAnalysisService = {
   analyzeMarketTrends: async (careerField?: string, days: number = 30) => {
-    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/market-trends`, {
+    const response = await pythonApi.post("/api/job-analysis/market-trends", {
       careerField,
       days,
     });
@@ -498,7 +259,7 @@ export const jobAnalysisService = {
   },
 
   analyzeSkillRequirements: async (careerField: string, days: number = 30) => {
-    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/skill-requirements`, {
+    const response = await pythonApi.post("/api/job-analysis/skill-requirements", {
       careerField,
       days,
     });
@@ -506,7 +267,7 @@ export const jobAnalysisService = {
   },
 
   analyzeSalaryTrends: async (careerField?: string, days: number = 30) => {
-    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/salary-trends`, {
+    const response = await pythonApi.post("/api/job-analysis/salary-trends", {
       careerField,
       days,
     });
@@ -514,7 +275,7 @@ export const jobAnalysisService = {
   },
 
   getPersonalizedInsights: async (userProfile: any, careerAnalysis: any) => {
-    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/personalized-insights`, {
+    const response = await pythonApi.post("/api/job-analysis/personalized-insights", {
       userProfile,
       careerAnalysis,
     });
@@ -522,7 +283,7 @@ export const jobAnalysisService = {
   },
 
   compareJobs: async (jobIds: number[]) => {
-    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/compare-jobs`, {
+    const response = await pythonApi.post("/api/job-analysis/compare-jobs", {
       jobIds,
     });
     return response.data;
@@ -534,7 +295,7 @@ export const jobAnalysisService = {
    ================================ */
 export const jobRecommendationService = {
   getRecommendations: async (userId: number, careerAnalysis: any, userProfile?: any, limit: number = 10) => {
-    const response = await axios.post(`${PYTHON_API_URL}/agent/job-recommendations`, {
+    const response = await pythonApi.post("/api/agent/job-recommendations", {
       userId,
       careerAnalysis,
       userProfile,
@@ -544,7 +305,7 @@ export const jobRecommendationService = {
   },
 
   getRealtimeRecommendations: async (userId: number, careerKeywords: string[], limit: number = 5) => {
-    const response = await axios.post(`${PYTHON_API_URL}/agent/job-recommendations/realtime`, {
+    const response = await pythonApi.post("/api/agent/job-recommendations/realtime", {
       userId,
       careerKeywords,
       limit,
