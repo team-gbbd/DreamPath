@@ -48,6 +48,8 @@ export default function AnalysisResultPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedCareer, setSelectedCareer] = useState<string | null>(null);
+  const [isCreatingPath, setIsCreatingPath] = useState(false);
 
   useEffect(() => {
     if (sessionId) {
@@ -69,11 +71,86 @@ export default function AnalysisResultPage() {
       const data = await response.json();
       console.log('분석 결과:', data);
       setResult(data);
+
+      // localStorage에 분석 결과 저장 (맞춤형 인사이트용)
+      localStorage.setItem('careerAnalysis', JSON.stringify({
+        recommendedCareers: data.recommendedCareers || [],
+        strengths: data.personality?.strengths || [],
+        values: [], // 필요시 추가
+        interests: data.interest?.areas?.map((a: any) => a.name) || []
+      }));
     } catch (err: any) {
       console.error('분석 실패:', err);
       setError(err.message || '분석 중 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const getLoggedInUserId = (): number | null => {
+    try {
+      const userStr = localStorage.getItem('dreampath:user');
+      if (!userStr) return null;
+      const user = JSON.parse(userStr);
+      return user.userId || null;
+    } catch {
+      return null;
+    }
+  };
+
+  const handleSelectCareer = async (careerName: string) => {
+    if (!sessionId) {
+      alert('세션 정보가 없습니다.');
+      return;
+    }
+
+    const userId = getLoggedInUserId();
+    if (!userId) {
+      alert('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
+
+    try {
+      setIsCreatingPath(true);
+      setSelectedCareer(careerName);
+
+      const response = await fetch('http://localhost:8080/api/learning-paths/from-career', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          sessionId,
+          selectedCareer: careerName,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('학습 경로 생성에 실패했습니다.');
+      }
+
+      const data = await response.json();
+      console.log('학습 경로 생성 성공:', data);
+
+      // 생성된 학습 경로 페이지로 이동
+      alert(`${careerName} 학습 경로가 생성되었습니다! (${data.learningDomain || data.domain})`);
+
+      // pathId로 학습 경로 상세 페이지로 이동
+      const pathId = data.learningPathId || data.pathId;
+      if (pathId) {
+        navigate(`/learning/${pathId}`);
+      } else {
+        console.error('학습 경로 ID를 찾을 수 없습니다:', data);
+        alert('학습 경로가 생성되었지만 페이지 이동에 실패했습니다.');
+      }
+    } catch (err: any) {
+      console.error('학습 경로 생성 실패:', err);
+      alert(err.message || '학습 경로 생성 중 오류가 발생했습니다.');
+    } finally {
+      setIsCreatingPath(false);
+      setSelectedCareer(null);
     }
   };
 
@@ -339,7 +416,7 @@ export default function AnalysisResultPage() {
               {result.recommendedCareers.map((career, index) => (
                 <div
                   key={index}
-                  className="bg-gradient-to-br from-[#5A7BFF]/10 to-[#8F5CFF]/10 border-2 border-[#5A7BFF]/20 rounded-xl p-6"
+                  className="bg-gradient-to-br from-[#5A7BFF]/10 to-[#8F5CFF]/10 border-2 border-[#5A7BFF]/20 rounded-xl p-6 relative"
                 >
                   <div className="flex items-start justify-between mb-3">
                     <h3 className="text-xl font-bold text-gray-800">{career.careerName}</h3>
@@ -349,7 +426,7 @@ export default function AnalysisResultPage() {
                   </div>
                   <p className="text-gray-600 text-sm mb-3">{career.description}</p>
                   {career.reasons && career.reasons.length > 0 && (
-                    <div>
+                    <div className="mb-4">
                       <h4 className="text-sm font-semibold text-gray-700 mb-2">추천 이유:</h4>
                       <ul className="space-y-1">
                         {career.reasons.map((reason, idx) => (
@@ -361,6 +438,27 @@ export default function AnalysisResultPage() {
                       </ul>
                     </div>
                   )}
+                  <button
+                    onClick={() => handleSelectCareer(career.careerName)}
+                    disabled={isCreatingPath}
+                    className={`w-full mt-4 py-2 px-4 rounded-lg font-medium transition-all ${
+                      isCreatingPath && selectedCareer === career.careerName
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white hover:opacity-90'
+                    }`}
+                  >
+                    {isCreatingPath && selectedCareer === career.careerName ? (
+                      <>
+                        <i className="ri-loader-4-line animate-spin mr-2"></i>
+                        학습 경로 생성 중...
+                      </>
+                    ) : (
+                      <>
+                        <i className="ri-play-circle-line mr-2"></i>
+                        이 직업으로 학습 시작하기
+                      </>
+                    )}
+                  </button>
                 </div>
               ))}
             </div>
@@ -368,13 +466,38 @@ export default function AnalysisResultPage() {
         )}
 
         {/* Actions */}
-        <div className="flex justify-center space-x-4">
+        <div className="flex justify-center space-x-4 flex-wrap gap-4">
           <button
             onClick={() => navigate('/career-chat')}
             className="bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white px-8 py-3 rounded-xl hover:opacity-90 transition-opacity font-medium"
           >
             <i className="ri-chat-3-line mr-2"></i>
             상담 계속하기
+          </button>
+          {result.recommendedCareers && result.recommendedCareers.length > 0 && (
+            <button
+              onClick={() => navigate('/job-listings', { 
+                state: { careerRecommendations: result.recommendedCareers } 
+              })}
+              className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-8 py-3 rounded-xl hover:opacity-90 transition-opacity font-medium"
+            >
+              <i className="ri-briefcase-line mr-2"></i>
+              채용 정보 보기
+            </button>
+          )}
+          <button
+            onClick={() => navigate('/job-analysis/personalized')}
+            className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-8 py-3 rounded-xl hover:opacity-90 transition-opacity font-medium"
+          >
+            <i className="ri-bar-chart-box-line mr-2"></i>
+            맞춤형 채용 분석 보기
+          </button>
+          <button
+            onClick={() => navigate('/job-recommendations')}
+            className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-8 py-3 rounded-xl hover:opacity-90 transition-opacity font-medium"
+          >
+            <i className="ri-lightbulb-line mr-2"></i>
+            AI 채용 공고 추천 보기
           </button>
           <button
             onClick={() => window.print()}

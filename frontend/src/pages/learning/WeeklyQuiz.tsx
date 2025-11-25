@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { learningPathService } from '@/lib/api';
 import type { Question, StudentAnswer } from '@/types';
+import Header from '@/components/feature/Header';
 
 export default function WeeklyQuiz() {
   const { pathId, weeklyId } = useParams<{ pathId: string; weeklyId: string }>();
@@ -13,8 +14,19 @@ export default function WeeklyQuiz() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  // TODO: 실제 userId는 인증 컨텍스트에서 가져와야 함
-  const userId = 1;
+  // 현재 로그인한 유저 정보 가져오기
+  const getCurrentUserId = (): number => {
+    const userStr = localStorage.getItem('dreampath:user');
+    if (!userStr) {
+      alert('로그인이 필요합니다.');
+      navigate('/login');
+      return 1; // fallback
+    }
+    const user = JSON.parse(userStr);
+    return user.userId || 1;
+  };
+
+  const userId = getCurrentUserId();
 
   useEffect(() => {
     if (weeklyId) {
@@ -93,7 +105,8 @@ export default function WeeklyQuiz() {
       // 주차 완료 처리
       await learningPathService.completeSession(Number(weeklyId));
       alert('주차를 완료했습니다! 🎉');
-      navigate(`/learning/${pathId}`);
+      // state를 통해 새로고침 요청
+      navigate(`/learning/${pathId}`, { state: { refresh: true } });
     } catch (error) {
       console.error('주차 완료 실패:', error);
       alert('주차 완료 처리에 실패했습니다');
@@ -173,19 +186,20 @@ export default function WeeklyQuiz() {
   const questionOptions = getQuestionOptions(currentQuestion);
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50/30 via-purple-50/20 to-blue-50/30">
+      <Header />
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-8">
         {/* Header */}
         <div className="mb-6">
           <button
             onClick={() => navigate(`/learning/${pathId}`)}
-            className="text-blue-600 hover:text-blue-700 mb-4 flex items-center gap-2"
+            className="text-pink-600 hover:text-pink-700 mb-4 flex items-center gap-2 font-medium transition-colors"
           >
-            ← 돌아가기
+            <i className="ri-arrow-left-line"></i> 돌아가기
           </button>
 
           {/* Progress Bar */}
-          <div className="bg-white rounded-lg shadow-md p-4 mb-4">
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-pink-100/50 p-4 mb-4">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm font-semibold text-gray-700">
                 문제 {currentIndex + 1} / {questions.length}
@@ -196,7 +210,7 @@ export default function WeeklyQuiz() {
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
-                className="bg-blue-600 h-2 rounded-full transition-all"
+                className="bg-gradient-to-r from-pink-400 to-purple-400 h-2 rounded-full transition-all"
                 style={{ width: `${progress}%` }}
               />
             </div>
