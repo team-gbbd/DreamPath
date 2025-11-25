@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { fetchHybridJobs } from "@/pages/profile/recommendApi";
+import { profileService } from "@/lib/api";
 
 interface HybridResultItem {
   job_id?: string;
@@ -33,7 +33,7 @@ const HybridJobRecommendPanel = ({ embedded = false }: HybridJobRecommendPanelPr
     setRawResponse(null);
 
     try {
-      const response = await fetchHybridJobs(vectorId.trim(), topK);
+      const response = await profileService.fetchHybridJobs(vectorId.trim(), topK);
       if (Array.isArray(response)) {
         setResults(response);
         return;
