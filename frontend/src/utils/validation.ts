@@ -87,6 +87,14 @@ export function isValidTimeSlot(timeSlot: string): boolean {
 }
 
 /**
+ * 단일 시간 형식 검증 (HH:MM)
+ */
+export function isValidTime(time: string): boolean {
+  const timeRegex = /^\d{2}:\d{2}$/;
+  return timeRegex.test(time);
+}
+
+/**
  * 멘토링 세션 폼 검증
  */
 export interface SessionFormData {
@@ -140,7 +148,7 @@ export function validateSessionForm(data: SessionFormData): ValidationErrors {
   // 시간 검증
   if (!isRequired(data.sessionTime)) {
     errors.sessionTime = '시간을 선택해주세요.';
-  } else if (!isValidTimeSlot(data.sessionTime)) {
+  } else if (!isValidTime(data.sessionTime)) {
     errors.sessionTime = '올바른 시간 형식이 아닙니다.';
   }
 

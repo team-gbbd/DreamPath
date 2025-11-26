@@ -1,10 +1,10 @@
 import os
 
-import pinecone
 from openai import OpenAI
 
 from services.rag.pinecone_vector_service import PineconeVectorService
 from services.vector.supabase_vector_repository import SupabaseVectorRepository
+from services.vector.pinecone_client import index as pinecone_index
 
 
 class HybridRecommendService:
@@ -12,7 +12,7 @@ class HybridRecommendService:
     def __init__(self):
         self.vector = PineconeVectorService()
         self.repo = SupabaseVectorRepository()
-        self.index = pinecone.Index("dreampath-index")
+        self.index = pinecone_index
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     def recommend(self, user_vector_id, top_k=20):

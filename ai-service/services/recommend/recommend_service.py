@@ -1,6 +1,6 @@
-import pinecone
 from services.vector.supabase_vector_repository import SupabaseVectorRepository
 from services.rag.pinecone_vector_service import PineconeVectorService
+from services.vector.pinecone_client import index as pinecone_index
 
 
 class RecommendService:
@@ -8,7 +8,7 @@ class RecommendService:
     def __init__(self):
         self.vector = PineconeVectorService()
         self.repo = SupabaseVectorRepository()
-        self.index = pinecone.Index("dreampath-index")
+        self.index = pinecone_index
 
     def recommend_jobs(self, user_vector_id, top_k=10):
 
