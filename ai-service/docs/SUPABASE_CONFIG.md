@@ -35,7 +35,7 @@ python main.py
 ```
 
 ### .env 파일 사용 (추천)
-`python-ai-service/.env` 파일 생성:
+`ai-service/.env` 파일 생성:
 ```env
 DB_TYPE=postgres
 DB_HOST=db.ssindownjsowftiglvsz.supabase.co
@@ -66,7 +66,7 @@ SPRING_PROFILES_ACTIVE=postgres ./gradlew bootRun
 
 ### 1. PostgreSQL 패키지 설치
 ```bash
-cd python-ai-service
+cd ai-service
 pip install psycopg2-binary
 ```
 

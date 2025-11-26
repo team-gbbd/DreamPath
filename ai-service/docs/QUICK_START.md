@@ -8,20 +8,20 @@
 
 #### Windows (PowerShell)
 ```powershell
-cd python-ai-service
+cd ai-service
 .\setup_supabase_env.ps1
 ```
 
 #### Linux/Mac (Bash)
 ```bash
-cd python-ai-service
+cd ai-service
 chmod +x setup_supabase_env.sh
 ./setup_supabase_env.sh
 ```
 
 ### 방법 2: 수동으로 .env 파일 생성
 
-`python-ai-service/.env` 파일을 생성하고 다음 내용을 입력하세요:
+`ai-service/.env` 파일을 생성하고 다음 내용을 입력하세요:
 
 ```env
 # Supabase Database 설정
@@ -41,14 +41,14 @@ OPENAI_MODEL=gpt-4o-mini
 ### 연결 테스트
 
 ```bash
-cd python-ai-service
+cd ai-service
 python test_supabase_connection.py
 ```
 
 ### 서비스 실행
 
 ```bash
-cd python-ai-service
+cd ai-service
 python main.py
 ```
 
@@ -107,7 +107,7 @@ curl -X POST http://localhost:8000/api/job-sites/listings/query \
 ## ❓ 문제 해결
 
 ### 연결 실패
-1. `.env` 파일이 `python-ai-service` 디렉토리에 있는지 확인
+1. `.env` 파일이 `ai-service` 디렉토리에 있는지 확인
 2. Supabase 대시보드에서 Database가 활성 상태인지 확인
 3. 네트워크 방화벽 설정 확인
 

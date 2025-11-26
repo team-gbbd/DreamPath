@@ -237,9 +237,9 @@ ports:
 
 ## 📖 관련 문서
 
-- `python-ai-service/QUICK_START.md` - 로컬 개발 가이드
-- `python-ai-service/SUPABASE_SETUP.md` - 상세 설정 가이드
-- `python-ai-service/SUPABASE_CONFIG.md` - 기존 설정 문서
+- `ai-service/QUICK_START.md` - 로컬 개발 가이드
+- `ai-service/SUPABASE_SETUP.md` - 상세 설정 가이드
+- `ai-service/SUPABASE_CONFIG.md` - 기존 설정 문서
 
 ## 🎉 완료!
 

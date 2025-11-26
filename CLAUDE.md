@@ -62,7 +62,7 @@ cd backend
 ### Python AI Service
 
 ```bash
-cd python-ai-service
+cd ai-service
 
 # Create virtual environment (first time only)
 python -m venv venv
@@ -205,7 +205,7 @@ com.dreampath/
 ### Python AI Service Structure
 
 ```
-python-ai-service/
+ai-service/
 ├── main.py                           # FastAPI app entry point
 ├── config.py                         # Settings and configuration
 ├── routers/                          # API route handlers

@@ -118,7 +118,7 @@ docker run -p 8000:8000 --env-file .env dreampath-ai-service
 ## 프로젝트 구조
 
 ```
-python-ai-service/
+ai-service/
 ├── main.py                 # FastAPI 메인 애플리케이션
 ├── services/
 │   ├── __init__.py
