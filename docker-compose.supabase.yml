@@ -27,7 +27,7 @@ services:
     restart: always
 
   ai-service:
-    build: ./python-ai-service
+    build: ./ai-service
     container_name: dreampath-ai-service
     ports:
       - "8000:8000"

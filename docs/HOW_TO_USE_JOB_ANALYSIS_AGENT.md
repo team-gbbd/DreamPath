@@ -15,7 +15,7 @@
 ### 1단계: Python AI Service 시작
 
 ```bash
-cd python-ai-service
+cd ai-service
 python main.py
 ```
 

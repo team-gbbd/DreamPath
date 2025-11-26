@@ -15,7 +15,7 @@ public class RecommendService {
 
     private final RestTemplate restTemplate;
 
-    @Value("${python.recommend.base-url:http://python-ai-service:8000}")
+    @Value("${python.recommend.base-url:http://ai-service:8000}")
     private String recommendBaseUrl;
 
     public List<?> recommendWorknet(String vectorId) {

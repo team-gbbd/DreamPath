@@ -8,7 +8,7 @@
 
 ### 1단계: .env 파일 생성 또는 수정
 
-`python-ai-service` 디렉토리에 `.env` 파일을 생성하거나, 기존 파일을 아래 내용으로 업데이트하세요:
+`ai-service` 디렉토리에 `.env` 파일을 생성하거나, 기존 파일을 아래 내용으로 업데이트하세요:
 
 ```env
 # Supabase Database 설정
@@ -46,7 +46,7 @@ pip install psycopg2-binary
 ### 3단계: 서비스 실행
 
 ```bash
-cd python-ai-service
+cd ai-service
 python main.py
 ```
 
