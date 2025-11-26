@@ -274,12 +274,12 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
 
         {/* 선택된 카테고리의 질문 리스트 */}
         {selectedCategory && (
-          <div className="space-y-2">
+          <div className="flex flex-col items-start gap-2">
             {faqList.map((q) => (
               <button
                 key={q.id}
                 onClick={() => sendFaq(q.question)}
-                className="bg-white inline-flex items-center justify-center py-3 px-3 text-sm rounded-xl shadow hover:bg-gray-100 text-left mt-1"
+                className="bg-white inline-flex items-center py-3 px-3 text-sm rounded-xl shadow hover:bg-gray-100"
               >
                 {q.question}
               </button>

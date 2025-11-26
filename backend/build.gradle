@@ -38,6 +38,9 @@ dependencies {
 
     implementation 'org.postgresql:postgresql:42.7.3'
 
+    // .env 파일 자동 로드
+    implementation 'me.paulschwarz:spring-dotenv:4.0.0'
+
     // LiveKit Server SDK
     implementation 'io.livekit:livekit-server:0.10.1'
 

@@ -107,14 +107,34 @@ export default function MyBookingsPage() {
   };
 
   const isBookingPast = (booking: Booking): boolean => {
-    const endTime = booking.timeSlot.split('-')[1];
+    // timeSlot이 "HH:MM-HH:MM" 형식이면 끝 시간 사용, 아니면 시작 시간 + 1시간
+    const timeSlotParts = booking.timeSlot.split('-');
+    let endTime: string;
+    if (timeSlotParts.length === 2) {
+      endTime = timeSlotParts[1];
+    } else {
+      // "HH:MM" 또는 "HH:MM:SS" 형식 - 1시간 후로 가정
+      endTime = booking.timeSlot.substring(0, 5);
+    }
     const bookingDateTime = new Date(`${booking.bookingDate}T${endTime}:00`);
+    // 1시간 추가 (세션 기반 예약의 경우)
+    if (timeSlotParts.length === 1) {
+      bookingDateTime.setHours(bookingDateTime.getHours() + 1);
+    }
     const now = new Date();
     return bookingDateTime < now;
   };
 
   const canJoinMeeting = (booking: Booking): boolean => {
-    const startTime = booking.timeSlot.split('-')[0];
+    // timeSlot이 "HH:MM-HH:MM" 형식이면 시작 시간 사용, 아니면 전체 사용
+    const timeSlotParts = booking.timeSlot.split('-');
+    let startTime: string;
+    if (timeSlotParts.length === 2 && timeSlotParts[0].length <= 5) {
+      startTime = timeSlotParts[0];
+    } else {
+      // "HH:MM" 또는 "HH:MM:SS" 형식
+      startTime = booking.timeSlot.substring(0, 5);
+    }
     const bookingStartTime = new Date(`${booking.bookingDate}T${startTime}:00`);
     const now = new Date();
     const minutesBeforeStart = 10; // 10분 전부터 입장 가능
