@@ -1,8 +1,20 @@
 """
-자동 채용 공고 추천 AI 에이전트
-사용자의 커리어 분석 결과와 프로필을 기반으로 최적의 채용 공고를 추천합니다.
+채용 공고 추천 AI 에이전트
+
+기존 방식: 개발자가 순서를 정해놓고 실행
+에이전트 방식: LLM이 직접 필요한 도구를 선택하고 실행
+
+사용 가능한 도구:
+- get_user_profile: 사용자 프로필/커리어 분석 조회
+- search_jobs: 채용공고 검색
+- search_jobs_by_keyword: 키워드로 채용공고 검색
+- get_certifications: 자격증 정보 조회
+- analyze_job_match: 채용공고와 사용자 매칭 분석
+- generate_report: 최종 결과 리포트 생성
 """
 import os
+import json
+import re
 from typing import List, Dict, Optional
 from openai import OpenAI
 from services.database_service import DatabaseService
@@ -10,7 +22,11 @@ from services.qnet_api_service import QnetApiService
 
 
 class JobRecommendationAgent:
-    """채용 공고 자동 추천 AI 에이전트"""
+    """
+    채용 공고 추천 AI 에이전트
+
+    LLM이 직접 도구를 선택하고 실행하는 구조
+    """
 
     def __init__(self):
         api_key = os.getenv("OPENAI_API_KEY")
@@ -22,177 +38,600 @@ class JobRecommendationAgent:
         self.db_service = DatabaseService()
         self.qnet_service = QnetApiService()
 
-    async def get_recommendations(
-        self,
-        user_id: int,
-        career_analysis: Dict,
-        user_profile: Optional[Dict] = None,
-        limit: int = 10
-    ) -> List[Dict]:
+        # 에이전트가 사용할 수 있는 도구 정의
+        self.tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_user_profile",
+                    "description": "사용자의 프로필과 커리어 분석 결과를 조회합니다. 추천 직업, 강점, 가치관, 관심사, 스킬 정보를 포함합니다.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "user_id": {
+                                "type": "integer",
+                                "description": "사용자 ID"
+                            }
+                        },
+                        "required": ["user_id"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "search_jobs",
+                    "description": "DB에서 최신 채용공고를 검색합니다. 최근 7일 이내 공고를 가져옵니다.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "limit": {
+                                "type": "integer",
+                                "description": "가져올 공고 수 (기본값: 20)"
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "search_jobs_by_keyword",
+                    "description": "키워드로 채용공고를 검색합니다. 제목이나 설명에 키워드가 포함된 공고를 찾습니다.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "keyword": {
+                                "type": "string",
+                                "description": "검색 키워드 (예: 백엔드, 프론트엔드, 데이터)"
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "가져올 공고 수 (기본값: 10)"
+                            }
+                        },
+                        "required": ["keyword"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_certifications",
+                    "description": "직업이나 키워드에 관련된 자격증 정보를 조회합니다.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "keyword": {
+                                "type": "string",
+                                "description": "자격증 검색 키워드 (예: 정보처리, 전기, 회계)"
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "가져올 자격증 수 (기본값: 5)"
+                            }
+                        },
+                        "required": ["keyword"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "analyze_job_match",
+                    "description": "사용자 프로필과 채용공고의 매칭도를 분석합니다. 적합도 점수와 이유를 반환합니다.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "user_profile": {
+                                "type": "object",
+                                "description": "사용자 프로필 정보"
+                            },
+                            "job": {
+                                "type": "object",
+                                "description": "채용공고 정보"
+                            }
+                        },
+                        "required": ["user_profile", "job"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "generate_report",
+                    "description": "수집한 정보를 바탕으로 최종 추천 리포트를 생성합니다.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "recommendations": {
+                                "type": "array",
+                                "items": {"type": "object"},
+                                "description": "추천 채용공고 목록"
+                            },
+                            "certifications": {
+                                "type": "array",
+                                "items": {"type": "object"},
+                                "description": "추천 자격증 목록"
+                            },
+                            "user_profile": {
+                                "type": "object",
+                                "description": "사용자 프로필"
+                            }
+                        },
+                        "required": ["recommendations"]
+                    }
+                }
+            }
+        ]
+
+        # 에이전트 실행 중 수집된 데이터 저장
+        self.context = {}
+
+    # ==================== 프로필 체크 ====================
+
+    def _check_profile_in_db(self, user_id: int) -> Optional[Dict]:
         """
-        사용자에게 맞는 채용 공고 추천
+        DB에서 사용자의 커리어 분석 결과 조회
 
         Args:
             user_id: 사용자 ID
-            career_analysis: 커리어 분석 결과 (추천 직업, 강점, 가치관 등)
-            user_profile: 사용자 프로필 (경력, 스킬, 관심사 등)
-            limit: 최대 추천 개수
 
         Returns:
-            추천 채용 공고 목록 (매칭 점수 포함)
-        """
-        # 1. DB에서 최신 채용 공고 가져오기
-        job_listings = self._get_job_listings_from_db(limit=100)
-
-        if not job_listings:
-            return []
-
-        # 2. 사용자 정보 요약
-        user_summary = self._create_user_summary(career_analysis, user_profile)
-
-        # 3. AI로 각 공고 매칭 점수 계산
-        recommendations = []
-
-        for job in job_listings:
-            match_result = await self._calculate_match_score(user_summary, job)
-
-            if match_result["matchScore"] >= 50:  # 50점 이상만 추천
-                recommendations.append({
-                    "jobId": str(job.get("id")),  # ID를 문자열로 변환
-                    "title": job.get("title"),
-                    "company": job.get("company"),
-                    "location": job.get("location"),
-                    "url": job.get("url"),
-                    "description": job.get("description"),
-                    "siteName": job.get("site_name"),
-                    "matchScore": match_result["matchScore"],
-                    "reasons": match_result["reasons"],
-                    "strengths": match_result.get("strengths", []),
-                    "concerns": match_result.get("concerns", [])
-                })
-
-        # 4. 매칭 점수 순으로 정렬
-        recommendations.sort(key=lambda x: x["matchScore"], reverse=True)
-
-        return recommendations[:limit]
-
-    def _get_job_listings_from_db(self, limit: int = 100) -> List[Dict]:
-        """
-        DB에서 최신 채용 공고 가져오기
+            커리어 분석 결과 또는 None
         """
         try:
-            # DatabaseService를 통해 최신 공고 조회
+            # career_analysis 테이블에서 조회
             query = """
-                SELECT
-                    id, title, company, location, url, description,
-                    site_name, crawled_at
+                SELECT analysis_data
+                FROM career_analysis
+                WHERE user_id = %s
+                ORDER BY created_at DESC
+                LIMIT 1
+            """
+            results = self.db_service.execute_query(query, (user_id,))
+
+            if results and results[0][0]:
+                analysis_data = results[0][0]
+                # JSON 문자열이면 파싱
+                if isinstance(analysis_data, str):
+                    return json.loads(analysis_data)
+                return analysis_data
+
+            return None
+
+        except Exception as e:
+            print(f"DB 프로필 조회 실패: {str(e)}")
+            return None
+
+    # ==================== 에이전트 메인 실행 ====================
+
+    async def run(
+        self,
+        user_request: str,
+        user_id: int,
+        career_analysis: Optional[Dict] = None,
+        user_profile: Optional[Dict] = None,
+        force_without_profile: bool = False
+    ) -> Dict:
+        """
+        에이전트 실행 - LLM이 알아서 도구를 선택하고 실행
+
+        Args:
+            user_request: 사용자 요청 (자연어)
+            user_id: 사용자 ID
+            career_analysis: 커리어 분석 결과 (선택)
+            user_profile: 사용자 프로필 (선택)
+            force_without_profile: 프로필 없이 강제 진행 여부
+
+        Returns:
+            에이전트 실행 결과
+        """
+        # 1단계: 프로파일링 체크
+        has_profile = bool(career_analysis and career_analysis.get("recommendedCareers"))
+
+        if not has_profile and not force_without_profile:
+            # DB에서 프로필 조회 시도
+            db_profile = self._check_profile_in_db(user_id)
+            if db_profile:
+                career_analysis = db_profile
+                has_profile = True
+
+        # 프로필이 없고 강제 진행도 아니면 안내 메시지 반환
+        if not has_profile and not force_without_profile:
+            return {
+                "success": False,
+                "needsProfile": True,
+                "message": "맞춤 채용 추천을 위해 커리어 분석이 필요합니다.",
+                "guidance": "커리어 채팅을 통해 성향 분석을 먼저 진행해주세요.",
+                "alternativeAction": "프로필 없이 진행하려면 관심 있는 직종을 알려주세요. (예: '백엔드 개발자 채용공고 찾아줘')",
+                "context": {}
+            }
+
+        # 컨텍스트 초기화
+        self.context = {
+            "user_id": user_id,
+            "career_analysis": career_analysis,
+            "user_profile": user_profile,
+            "has_profile": has_profile,
+            "jobs": [],
+            "certifications": [],
+            "recommendations": []
+        }
+
+        # 시스템 프롬프트 (프로필 유무에 따라 다르게)
+        if has_profile:
+            system_prompt = """너는 채용 추천 AI 에이전트야.
+사용자의 커리어 분석 결과를 바탕으로 최적의 채용 정보를 찾아줘.
+
+사용 가능한 도구:
+1. get_user_profile: 사용자 프로필 조회
+2. search_jobs_by_keyword: 키워드로 채용공고 검색
+3. get_certifications: 자격증 정보 조회
+4. generate_report: 최종 결과 리포트 생성
+
+작업 순서 (이 순서대로 실행해):
+1. get_user_profile 호출 → 사용자의 추천 직업 확인
+2. search_jobs_by_keyword 호출 → 추천 직업 키워드로 검색
+3. get_certifications 호출 → 관련 자격증 조회 (선택)
+4. generate_report 호출 → 결과 정리
+
+중요:
+- 각 도구는 한 번씩만 호출해.
+- 검색 결과가 없어도 다음 단계로 진행해.
+- 마지막에 반드시 generate_report를 호출해.
+"""
+        else:
+            system_prompt = """너는 채용 추천 AI 에이전트야.
+사용자가 키워드 기반으로 채용 정보를 요청했어.
+
+사용 가능한 도구:
+1. search_jobs_by_keyword: 키워드로 채용공고 검색
+2. get_certifications: 자격증 정보 조회
+3. generate_report: 최종 결과 리포트 생성
+
+작업 순서:
+1. 사용자 요청에서 키워드 파악 (예: 백엔드, 프론트엔드)
+2. search_jobs_by_keyword 호출
+3. generate_report 호출
+
+중요:
+- 각 도구는 한 번씩만 호출해.
+- 마지막에 반드시 generate_report를 호출해.
+- 결과에 "더 정확한 추천을 위해 커리어 분석을 권장합니다" 메시지 포함.
+"""
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"[user_id: {user_id}] {user_request}"}
+        ]
+
+        # 에이전트 루프 (최대 10번 반복)
+        max_iterations = 10
+
+        for iteration in range(max_iterations):
+            print(f"\n[에이전트] 반복 {iteration + 1}/{max_iterations}")
+
+            # LLM 호출 - 다음 행동 결정
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                tools=self.tools,
+                tool_choice="auto",
+                temperature=0.3
+            )
+
+            message = response.choices[0].message
+
+            # 메시지 기록에 추가
+            messages.append({
+                "role": "assistant",
+                "content": message.content,
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments
+                        }
+                    } for tc in message.tool_calls
+                ] if message.tool_calls else None
+            })
+
+            # 도구 호출이 없으면 최종 응답
+            if not message.tool_calls:
+                print("[에이전트] 완료 - 최종 응답 생성")
+                return {
+                    "success": True,
+                    "response": message.content,
+                    "context": self.context
+                }
+
+            # 도구 실행
+            for tool_call in message.tool_calls:
+                tool_name = tool_call.function.name
+                tool_args = json.loads(tool_call.function.arguments)
+
+                print(f"[에이전트] 도구 호출: {tool_name}")
+                print(f"[에이전트] 인자: {tool_args}")
+
+                # 도구 실행
+                result = await self._execute_tool(tool_name, tool_args)
+
+                print(f"[에이전트] 결과: {str(result)[:200]}...")
+
+                # 결과를 메시지에 추가
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": json.dumps(result, ensure_ascii=False, default=str)
+                })
+
+        # 최대 반복 초과
+        return {
+            "success": False,
+            "error": "최대 반복 횟수 초과",
+            "context": self.context
+        }
+
+    async def _execute_tool(self, tool_name: str, args: dict) -> dict:
+        """
+        도구 실행
+
+        Args:
+            tool_name: 도구 이름
+            args: 도구 인자
+
+        Returns:
+            도구 실행 결과
+        """
+        try:
+            if tool_name == "get_user_profile":
+                return self._tool_get_user_profile(args.get("user_id"))
+
+            elif tool_name == "search_jobs":
+                return self._tool_search_jobs(args.get("limit", 20))
+
+            elif tool_name == "search_jobs_by_keyword":
+                return self._tool_search_jobs_by_keyword(
+                    args.get("keyword"),
+                    args.get("limit", 10)
+                )
+
+            elif tool_name == "get_certifications":
+                return self._tool_get_certifications(
+                    args.get("keyword"),
+                    args.get("limit", 5)
+                )
+
+            elif tool_name == "analyze_job_match":
+                return await self._tool_analyze_job_match(
+                    args.get("user_profile"),
+                    args.get("job")
+                )
+
+            elif tool_name == "generate_report":
+                return self._tool_generate_report(
+                    args.get("recommendations", []),
+                    args.get("certifications", []),
+                    args.get("user_profile")
+                )
+
+            else:
+                return {"error": f"알 수 없는 도구: {tool_name}"}
+
+        except Exception as e:
+            return {"error": f"도구 실행 실패: {str(e)}"}
+
+    # ==================== 도구 구현 ====================
+
+    def _tool_get_user_profile(self, user_id: int) -> dict:
+        """
+        도구: 사용자 프로필 조회
+        """
+        # 컨텍스트에 이미 있으면 반환
+        if self.context.get("career_analysis"):
+            profile = {
+                "user_id": user_id,
+                "career_analysis": self.context["career_analysis"],
+                "user_profile": self.context.get("user_profile"),
+                "source": "context"
+            }
+        else:
+            # DB에서 조회 시도
+            try:
+                query = """
+                    SELECT career_analysis_data, profile_data
+                    FROM user_career_analysis
+                    WHERE user_id = %s
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                """
+                results = self.db_service.execute_query(query, (user_id,))
+
+                if results:
+                    profile = {
+                        "user_id": user_id,
+                        "career_analysis": results[0][0] if results[0][0] else {},
+                        "user_profile": results[0][1] if results[0][1] else {},
+                        "source": "database"
+                    }
+                else:
+                    profile = {
+                        "user_id": user_id,
+                        "career_analysis": {},
+                        "user_profile": {},
+                        "source": "not_found",
+                        "message": "사용자 프로필을 찾을 수 없습니다. 커리어 분석을 먼저 진행해주세요."
+                    }
+            except Exception as e:
+                profile = {
+                    "user_id": user_id,
+                    "error": str(e),
+                    "source": "error"
+                }
+
+        # 컨텍스트 업데이트
+        self.context["user_profile_data"] = profile
+        return profile
+
+    def _tool_search_jobs(self, limit: int = 20) -> dict:
+        """
+        도구: 최신 채용공고 검색
+        """
+        try:
+            query = """
+                SELECT id, title, company, location, url, description, site_name, crawled_at
                 FROM job_listings
                 WHERE crawled_at >= NOW() - INTERVAL '7 days'
                 ORDER BY crawled_at DESC
                 LIMIT %s
             """
-
             results = self.db_service.execute_query(query, (limit,))
 
-            job_listings = []
+            jobs = []
             for row in results:
-                job_listings.append({
+                jobs.append({
                     "id": row[0],
                     "title": row[1],
                     "company": row[2],
                     "location": row[3],
                     "url": row[4],
-                    "description": row[5] or "",
-                    "site_name": row[6],
-                    "crawled_at": row[7]
+                    "description": (row[5] or "")[:300],  # 설명 300자로 제한
+                    "site_name": row[6]
                 })
 
-            return job_listings
+            # 컨텍스트에 저장
+            self.context["jobs"] = jobs
+
+            return {
+                "total_count": len(jobs),
+                "jobs": jobs
+            }
 
         except Exception as e:
-            print(f"DB에서 채용 공고 가져오기 실패: {str(e)}")
-            return []
+            return {"error": f"채용공고 검색 실패: {str(e)}"}
 
-    def _create_user_summary(
-        self,
-        career_analysis: Dict,
-        user_profile: Optional[Dict]
-    ) -> str:
+    def _tool_search_jobs_by_keyword(self, keyword: str, limit: int = 10) -> dict:
         """
-        사용자 정보를 AI가 이해하기 쉬운 텍스트로 요약
+        도구: 키워드로 채용공고 검색
         """
-        summary_parts = []
+        try:
+            query = """
+                SELECT id, title, company, location, url, description, site_name
+                FROM job_listings
+                WHERE (title ILIKE %s OR description ILIKE %s)
+                AND crawled_at >= NOW() - INTERVAL '7 days'
+                ORDER BY crawled_at DESC
+                LIMIT %s
+            """
+            pattern = f"%{keyword}%"
+            results = self.db_service.execute_query(query, (pattern, pattern, limit))
 
-        # 추천 직업
-        if career_analysis.get("recommendedCareers"):
-            careers = [c.get("careerName", "") for c in career_analysis["recommendedCareers"][:3]]
-            summary_parts.append(f"추천 직업: {', '.join(careers)}")
+            jobs = []
+            for row in results:
+                jobs.append({
+                    "id": row[0],
+                    "title": row[1],
+                    "company": row[2],
+                    "location": row[3],
+                    "url": row[4],
+                    "description": (row[5] or "")[:300],
+                    "site_name": row[6],
+                    "matched_keyword": keyword
+                })
 
-        # 강점
-        if career_analysis.get("strengths"):
-            strengths = career_analysis["strengths"][:5]
-            summary_parts.append(f"강점: {', '.join(strengths)}")
+            # 컨텍스트에 추가
+            self.context["jobs"].extend(jobs)
 
-        # 가치관
-        if career_analysis.get("values"):
-            values = career_analysis["values"][:3]
-            summary_parts.append(f"가치관: {', '.join(values)}")
+            return {
+                "keyword": keyword,
+                "total_count": len(jobs),
+                "jobs": jobs
+            }
 
-        # 관심사
-        if career_analysis.get("interests"):
-            interests = career_analysis["interests"][:5]
-            summary_parts.append(f"관심사: {', '.join(interests)}")
+        except Exception as e:
+            return {"error": f"키워드 검색 실패: {str(e)}"}
 
-        # 사용자 프로필 (선택적)
+    def _tool_get_certifications(self, keyword: str, limit: int = 5) -> dict:
+        """
+        도구: 자격증 정보 조회
+        """
+        try:
+            certs = self.db_service.get_certifications(keyword=keyword, limit=limit)
+
+            # 컨텍스트에 저장
+            self.context["certifications"].extend(certs)
+
+            return {
+                "keyword": keyword,
+                "total_count": len(certs),
+                "certifications": certs
+            }
+
+        except Exception as e:
+            return {"error": f"자격증 조회 실패: {str(e)}"}
+
+    async def _tool_analyze_job_match(self, user_profile: dict, job: dict) -> dict:
+        """
+        도구: 사용자와 채용공고 매칭 분석
+        """
+        # None 체크
+        if not user_profile and not job:
+            # 컨텍스트에서 가져오기
+            user_profile = self.context.get("career_analysis", {})
+            jobs = self.context.get("jobs", [])
+            if jobs:
+                job = jobs[0]  # 첫 번째 공고로 분석
+            else:
+                return {"error": "분석할 채용공고가 없습니다. 먼저 search_jobs를 호출하세요."}
+
+        if not job:
+            return {"error": "채용공고 정보가 필요합니다."}
+
+        # 사용자 정보가 없으면 컨텍스트에서 가져오기
+        if not user_profile:
+            user_profile = self.context.get("career_analysis", {})
+
+        # 사용자 정보 요약
+        user_summary = []
         if user_profile:
-            if user_profile.get("experience"):
-                summary_parts.append(f"경력: {user_profile['experience']}")
+            if user_profile.get("recommendedCareers"):
+                careers = [c.get("careerName", "") for c in user_profile["recommendedCareers"][:3]]
+                user_summary.append(f"추천 직업: {', '.join(careers)}")
+            if user_profile.get("strengths"):
+                user_summary.append(f"강점: {', '.join(user_profile['strengths'][:3])}")
             if user_profile.get("skills"):
-                summary_parts.append(f"스킬: {', '.join(user_profile['skills'][:5])}")
+                user_summary.append(f"스킬: {', '.join(user_profile['skills'][:5])}")
 
-        return "\n".join(summary_parts)
+        user_summary_str = "\n".join(user_summary) if user_summary else "정보 없음"
 
-    async def _calculate_match_score(
-        self,
-        user_summary: str,
-        job: Dict
-    ) -> Dict:
-        """
-        AI를 사용하여 사용자와 채용 공고 간 매칭 점수 계산
-        """
         prompt = f"""다음 사용자와 채용 공고의 적합도를 분석해주세요.
 
 【사용자 정보】
-{user_summary}
+{user_summary_str}
 
 【채용 공고】
 - 제목: {job.get('title', '')}
 - 회사: {job.get('company', '')}
 - 위치: {job.get('location', '')}
-- 설명: {job.get('description', '')[:200]}
+- 설명: {job.get('description', '')[:300]}
 
-다음 형식의 JSON으로 응답해주세요:
+다음 JSON 형식으로 응답:
 {{
   "matchScore": 85,
-  "reasons": ["이유1", "이유2", "이유3"],
-  "strengths": ["강점1", "강점2"],
-  "concerns": ["우려사항1"]
+  "reasons": ["이유1", "이유2"],
+  "requiredSkills": ["필요 스킬1", "필요 스킬2"],
+  "recommendation": "추천 의견"
 }}
-
-- matchScore: 0-100 점수 (높을수록 적합)
-- reasons: 왜 이 공고가 적합한지 2-3가지 이유
-- strengths: 사용자가 이 포지션에서 발휘할 수 있는 강점 1-2개
-- concerns: 고려해야 할 사항 (있으면 1개, 없으면 빈 배열)
 """
 
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {
-                        "role": "system",
-                        "content": "당신은 커리어 매칭 전문가입니다. 사용자의 특성과 채용 공고를 분석하여 적합도를 평가합니다."
-                    },
+                    {"role": "system", "content": "채용 매칭 전문가입니다."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.3,
@@ -200,95 +639,151 @@ class JobRecommendationAgent:
             )
 
             result_text = response.choices[0].message.content
-
-            # JSON 추출
-            import re
-            import json
             json_match = re.search(r'\{.*\}', result_text, re.DOTALL)
 
             if json_match:
                 result = json.loads(json_match.group())
-                return {
-                    "matchScore": result.get("matchScore", 50),
-                    "reasons": result.get("reasons", []),
-                    "strengths": result.get("strengths", []),
-                    "concerns": result.get("concerns", [])
+                result["job"] = {
+                    "id": job.get("id"),
+                    "title": job.get("title"),
+                    "company": job.get("company")
                 }
 
-            # JSON 파싱 실패 시 기본값
-            return {
-                "matchScore": 50,
-                "reasons": ["적합도 분석 중 오류가 발생했습니다."],
-                "strengths": [],
-                "concerns": []
-            }
+                # 컨텍스트에 추천 추가
+                if result.get("matchScore", 0) >= 50:
+                    self.context["recommendations"].append(result)
+
+                return result
 
         except Exception as e:
-            print(f"매칭 점수 계산 실패: {str(e)}")
-            return {
-                "matchScore": 50,
-                "reasons": ["적합도 분석 중 오류가 발생했습니다."],
+            return {"error": f"매칭 분석 실패: {str(e)}"}
+
+        return {"matchScore": 50, "reasons": ["분석 실패"], "job": job}
+
+    def _tool_generate_report(
+        self,
+        recommendations: list,
+        certifications: list,
+        user_profile: dict
+    ) -> dict:
+        """
+        도구: 최종 결과 리포트 생성
+        """
+        # 컨텍스트에서 데이터 가져오기
+        all_certifications = certifications or self.context.get("certifications", [])
+        all_jobs = self.context.get("jobs", [])
+
+        # jobs를 recommendations 형식으로 변환
+        all_recommendations = []
+        for job in all_jobs:
+            all_recommendations.append({
+                "jobId": str(job.get("id", "")),
+                "title": job.get("title", ""),
+                "company": job.get("company", ""),
+                "location": job.get("location", ""),
+                "url": job.get("url", ""),
+                "description": job.get("description", ""),
+                "siteName": job.get("site_name", ""),
+                "matchScore": 70,  # 기본 점수
+                "reasons": [f"'{job.get('matched_keyword', '')}' 키워드 매칭"] if job.get("matched_keyword") else ["관련 포지션"],
                 "strengths": [],
                 "concerns": []
+            })
+
+        # 컨텍스트에 저장
+        self.context["recommendations"] = all_recommendations
+
+        report = {
+            "summary": {
+                "total_jobs_found": len(all_jobs),
+                "total_recommendations": len(all_recommendations),
+                "total_certifications": len(all_certifications)
+            },
+            "top_recommendations": all_recommendations[:10],
+            "recommended_certifications": all_certifications[:5],
+            "has_profile": self.context.get("has_profile", False),
+            "generated_at": "now"
+        }
+
+        return report
+
+    # ==================== 기존 메서드 (호환성 유지) ====================
+
+    async def get_recommendations(
+        self,
+        user_id: int,
+        career_analysis: Dict,
+        user_profile: Optional[Dict] = None,
+        limit: int = 10
+    ) -> Dict:
+        """
+        기존 방식의 채용 추천 (호환성 유지)
+
+        내부적으로 에이전트를 호출합니다.
+
+        Returns:
+            성공 시: {"success": True, "recommendations": [...]}
+            프로필 필요 시: {"success": False, "needsProfile": True, ...}
+        """
+        result = await self.run(
+            user_request="나에게 맞는 채용공고를 추천해주세요.",
+            user_id=user_id,
+            career_analysis=career_analysis,
+            user_profile=user_profile
+        )
+
+        # 프로필 필요 응답
+        if result.get("needsProfile"):
+            return result
+
+        # 성공
+        if result.get("success"):
+            recommendations = result.get("context", {}).get("recommendations", [])
+            return {
+                "success": True,
+                "recommendations": recommendations[:limit],
+                "totalCount": len(recommendations)
             }
+
+        # 실패
+        return {
+            "success": False,
+            "error": result.get("error", "추천 실패"),
+            "recommendations": []
+        }
 
     async def get_real_time_recommendations(
         self,
         user_id: int,
         career_keywords: List[str],
         limit: int = 5
-    ) -> List[Dict]:
+    ) -> Dict:
         """
         실시간 채용 공고 추천 (키워드 기반)
 
-        Args:
-            user_id: 사용자 ID
-            career_keywords: 직업 키워드 (예: ["개발자", "백엔드"])
-            limit: 최대 추천 개수
-
-        Returns:
-            추천 채용 공고 목록
+        프로필 없이도 키워드로 검색 가능
         """
-        try:
-            # 키워드 기반 DB 검색
-            keyword_pattern = "%{}%".format("%".join(career_keywords))
+        keyword_str = ", ".join(career_keywords)
+        result = await self.run(
+            user_request=f"{keyword_str} 관련 채용공고를 찾아주세요.",
+            user_id=user_id,
+            force_without_profile=True  # 키워드 기반이므로 프로필 없이 진행
+        )
 
-            query = """
-                SELECT
-                    id, title, company, location, url, description,
-                    site_name, crawled_at
-                FROM job_listings
-                WHERE
-                    (title ILIKE %s OR description ILIKE %s)
-                    AND crawled_at >= NOW() - INTERVAL '7 days'
-                ORDER BY crawled_at DESC
-                LIMIT %s
-            """
+        if result.get("success"):
+            jobs = result.get("context", {}).get("jobs", [])
+            return {
+                "success": True,
+                "jobs": jobs[:limit],
+                "totalCount": len(jobs),
+                "message": "키워드 기반 검색 결과입니다. 더 정확한 추천을 위해 커리어 분석을 권장합니다."
+            }
 
-            results = self.db_service.execute_query(
-                query,
-                (keyword_pattern, keyword_pattern, limit)
-            )
-
-            recommendations = []
-            for row in results:
-                recommendations.append({
-                    "jobId": str(row[0]),  # ID를 문자열로 변환
-                    "title": row[1],
-                    "company": row[2],
-                    "location": row[3],
-                    "url": row[4],
-                    "description": row[5] or "",
-                    "siteName": row[6],
-                    "matchScore": 70,  # 키워드 매칭은 기본 70점
-                    "reasons": [f"'{kw}' 관련 포지션입니다." for kw in career_keywords[:2]]
-                })
-
-            return recommendations
-
-        except Exception as e:
-            print(f"실시간 추천 실패: {str(e)}")
-            return []
+        return {
+            "success": False,
+            "jobs": [],
+            "error": result.get("error", "검색 실패")
+        }
 
     async def get_recommendations_with_requirements(
         self,
@@ -301,392 +796,42 @@ class JobRecommendationAgent:
         """
         채용 공고 추천 + 필요 기술/자격증 통합 분석
 
-        Args:
-            user_id: 사용자 ID
-            career_analysis: 커리어 분석 결과
-            user_profile: 사용자 프로필
-            user_skills: 사용자 보유 스킬 목록
-            limit: 최대 추천 개수
-
-        Returns:
-            추천 채용 공고 목록 (필요 기술/자격증 포함)
+        내부적으로 에이전트를 호출합니다.
         """
-        user_skills = user_skills or []
+        skills_str = ", ".join(user_skills) if user_skills else ""
+        request = f"나에게 맞는 채용공고를 추천하고, 필요한 자격증도 알려주세요."
+        if skills_str:
+            request += f" 내 스킬: {skills_str}"
 
-        # 1. 기본 채용 공고 가져오기
-        job_listings = self._get_job_listings_from_db(limit=100)
+        result = await self.run(
+            user_request=request,
+            user_id=user_id,
+            career_analysis=career_analysis,
+            user_profile=user_profile
+        )
 
-        if not job_listings:
+        # 프로필 필요 응답
+        if result.get("needsProfile"):
+            return result
+
+        # 성공
+        if result.get("success"):
+            context = result.get("context", {})
             return {
-                "recommendations": [],
-                "totalCount": 0,
+                "success": True,
+                "recommendations": context.get("recommendations", [])[:limit],
+                "totalCount": len(context.get("recommendations", [])),
                 "commonRequiredTechnologies": [],
-                "commonRequiredCertifications": [],
+                "commonRequiredCertifications": context.get("certifications", [])[:10],
                 "overallLearningPath": []
             }
 
-        # 2. 사용자 정보 요약
-        user_summary = self._create_user_summary(career_analysis, user_profile)
-
-        # 3. 각 공고에 대해 매칭 + 기술/자격증 분석
-        recommendations = []
-        all_technologies = []
-        all_certifications = []
-
-        for job in job_listings[:30]:  # 최대 30개 공고 분석 (API 비용 고려)
-            result = await self._analyze_job_with_requirements(
-                user_summary, job, user_skills
-            )
-
-            if result["matchScore"] >= 50:
-                recommendations.append(result)
-                all_technologies.extend(result.get("requiredTechnologies", []))
-                all_certifications.extend(result.get("requiredCertifications", []))
-
-        # 4. 매칭 점수 순 정렬
-        recommendations.sort(key=lambda x: x["matchScore"], reverse=True)
-        recommendations = recommendations[:limit]
-
-        # 5. 공통 필요 기술/자격증 추출
-        common_technologies = self._extract_common_items(all_technologies, "name")
-        common_certifications = self._extract_common_items(all_certifications, "name")
-
-        # 6. Q-net API에서 실제 자격증 정보 보강
-        enriched_certifications = await self._enrich_certifications_with_qnet(
-            common_certifications, career_analysis
-        )
-
-        # 7. 전체 학습 경로 생성
-        learning_path = await self._generate_learning_path(
-            user_skills, common_technologies, enriched_certifications
-        )
-
+        # 실패
         return {
-            "recommendations": recommendations,
-            "totalCount": len(recommendations),
-            "commonRequiredTechnologies": common_technologies[:10],
-            "commonRequiredCertifications": enriched_certifications[:10],
-            "overallLearningPath": learning_path
+            "success": False,
+            "recommendations": [],
+            "totalCount": 0,
+            "commonRequiredTechnologies": [],
+            "commonRequiredCertifications": [],
+            "overallLearningPath": []
         }
-
-    async def _analyze_job_with_requirements(
-        self,
-        user_summary: str,
-        job: Dict,
-        user_skills: List[str]
-    ) -> Dict:
-        """
-        채용 공고 분석 + 필요 기술/자격증 추출
-        """
-        user_skills_str = ", ".join(user_skills) if user_skills else "없음"
-
-        prompt = f"""다음 사용자와 채용 공고를 분석하고, 필요한 기술과 자격증을 추출해주세요.
-
-【사용자 정보】
-{user_summary}
-
-【사용자 보유 스킬】
-{user_skills_str}
-
-【채용 공고】
-- 제목: {job.get('title', '')}
-- 회사: {job.get('company', '')}
-- 위치: {job.get('location', '')}
-- 설명: {job.get('description', '')[:500]}
-
-다음 JSON 형식으로 응답해주세요:
-{{
-  "matchScore": 85,
-  "reasons": ["이유1", "이유2"],
-  "strengths": ["강점1"],
-  "concerns": ["우려사항1"],
-  "requiredTechnologies": [
-    {{
-      "name": "Python",
-      "category": "프로그래밍 언어",
-      "importance": "필수",
-      "description": "백엔드 개발에 사용"
-    }}
-  ],
-  "requiredCertifications": [
-    {{
-      "name": "정보처리기사",
-      "issuer": "한국산업인력공단",
-      "importance": "우대",
-      "difficulty": "중급",
-      "estimatedPrepTime": "3-6개월",
-      "description": "IT 직군 기본 자격증"
-    }}
-  ],
-  "learningResources": [
-    {{
-      "name": "Python 기초 강의",
-      "type": "온라인 강의",
-      "url": null,
-      "description": "Python 입문자용"
-    }}
-  ],
-  "skillGap": ["부족한 스킬1", "부족한 스킬2"]
-}}
-
-- matchScore: 0-100 적합도 점수
-- requiredTechnologies: 이 공고에서 요구하는 기술 (프로그래밍 언어, 프레임워크, 도구 등)
-- requiredCertifications: 필요하거나 우대하는 자격증
-- learningResources: 추천 학습 자료
-- skillGap: 사용자가 보유하지 않은 필요 스킬
-"""
-
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "당신은 채용 전문가이자 커리어 코치입니다. 채용 공고를 분석하여 필요한 기술과 자격증을 정확히 추출합니다."
-                    },
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.3,
-                max_tokens=1500
-            )
-
-            result_text = response.choices[0].message.content
-
-            import re
-            import json
-            json_match = re.search(r'\{.*\}', result_text, re.DOTALL)
-
-            if json_match:
-                result = json.loads(json_match.group())
-                return {
-                    "jobId": str(job.get("id")),
-                    "title": job.get("title"),
-                    "company": job.get("company"),
-                    "location": job.get("location"),
-                    "url": job.get("url"),
-                    "description": job.get("description"),
-                    "siteName": job.get("site_name"),
-                    "matchScore": result.get("matchScore", 50),
-                    "reasons": result.get("reasons", []),
-                    "strengths": result.get("strengths", []),
-                    "concerns": result.get("concerns", []),
-                    "requiredTechnologies": result.get("requiredTechnologies", []),
-                    "requiredCertifications": result.get("requiredCertifications", []),
-                    "learningResources": result.get("learningResources", []),
-                    "skillGap": result.get("skillGap", [])
-                }
-
-        except Exception as e:
-            print(f"채용 공고 분석 실패: {str(e)}")
-
-        # 기본값 반환
-        return {
-            "jobId": str(job.get("id")),
-            "title": job.get("title"),
-            "company": job.get("company"),
-            "location": job.get("location"),
-            "url": job.get("url"),
-            "description": job.get("description"),
-            "siteName": job.get("site_name"),
-            "matchScore": 50,
-            "reasons": [],
-            "strengths": [],
-            "concerns": [],
-            "requiredTechnologies": [],
-            "requiredCertifications": [],
-            "learningResources": [],
-            "skillGap": []
-        }
-
-    def _extract_common_items(
-        self,
-        items: List[Dict],
-        key: str,
-        min_count: int = 2
-    ) -> List[Dict]:
-        """공통 항목 추출 (빈도 기반)"""
-        from collections import Counter
-
-        if not items:
-            return []
-
-        # 이름별 빈도 계산
-        name_counts = Counter(item.get(key, "") for item in items if item.get(key))
-
-        # 빈도순 정렬 후 상세 정보 포함
-        common_items = []
-        seen_names = set()
-
-        for name, count in name_counts.most_common():
-            if count >= min_count and name not in seen_names:
-                # 해당 이름의 첫 번째 항목 찾기
-                for item in items:
-                    if item.get(key) == name:
-                        common_items.append(item)
-                        seen_names.add(name)
-                        break
-
-        return common_items
-
-    async def _generate_learning_path(
-        self,
-        user_skills: List[str],
-        common_technologies: List[Dict],
-        common_certifications: List[Dict]
-    ) -> List[str]:
-        """전체 학습 경로 생성"""
-        if not common_technologies and not common_certifications:
-            return []
-
-        tech_names = [t.get("name", "") for t in common_technologies[:5]]
-        cert_names = [c.get("name", "") for c in common_certifications[:3]]
-        user_skills_str = ", ".join(user_skills) if user_skills else "없음"
-
-        prompt = f"""사용자가 취업을 위해 학습해야 할 경로를 추천해주세요.
-
-【사용자 보유 스킬】
-{user_skills_str}
-
-【채용 시장에서 요구하는 주요 기술】
-{', '.join(tech_names)}
-
-【채용 시장에서 요구하는 주요 자격증】
-{', '.join(cert_names)}
-
-5단계 이내의 학습 경로를 JSON 배열로 응답해주세요.
-예시: ["1. Python 기초 학습 (1개월)", "2. Django 프레임워크 학습 (2개월)", ...]
-"""
-
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "당신은 커리어 코치입니다. 실용적인 학습 경로를 추천합니다."
-                    },
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.3,
-                max_tokens=500
-            )
-
-            result_text = response.choices[0].message.content
-
-            import re
-            import json
-            json_match = re.search(r'\[.*\]', result_text, re.DOTALL)
-
-            if json_match:
-                return json.loads(json_match.group())
-
-        except Exception as e:
-            print(f"학습 경로 생성 실패: {str(e)}")
-
-        return []
-
-    async def _enrich_certifications_with_qnet(
-        self,
-        ai_certifications: List[Dict],
-        career_analysis: Dict
-    ) -> List[Dict]:
-        """
-        Q-net API를 사용하여 AI가 추천한 자격증 정보를 보강
-        실제 자격증 데이터(시험일정, 상세정보)를 추가합니다.
-        """
-        enriched = []
-
-        # 1. AI가 추천한 자격증에서 Q-net 데이터 조회
-        for cert in ai_certifications[:5]:  # 상위 5개만
-            cert_name = cert.get("name", "")
-            if not cert_name:
-                continue
-
-            try:
-                # Q-net API에서 자격증 정보 + 시험 일정 조회
-                qnet_result = await self.qnet_service.get_certification_with_schedule(
-                    qualification_name=cert_name
-                )
-
-                if qnet_result.get("success") and qnet_result.get("certification"):
-                    qnet_cert = qnet_result["certification"]
-                    exam_schedules = qnet_result.get("examSchedules", [])
-
-                    # 다음 시험 일정 찾기
-                    next_exam = None
-                    if exam_schedules:
-                        next_exam = exam_schedules[0]  # 가장 가까운 시험
-
-                    enriched.append({
-                        "name": qnet_cert.get("name") or cert_name,
-                        "code": qnet_cert.get("code"),
-                        "issuer": "한국산업인력공단",
-                        "importance": cert.get("importance", "우대"),
-                        "difficulty": cert.get("difficulty", "중급"),
-                        "seriesName": qnet_cert.get("seriesName"),  # 계열 (정보통신, 기계 등)
-                        "obligFldName": qnet_cert.get("obligFldName"),  # 직무분야
-                        "qualTypeName": qnet_cert.get("qualTypeName"),  # 등급 (기사, 산업기사 등)
-                        "summary": qnet_cert.get("summary"),
-                        "career": qnet_cert.get("career"),  # 관련 진로
-                        "trend": qnet_cert.get("trend"),  # 동향
-                        # 시험 일정 정보
-                        "nextExam": {
-                            "year": next_exam.get("implYear") if next_exam else None,
-                            "round": next_exam.get("implSeq") if next_exam else None,
-                            "docRegStart": next_exam.get("docRegStartDt") if next_exam else None,
-                            "docRegEnd": next_exam.get("docRegEndDt") if next_exam else None,
-                            "docExamStart": next_exam.get("docExamStartDt") if next_exam else None,
-                            "docPassDt": next_exam.get("docPassDt") if next_exam else None,
-                            "pracRegStart": next_exam.get("pracRegStartDt") if next_exam else None,
-                            "pracExamStart": next_exam.get("pracExamStartDt") if next_exam else None,
-                            "pracPassDt": next_exam.get("pracPassDt") if next_exam else None,
-                        } if next_exam else None,
-                        "isFromQnet": True  # Q-net 데이터 여부
-                    })
-                else:
-                    # Q-net에서 찾지 못한 경우 AI 추천 데이터 그대로 사용
-                    cert["isFromQnet"] = False
-                    enriched.append(cert)
-
-            except Exception as e:
-                print(f"Q-net 자격증 조회 실패 ({cert_name}): {str(e)}")
-                cert["isFromQnet"] = False
-                enriched.append(cert)
-
-        # 2. 추천 직업 키워드로 추가 자격증 검색
-        if len(enriched) < 5:
-            try:
-                job_keywords = []
-                recommended_careers = career_analysis.get("recommendedCareers", [])
-                for career in recommended_careers[:2]:
-                    career_name = career.get("careerName", "")
-                    if career_name:
-                        job_keywords.extend(career_name.split())
-
-                if job_keywords:
-                    additional_result = await self.qnet_service.search_certifications_for_job(
-                        job_keywords=job_keywords
-                    )
-
-                    if additional_result.get("success"):
-                        for add_cert in additional_result.get("certifications", [])[:3]:
-                            # 중복 체크
-                            if not any(e.get("name") == add_cert.get("name") for e in enriched):
-                                enriched.append({
-                                    "name": add_cert.get("name"),
-                                    "code": add_cert.get("code"),
-                                    "issuer": "한국산업인력공단",
-                                    "importance": "추천",
-                                    "difficulty": "중급",
-                                    "seriesName": add_cert.get("seriesName"),
-                                    "obligFldName": add_cert.get("obligFldName"),
-                                    "qualTypeName": add_cert.get("qualTypeName"),
-                                    "summary": add_cert.get("summary"),
-                                    "career": add_cert.get("career"),
-                                    "isFromQnet": True
-                                })
-
-            except Exception as e:
-                print(f"추가 자격증 검색 실패: {str(e)}")
-
-        return enriched

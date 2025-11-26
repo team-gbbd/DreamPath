@@ -721,3 +721,301 @@ class DatabaseService:
             print(f"쿼리 실행 실패: {str(e)}")
             raise e
 
+    # ============== 자격증 관련 메서드 ==============
+
+    def _ensure_certification_table(self, conn):
+        """certifications 테이블 생성"""
+        try:
+            cursor = conn.cursor()
+
+            # 테이블 존재 여부 확인
+            if USE_POSTGRES:
+                cursor.execute("""
+                    SELECT COUNT(*) as count
+                    FROM information_schema.tables
+                    WHERE table_schema = 'public' AND table_name = 'certifications'
+                """)
+            else:
+                cursor.execute("""
+                    SELECT COUNT(*) as count
+                    FROM information_schema.tables
+                    WHERE table_schema = %s AND table_name = 'certifications'
+                """, (self.db_config['database'],))
+
+            result = cursor.fetchone()
+            if result['count'] == 0:
+                if USE_POSTGRES:
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS certifications (
+                            id BIGSERIAL PRIMARY KEY,
+                            code VARCHAR(50) UNIQUE,
+                            name VARCHAR(255) NOT NULL,
+                            eng_name VARCHAR(500),
+                            series_code VARCHAR(10),
+                            series_name VARCHAR(100),
+                            oblig_fld_name VARCHAR(100),
+                            impl_nm VARCHAR(255),
+                            insti_nm VARCHAR(255),
+                            summary TEXT,
+                            career TEXT,
+                            job TEXT,
+                            trend TEXT,
+                            hist TEXT,
+                            source VARCHAR(50) DEFAULT 'qnet',
+                            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """)
+                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_cert_code ON certifications (code)")
+                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_cert_name ON certifications (name)")
+                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_cert_series ON certifications (series_code)")
+                else:
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS certifications (
+                            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                            code VARCHAR(50) UNIQUE COMMENT '종목코드',
+                            name VARCHAR(255) NOT NULL COMMENT '자격증명',
+                            eng_name VARCHAR(500) COMMENT '영문명',
+                            series_code VARCHAR(10) COMMENT '계열코드',
+                            series_name VARCHAR(100) COMMENT '계열명',
+                            oblig_fld_name VARCHAR(100) COMMENT '직무분야명',
+                            impl_nm VARCHAR(255) COMMENT '시행기관명',
+                            insti_nm VARCHAR(255) COMMENT '출제기관명',
+                            summary TEXT COMMENT '요약',
+                            career TEXT COMMENT '관련 진로',
+                            job TEXT COMMENT '직무내용',
+                            trend TEXT COMMENT '동향',
+                            hist TEXT COMMENT '변천이력',
+                            source VARCHAR(50) DEFAULT 'qnet' COMMENT '데이터 출처',
+                            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 시간',
+                            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정 시간',
+                            INDEX idx_cert_code (code),
+                            INDEX idx_cert_name (name),
+                            INDEX idx_cert_series (series_code)
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='자격증 정보'
+                    """)
+                conn.commit()
+                print("certifications 테이블이 생성되었습니다.")
+            cursor.close()
+        except Exception as e:
+            print(f"certifications 테이블 생성 중 오류: {str(e)}")
+
+    def ensure_certification_table(self):
+        """외부에서 호출 가능한 자격증 테이블 생성 메서드"""
+        try:
+            with self.get_connection() as conn:
+                self._ensure_certification_table(conn)
+        except Exception as e:
+            print(f"자격증 테이블 생성 실패: {str(e)}")
+
+    def save_certifications(self, certifications: List[Dict]) -> int:
+        """
+        자격증 정보를 데이터베이스에 저장합니다.
+        중복된 자격증은 업데이트됩니다.
+
+        Args:
+            certifications: 자격증 정보 리스트
+
+        Returns:
+            저장된 자격증 수
+        """
+        if not certifications:
+            return 0
+
+        # 테이블 존재 확인
+        self.ensure_certification_table()
+
+        saved_count = 0
+
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                for cert in certifications:
+                    try:
+                        if USE_POSTGRES:
+                            cursor.execute("""
+                                INSERT INTO certifications (
+                                    code, name, eng_name, series_code, series_name,
+                                    oblig_fld_name, impl_nm, insti_nm, summary,
+                                    career, job, trend, hist, source
+                                ) VALUES (
+                                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                                )
+                                ON CONFLICT (code)
+                                DO UPDATE SET
+                                    name = EXCLUDED.name,
+                                    eng_name = EXCLUDED.eng_name,
+                                    series_code = EXCLUDED.series_code,
+                                    series_name = EXCLUDED.series_name,
+                                    oblig_fld_name = EXCLUDED.oblig_fld_name,
+                                    impl_nm = EXCLUDED.impl_nm,
+                                    insti_nm = EXCLUDED.insti_nm,
+                                    summary = EXCLUDED.summary,
+                                    career = EXCLUDED.career,
+                                    job = EXCLUDED.job,
+                                    trend = EXCLUDED.trend,
+                                    hist = EXCLUDED.hist,
+                                    source = EXCLUDED.source,
+                                    updated_at = CURRENT_TIMESTAMP
+                            """, (
+                                cert.get('code'),
+                                cert.get('name'),
+                                cert.get('engName'),
+                                cert.get('seriesCode'),
+                                cert.get('seriesName'),
+                                cert.get('obligFldName'),
+                                cert.get('implNm'),
+                                cert.get('instiNm'),
+                                cert.get('summary'),
+                                cert.get('career'),
+                                cert.get('job'),
+                                cert.get('trend'),
+                                cert.get('hist'),
+                                cert.get('source', 'qnet')
+                            ))
+                        else:
+                            cursor.execute("""
+                                INSERT INTO certifications (
+                                    code, name, eng_name, series_code, series_name,
+                                    oblig_fld_name, impl_nm, insti_nm, summary,
+                                    career, job, trend, hist, source
+                                ) VALUES (
+                                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                                )
+                                ON DUPLICATE KEY UPDATE
+                                    name = VALUES(name),
+                                    eng_name = VALUES(eng_name),
+                                    series_code = VALUES(series_code),
+                                    series_name = VALUES(series_name),
+                                    oblig_fld_name = VALUES(oblig_fld_name),
+                                    impl_nm = VALUES(impl_nm),
+                                    insti_nm = VALUES(insti_nm),
+                                    summary = VALUES(summary),
+                                    career = VALUES(career),
+                                    job = VALUES(job),
+                                    trend = VALUES(trend),
+                                    hist = VALUES(hist),
+                                    source = VALUES(source),
+                                    updated_at = CURRENT_TIMESTAMP
+                            """, (
+                                cert.get('code'),
+                                cert.get('name'),
+                                cert.get('engName'),
+                                cert.get('seriesCode'),
+                                cert.get('seriesName'),
+                                cert.get('obligFldName'),
+                                cert.get('implNm'),
+                                cert.get('instiNm'),
+                                cert.get('summary'),
+                                cert.get('career'),
+                                cert.get('job'),
+                                cert.get('trend'),
+                                cert.get('hist'),
+                                cert.get('source', 'qnet')
+                            ))
+
+                        saved_count += 1
+                    except Exception as e:
+                        print(f"자격증 저장 실패 ({cert.get('name')}): {str(e)}")
+                        continue
+
+                conn.commit()
+                cursor.close()
+
+                if saved_count > 0:
+                    print(f"{saved_count}개의 자격증 정보가 저장되었습니다.")
+
+                return saved_count
+
+        except Exception as e:
+            print(f"자격증 저장 중 오류 발생: {str(e)}")
+            return 0
+
+    def get_certifications(
+        self,
+        series_code: Optional[str] = None,
+        keyword: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0
+    ) -> List[Dict]:
+        """
+        자격증 정보를 조회합니다.
+
+        Args:
+            series_code: 계열코드 필터
+            keyword: 검색 키워드
+            limit: 최대 결과 수
+            offset: 오프셋
+
+        Returns:
+            자격증 리스트
+        """
+        # 테이블 존재 확인
+        self.ensure_certification_table()
+
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                where_clauses = []
+                params = []
+
+                if series_code:
+                    where_clauses.append("series_code = %s")
+                    params.append(series_code)
+
+                if keyword:
+                    where_clauses.append("(name LIKE %s OR oblig_fld_name LIKE %s)")
+                    keyword_pattern = f"%{keyword}%"
+                    params.extend([keyword_pattern, keyword_pattern])
+
+                where_sql = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+
+                query = f"""
+                    SELECT
+                        id, code, name, eng_name, series_code, series_name,
+                        oblig_fld_name, impl_nm, insti_nm, summary,
+                        career, job, trend, hist, source, created_at, updated_at
+                    FROM certifications
+                    {where_sql}
+                    ORDER BY series_code, name
+                    LIMIT %s OFFSET %s
+                """
+
+                params.extend([limit, offset])
+                cursor.execute(query, params)
+
+                results = cursor.fetchall()
+                cursor.close()
+
+                return list(results)
+
+        except Exception as e:
+            print(f"자격증 조회 중 오류 발생: {str(e)}")
+            return []
+
+    def count_certifications(self, series_code: Optional[str] = None) -> int:
+        """자격증 개수 조회"""
+        self.ensure_certification_table()
+
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                if series_code:
+                    cursor.execute(
+                        "SELECT COUNT(*) as count FROM certifications WHERE series_code = %s",
+                        (series_code,)
+                    )
+                else:
+                    cursor.execute("SELECT COUNT(*) as count FROM certifications")
+
+                result = cursor.fetchone()
+                cursor.close()
+                return result['count'] if result else 0
+
+        except Exception as e:
+            print(f"자격증 카운트 조회 중 오류: {str(e)}")
+            return 0
+

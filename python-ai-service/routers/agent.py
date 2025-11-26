@@ -55,23 +55,52 @@ resume_optimizer_agent = ResumeOptimizerAgent()
 
 # ============== 1. 채용 공고 추천 ==============
 
-@router.post("/job-recommendations", response_model=JobRecommendationResponse)
+@router.post("/job-recommendations")
 async def get_job_recommendations(request: JobRecommendationRequest):
     """
     사용자에게 맞는 채용 공고 추천
+
+    Returns:
+        - 성공 시: 추천 채용공고 목록
+        - 프로필 필요 시: needsProfile=True와 안내 메시지
     """
     try:
-        recommendations = await job_recommendation_agent.get_recommendations(
+        result = await job_recommendation_agent.get_recommendations(
             user_id=request.userId,
             career_analysis=request.careerAnalysis,
             user_profile=request.userProfile,
             limit=request.limit
         )
 
-        return JobRecommendationResponse(
-            recommendations=recommendations,
-            totalCount=len(recommendations)
-        )
+        # 프로필 필요 응답
+        if result.get("needsProfile"):
+            return {
+                "success": False,
+                "needsProfile": True,
+                "message": result.get("message"),
+                "guidance": result.get("guidance"),
+                "alternativeAction": result.get("alternativeAction"),
+                "recommendations": [],
+                "totalCount": 0
+            }
+
+        # 성공 응답
+        if result.get("success"):
+            return {
+                "success": True,
+                "needsProfile": False,
+                "recommendations": result.get("recommendations", []),
+                "totalCount": result.get("totalCount", 0)
+            }
+
+        # 실패 응답
+        return {
+            "success": False,
+            "needsProfile": False,
+            "error": result.get("error", "추천 실패"),
+            "recommendations": [],
+            "totalCount": 0
+        }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"채용 공고 추천 실패: {str(e)}")

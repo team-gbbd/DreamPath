@@ -24,7 +24,11 @@
       "Bash(netstat:*)",
       "Bash(taskkill:*)",
       "Bash(set:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(timeout 10 curl:*)",
+      "Bash(timeout 15 bash:*)",
+      "Bash(docker logs:*)",
+      "WebFetch(domain:botpress.com)"
     ],
     "deny": [],
     "ask": []

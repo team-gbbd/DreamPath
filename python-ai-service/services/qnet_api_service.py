@@ -402,14 +402,8 @@ class QnetApiService:
                 print(f"계열 {series_code} 조회 실패: {e}")
                 continue
 
-        # 결과가 없으면 건축계열(01) 기본 조회 (가장 안정적)
-        if not all_certifications:
-            try:
-                result = await self.get_qualification_list(series_code="01", num_of_rows=20)
-                if result.get("success") and result.get("items"):
-                    all_certifications = result["items"]
-            except:
-                pass
+        # fallback 제거 - 관련 없는 자격증 추천 방지
+        # 결과가 없으면 빈 배열 반환 (기계/건축 자격증이 엉뚱하게 추천되는 문제 해결)
 
         return {
             "success": True,
