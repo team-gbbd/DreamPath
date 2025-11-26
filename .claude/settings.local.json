@@ -22,7 +22,9 @@
       "Bash(./gradlew bootRun)",
       "Bash(timeout 30 bash:*)",
       "Bash(netstat:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(set:*)",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": []

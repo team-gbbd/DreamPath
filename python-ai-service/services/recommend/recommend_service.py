@@ -1,4 +1,3 @@
-import pinecone
 from services.vector.supabase_vector_repository import SupabaseVectorRepository
 from services.rag.pinecone_vector_service import PineconeVectorService
 
@@ -8,9 +7,14 @@ class RecommendService:
     def __init__(self):
         self.vector = PineconeVectorService()
         self.repo = SupabaseVectorRepository()
-        self.index = pinecone.Index("dreampath-index")
+        # PineconeVectorService 내부의 index를 재사용
+        self.index = self.vector.index if self.vector._initialized else None
+        self._initialized = self.vector._initialized
 
     def recommend_jobs(self, user_vector_id, top_k=10):
+        if not self._initialized:
+            print("[RecommendService] Pinecone이 초기화되지 않아 recommend_jobs를 건너뜁니다.")
+            return []
 
         # 1. 사용자 벡터 가져오기
         user_vector = self.repo.get_vector_by_id(user_vector_id)
@@ -45,6 +49,9 @@ class RecommendService:
         return self._recommend_by_namespace(vector_id, "school_vector", top_k)
 
     def _recommend_by_namespace(self, vector_id: str, namespace: str, top_k: int):
+        if not self._initialized:
+            print(f"[RecommendService] Pinecone이 초기화되지 않아 {namespace} 추천을 건너뜁니다.")
+            return []
 
         user_vector = self.repo.get_vector_by_id(vector_id)
         if user_vector is None:

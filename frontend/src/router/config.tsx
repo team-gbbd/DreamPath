@@ -46,6 +46,8 @@ const MentoringMeetingPage = lazy(() => import("../pages/mentoring/MentoringMeet
 const JobAnalysisPage = lazy(() => import("../pages/job-analysis/JobAnalysisPage"));
 const PersonalizedInsightsPage = lazy(() => import("../pages/job-analysis/PersonalizedInsightsPage"));
 const JobRecommendationsPage = lazy(() => import("../pages/job-recommendations/JobRecommendationsPage"));
+const JobWithRequirementsPage = lazy(() => import("../pages/job-recommendations/JobWithRequirementsPage"));
+const CertificationsPage = lazy(() => import("../pages/certifications/CertificationsPage"));
 
 const routes: RouteObject[] = [
   {
@@ -257,6 +259,17 @@ const routes: RouteObject[] = [
   {
     path: "/job-recommendations",
     element: <JobRecommendationsPage />,
+  },
+  {
+    path: "/job-recommendations/with-requirements",
+    element: <JobWithRequirementsPage />,
+  },
+  /* ----------------------
+     🔹 CERTIFICATIONS (Q-net)
+     ---------------------- */
+  {
+    path: "/certifications",
+    element: <CertificationsPage />,
   },
 ];
 

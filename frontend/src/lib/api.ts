@@ -19,6 +19,9 @@ import type {
 export const API_BASE_URL =
   import.meta.env.VITE_API_URL || "http://localhost:8080/api";
 
+export const BACKEND_BASE_URL =
+  import.meta.env.VITE_BACKEND_URL || "http://localhost:8080";
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -544,6 +547,80 @@ export const jobRecommendationService = {
       careerKeywords,
       limit,
     });
+    return response.data;
+  },
+
+  // 채용 공고 + 필요 기술/자격증 통합 추천
+  getRecommendationsWithRequirements: async (
+    userId: number,
+    careerAnalysis: any,
+    userProfile?: any,
+    userSkills?: string[],
+    limit: number = 10
+  ) => {
+    const response = await axios.post(`${PYTHON_API_URL}/agent/job-recommendations/with-requirements`, {
+      userId,
+      careerAnalysis,
+      userProfile,
+      userSkills,
+      limit,
+    });
+    return response.data;
+  },
+};
+
+/* ================================
+   🔹 Q-net 자격증 Service
+   ================================ */
+export const qnetService = {
+  // 계열 코드 목록 조회
+  getSeriesCodes: async () => {
+    const response = await axios.get(`${PYTHON_API_URL}/qnet/series-codes`);
+    return response.data;
+  },
+
+  // 자격증 목록 조회
+  getQualifications: async (data: {
+    seriesCode?: string;
+    qualificationName?: string;
+    pageNo?: number;
+    numOfRows?: number;
+  }) => {
+    const response = await axios.post(`${PYTHON_API_URL}/qnet/qualifications`, data);
+    return response.data;
+  },
+
+  // 시험 일정 조회
+  getExamSchedule: async (data: {
+    qualificationCode?: string;
+    qualificationName?: string;
+    year?: string;
+    pageNo?: number;
+    numOfRows?: number;
+  }) => {
+    const response = await axios.post(`${PYTHON_API_URL}/qnet/exam-schedule`, data);
+    return response.data;
+  },
+
+  // 직업 기반 자격증 추천
+  getCertificationsForJob: async (jobKeywords: string[]) => {
+    const response = await axios.post(`${PYTHON_API_URL}/qnet/certifications-for-job`, {
+      jobKeywords,
+    });
+    return response.data;
+  },
+
+  // 자격증 상세 정보 + 시험 일정
+  getCertificationDetail: async (qualificationName: string) => {
+    const response = await axios.post(`${PYTHON_API_URL}/qnet/certification-detail`, {
+      qualificationName,
+    });
+    return response.data;
+  },
+
+  // 빠른 검색
+  quickSearch: async (keyword: string) => {
+    const response = await axios.get(`${PYTHON_API_URL}/qnet/search/${encodeURIComponent(keyword)}`);
     return response.data;
   },
 };

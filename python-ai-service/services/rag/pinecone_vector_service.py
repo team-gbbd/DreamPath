@@ -19,21 +19,36 @@ class PineconeVectorService:
         environment = os.getenv("PINECONE_ENV", "us-east-1")
         index_name = os.getenv("PINECONE_INDEX", "dreampath-index")
 
-        self.pc = Pinecone(api_key=api_key)
+        self.pc = None
+        self.index = None
+        self._initialized = False
 
-        # 인덱스 없으면 자동 생성
-        if index_name not in [idx["name"] for idx in self.pc.list_indexes()]:
-            self.pc.create_index(
-                name=index_name,
-                dimension=1536,
-                metric="cosine",
-                spec=ServerlessSpec(
-                    cloud="aws",
-                    region=environment
+        if not api_key:
+            print("[Pinecone] API 키가 설정되지 않았습니다. Pinecone 기능이 비활성화됩니다.")
+            return
+
+        try:
+            self.pc = Pinecone(api_key=api_key)
+
+            # 인덱스 없으면 자동 생성
+            existing_indexes = [idx["name"] for idx in self.pc.list_indexes()]
+            if index_name not in existing_indexes:
+                self.pc.create_index(
+                    name=index_name,
+                    dimension=1536,
+                    metric="cosine",
+                    spec=ServerlessSpec(
+                        cloud="aws",
+                        region=environment
+                    )
                 )
-            )
 
-        self.index = self.pc.Index(index_name)
+            self.index = self.pc.Index(index_name)
+            self._initialized = True
+            print(f"[Pinecone] 초기화 완료: {index_name}")
+        except Exception as e:
+            print(f"[Pinecone] 초기화 실패: {e}")
+            print("[Pinecone] Pinecone 기능이 비활성화됩니다.")
 
     def embed_document(self, document: str):
         """
@@ -49,6 +64,9 @@ class PineconeVectorService:
         """
         Pinecone 업서트
         """
+        if not self._initialized:
+            print("[Pinecone] 초기화되지 않아 upsert를 건너뜁니다.")
+            return
         self.index.upsert(
             vectors=[
                 {
@@ -63,6 +81,9 @@ class PineconeVectorService:
         """
         document → embedding → pinecone upsert → vector_id 반환
         """
+        if not self._initialized:
+            print("[Pinecone] 초기화되지 않아 process를 건너뜁니다.")
+            return vector_id
         embedding = self.embed_document(document)
         self.upsert_vector(vector_id, embedding, metadata)
         return vector_id

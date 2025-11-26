@@ -1,6 +1,5 @@
 import os
 
-import pinecone
 from openai import OpenAI
 
 from services.rag.pinecone_vector_service import PineconeVectorService
@@ -12,7 +11,9 @@ class HybridRecommendService:
     def __init__(self):
         self.vector = PineconeVectorService()
         self.repo = SupabaseVectorRepository()
-        self.index = pinecone.Index("dreampath-index")
+        # PineconeVectorService 내부의 index를 재사용
+        self.index = self.vector.index if self.vector._initialized else None
+        self._initialized = self.vector._initialized
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     def recommend(self, user_vector_id, top_k=20):
@@ -20,6 +21,10 @@ class HybridRecommendService:
         1) Pinecone에서 Top20 후보 검색
         2) LLM이 최종 Top5 재정렬 + 이유 생성
         """
+        if not self._initialized:
+            print("[HybridRecommendService] Pinecone이 초기화되지 않아 recommend를 건너뜁니다.")
+            return []
+
         user_vector = self.repo.get_vector_by_id(user_vector_id)
         if user_vector is None:
             return []

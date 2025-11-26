@@ -131,6 +131,14 @@ from .agent import (
     ComparisonDetail,
     JobComparisonResponse,
 
+    # 채용 공고 + 기술/자격증 통합 추천
+    RequiredTechnology,
+    RequiredCertification,
+    LearningResource,
+    JobWithRequirements,
+    JobWithRequirementsRequest,
+    JobWithRequirementsResponse,
+
     # Enums
     DifficultyLevel,
     ResourceType,
@@ -263,4 +271,12 @@ __all__ = [
     "ProsCons",
     "ComparisonDetail",
     "JobComparisonResponse",
+
+    # AI 에이전트 - 채용 공고 + 기술/자격증 통합 추천
+    "RequiredTechnology",
+    "RequiredCertification",
+    "LearningResource",
+    "JobWithRequirements",
+    "JobWithRequirementsRequest",
+    "JobWithRequirementsResponse",
 ]

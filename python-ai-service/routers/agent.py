@@ -8,6 +8,10 @@ from models import (
     JobRecommendationResponse,
     RealTimeRecommendationRequest,
 
+    # 채용 공고 + 기술/자격증 통합 추천
+    JobWithRequirementsRequest,
+    JobWithRequirementsResponse,
+
     # 지원 현황 추적
     ApplicationAnalysisRequest,
     ApplicationAnalysisResponse,
@@ -92,6 +96,38 @@ async def get_realtime_recommendations(request: RealTimeRecommendationRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"실시간 추천 실패: {str(e)}")
+
+
+@router.post("/job-recommendations/with-requirements", response_model=JobWithRequirementsResponse)
+async def get_job_recommendations_with_requirements(request: JobWithRequirementsRequest):
+    """
+    채용 공고 추천 + 필요 기술/자격증 통합 분석
+
+    사용자의 커리어 분석 결과를 바탕으로 적합한 채용 공고를 추천하고,
+    각 공고에서 요구하는 기술과 자격증을 함께 분석합니다.
+
+    응답 내용:
+    - recommendations: 추천 채용 공고 목록 (필요 기술/자격증 포함)
+    - commonRequiredTechnologies: 채용 시장에서 공통적으로 요구하는 기술
+    - commonRequiredCertifications: 공통 필요 자격증
+    - overallLearningPath: 전체 학습 경로 추천
+    """
+    try:
+        result = await job_recommendation_agent.get_recommendations_with_requirements(
+            user_id=request.userId,
+            career_analysis=request.careerAnalysis,
+            user_profile=request.userProfile,
+            user_skills=request.userSkills,
+            limit=request.limit
+        )
+
+        return JobWithRequirementsResponse(**result)
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"채용 공고 + 기술/자격증 추천 실패: {str(e)}"
+        )
 
 
 # ============== 2. 지원 현황 추적 ==============
