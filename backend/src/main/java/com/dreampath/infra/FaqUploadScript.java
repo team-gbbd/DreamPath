@@ -29,8 +29,8 @@ public class FaqUploadScript {
         FaqRepository faqRepository = context.getBean(FaqRepository.class);
         RagEmbeddingService embeddingService = context.getBean(RagEmbeddingService.class);
 
-        String pineconeApiKey = context.getEnvironment().getProperty("pinecone.api.key");
-        String pineconeHost = context.getEnvironment().getProperty("pinecone.host");
+        String pineconeApiKey = context.getEnvironment().getProperty("pinecone.faq.api.key");
+        String pineconeHost = context.getEnvironment().getProperty("pinecone.faq.host");
 
         new FaqUploadScript().execute(faqRepository, embeddingService, pineconeApiKey, pineconeHost);
 

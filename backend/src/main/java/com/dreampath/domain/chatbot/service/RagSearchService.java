@@ -11,10 +11,10 @@ import org.json.JSONObject;
 @RequiredArgsConstructor
 public class RagSearchService {
 
-    @Value("${pinecone.api.key}")
+    @Value("${pinecone.faq.api.key:dummykey}")
     private String pineconeApiKey;
 
-    @Value("${pinecone.host}")
+    @Value("${pinecone.faq.host:dummy-host.pinecone.io}")
     private String pineconeHost;
 
     private final OkHttpClient client = new OkHttpClient();
