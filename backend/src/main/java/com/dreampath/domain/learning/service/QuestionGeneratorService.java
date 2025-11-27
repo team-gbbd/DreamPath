@@ -51,6 +51,13 @@ public class QuestionGeneratorService {
         log.info("AI 문제 생성 시작 - 세션: {}, 주차: {}, 도메인: {}",
                  session.getWeeklyId(), session.getWeekNumber(), domain);
 
+        // 이미 문제가 존재하는지 확인
+        List<WeeklyQuestion> existingQuestions = questionRepository.findByWeeklySessionWeeklyIdOrderByOrderNumAsc(session.getWeeklyId());
+        if (!existingQuestions.isEmpty()) {
+            log.info("이미 문제가 존재함 - 세션: {}, 기존 문제 수: {}", session.getWeeklyId(), existingQuestions.size());
+            return existingQuestions;
+        }
+
         String prompt = buildPrompt(domain, session.getWeekNumber(), count);
         String response = chatModel.generate(prompt);
 
