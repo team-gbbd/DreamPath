@@ -259,46 +259,51 @@ class JobRecommendationAgent:
             "recommendations": []
         }
 
-        # 시스템 프롬프트 (프로필 유무에 따라 다르게)
+        # 시스템 프롬프트 (자유 선택 방식)
         if has_profile:
             system_prompt = """너는 채용 추천 AI 에이전트야.
-사용자의 커리어 분석 결과를 바탕으로 최적의 채용 정보를 찾아줘.
+사용자의 요청을 분석하고, 필요한 도구를 자유롭게 선택해서 실행해.
 
 사용 가능한 도구:
-1. get_user_profile: 사용자 프로필 조회
-2. search_jobs_by_keyword: 키워드로 채용공고 검색
-3. get_certifications: 자격증 정보 조회
-4. generate_report: 최종 결과 리포트 생성
+- get_user_profile: 사용자 프로필/커리어 분석 결과 조회. 추천 직업, 적합한 직무 등 파악할 때 사용.
+- search_jobs_by_keyword: 키워드로 채용공고 검색. 특정 직무나 기술에 맞는 공고 찾을 때 사용.
+- get_certifications: 자격증 정보 조회. 직무 관련 자격증 추천이 필요할 때 사용.
+- generate_report: 최종 결과 리포트 생성. 모든 정보를 종합해서 사용자에게 전달할 때 사용.
 
-작업 순서 (이 순서대로 실행해):
-1. get_user_profile 호출 → 사용자의 추천 직업 확인
-2. search_jobs_by_keyword 호출 → 추천 직업 키워드로 검색
-3. get_certifications 호출 → 관련 자격증 조회 (선택)
-4. generate_report 호출 → 결과 정리
+도구 사용 가이드:
+- 상황에 맞게 필요한 도구만 선택해서 사용해.
+- 같은 도구를 여러 번 호출할 수 있어 (예: 여러 키워드로 검색).
+- 사용자가 원하는 정보를 얻으면 generate_report로 마무리해.
+- 프로필 정보가 필요하면 get_user_profile을 호출해.
+- 특정 직무에 대한 채용공고가 필요하면 search_jobs_by_keyword를 호출해.
+- 자격증 정보가 필요하면 get_certifications를 호출해.
 
-중요:
-- 각 도구는 한 번씩만 호출해.
-- 검색 결과가 없어도 다음 단계로 진행해.
-- 마지막에 반드시 generate_report를 호출해.
+예시:
+- "개발자 채용 보여줘" → search_jobs_by_keyword("개발자") → generate_report
+- "내 프로필에 맞는 공고" → get_user_profile → search_jobs_by_keyword(추천 직업) → generate_report
+- "백엔드 개발자에게 필요한 자격증" → get_certifications("백엔드") → generate_report
 """
         else:
             system_prompt = """너는 채용 추천 AI 에이전트야.
-사용자가 키워드 기반으로 채용 정보를 요청했어.
+사용자의 요청을 분석하고, 필요한 도구를 자유롭게 선택해서 실행해.
 
 사용 가능한 도구:
-1. search_jobs_by_keyword: 키워드로 채용공고 검색
-2. get_certifications: 자격증 정보 조회
-3. generate_report: 최종 결과 리포트 생성
+- search_jobs_by_keyword: 키워드로 채용공고 검색. 특정 직무나 기술에 맞는 공고 찾을 때 사용.
+- get_certifications: 자격증 정보 조회. 직무 관련 자격증 추천이 필요할 때 사용.
+- generate_report: 최종 결과 리포트 생성. 모든 정보를 종합해서 사용자에게 전달할 때 사용.
 
-작업 순서:
-1. 사용자 요청에서 키워드 파악 (예: 백엔드, 프론트엔드)
-2. search_jobs_by_keyword 호출
-3. generate_report 호출
+도구 사용 가이드:
+- 상황에 맞게 필요한 도구만 선택해서 사용해.
+- 같은 도구를 여러 번 호출할 수 있어 (예: 여러 키워드로 검색).
+- 사용자가 원하는 정보를 얻으면 generate_report로 마무리해.
 
-중요:
-- 각 도구는 한 번씩만 호출해.
-- 마지막에 반드시 generate_report를 호출해.
-- 결과에 "더 정확한 추천을 위해 커리어 분석을 권장합니다" 메시지 포함.
+참고:
+- 사용자는 아직 커리어 분석을 완료하지 않았어.
+- 결과에 "더 정확한 추천을 위해 커리어 분석을 권장합니다" 메시지를 포함해줘.
+
+예시:
+- "프론트엔드 개발자 채용 보여줘" → search_jobs_by_keyword("프론트엔드") → generate_report
+- "데이터 분석가에게 필요한 자격증" → get_certifications("데이터 분석") → generate_report
 """
 
         messages = [
@@ -482,7 +487,7 @@ class JobRecommendationAgent:
         """
         try:
             query = """
-                SELECT id, title, company, location, url, description, site_name, crawled_at
+                SELECT id, title, company, location, url, description, site_name, crawled_at, tech_stack, required_skills
                 FROM job_listings
                 WHERE crawled_at >= NOW() - INTERVAL '7 days'
                 ORDER BY crawled_at DESC
@@ -492,6 +497,21 @@ class JobRecommendationAgent:
 
             jobs = []
             for row in results:
+                # tech_stack 파싱 (JSON 문자열 또는 None)
+                tech_stack = row[8]
+                if tech_stack and isinstance(tech_stack, str):
+                    try:
+                        tech_stack = json.loads(tech_stack)
+                    except:
+                        tech_stack = [tech_stack]
+
+                required_skills = row[9]
+                if required_skills and isinstance(required_skills, str):
+                    try:
+                        required_skills = json.loads(required_skills)
+                    except:
+                        required_skills = [required_skills]
+
                 jobs.append({
                     "id": row[0],
                     "title": row[1],
@@ -499,7 +519,9 @@ class JobRecommendationAgent:
                     "location": row[3],
                     "url": row[4],
                     "description": (row[5] or "")[:300],  # 설명 300자로 제한
-                    "site_name": row[6]
+                    "site_name": row[6],
+                    "tech_stack": tech_stack,
+                    "required_skills": required_skills
                 })
 
             # 컨텍스트에 저장
@@ -519,7 +541,7 @@ class JobRecommendationAgent:
         """
         try:
             query = """
-                SELECT id, title, company, location, url, description, site_name
+                SELECT id, title, company, location, url, description, site_name, tech_stack, required_skills
                 FROM job_listings
                 WHERE (title ILIKE %s OR description ILIKE %s)
                 AND crawled_at >= NOW() - INTERVAL '7 days'
@@ -531,6 +553,21 @@ class JobRecommendationAgent:
 
             jobs = []
             for row in results:
+                # tech_stack 파싱 (JSON 문자열 또는 None)
+                tech_stack = row[7]
+                if tech_stack and isinstance(tech_stack, str):
+                    try:
+                        tech_stack = json.loads(tech_stack)
+                    except:
+                        tech_stack = [tech_stack]
+
+                required_skills = row[8]
+                if required_skills and isinstance(required_skills, str):
+                    try:
+                        required_skills = json.loads(required_skills)
+                    except:
+                        required_skills = [required_skills]
+
                 jobs.append({
                     "id": row[0],
                     "title": row[1],
@@ -539,6 +576,8 @@ class JobRecommendationAgent:
                     "url": row[4],
                     "description": (row[5] or "")[:300],
                     "site_name": row[6],
+                    "tech_stack": tech_stack,
+                    "required_skills": required_skills,
                     "matched_keyword": keyword
                 })
 
@@ -673,9 +712,49 @@ class JobRecommendationAgent:
         all_certifications = certifications or self.context.get("certifications", [])
         all_jobs = self.context.get("jobs", [])
 
+        # 기술 스택 집계 (모든 채용공고에서 추출)
+        tech_stack_count = {}
+        required_skills_count = {}
+
+        for job in all_jobs:
+            # tech_stack 집계
+            tech_stack = job.get("tech_stack") or []
+            if isinstance(tech_stack, str):
+                try:
+                    tech_stack = json.loads(tech_stack)
+                except:
+                    tech_stack = [tech_stack]
+
+            for tech in tech_stack:
+                if tech:
+                    tech_stack_count[tech] = tech_stack_count.get(tech, 0) + 1
+
+            # required_skills 집계
+            required_skills = job.get("required_skills") or []
+            if isinstance(required_skills, str):
+                try:
+                    required_skills = json.loads(required_skills)
+                except:
+                    required_skills = [required_skills]
+
+            for skill in required_skills:
+                if skill:
+                    required_skills_count[skill] = required_skills_count.get(skill, 0) + 1
+
+        # 상위 기술 스택 정렬 (빈도순)
+        common_tech_stack = sorted(tech_stack_count.items(), key=lambda x: x[1], reverse=True)
+        common_required_skills = sorted(required_skills_count.items(), key=lambda x: x[1], reverse=True)
+
         # jobs를 recommendations 형식으로 변환
         all_recommendations = []
         for job in all_jobs:
+            job_tech_stack = job.get("tech_stack") or []
+            if isinstance(job_tech_stack, str):
+                try:
+                    job_tech_stack = json.loads(job_tech_stack)
+                except:
+                    job_tech_stack = []
+
             all_recommendations.append({
                 "jobId": str(job.get("id", "")),
                 "title": job.get("title", ""),
@@ -684,6 +763,7 @@ class JobRecommendationAgent:
                 "url": job.get("url", ""),
                 "description": job.get("description", ""),
                 "siteName": job.get("site_name", ""),
+                "techStack": job_tech_stack,
                 "matchScore": 70,  # 기본 점수
                 "reasons": [f"'{job.get('matched_keyword', '')}' 키워드 매칭"] if job.get("matched_keyword") else ["관련 포지션"],
                 "strengths": [],
@@ -697,10 +777,13 @@ class JobRecommendationAgent:
             "summary": {
                 "total_jobs_found": len(all_jobs),
                 "total_recommendations": len(all_recommendations),
-                "total_certifications": len(all_certifications)
+                "total_certifications": len(all_certifications),
+                "total_unique_tech_stacks": len(tech_stack_count)
             },
             "top_recommendations": all_recommendations[:10],
             "recommended_certifications": all_certifications[:5],
+            "commonRequiredTechnologies": [{"name": tech, "count": count} for tech, count in common_tech_stack[:15]],
+            "commonRequiredSkills": [{"name": skill, "count": count} for skill, count in common_required_skills[:10]],
             "has_profile": self.context.get("has_profile", False),
             "generated_at": "now"
         }
@@ -817,11 +900,30 @@ class JobRecommendationAgent:
         # 성공
         if result.get("success"):
             context = result.get("context", {})
+            jobs = context.get("jobs", [])
+
+            # 기술 스택 집계 (모든 채용공고에서 추출)
+            tech_stack_count = {}
+            for job in jobs:
+                tech_stack = job.get("tech_stack") or []
+                if isinstance(tech_stack, str):
+                    try:
+                        tech_stack = json.loads(tech_stack)
+                    except:
+                        tech_stack = [tech_stack]
+
+                for tech in tech_stack:
+                    if tech:
+                        tech_stack_count[tech] = tech_stack_count.get(tech, 0) + 1
+
+            # 상위 기술 스택 정렬 (빈도순)
+            common_tech_stack = sorted(tech_stack_count.items(), key=lambda x: x[1], reverse=True)
+
             return {
                 "success": True,
                 "recommendations": context.get("recommendations", [])[:limit],
                 "totalCount": len(context.get("recommendations", [])),
-                "commonRequiredTechnologies": [],
+                "commonRequiredTechnologies": [{"name": tech, "count": count} for tech, count in common_tech_stack[:15]],
                 "commonRequiredCertifications": context.get("certifications", [])[:10],
                 "overallLearningPath": []
             }

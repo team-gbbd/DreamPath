@@ -28,7 +28,9 @@
       "Bash(timeout 10 curl:*)",
       "Bash(timeout 15 bash:*)",
       "Bash(docker logs:*)",
-      "WebFetch(domain:botpress.com)"
+      "WebFetch(domain:botpress.com)",
+      "Bash(docker-compose config:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

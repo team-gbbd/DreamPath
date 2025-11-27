@@ -3,6 +3,7 @@
 MySQL/PostgreSQL 데이터베이스 연결 및 채용 공고 저장/조회 기능
 """
 import os
+import json
 from typing import List, Dict, Optional
 from datetime import datetime
 from contextlib import contextmanager
@@ -106,6 +107,8 @@ class DatabaseService:
                                 reward VARCHAR(255),
                                 experience VARCHAR(255),
                                 search_keyword VARCHAR(255),
+                                tech_stack TEXT,
+                                required_skills TEXT,
                                 crawled_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                 updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -133,6 +136,8 @@ class DatabaseService:
                                 reward VARCHAR(255) COMMENT '보상금/급여',
                                 experience VARCHAR(255) COMMENT '경력 요구사항',
                                 search_keyword VARCHAR(255) COMMENT '검색 키워드',
+                                tech_stack TEXT COMMENT '기술 스택 (JSON)',
+                                required_skills TEXT COMMENT '필요 역량 (JSON)',
                                 crawled_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '크롤링 시간',
                                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 시간',
                                 updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정 시간',
@@ -146,12 +151,53 @@ class DatabaseService:
                         """)
                     conn.commit()
                     print("job_listings 테이블이 생성되었습니다.")
+                else:
+                    # 테이블이 이미 존재하는 경우, 새 컬럼 추가
+                    self._add_job_listings_columns(conn)
 
                 # company_info 테이블 생성
                 self._ensure_company_info_table(conn)
         except Exception as e:
             print(f"테이블 생성 확인 중 오류 발생: {str(e)}")
             # 테이블 생성 실패해도 계속 진행 (이미 존재할 수 있음)
+
+    def _add_job_listings_columns(self, conn):
+        """job_listings 테이블에 새 컬럼 추가 (기존 테이블용)"""
+        try:
+            cursor = conn.cursor()
+            new_columns = [
+                ("tech_stack", "TEXT"),
+                ("required_skills", "TEXT"),
+            ]
+
+            if USE_POSTGRES:
+                for col_name, col_type in new_columns:
+                    try:
+                        cursor.execute(f"ALTER TABLE job_listings ADD COLUMN IF NOT EXISTS {col_name} {col_type}")
+                    except Exception as e:
+                        print(f"컬럼 {col_name} 추가 중 오류 (무시 가능): {str(e)}")
+                conn.commit()
+                print("✓ job_listings 새 컬럼 추가 완료 (tech_stack, required_skills)")
+            else:
+                # MySQL: 컬럼 존재 여부 확인 후 추가
+                for col_name, col_type in new_columns:
+                    try:
+                        cursor.execute("""
+                            SELECT COUNT(*) as count
+                            FROM information_schema.columns
+                            WHERE table_schema = %s AND table_name = 'job_listings' AND column_name = %s
+                        """, (self.db_config['database'], col_name))
+                        col_result = cursor.fetchone()
+                        if col_result['count'] == 0:
+                            comment = '기술 스택 (JSON)' if col_name == 'tech_stack' else '필요 역량 (JSON)'
+                            cursor.execute(f"ALTER TABLE job_listings ADD COLUMN {col_name} {col_type} COMMENT '{comment}'")
+                            print(f"✓ job_listings 컬럼 추가: {col_name}")
+                    except Exception as e:
+                        print(f"컬럼 {col_name} 추가 중 오류 (무시 가능): {str(e)}")
+                conn.commit()
+            cursor.close()
+        except Exception as e:
+            print(f"job_listings 컬럼 추가 중 오류: {str(e)}")
 
     def _ensure_company_info_table(self, conn):
         """company_info 테이블 생성"""
@@ -346,11 +392,11 @@ class DatabaseService:
                     INSERT INTO job_listings (
                         site_name, site_url, job_id, title, company,
                         location, description, url, reward, experience,
-                        search_keyword, crawled_at
+                        search_keyword, tech_stack, required_skills, crawled_at
                     ) VALUES (
                         %s, %s, %s, %s, %s,
                         %s, %s, %s, %s, %s,
-                        %s, %s
+                        %s, %s, %s, %s
                     )
                 """
                 
@@ -387,7 +433,16 @@ class DatabaseService:
                         
                         # company가 None이면 빈 문자열로 처리
                         company = job.get("company") or ""
-                        
+
+                        # tech_stack, required_skills 처리 (리스트면 JSON 문자열로 변환)
+                        tech_stack = job.get("tech_stack")
+                        if isinstance(tech_stack, list):
+                            tech_stack = json.dumps(tech_stack, ensure_ascii=False)
+
+                        required_skills = job.get("required_skills")
+                        if isinstance(required_skills, list):
+                            required_skills = json.dumps(required_skills, ensure_ascii=False)
+
                         cursor.execute(insert_sql, (
                             site_name,
                             site_url,
@@ -400,6 +455,8 @@ class DatabaseService:
                             reward,
                             experience,
                             search_keyword,
+                            tech_stack,
+                            required_skills,
                             datetime.now()
                         ))
                         conn.commit()  # 각 INSERT 후 즉시 커밋
