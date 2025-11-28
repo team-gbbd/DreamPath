@@ -219,6 +219,217 @@ def get_certifications(keyword: str, limit: int = 5) -> str:
 
 
 @function_tool
+def get_company_info(company_name: str) -> str:
+    """
+    회사명으로 기업 상세 정보를 조회합니다.
+    업종, 규모, 연봉, 복지, 문화 등의 정보를 포함합니다.
+
+    Args:
+        company_name: 검색할 회사명 (일부만 입력해도 검색됨)
+
+    Returns:
+        기업 상세 정보 JSON 문자열
+    """
+    try:
+        db = _get_db_service()
+        query = """
+            SELECT company_name, industry, established_year, employee_count,
+                   address, description, vision, benefits, culture, average_salary,
+                   company_type, revenue, ceo_name, capital, homepage_url
+            FROM company_info
+            WHERE company_name ILIKE %s
+            ORDER BY updated_at DESC
+            LIMIT 5
+        """
+        pattern = f"%{company_name}%"
+        results = db.execute_query(query, (pattern,))
+
+        companies = []
+        for row in results:
+            companies.append({
+                "company_name": row[0],
+                "industry": row[1],
+                "established_year": row[2],
+                "employee_count": row[3],
+                "address": row[4],
+                "description": (row[5] or "")[:500],
+                "vision": row[6],
+                "benefits": row[7],
+                "culture": row[8],
+                "average_salary": row[9],
+                "company_type": row[10],
+                "revenue": row[11],
+                "ceo_name": row[12],
+                "capital": row[13],
+                "homepage_url": row[14]
+            })
+
+        return json.dumps({
+            "search_keyword": company_name,
+            "total_count": len(companies),
+            "companies": companies
+        }, ensure_ascii=False)
+
+    except Exception as e:
+        return json.dumps({"error": str(e)}, ensure_ascii=False)
+
+
+@function_tool
+def get_career_path_info(target_position: str) -> str:
+    """
+    목표 직무에 필요한 커리어 경로와 성장 전략을 분석합니다.
+    채용공고 데이터를 기반으로 요구 기술, 경력 조건 등을 분석합니다.
+
+    Args:
+        target_position: 목표 직무 (예: 백엔드 개발자, 데이터 분석가)
+
+    Returns:
+        커리어 경로 정보 JSON 문자열
+    """
+    try:
+        db = _get_db_service()
+
+        # 해당 직무의 채용공고에서 요구사항 분석
+        query = """
+            SELECT title, company, description, tech_stack, required_skills
+            FROM job_listings
+            WHERE (title ILIKE %s OR description ILIKE %s)
+            AND crawled_at >= NOW() - INTERVAL '30 days'
+            ORDER BY crawled_at DESC
+            LIMIT 30
+        """
+        pattern = f"%{target_position}%"
+        results = db.execute_query(query, (pattern, pattern))
+
+        # 기술 스택 집계
+        tech_count = {}
+        skill_count = {}
+        experience_levels = {"신입": 0, "1-3년": 0, "3-5년": 0, "5년 이상": 0}
+
+        for row in results:
+            description = row[2] or ""
+
+            # 경력 분석
+            if "신입" in description or "경력무관" in description:
+                experience_levels["신입"] += 1
+            elif "1년" in description or "2년" in description or "3년" in description:
+                experience_levels["1-3년"] += 1
+            elif "4년" in description or "5년" in description:
+                experience_levels["3-5년"] += 1
+            elif "6년" in description or "7년" in description or "시니어" in description:
+                experience_levels["5년 이상"] += 1
+
+            # 기술 스택
+            tech_stack = row[3]
+            if tech_stack:
+                if isinstance(tech_stack, str):
+                    try:
+                        tech_stack = json.loads(tech_stack)
+                    except:
+                        tech_stack = [tech_stack]
+                for tech in tech_stack:
+                    if tech:
+                        tech_count[tech] = tech_count.get(tech, 0) + 1
+
+            # 요구 스킬
+            skills = row[4]
+            if skills:
+                if isinstance(skills, str):
+                    try:
+                        skills = json.loads(skills)
+                    except:
+                        skills = [skills]
+                for skill in skills:
+                    if skill:
+                        skill_count[skill] = skill_count.get(skill, 0) + 1
+
+        # 상위 기술/스킬 추출
+        top_tech = sorted(tech_count.items(), key=lambda x: x[1], reverse=True)[:10]
+        top_skills = sorted(skill_count.items(), key=lambda x: x[1], reverse=True)[:10]
+
+        return json.dumps({
+            "target_position": target_position,
+            "analyzed_jobs": len(results),
+            "required_technologies": [{"name": t, "count": c} for t, c in top_tech],
+            "required_skills": [{"name": s, "count": c} for s, c in top_skills],
+            "experience_distribution": experience_levels,
+            "career_advice": {
+                "entry_level": "기초 기술 습득 및 포트폴리오 구축",
+                "mid_level": "전문 영역 확립 및 프로젝트 경험",
+                "senior_level": "아키텍처 설계 및 팀 리딩 경험"
+            }
+        }, ensure_ascii=False)
+
+    except Exception as e:
+        return json.dumps({"error": str(e)}, ensure_ascii=False)
+
+
+@function_tool
+def search_certification_by_career(career_keyword: str, limit: int = 10) -> str:
+    """
+    직업/직무와 관련된 자격증을 상세하게 검색합니다.
+    시험 일정, 난이도, 취업 연계성 등의 정보를 제공합니다.
+
+    Args:
+        career_keyword: 직업/직무 키워드 (예: 개발, 데이터, 회계)
+        limit: 가져올 자격증 수 (기본값: 10)
+
+    Returns:
+        자격증 목록과 상세 정보 JSON 문자열
+    """
+    try:
+        db = _get_db_service()
+        certs = db.get_certifications(keyword=career_keyword, limit=limit)
+
+        # 자격증에 추가 정보 보강
+        enriched_certs = []
+        for cert in certs:
+            enriched_cert = {
+                **cert,
+                "preparation_tips": _get_certification_tips(cert.get("name", "")),
+                "career_relevance": _get_career_relevance(cert.get("name", ""), career_keyword)
+            }
+            enriched_certs.append(enriched_cert)
+
+        return json.dumps({
+            "career_keyword": career_keyword,
+            "total_count": len(enriched_certs),
+            "certifications": enriched_certs
+        }, ensure_ascii=False)
+
+    except Exception as e:
+        return json.dumps({"error": str(e)}, ensure_ascii=False)
+
+
+def _get_certification_tips(cert_name: str) -> str:
+    """자격증별 준비 팁 반환"""
+    tips = {
+        "정보처리기사": "실기 시험 위주로 준비하고, 기출문제를 반복 학습하세요.",
+        "정보보안기사": "보안 관련 실무 경험이 있으면 유리합니다.",
+        "빅데이터분석기사": "Python과 SQL 실습을 충분히 하세요.",
+        "SQLD": "SQL 쿼리 작성 능력이 핵심입니다.",
+        "ADsP": "데이터 분석 기초 이론을 탄탄히 하세요.",
+    }
+    for key, tip in tips.items():
+        if key in cert_name:
+            return tip
+    return "충분한 학습 기간을 확보하고 기출문제를 풀어보세요."
+
+
+def _get_career_relevance(cert_name: str, career: str) -> str:
+    """자격증과 직무의 연관성 설명"""
+    if "정보처리" in cert_name:
+        return "IT 전반에 걸쳐 필수 자격증으로 인정됩니다."
+    if "빅데이터" in cert_name or "데이터" in cert_name:
+        return "데이터 관련 직무 취업에 유리합니다."
+    if "보안" in cert_name:
+        return "보안 전문가로 성장하는 데 필수입니다."
+    if "AWS" in cert_name or "클라우드" in cert_name:
+        return "클라우드 엔지니어 취업에 큰 도움이 됩니다."
+    return f"{career} 분야에서 경쟁력을 높일 수 있습니다."
+
+
+@function_tool
 def analyze_tech_stack(jobs_json: str) -> str:
     """
     채용공고 목록에서 자주 요구되는 기술 스택을 분석합니다.
@@ -438,12 +649,160 @@ def create_job_analysis_agent() -> Agent:
     )
 
 
+def create_certification_agent() -> Agent:
+    """자격증 추천 에이전트 생성"""
+
+    return Agent(
+        name="CertificationAgent",
+        instructions="""당신은 자격증 추천 전문가입니다.
+사용자의 목표 직무와 현재 수준에 맞는 자격증을 추천하고,
+취득 전략과 준비 방법을 안내합니다.
+
+## 작업 가이드
+
+1. **자격증 추천 요청 시:**
+   - search_certification_by_career로 관련 자격증 검색
+   - 사용자의 경력 수준에 맞게 난이도별로 분류
+   - 취득 우선순위와 이유 설명
+
+2. **특정 자격증 정보 요청 시:**
+   - get_certifications로 상세 정보 조회
+   - 시험 일정, 응시 자격, 합격률 등 안내
+   - 효과적인 준비 방법 제시
+
+3. **커리어 연계 자격증 요청 시:**
+   - get_career_path_info로 해당 직무 요구사항 분석
+   - 채용공고에서 많이 언급되는 자격증 우선 추천
+   - 실제 취업 시 가산점/우대사항 설명
+
+## 응답 형식
+
+- 자격증을 난이도/우선순위별로 정리
+- 각 자격증의 특징과 취득 효과 설명
+- 구체적인 학습 로드맵 제시
+- 시험 일정과 준비 기간 안내
+""",
+        tools=[
+            get_certifications,
+            search_certification_by_career,
+            get_career_path_info,
+            search_jobs,
+            analyze_tech_stack
+        ]
+    )
+
+
+def create_career_growth_agent() -> Agent:
+    """커리어 성장 에이전트 생성"""
+
+    return Agent(
+        name="CareerGrowthAgent",
+        instructions="""당신은 커리어 성장 전문 컨설턴트입니다.
+사용자의 현재 상황을 분석하고, 목표 직무까지의 성장 경로를 제시합니다.
+
+## 작업 가이드
+
+1. **커리어 로드맵 요청 시:**
+   - get_career_path_info로 목표 직무 요구사항 분석
+   - 현재 수준에서 목표까지의 단계별 계획 수립
+   - 각 단계별 필요 스킬과 학습 방법 제시
+
+2. **스킬 갭 분석 요청 시:**
+   - search_jobs로 실제 채용 요구사항 확인
+   - analyze_tech_stack으로 필수 기술 파악
+   - 부족한 스킬 목록과 학습 우선순위 제시
+
+3. **경력 전환 상담 시:**
+   - 현재 직무와 목표 직무의 연관성 분석
+   - 전환에 필요한 준비사항 정리
+   - 성공적인 전환 사례와 전략 공유
+
+4. **성장 전략 요청 시:**
+   - 단기(3개월), 중기(1년), 장기(3년) 목표 설정
+   - 자격증, 프로젝트, 학습 등 구체적 액션 플랜
+   - 마일스톤과 성과 측정 방법 제시
+
+## 응답 형식
+
+- 단계별 성장 계획을 시각적으로 정리
+- 각 단계의 목표와 예상 소요 기간 명시
+- 구체적이고 실천 가능한 조언 제공
+- 동기부여가 되는 긍정적인 톤 유지
+""",
+        tools=[
+            get_career_path_info,
+            search_jobs,
+            get_recent_jobs,
+            get_certifications,
+            search_certification_by_career,
+            analyze_tech_stack,
+            get_user_profile
+        ]
+    )
+
+
+def create_company_info_agent() -> Agent:
+    """기업 정보 에이전트 생성"""
+
+    return Agent(
+        name="CompanyInfoAgent",
+        instructions="""당신은 기업 정보 분석 전문가입니다.
+기업의 상세 정보, 문화, 복지, 성장성 등을 분석하여
+취업 및 이직 의사결정에 도움을 줍니다.
+
+## 작업 가이드
+
+1. **기업 정보 조회 요청 시:**
+   - get_company_info로 기업 상세 정보 검색
+   - 업종, 규모, 연봉, 복지 등 핵심 정보 정리
+   - 기업 문화와 비전 설명
+
+2. **기업 비교 요청 시:**
+   - 여러 기업의 정보를 get_company_info로 조회
+   - 규모, 연봉, 복지, 성장성 등 항목별 비교
+   - 장단점을 객관적으로 분석
+
+3. **업계 분석 요청 시:**
+   - search_jobs로 해당 업계 채용 동향 파악
+   - 주요 기업들의 정보 수집 및 정리
+   - 업계 전망과 성장 가능성 분석
+
+4. **입사 의사결정 지원 시:**
+   - 해당 기업의 상세 정보 제공
+   - 유사 기업과의 비교 자료 제공
+   - 해당 기업에서 성장할 수 있는 커리어 경로 제시
+
+## 응답 형식
+
+- 기업 정보를 구조화하여 정리
+- 객관적인 데이터 기반으로 분석
+- 장단점을 균형있게 제시
+- 의사결정에 도움되는 인사이트 제공
+
+## 주의사항
+
+- 확인되지 않은 정보는 추측이라고 명시
+- 부정적인 정보도 객관적으로 전달
+- 기업 비방이나 과도한 칭찬 자제
+""",
+        tools=[
+            get_company_info,
+            search_jobs,
+            get_recent_jobs,
+            analyze_tech_stack
+        ]
+    )
+
+
 # ==================== 메인 에이전트 (라우터) ====================
 
 # 에이전트 인스턴스
 _recommendation_agent: Optional[Agent] = None
 _recommendation_json_agent: Optional[Agent] = None
 _analysis_agent: Optional[Agent] = None
+_certification_agent: Optional[Agent] = None
+_career_growth_agent: Optional[Agent] = None
+_company_info_agent: Optional[Agent] = None
 _main_agent: Optional[Agent] = None
 
 
@@ -471,39 +830,122 @@ def get_analysis_agent() -> Agent:
     return _analysis_agent
 
 
+def get_certification_agent() -> Agent:
+    """자격증 에이전트 싱글톤"""
+    global _certification_agent
+    if _certification_agent is None:
+        _certification_agent = create_certification_agent()
+    return _certification_agent
+
+
+def get_career_growth_agent() -> Agent:
+    """커리어 성장 에이전트 싱글톤"""
+    global _career_growth_agent
+    if _career_growth_agent is None:
+        _career_growth_agent = create_career_growth_agent()
+    return _career_growth_agent
+
+
+def get_company_info_agent() -> Agent:
+    """기업 정보 에이전트 싱글톤"""
+    global _company_info_agent
+    if _company_info_agent is None:
+        _company_info_agent = create_company_info_agent()
+    return _company_info_agent
+
+
 def get_main_agent() -> Agent:
     """
-    메인 에이전트 (라우터)
+    메인 에이전트 (종합 상담 코디네이터)
     사용자 요청을 분석하여 적절한 전문 에이전트에게 핸드오프합니다.
     """
     global _main_agent
     if _main_agent is None:
         _main_agent = Agent(
-            name="JobCoordinator",
-            instructions="""당신은 채용 서비스 코디네이터입니다.
-사용자의 요청을 분석하여 적절한 전문 에이전트에게 연결합니다.
+            name="CareerCoordinator",
+            instructions="""당신은 커리어 상담 종합 코디네이터입니다.
+사용자의 요청을 분석하여 가장 적절한 전문 에이전트에게 연결합니다.
+
+## 전문 에이전트 소개
+
+1. **JobRecommendationAgent** - 채용공고 추천 전문가
+   - 사용자 프로필 기반 맞춤 채용공고 추천
+   - 키워드 기반 채용공고 검색
+   - 최신 채용 동향 안내
+
+2. **JobAnalysisAgent** - 채용 시장 분석 전문가
+   - 기술 트렌드 분석
+   - 직무별 요구 기술 비교
+   - 채용 시장 현황 분석
+
+3. **CertificationAgent** - 자격증 추천 전문가
+   - 직무별 필요 자격증 추천
+   - 자격증 취득 전략 및 준비 방법
+   - 시험 일정 및 정보 안내
+
+4. **CareerGrowthAgent** - 커리어 성장 컨설턴트
+   - 커리어 로드맵 설계
+   - 스킬 갭 분석 및 학습 계획
+   - 경력 전환 상담
+
+5. **CompanyInfoAgent** - 기업 정보 분석 전문가
+   - 기업 상세 정보 조회
+   - 기업 비교 분석
+   - 입사 의사결정 지원
 
 ## 라우팅 가이드
 
-1. **채용공고 추천 에이전트로 연결:**
-   - "채용공고 추천해줘"
-   - "백엔드 개발자 채용 찾아줘"
-   - "내 프로필에 맞는 공고"
-   - "지원할 만한 회사"
+### JobRecommendationAgent로 연결:
+- "채용공고 추천해줘", "일자리 찾아줘"
+- "백엔드 개발자 채용 있어?"
+- "내 프로필에 맞는 공고"
+- "어떤 회사에 지원하면 좋을까?"
 
-2. **채용 시장 분석 에이전트로 연결:**
-   - "채용 트렌드 분석해줘"
-   - "어떤 기술이 많이 요구돼?"
-   - "프론트엔드 vs 백엔드 비교"
-   - "시장 현황"
+### JobAnalysisAgent로 연결:
+- "채용 트렌드 분석해줘"
+- "요즘 어떤 기술이 인기야?"
+- "프론트엔드 vs 백엔드 비교"
+- "개발자 시장 현황"
 
-3. **직접 처리:**
-   - 간단한 인사나 질문
-   - 서비스 소개 요청
+### CertificationAgent로 연결:
+- "자격증 추천해줘"
+- "정보처리기사 어때?"
+- "개발자 필수 자격증"
+- "자격증 시험 일정"
+- "어떤 자격증 따면 좋아?"
+
+### CareerGrowthAgent로 연결:
+- "커리어 로드맵 만들어줘"
+- "어떻게 성장해야 할까?"
+- "스킬 갭 분석해줘"
+- "경력 전환하고 싶어"
+- "3년 뒤 목표 설정"
+
+### CompanyInfoAgent로 연결:
+- "삼성전자 정보 알려줘"
+- "이 회사 어때?"
+- "A사 vs B사 비교"
+- "기업 복지 비교"
+- "연봉 어느 정도야?"
+
+### 직접 처리:
+- 간단한 인사나 질문
+- 서비스 소개 요청
+- 여러 영역을 아우르는 종합 상담
+
+## 응답 형식
+
+- 사용자의 요청을 정확히 파악하고 적절한 에이전트로 연결
+- 모호한 요청은 질문을 통해 명확히 한 후 연결
+- 여러 에이전트가 필요한 경우 순차적으로 연결
+- 친절하고 전문적인 톤 유지
 """,
             handoffs=[
                 get_recommendation_agent(),
-                get_analysis_agent()
+                get_analysis_agent(),
+                get_certification_agent(),
+                get_career_growth_agent(),
+                get_company_info_agent()
             ]
         )
     return _main_agent
@@ -522,7 +964,13 @@ async def run_job_agent(
     Args:
         user_request: 사용자 요청
         user_id: 사용자 ID (선택)
-        agent_type: 에이전트 타입 ("main", "recommendation", "analysis")
+        agent_type: 에이전트 타입
+            - "main": 종합 상담 코디네이터 (기본값)
+            - "recommendation": 채용공고 추천
+            - "analysis": 채용 시장 분석
+            - "certification": 자격증 추천
+            - "career_growth": 커리어 성장
+            - "company_info": 기업 정보
 
     Returns:
         에이전트 실행 결과
@@ -533,6 +981,12 @@ async def run_job_agent(
             agent = get_recommendation_agent()
         elif agent_type == "analysis":
             agent = get_analysis_agent()
+        elif agent_type == "certification":
+            agent = get_certification_agent()
+        elif agent_type == "career_growth":
+            agent = get_career_growth_agent()
+        elif agent_type == "company_info":
+            agent = get_company_info_agent()
         else:
             agent = get_main_agent()
 
@@ -566,12 +1020,29 @@ def run_job_agent_sync(
 ) -> Dict:
     """
     채용 에이전트 동기 실행 (테스트용)
+
+    Args:
+        user_request: 사용자 요청
+        user_id: 사용자 ID (선택)
+        agent_type: 에이전트 타입
+            - "main": 종합 상담 코디네이터 (기본값)
+            - "recommendation": 채용공고 추천
+            - "analysis": 채용 시장 분석
+            - "certification": 자격증 추천
+            - "career_growth": 커리어 성장
+            - "company_info": 기업 정보
     """
     try:
         if agent_type == "recommendation":
             agent = get_recommendation_agent()
         elif agent_type == "analysis":
             agent = get_analysis_agent()
+        elif agent_type == "certification":
+            agent = get_certification_agent()
+        elif agent_type == "career_growth":
+            agent = get_career_growth_agent()
+        elif agent_type == "company_info":
+            agent = get_company_info_agent()
         else:
             agent = get_main_agent()
 
