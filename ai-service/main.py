@@ -4,11 +4,15 @@ Python FastAPI Microservice
 """
 
 import os
+from dotenv import load_dotenv
+
+# 환경변수를 먼저 로드 (다른 모듈 import 전에 반드시 실행)
+load_dotenv()
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-from dotenv import load_dotenv
 
 from config import settings
 from routers import api_router
@@ -41,7 +45,6 @@ from services.chat_service import ChatService
 # =========================================
 # Environment Variables
 # =========================================
-load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY", "")
 model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 

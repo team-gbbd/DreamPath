@@ -1,7 +1,7 @@
 package com.dreampath.domain.mentoring.entity;
 
-import com.dreampath.domain.user.entity.User;
 import com.dreampath.global.enums.BookingStatus;
+import com.dreampath.domain.user.entity.User;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;

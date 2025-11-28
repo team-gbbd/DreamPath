@@ -51,8 +51,12 @@ const HybridJobRecommendPanel = ({ embedded = false, profileId }: HybridJobRecom
       const response = await fetchHybridJobs(vid, 20); // Default Top-K = 20
       setStatusMessage(null);
 
-      // Handle { recommended: [...] } format
-      if (response && typeof response === "object" && "recommended" in response && Array.isArray((response as any).recommended)) {
+      if (
+        response &&
+        typeof response === "object" &&
+        "recommended" in response &&
+        Array.isArray((response as any).recommended)
+      ) {
         setResults((response as any).recommended);
         return;
       }
@@ -80,8 +84,7 @@ const HybridJobRecommendPanel = ({ embedded = false, profileId }: HybridJobRecom
         setResults([response as HybridResultItem]);
       }
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "추천을 생성하는 중 오류가 발생했습니다.";
+      const message = err instanceof Error ? err.message : "추천을 생성하는 중 오류가 발생했습니다.";
       setError(message);
     } finally {
       setLoading(false);
@@ -94,12 +97,9 @@ const HybridJobRecommendPanel = ({ embedded = false, profileId }: HybridJobRecom
   );
 
   const wrapperClass = embedded ? "space-y-6" : "space-y-8";
-  // Removed unused formCardClass
 
   return (
     <div className={wrapperClass}>
-
-      {/* 상태 메시지 표시 영역 */}
       {(statusMessage || error || loading) && (
         <div className="rounded-xl bg-gray-50 p-4 mb-4">
           {(statusMessage || loading) && (
@@ -144,7 +144,10 @@ const HybridJobRecommendPanel = ({ embedded = false, profileId }: HybridJobRecom
                   {item.title || item.metadata?.jobName || "제목 미확인"}
                 </h4>
                 <p className="mt-3 whitespace-pre-line text-sm text-gray-600">
-                  {item.reason || item.metadata?.reason || item.metadata?.summary || "추천 이유가 준비 중입니다."}
+                  {item.reason ||
+                    item.metadata?.reason ||
+                    item.metadata?.summary ||
+                    "추천 이유가 준비 중입니다."}
                 </p>
               </div>
             ))}

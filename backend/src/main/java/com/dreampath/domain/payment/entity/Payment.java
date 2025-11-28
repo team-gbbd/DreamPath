@@ -1,7 +1,7 @@
 package com.dreampath.domain.payment.entity;
 
-import com.dreampath.domain.user.entity.User;
 import com.dreampath.global.enums.SessionPackage;
+import com.dreampath.domain.user.entity.User;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;

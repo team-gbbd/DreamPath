@@ -1,7 +1,7 @@
 package com.dreampath.domain.mentoring.entity;
 
-import com.dreampath.domain.user.entity.User;
 import com.dreampath.global.enums.MentorStatus;
+import com.dreampath.domain.user.entity.User;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -30,11 +30,20 @@ public class Mentor {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
+    @Column(length = 100)
+    private String company; // 회사명
+
+    @Column(length = 100)
+    private String job; // 직업/직무
+
+    @Column(length = 50)
+    private String experience; // 경력 (예: "3년")
+
     @Column(columnDefinition = "TEXT")
     private String bio; // 자기소개
 
     @Column(columnDefinition = "TEXT")
-    private String career; // 경력
+    private String career; // 경력 상세
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")

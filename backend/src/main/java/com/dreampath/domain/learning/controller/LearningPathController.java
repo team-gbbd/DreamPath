@@ -1,9 +1,6 @@
 package com.dreampath.domain.learning.controller;
 
-import com.dreampath.domain.career.repository.CareerSessionRepository;
 import com.dreampath.domain.learning.dto.*;
-import com.dreampath.domain.learning.repository.WeeklyQuestionRepository;
-import com.dreampath.domain.learning.service.*;
 import com.dreampath.domain.user.entity.User;
 import com.dreampath.domain.career.entity.CareerAnalysis;
 import com.dreampath.domain.learning.entity.LearningPath;
@@ -13,6 +10,7 @@ import com.dreampath.domain.learning.entity.WeeklySession;
 import com.dreampath.global.exception.ResourceNotFoundException;
 import com.dreampath.domain.user.repository.UserRepository;
 import com.dreampath.domain.career.repository.CareerAnalysisRepository;
+import com.dreampath.domain.learning.service.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,8 +34,9 @@ public class LearningPathController {
     private final CareerToLearningDomainMapper careerDomainMapper;
     private final UserRepository userRepository;
     private final CareerAnalysisRepository careerAnalysisRepository;
-    private final WeeklyQuestionRepository weeklyQuestionRepository;
-    private final CareerSessionRepository careerSessionRepository;
+    private final com.dreampath.domain.learning.repository.WeeklyQuestionRepository weeklyQuestionRepository;
+    private final com.dreampath.domain.career.repository.CareerSessionRepository careerSessionRepository;
+    private final com.dreampath.domain.learning.repository.StudentAnswerRepository studentAnswerRepository;
 
     /**
      * 진로 상담 결과에서 직업 선택 후 학습 경로 생성
@@ -169,16 +168,28 @@ public class LearningPathController {
     }
 
     /**
-     * 주차별 문제 조회
-     * GET /api/learning-paths/weekly-sessions/{weeklyId}/questions
+     * 주차별 문제 조회 (기존 제출 답안 포함)
+     * GET /api/learning-paths/weekly-sessions/{weeklyId}/questions?userId={userId}
      */
     @GetMapping("/weekly-sessions/{weeklyId}/questions")
-    public ResponseEntity<List<QuestionResponse>> getSessionQuestions(@PathVariable Long weeklyId) {
-        log.info("문제 조회 - weeklyId: {}", weeklyId);
+    public ResponseEntity<List<QuestionResponse>> getSessionQuestions(
+            @PathVariable Long weeklyId,
+            @RequestParam(required = false) Long userId) {
+        log.info("문제 조회 - weeklyId: {}, userId: {}", weeklyId, userId);
 
         List<WeeklyQuestion> questions = questionGeneratorService.getSessionQuestions(weeklyId);
+
+        // userId가 있으면 기존 제출 답안도 조회
+        java.util.Map<Long, StudentAnswer> answerMap = new java.util.HashMap<>();
+        if (userId != null) {
+            List<StudentAnswer> existingAnswers = studentAnswerRepository.findByWeeklySessionIdAndUserId(weeklyId, userId);
+            for (StudentAnswer answer : existingAnswers) {
+                answerMap.put(answer.getQuestion().getQuestionId(), answer);
+            }
+        }
+
         List<QuestionResponse> responses = questions.stream()
-                .map(QuestionResponse::from)
+                .map(q -> QuestionResponse.from(q, answerMap.get(q.getQuestionId())))
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(responses);
@@ -201,7 +212,31 @@ public class LearningPathController {
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", request.getUserId()));
 
         StudentAnswer answer = answerEvaluationService.submitAnswer(question, user, request.getAnswer());
+
+        // 답변 제출 후 통계 업데이트
+        WeeklySession session = question.getWeeklySession();
+        weeklySessionService.updateCorrectCount(session);
+        updateLearningPathStatistics(session.getLearningPath().getPathId());
+
         return ResponseEntity.ok(AnswerResponse.from(answer));
+    }
+
+    /**
+     * LearningPath 전체 통계 업데이트
+     */
+    private void updateLearningPathStatistics(Long pathId) {
+        LearningPath path = learningPathService.getLearningPath(pathId);
+
+        int totalQuestions = 0;
+        int totalCorrect = 0;
+
+        for (WeeklySession session : path.getWeeklySessions()) {
+            List<WeeklyQuestion> questions = weeklyQuestionRepository.findByWeeklySessionWeeklyId(session.getWeeklyId());
+            totalQuestions += questions.size();
+            totalCorrect += session.getCorrectCount() != null ? session.getCorrectCount() : 0;
+        }
+
+        learningPathService.updateStatistics(pathId, totalQuestions, totalCorrect);
     }
 
     /**

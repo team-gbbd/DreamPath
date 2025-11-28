@@ -60,11 +60,7 @@ class CareerNetClient:
         }
         try:
             response = requests.get(CareerNetClient.BASE_URL, params=params).json()
-            # 응답 구조가 dataSearch가 아니라 바로 root에 있는 경우가 있음 (테스트 결과 기반)
-            # 하지만 테스트 결과는 root에 chartData 등이 있었음.
-            # 실제 데이터는 response['major'][0]에 있을 수 있음 (테스트 결과는 truncated였지만 구조상)
-            # 테스트 스크립트 결과를 다시 보면:
-            # { "major": [ { ... } ], ... }
+            # 응답 구조가 dataSearch가 아니라 바로 root에 있는 경우가 있음
             if 'major' in response and response['major']:
                 return response['major'][0]
             return {}

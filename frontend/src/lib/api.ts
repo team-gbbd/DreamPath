@@ -16,8 +16,11 @@ import type {
 // =============================
 //   🔹 API BASE URL (dev 기준)
 // =============================
+export const BACKEND_BASE_URL =
+  import.meta.env.VITE_BACKEND_URL || "http://localhost:8080";
+
 export const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+  import.meta.env.VITE_API_URL || `${BACKEND_BASE_URL}/api`;
 
 // Backend base URL for OAuth2 redirects
 export const BACKEND_BASE_URL =
@@ -162,6 +165,14 @@ export const profileService = {
   deleteProfile: async (profileId: number): Promise<void> => {
     await api.delete(`/profiles/${profileId}`);
   },
+
+  // 하이브리드 추천 (벡터 기반 채용 추천)
+  fetchHybridJobs: async (vectorId: string, topK: number = 20) => {
+    const response = await api.get(`/recommend/hybrid`, {
+      params: { vectorId, topK },
+    });
+    return response.data.recommended;
+  },
 };
 
 /* ================================
@@ -203,10 +214,12 @@ export const learningPathService = {
     );
   },
 
-  // 주차별 문제 목록 조회
-  getWeeklyQuestions: async (weeklyId: number): Promise<Question[]> => {
+  // 주차별 문제 목록 조회 (기존 제출 답안 포함)
+  getWeeklyQuestions: async (weeklyId: number, userId?: number): Promise<Question[]> => {
+    const params = userId ? { userId } : {};
     const response = await api.get<Question[]>(
-      `/learning-paths/weekly-sessions/${weeklyId}/questions`
+      `/learning-paths/weekly-sessions/${weeklyId}/questions`,
+      { params }
     );
     return response.data;
   },
@@ -233,6 +246,74 @@ export const learningPathService = {
     const response = await api.get<DashboardStats>(
       `/learning-paths/${pathId}/dashboard`
     );
+    return response.data;
+  },
+};
+
+/* ================================
+   🔹 Job Analysis Agent
+   ================================ */
+export const jobAnalysisService = {
+  analyzeMarketTrends: async (careerField?: string, days: number = 30) => {
+    const response = await pythonApi.post("/api/job-analysis/market-trends", {
+      careerField,
+      days,
+    });
+    return response.data;
+  },
+
+  analyzeSkillRequirements: async (careerField: string, days: number = 30) => {
+    const response = await pythonApi.post("/api/job-analysis/skill-requirements", {
+      careerField,
+      days,
+    });
+    return response.data;
+  },
+
+  analyzeSalaryTrends: async (careerField?: string, days: number = 30) => {
+    const response = await pythonApi.post("/api/job-analysis/salary-trends", {
+      careerField,
+      days,
+    });
+    return response.data;
+  },
+
+  getPersonalizedInsights: async (userProfile: any, careerAnalysis: any) => {
+    const response = await pythonApi.post("/api/job-analysis/personalized-insights", {
+      userProfile,
+      careerAnalysis,
+    });
+    return response.data;
+  },
+
+  compareJobs: async (jobIds: number[]) => {
+    const response = await pythonApi.post("/api/job-analysis/compare-jobs", {
+      jobIds,
+    });
+    return response.data;
+  },
+};
+
+/* ================================
+   🔹 Job Recommendation Agent
+   ================================ */
+export const jobRecommendationService = {
+  getRecommendations: async (userId: number, careerAnalysis: any, userProfile?: any, limit: number = 10) => {
+    const response = await pythonApi.post("/api/agent/job-recommendations", {
+      userId,
+      careerAnalysis,
+      userProfile,
+      limit,
+    });
+    return response.data;
+  },
+
+  getRealtimeRecommendations: async (userId: number, careerKeywords: string[], limit: number = 5) => {
+    const response = await pythonApi.post("/api/agent/job-recommendations/realtime", {
+      userId,
+      careerKeywords,
+      limit,
+    });
     return response.data;
   },
 };
@@ -478,76 +559,6 @@ export const userService = {
     birth: string;
   }) => {
     const response = await api.put(`/users/${userId}`, data);
-    return response.data;
-  },
-};
-
-/* ================================
-   🔹 Job Analysis Agent
-   ================================ */
-const PYTHON_API_URL = "http://localhost:8000/api";
-
-export const jobAnalysisService = {
-  analyzeMarketTrends: async (careerField?: string, days: number = 30) => {
-    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/market-trends`, {
-      careerField,
-      days,
-    });
-    return response.data;
-  },
-
-  analyzeSkillRequirements: async (careerField: string, days: number = 30) => {
-    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/skill-requirements`, {
-      careerField,
-      days,
-    });
-    return response.data;
-  },
-
-  analyzeSalaryTrends: async (careerField?: string, days: number = 30) => {
-    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/salary-trends`, {
-      careerField,
-      days,
-    });
-    return response.data;
-  },
-
-  getPersonalizedInsights: async (userProfile: any, careerAnalysis: any) => {
-    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/personalized-insights`, {
-      userProfile,
-      careerAnalysis,
-    });
-    return response.data;
-  },
-
-  compareJobs: async (jobIds: number[]) => {
-    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/compare-jobs`, {
-      jobIds,
-    });
-    return response.data;
-  },
-};
-
-/* ================================
-   🔹 Job Recommendation Agent
-   ================================ */
-export const jobRecommendationService = {
-  getRecommendations: async (userId: number, careerAnalysis: any, userProfile?: any, limit: number = 10) => {
-    const response = await axios.post(`${PYTHON_API_URL}/agent/job-recommendations`, {
-      userId,
-      careerAnalysis,
-      userProfile,
-      limit,
-    });
-    return response.data;
-  },
-
-  getRealtimeRecommendations: async (userId: number, careerKeywords: string[], limit: number = 5) => {
-    const response = await axios.post(`${PYTHON_API_URL}/agent/job-recommendations/realtime`, {
-      userId,
-      careerKeywords,
-      limit,
-    });
     return response.data;
   },
 };

@@ -1,4 +1,4 @@
-/*package com.dreampath.controller.chatbot;
+package com.dreampath.domain.chatbot.controller;
 
 import com.dreampath.domain.chatbot.dto.ChatRequestDto;
 import com.dreampath.domain.user.entity.User;
@@ -7,9 +7,9 @@ import com.dreampath.domain.chatbot.entity.ChatbotSession;
 import com.dreampath.domain.user.repository.UserRepository;
 import com.dreampath.domain.chatbot.repository.ChatbotMessageRepository;
 import com.dreampath.domain.chatbot.repository.ChatbotSessionRepository;
-import com.dreampath.service.chatbot.RagEmbeddingService;
-import com.dreampath.service.chatbot.RagSearchService;
-import com.dreampath.service.chatbot.RagAnswerService;
+import com.dreampath.domain.chatbot.service.RagEmbeddingService;
+import com.dreampath.domain.chatbot.service.RagSearchService;
+import com.dreampath.domain.chatbot.service.RagAnswerService;
 import lombok.RequiredArgsConstructor;
 import org.json.JSONArray;
 import org.springframework.web.bind.annotation.*;
@@ -104,4 +104,3 @@ public class ChatRagController {
         return Map.of("history", history);
     }
 }
-*/
