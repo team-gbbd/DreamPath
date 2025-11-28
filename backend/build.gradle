@@ -37,6 +37,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter'
 
     implementation 'org.postgresql:postgresql:42.7.3'
+    implementation 'io.hypersistence:hypersistence-utils-hibernate-63:3.7.0'
 
     // LiveKit Server SDK
     implementation 'io.livekit:livekit-server:0.10.1'

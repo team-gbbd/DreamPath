@@ -1,7 +1,7 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import AnalysisPage from '@/components/AnalysisPage';
+import AnalysisPage from '@/components/career/AnalysisPage';
 import { Suspense } from 'react';
 
 function AnalysisPageContent() {
