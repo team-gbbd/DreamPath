@@ -175,6 +175,14 @@ export interface WeeklySessionInfo {
   createdAt: string;
 }
 
+export interface SubmittedAnswerInfo {
+  answerId: number;
+  userAnswer: string;
+  score: number;
+  aiFeedback: string;
+  submittedAt: string;
+}
+
 export interface Question {
   questionId: number;
   questionType: 'MCQ' | 'SCENARIO' | 'CODING' | 'DESIGN';
@@ -184,6 +192,7 @@ export interface Question {
   questionText: string;
   options: string[] | null;
   createdAt: string;
+  submittedAnswer?: SubmittedAnswerInfo | null;
 }
 
 export interface StudentAnswer {
@@ -226,6 +235,15 @@ export interface TypeAccuracy {
 export interface WeaknessAnalysis {
   totalWeak: number;
   weakTags: string[];
+  feedbackList?: FeedbackItem[];
+}
+
+export interface FeedbackItem {
+  questionText: string;
+  feedback: string;
+  isCorrect: boolean;
+  score: number;
+  maxScore: number;
 }
 
 export interface CreateLearningPathRequest {

@@ -1,7 +1,5 @@
 package com.dreampath.domain.mentoring.dto.mentor;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -18,13 +16,16 @@ import java.util.Map;
 @AllArgsConstructor
 public class MentorApplicationRequest {
 
-    @NotNull(message = "사용자 ID는 필수입니다")
-    private Long userId;
+    private Long userId; // 신청 시에만 필수
 
-    @NotBlank(message = "자기소개는 필수입니다")
+    private String company;
+
+    private String job;
+
+    private String experience;
+
     private String bio;
 
-    @NotBlank(message = "경력은 필수입니다")
     private String career;
 
     private Map<String, Object> availableTime; // 가능 시간 (선택)

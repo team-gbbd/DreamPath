@@ -29,4 +29,9 @@ public interface StudentAnswerRepository extends JpaRepository<StudentAnswer, Lo
            "JOIN q.weeklySession ws " +
            "WHERE ws.learningPath.pathId = :pathId AND sa.user.userId = :userId AND sa.score = q.maxScore")
     Long countCorrectAnswersByPathIdAndUserId(@Param("pathId") Long pathId, @Param("userId") Long userId);
+
+    @Query("SELECT sa FROM StudentAnswer sa " +
+           "JOIN sa.question q " +
+           "WHERE q.weeklySession.weeklyId = :weeklyId AND sa.user.userId = :userId")
+    List<StudentAnswer> findByWeeklySessionIdAndUserId(@Param("weeklyId") Long weeklyId, @Param("userId") Long userId);
 }

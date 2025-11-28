@@ -17,9 +17,11 @@ def get_embedding_service() -> EmbeddingService:
         _embedding_service = EmbeddingService()
     return _embedding_service
 
+
 class VectorRequest(BaseModel):
     userId: int
     document: str
+
 
 @router.post('/vectors/analyze')
 async def analyze(req: VectorRequest):
@@ -62,7 +64,6 @@ async def analyze(req: VectorRequest):
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-    # 5) 반환
     return {
         'userId': req.userId,
         'vectorDbId': vector_id,

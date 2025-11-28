@@ -1,5 +1,4 @@
-/*
-package com.dreampath.service.chatbot;
+package com.dreampath.domain.chatbot.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,13 +11,10 @@ import org.json.JSONObject;
 @RequiredArgsConstructor
 public class RagSearchService {
 
-    @Value("${pinecone.api.key}")
+    @Value("${pinecone.faq.api.key:dummykey}")
     private String pineconeApiKey;
 
-    @Value("${pinecone.index}")
-    private String pineconeIndex;
-
-    @Value("${pinecone.host}")
+    @Value("${pinecone.faq.host:dummy-host.pinecone.io}")
     private String pineconeHost;
 
     private final OkHttpClient client = new OkHttpClient();
@@ -58,4 +54,3 @@ public class RagSearchService {
         }
     }
 }
-*/

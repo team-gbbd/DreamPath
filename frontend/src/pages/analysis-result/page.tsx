@@ -69,7 +69,6 @@ export default function AnalysisResultPage() {
       }
 
       const data = await response.json();
-      console.log('분석 결과:', data);
       setResult(data);
 
       // localStorage에 분석 결과 저장 (맞춤형 인사이트용)
@@ -132,7 +131,6 @@ export default function AnalysisResultPage() {
       }
 
       const data = await response.json();
-      console.log('학습 경로 생성 성공:', data);
 
       // 생성된 학습 경로 페이지로 이동
       alert(`${careerName} 학습 경로가 생성되었습니다! (${data.learningDomain || data.domain})`);

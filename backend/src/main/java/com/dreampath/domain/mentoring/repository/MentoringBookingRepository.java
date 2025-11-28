@@ -1,5 +1,6 @@
 package com.dreampath.domain.mentoring.repository;
 
+import com.dreampath.domain.mentoring.entity.Mentor;
 import com.dreampath.domain.mentoring.entity.MentoringBooking;
 import com.dreampath.domain.user.entity.User;
 import com.dreampath.global.enums.BookingStatus;
@@ -9,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface MentoringBookingRepository extends JpaRepository<MentoringBooking, Long> {

@@ -39,8 +39,8 @@ class JobRecommendationAgent:
         Returns:
             추천 채용 공고 목록 (매칭 점수 포함)
         """
-        # 1. DB에서 최신 채용 공고 가져오기
-        job_listings = self._get_job_listings_from_db(limit=100)
+        # 1. DB에서 최신 채용 공고 가져오기 (성능을 위해 20개로 제한)
+        job_listings = self._get_job_listings_from_db(limit=20)
 
         if not job_listings:
             return []

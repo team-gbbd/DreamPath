@@ -1,13 +1,22 @@
 # Node.js
 node_modules/
+
+# Environment files (contain secrets)
 .env
 .env.local
+backend/.env
+ai-service/.env
+frontend/.env
 
 # Java
 target/
 *.jar
 *.war
 *.class
+backend/build/
+
+# Frontend build output
+frontend/out/
 
 # IDE
 .vscode/
@@ -35,5 +44,9 @@ check-status.bat
 frontend_backup_cra/
 
 # OpenVidu/LiveKit 로컬 설정 (개인 IP 포함)
-openvidu-local-deployment/community/.env
-openvidu-local-deployment/community/.env-e
+infra/livekit-local/community/.env
+infra/livekit-local/community/.env-e
+
+# Claude Code 설정 (개인 설정)
+.claude/
+CLAUDE.md

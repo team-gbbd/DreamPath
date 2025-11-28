@@ -23,6 +23,9 @@ public class MentorResponse {
     private Long userId;
     private String username;
     private String name;
+    private String company;
+    private String job;
+    private String experience;
     private String bio;
     private String career;
     private Map<String, Object> availableTime;
@@ -36,6 +39,9 @@ public class MentorResponse {
                 .userId(mentor.getUser().getUserId())
                 .username(mentor.getUser().getUsername())
                 .name(mentor.getUser().getName())
+                .company(mentor.getCompany())
+                .job(mentor.getJob())
+                .experience(mentor.getExperience())
                 .bio(mentor.getBio())
                 .career(mentor.getCareer())
                 .availableTime(mentor.getAvailableTime())

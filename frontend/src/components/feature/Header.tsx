@@ -1,10 +1,11 @@
-
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Button from "../base/Button";
+import { useToast } from "../common/Toast";
 
 export default function Header() {
   const navigate = useNavigate();
+  const { showToast, ToastContainer } = useToast();
   const [currentUser, setCurrentUser] = useState<{ name: string } | null>(null);
 
   useEffect(() => {
@@ -27,7 +28,7 @@ export default function Header() {
   const handleLogout = () => {
     localStorage.removeItem("dreampath:user");
     window.dispatchEvent(new Event("dreampath-auth-change"));
-    alert("로그아웃되었습니다.");
+    showToast("로그아웃되었습니다.", "success");
     navigate("/", { replace: true });
   };
 
@@ -36,14 +37,13 @@ export default function Header() {
     { name: '채용 정보', href: '/job-listings', isRoute: true },
     { name: '기업 정보', href: '/company-list', isRoute: true },
     { name: 'AI 에이전트', href: '/ai-agent', isRoute: true },
-    { name: '🚀 채용 추천', href: '/job-recommendations', isRoute: true, isDev: true },
-    { name: 'Features', href: '#features' },
-    { name: 'About', href: '#about' },
-    { name: 'Contact', href: '#contact' },
+    { name: '채용 추천', href: '/job-recommendations', isRoute: true, isDev: true },
     { name: '멘토링', href: '/mentoring', isRoute: true, requiresAuth: true }
   ];
 
   return (
+    <>
+    <ToastContainer />
     <header className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-b border-gray-100 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
@@ -67,7 +67,7 @@ export default function Header() {
                   <button
                     key={item.name}
                     onClick={() => {
-                      alert('로그인이 필요합니다.');
+                      showToast('로그인이 필요합니다.', 'warning');
                       navigate('/login');
                     }}
                     className="text-gray-700 hover:text-[#5A7BFF] transition-colors duration-200 font-medium"
@@ -98,12 +98,20 @@ export default function Header() {
             ))}
           </nav>
 
-          {/* Login Button */}
+          {/* User Actions */}
           <div className="flex items-center space-x-4">
             {currentUser ? (
-              <Button size="sm" onClick={handleLogout}>
-                로그아웃
-              </Button>
+              <>
+                <Link to="/mypage">
+                  <Button variant="secondary" size="sm">
+                    <i className="ri-user-line mr-1"></i>
+                    마이페이지
+                  </Button>
+                </Link>
+                <Button size="sm" onClick={handleLogout}>
+                  로그아웃
+                </Button>
+              </>
             ) : (
               <Link to="/login">
                 <Button size="sm">
@@ -122,5 +130,6 @@ export default function Header() {
         </div>
       </div>
     </header>
+    </>
   );
 }
