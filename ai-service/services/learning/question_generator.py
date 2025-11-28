@@ -53,6 +53,11 @@ class QuestionGeneratorService:
 3. SCENARIO는 실무 상황 기반
 4. 모든 문제에 명확한 정답과 해설 포함
 
+## 점수 기준
+- EASY: 10점
+- MEDIUM: 20점
+- HARD: 30점
+
 ## JSON 형식으로 출력
 {{
   "questions": [
@@ -63,7 +68,7 @@ class QuestionGeneratorService:
       "options": ["선택지1", "선택지2", "선택지3", "선택지4"],
       "answer": "정답",
       "explanation": "해설",
-      "maxScore": 10
+      "maxScore": (EASY=10, MEDIUM=20, HARD=30)
     }}
   ]
 }}"""
