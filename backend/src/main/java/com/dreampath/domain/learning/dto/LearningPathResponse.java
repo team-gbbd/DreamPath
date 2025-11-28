@@ -91,7 +91,7 @@ public class LearningPathResponse {
                 info.questionCount = 0;
             }
 
-            info.correctCount = 0; // 나중에 계산 로직 추가 필요
+            info.correctCount = session.getCorrectCount() != null ? session.getCorrectCount() : 0;
             info.aiSummary = session.getAiSummary();
             info.createdAt = session.getCreatedAt();
             return info;

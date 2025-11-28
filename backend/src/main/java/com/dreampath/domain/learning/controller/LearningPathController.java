@@ -212,7 +212,31 @@ public class LearningPathController {
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", request.getUserId()));
 
         StudentAnswer answer = answerEvaluationService.submitAnswer(question, user, request.getAnswer());
+
+        // 답변 제출 후 통계 업데이트
+        WeeklySession session = question.getWeeklySession();
+        weeklySessionService.updateCorrectCount(session);
+        updateLearningPathStatistics(session.getLearningPath().getPathId());
+
         return ResponseEntity.ok(AnswerResponse.from(answer));
+    }
+
+    /**
+     * LearningPath 전체 통계 업데이트
+     */
+    private void updateLearningPathStatistics(Long pathId) {
+        LearningPath path = learningPathService.getLearningPath(pathId);
+
+        int totalQuestions = 0;
+        int totalCorrect = 0;
+
+        for (WeeklySession session : path.getWeeklySessions()) {
+            List<WeeklyQuestion> questions = weeklyQuestionRepository.findByWeeklySessionWeeklyId(session.getWeeklyId());
+            totalQuestions += questions.size();
+            totalCorrect += session.getCorrectCount() != null ? session.getCorrectCount() : 0;
+        }
+
+        learningPathService.updateStatistics(pathId, totalQuestions, totalCorrect);
     }
 
     /**
