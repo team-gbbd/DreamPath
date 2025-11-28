@@ -18,6 +18,7 @@ from routers.vector_router import router as vector_router
 from routers.rag_router import router as rag_router
 from routers.profile_match_router import router as profile_match_router
 from routers.qnet import router as qnet_router
+from routers.job_agent import router as job_agent_router
 
 # ====== Services ======
 from services.common.openai_client import OpenAIService as OpenAIServiceDev
@@ -69,6 +70,7 @@ app.include_router(vector_router, prefix="/api")
 app.include_router(rag_router, prefix="/api")
 app.include_router(profile_match_router, prefix="/api")
 app.include_router(qnet_router)             # Q-net 자격증 API
+app.include_router(job_agent_router)        # 채용공고 AI 에이전트 API
 
 
 # =========================================

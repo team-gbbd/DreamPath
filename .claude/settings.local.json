@@ -30,7 +30,17 @@
       "Bash(docker logs:*)",
       "WebFetch(domain:botpress.com)",
       "Bash(docker-compose config:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(cd:*)",
+      "Bash(docker-compose:*)",
+      "Bash(docker info:*)",
+      "Bash(npm run dev:*)",
+      "Bash(java -version:*)",
+      "Bash(echo \"# OpenAI\nOPENAI_API_KEY=REMOVED\nOPENAI_MODEL=gpt-4o-mini\n\n# Database (Supabase PostgreSQL)\nDB_URL=jdbc:postgresql://aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres\nDB_USERNAME=postgres.ssindowhjsowftiglvsz\nDB_PASSWORD=dreampath1118\n\n# Mail (Gmail SMTP)\nMAIL_USERNAME=dldmd0123@gmail.com\nMAIL_PASSWORD=cjeukisupzuctlpx\n\n# OAuth2\nGOOGLE_CLIENT_ID=REMOVED\nGOOGLE_CLIENT_SECRET=REMOVED\nKAKAO_CLIENT_ID=REMOVED\nKAKAO_REDIRECT_URI=http://localhost:8080/login/oauth2/code/kakao\nNAVER_CLIENT_ID=REMOVED\nNAVER_CLIENT_SECRET=REMOVED\n\n# LiveKit\nLIVEKIT_API_KEY=devkey\nLIVEKIT_API_SECRET=secret\nLIVEKIT_URL=http://localhost:7880\n\n# Pinecone\nPINECONE_API_KEY=pcsk_3GapnF_JzRW23n6QPM2BHtNChwRe2tYz9CWhjjQFh486h2DumvufZm3LpWq4jntZGntW6Z\nPINECONE_ENVIRONMENT=us-east-1\nPINECONE_INDEX_NAME=dreampath\nPINECONE_HOST=dreampath-ov6wvnt.svc.aped-4627-b74a.pinecone.io\n\n# Python AI Service\nPYTHON_AI_SERVICE_URL=http://localhost:8000\")",
+      "Bash(timeout /t 30 /nobreak)",
+      "Bash(del \"C:\\Users\\301\\dev\\qwer\\DreamPath\\update_job_page.py\")",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

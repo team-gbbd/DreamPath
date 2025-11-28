@@ -75,7 +75,7 @@ export const analysisService = {
 
 // Python AI Service URL (채용 정보 크롤링용)
 const PYTHON_AI_SERVICE_URL =
-  process.env.NEXT_PUBLIC_PYTHON_AI_SERVICE_URL || "http://localhost:8000";
+  import.meta.env.VITE_PYTHON_AI_SERVICE_URL || "http://localhost:8000";
 
 const pythonApi = axios.create({
   baseURL: PYTHON_AI_SERVICE_URL,
@@ -572,6 +572,21 @@ export const jobRecommendationService = {
 /* ================================
    🔹 Q-net 자격증 Service
    ================================ */
+/* ================================
+   🔹 Job Agent (OpenAI Agents SDK)
+   ================================ */
+export const jobAgentService = {
+  // 채용 에이전트와 대화
+  chat: async (message: string, userId?: number, agentType: string = "main") => {
+    const response = await axios.post(`${PYTHON_API_URL}/agent/job-agent`, {
+      message,
+      userId,
+      agentType,
+    });
+    return response.data;
+  },
+};
+
 export const qnetService = {
   // 계열 코드 목록 조회
   getSeriesCodes: async () => {
