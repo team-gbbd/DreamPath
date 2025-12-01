@@ -22,10 +22,6 @@ export const BACKEND_BASE_URL =
 export const API_BASE_URL =
   import.meta.env.VITE_API_URL || `${BACKEND_BASE_URL}/api`;
 
-// Backend base URL for OAuth2 redirects
-export const BACKEND_BASE_URL =
-  import.meta.env.VITE_BACKEND_URL || "http://localhost:8080";
-
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
