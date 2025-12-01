@@ -1,10 +1,4 @@
-"""
-채용공고 AI 에이전트 (OpenAI Agents SDK)
 
-OpenAI Agents SDK를 사용한 채용공고 추천 에이전트입니다.
-사용자 프로필을 기반으로 맞춤 채용공고를 추천하고,
-관련 자격증 정보를 제공합니다.
-"""
 import os
 import json
 from typing import Optional, List, Dict
@@ -352,12 +346,7 @@ def get_career_path_info(target_position: str) -> str:
             "analyzed_jobs": len(results),
             "required_technologies": [{"name": t, "count": c} for t, c in top_tech],
             "required_skills": [{"name": s, "count": c} for s, c in top_skills],
-            "experience_distribution": experience_levels,
-            "career_advice": {
-                "entry_level": "기초 기술 습득 및 포트폴리오 구축",
-                "mid_level": "전문 영역 확립 및 프로젝트 경험",
-                "senior_level": "아키텍처 설계 및 팀 리딩 경험"
-            }
+            "experience_distribution": experience_levels
         }, ensure_ascii=False)
 
     except Exception as e:
@@ -367,66 +356,28 @@ def get_career_path_info(target_position: str) -> str:
 @function_tool
 def search_certification_by_career(career_keyword: str, limit: int = 10) -> str:
     """
-    직업/직무와 관련된 자격증을 상세하게 검색합니다.
-    시험 일정, 난이도, 취업 연계성 등의 정보를 제공합니다.
+    직업/직무와 관련된 자격증을 검색합니다.
+    에이전트가 자격증 정보를 바탕으로 준비 팁과 직무 연관성을 직접 분석하여 제공합니다.
 
     Args:
         career_keyword: 직업/직무 키워드 (예: 개발, 데이터, 회계)
         limit: 가져올 자격증 수 (기본값: 10)
 
     Returns:
-        자격증 목록과 상세 정보 JSON 문자열
+        자격증 목록 JSON 문자열
     """
     try:
         db = _get_db_service()
         certs = db.get_certifications(keyword=career_keyword, limit=limit)
 
-        # 자격증에 추가 정보 보강
-        enriched_certs = []
-        for cert in certs:
-            enriched_cert = {
-                **cert,
-                "preparation_tips": _get_certification_tips(cert.get("name", "")),
-                "career_relevance": _get_career_relevance(cert.get("name", ""), career_keyword)
-            }
-            enriched_certs.append(enriched_cert)
-
         return json.dumps({
             "career_keyword": career_keyword,
-            "total_count": len(enriched_certs),
-            "certifications": enriched_certs
+            "total_count": len(certs),
+            "certifications": certs
         }, ensure_ascii=False)
 
     except Exception as e:
         return json.dumps({"error": str(e)}, ensure_ascii=False)
-
-
-def _get_certification_tips(cert_name: str) -> str:
-    """자격증별 준비 팁 반환"""
-    tips = {
-        "정보처리기사": "실기 시험 위주로 준비하고, 기출문제를 반복 학습하세요.",
-        "정보보안기사": "보안 관련 실무 경험이 있으면 유리합니다.",
-        "빅데이터분석기사": "Python과 SQL 실습을 충분히 하세요.",
-        "SQLD": "SQL 쿼리 작성 능력이 핵심입니다.",
-        "ADsP": "데이터 분석 기초 이론을 탄탄히 하세요.",
-    }
-    for key, tip in tips.items():
-        if key in cert_name:
-            return tip
-    return "충분한 학습 기간을 확보하고 기출문제를 풀어보세요."
-
-
-def _get_career_relevance(cert_name: str, career: str) -> str:
-    """자격증과 직무의 연관성 설명"""
-    if "정보처리" in cert_name:
-        return "IT 전반에 걸쳐 필수 자격증으로 인정됩니다."
-    if "빅데이터" in cert_name or "데이터" in cert_name:
-        return "데이터 관련 직무 취업에 유리합니다."
-    if "보안" in cert_name:
-        return "보안 전문가로 성장하는 데 필수입니다."
-    if "AWS" in cert_name or "클라우드" in cert_name:
-        return "클라우드 엔지니어 취업에 큰 도움이 됩니다."
-    return f"{career} 분야에서 경쟁력을 높일 수 있습니다."
 
 
 @function_tool
@@ -675,6 +626,14 @@ def create_certification_agent() -> Agent:
    - 채용공고에서 많이 언급되는 자격증 우선 추천
    - 실제 취업 시 가산점/우대사항 설명
 
+## 응답 시 직접 분석하여 제공할 내용
+
+각 자격증에 대해 당신의 지식을 활용하여 다음을 분석하고 제공하세요:
+- **준비 팁**: 해당 자격증의 시험 유형, 난이도, 출제 경향에 맞는 구체적인 학습 방법
+- **직무 연관성**: 사용자의 목표 직무와 해당 자격증이 어떻게 연결되는지, 실무에서 어떤 도움이 되는지
+- **취득 우선순위**: 사용자의 현재 상황(경력, 목표)에 맞춰 어떤 순서로 취득하면 효과적인지
+- **예상 준비 기간**: 자격증 난이도와 사용자 수준을 고려한 현실적인 준비 기간
+
 ## 응답 형식
 
 - 자격증을 난이도/우선순위별로 정리
@@ -721,6 +680,18 @@ def create_career_growth_agent() -> Agent:
    - 단기(3개월), 중기(1년), 장기(3년) 목표 설정
    - 자격증, 프로젝트, 학습 등 구체적 액션 플랜
    - 마일스톤과 성과 측정 방법 제시
+
+## 커리어 조언 생성 가이드
+
+get_career_path_info 도구는 채용공고 데이터(요구 기술, 스킬, 경력 분포)만 반환합니다.
+이 데이터를 바탕으로 당신이 직접 다음을 분석하여 제공하세요:
+
+- **신입/주니어 조언**: 해당 직무의 요구 기술을 보고, 신입이 우선 학습해야 할 기술과 포트폴리오 전략
+- **미드레벨 조언**: 경력 분포와 요구 스킬을 보고, 전문성 확립을 위한 구체적 방향
+- **시니어 조언**: 해당 직무에서 리더로 성장하기 위한 기술적/비기술적 역량
+
+각 직무의 특성에 맞게 맞춤형 조언을 생성하세요.
+예를 들어 "백엔드 개발자"와 "데이터 분석가"는 완전히 다른 조언이 필요합니다.
 
 ## 응답 형식
 
