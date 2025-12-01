@@ -1,6 +1,6 @@
 """
 DreamPath Career Analysis AI Service
-Python FastAPI Microservice v1.1
+Python FastAPI Microservice v1.2
 """
 
 import os

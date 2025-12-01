@@ -37,6 +37,14 @@
         {
           "name": "PINECONE_INDEX_NAME",
           "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:479324456849:secret:dreampath/pinecone:PINECONE_INDEX_NAME::"
+        },
+        {
+          "name": "SUPABASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:479324456849:secret:dreampath/supabase:SUPABASE_URL::"
+        },
+        {
+          "name": "SUPABASE_SERVICE_KEY",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:479324456849:secret:dreampath/supabase:SUPABASE_SERVICE_KEY::"
         }
       ],
       "logConfiguration": {
