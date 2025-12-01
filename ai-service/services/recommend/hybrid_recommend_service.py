@@ -4,15 +4,13 @@ from openai import OpenAI
 
 from services.rag.pinecone_vector_service import PineconeVectorService
 from services.vector.supabase_vector_repository import SupabaseVectorRepository
-from services.vector.pinecone_client import index as pinecone_index
-
 
 class HybridRecommendService:
 
     def __init__(self):
         self.vector = PineconeVectorService()
         self.repo = SupabaseVectorRepository()
-        self.index = pinecone_index
+        self.index = self.vector.index
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     def recommend(self, user_vector_id, top_k=20):
@@ -20,9 +18,13 @@ class HybridRecommendService:
         1) Pinecone에서 Top20 후보 검색
         2) LLM이 최종 Top5 재정렬 + 이유 생성
         """
-        user_vector = self.repo.get_vector_by_id(user_vector_id)
-        if user_vector is None:
+        # 1) 사용자 벡터 가져오기 (Pinecone에서)
+        user_result = self.index.fetch(ids=[user_vector_id])
+        if not user_result or not user_result.vectors or user_vector_id not in user_result.vectors:
+            print(f"User vector not found in Pinecone: {user_vector_id}")
             return []
+        
+        user_vector = user_result.vectors[user_vector_id].values
 
         # 1) 벡터 기반 Top20 후보
         pinecone_res = self.index.query(
@@ -60,7 +62,7 @@ class HybridRecommendService:
 """
 
         result = self.client.chat.completions.create(
-            model="gpt-4.1-mini",
+            model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}]
         )
 

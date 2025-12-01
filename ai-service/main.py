@@ -100,7 +100,7 @@ answer_evaluator = AnswerEvaluatorService() if api_key else None
 code_executor = CodeExecutorService()
 
 recommend_service = RecommendService()
-# hybrid_recommender = HybridRecommendService()  # Temporarily disabled due to Pinecone Index error
+hybrid_recommender = HybridRecommendService()
 
 
 # =========================================
@@ -374,6 +374,22 @@ async def recommend_schools(payload: dict):
     try:
         svc = RecommendService()
         return {"items": svc.recommend_school(vector_id)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/recommend/counsel")
+async def recommend_counsel(payload: dict):
+
+    vector_id = payload.get("vectorId")
+    if not vector_id:
+        raise HTTPException(status_code=400, detail="vectorId 필요")
+
+    top_k = payload.get("topK", 10)
+
+    try:
+        svc = RecommendService()
+        return {"items": svc.recommend_counsel(vector_id, top_k)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

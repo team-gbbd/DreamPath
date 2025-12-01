@@ -7,6 +7,7 @@ import HybridJobRecommendPanel from '@/components/profile/HybridJobRecommendPane
 import WorknetRecommendPanel from '@/components/profile/WorknetRecommendPanel';
 import MajorRecommendPanel from '@/components/profile/MajorRecommendPanel';
 import SchoolRecommendPanel from '@/components/profile/SchoolRecommendPanel';
+import CounselRecommendPanel from '@/components/profile/CounselRecommendPanel';
 import { API_BASE_URL } from '@/lib/api';
 import {
   Bar,
@@ -31,9 +32,8 @@ type TabKey =
   | 'personality'
   | 'values'
   | 'jobRecommend'
-  | 'jobHiring'
   | 'departmentRecommend'
-  | 'schoolRecommend';
+  | 'counselCase';
 
 interface ProfileData {
   profileId?: number;
@@ -125,19 +125,17 @@ const TAB_LIST: Array<{ key: TabKey; label: string }> = [
   { key: 'personality', label: '성향 분석' },
   { key: 'values', label: '가치관' },
   { key: 'jobRecommend', label: '직업 추천' },
-  { key: 'jobHiring', label: '채용 추천' },
   { key: 'departmentRecommend', label: '학과 추천' },
-  { key: 'schoolRecommend', label: '학교 추천' },
+  { key: 'counselCase', label: '상담사례' },
 ];
 
 const TAB_DESCRIPTIONS: Record<TabKey, string> = {
   overview: '핵심 지표와 요약 정보를 통해 현재 분석 상태를 빠르게 확인하세요.',
   personality: '성격 및 감정 지표를 시각화하여 나의 성향을 파악해보세요.',
   values: '중요하게 생각하는 가치가 어떤 양상을 보이는지 비교해보세요.',
-  jobRecommend: 'AI 벡터 기반으로 유사도가 높은 직업을 추천받을 수 있습니다.',
-  jobHiring: '현재 채용 중인 공고 데이터를 연동하여 맞춤 채용 정보를 확인할 수 있습니다.',
-  departmentRecommend: '성향과 가치관에 맞는 학과를 탐색하고 진학 전략을 세워보세요.',
-  schoolRecommend: '맞춤형 학교 정보를 확인하고 비교해볼 수 있습니다.',
+  jobRecommend: '',
+  departmentRecommend: '',
+  counselCase: '실제 진로 상담 사례를 통해 다양한 고민과 해결 방향을 참고할 수 있습니다.',
 };
 
 const traitLabels: Record<string, string> = {
@@ -515,29 +513,7 @@ const Dashboard = () => {
     </div>
   );
 
-  const renderJobRecommendSection = () => (
-    <div className="mt-6">
-      <HybridJobRecommendPanel embedded />
-    </div>
-  );
 
-  const renderHiringSection = () => (
-    <div className="mt-6">
-      <WorknetRecommendPanel embedded />
-    </div>
-  );
-
-  const renderDepartmentSection = () => (
-    <div className="mt-6">
-      <MajorRecommendPanel embedded />
-    </div>
-  );
-
-  const renderSchoolSection = () => (
-    <div className="mt-6">
-      <SchoolRecommendPanel embedded />
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-gray-50 py-10">
@@ -565,8 +541,8 @@ const Dashboard = () => {
                 type="button"
                 onClick={() => setActiveTab(tab.key)}
                 className={`rounded-full px-4 py-2 text-sm font-semibold transition ${activeTab === tab.key
-                    ? 'bg-indigo-600 text-white shadow'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-indigo-600 text-white shadow'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
               >
                 {tab.label}
@@ -598,7 +574,9 @@ const Dashboard = () => {
           {!isLoading && !error && (
             <div>
               <h2 className="text-2xl font-semibold text-gray-900">{currentTabLabel}</h2>
-              <p className="mt-2 text-gray-600">{TAB_DESCRIPTIONS[activeTab] || '탭을 선택해 상세 정보를 확인하세요.'}</p>
+              {TAB_DESCRIPTIONS[activeTab] && (
+                <p className="mt-2 text-gray-600">{TAB_DESCRIPTIONS[activeTab]}</p>
+              )}
 
               {activeTab === 'overview' && renderOverviewSection()}
               {activeTab === 'personality' && renderPersonalitySection()}
@@ -606,12 +584,11 @@ const Dashboard = () => {
               {activeTab === 'jobRecommend' && (
                 <HybridJobRecommendPanel embedded profileId={profileData?.profileId} />
               )}
-              {activeTab === 'jobHiring' && <WorknetRecommendPanel embedded profileId={profileData?.profileId} />}
               {activeTab === 'departmentRecommend' && (
                 <MajorRecommendPanel embedded profileId={profileData?.profileId} />
               )}
-              {activeTab === 'schoolRecommend' && (
-                <SchoolRecommendPanel embedded profileId={profileData?.profileId} />
+              {activeTab === 'counselCase' && (
+                <CounselRecommendPanel embedded profileId={profileData?.profileId} />
               )}</div>
           )}
         </section>
