@@ -104,13 +104,18 @@ jobs:
         run: |
           sed -i 's|dreampath-backend:latest|dreampath-backend:${{ github.sha }}|g' .aws/backend-task-definition.json
 
-      - name: Deploy to Amazon ECS
-        uses: aws-actions/amazon-ecs-deploy-action@v2
-        with:
-          task-definition: .aws/backend-task-definition.json
-          service: dreampath-backend-service
-          cluster: dreampath-cluster
-          wait-for-service-stability: true
+      - name: Register task definition
+        run: |
+          aws ecs register-task-definition \
+            --cli-input-json file://.aws/backend-task-definition.json
+
+      - name: Update ECS service
+        run: |
+          aws ecs update-service \
+            --cluster dreampath-cluster \
+            --service dreampath-backend-service \
+            --task-definition dreampath-backend-task \
+            --force-new-deployment
 
   # AI Service 배포 (ECR + ECS)
   deploy-ai-service:
@@ -143,10 +148,15 @@ jobs:
         run: |
           sed -i 's|dreampath-ai-service:latest|dreampath-ai-service:${{ github.sha }}|g' .aws/ai-service-task-definition.json
 
-      - name: Deploy to Amazon ECS
-        uses: aws-actions/amazon-ecs-deploy-action@v2
-        with:
-          task-definition: .aws/ai-service-task-definition.json
-          service: dreampath-ai-service
-          cluster: dreampath-cluster
-          wait-for-service-stability: true
+      - name: Register task definition
+        run: |
+          aws ecs register-task-definition \
+            --cli-input-json file://.aws/ai-service-task-definition.json
+
+      - name: Update ECS service
+        run: |
+          aws ecs update-service \
+            --cluster dreampath-cluster \
+            --service dreampath-ai-service \
+            --task-definition dreampath-ai-task \
+            --force-new-deployment
