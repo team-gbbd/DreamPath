@@ -1,5 +1,7 @@
 package com.dreampath.domain.user.controller;
 
+import com.dreampath.domain.user.dto.user.UpdateUserRequest;
+import com.dreampath.domain.user.dto.user.UserProfileResponse;
 import com.dreampath.domain.user.entity.User;
 import com.dreampath.global.exception.ResourceNotFoundException;
 import com.dreampath.domain.user.repository.UserRepository;
