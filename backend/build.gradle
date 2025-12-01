@@ -1,4 +1,4 @@
-// DreamPath Backend
+// DreamPath Backend - v1.0
 plugins {
 	id 'java'
 	id 'org.springframework.boot' version '3.5.7'
