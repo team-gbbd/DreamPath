@@ -31,8 +31,8 @@
           "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:479324456849:secret:dreampath/pinecone:PINECONE_API_KEY::"
         },
         {
-          "name": "PINECONE_ENVIRONMENT",
-          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:479324456849:secret:dreampath/pinecone:PINECONE_ENVIRONMENT::"
+          "name": "PINECONE_INDEX_HOST",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:479324456849:secret:dreampath/pinecone:PINECONE_INDEX_HOST::"
         },
         {
           "name": "PINECONE_INDEX_NAME",
