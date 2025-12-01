@@ -29,9 +29,67 @@ class CacheEntry:
         return datetime.now() > self.expires_at
 
 
+# 원티드 카테고리 ID 매핑
+WANTED_CATEGORIES = {
+    "개발": "518",
+    "경영/비즈니스": "507",
+    "마케팅/광고": "508",
+    "디자인": "509",
+    "영업": "510",
+    "고객서비스/리테일": "511",
+    "미디어": "512",
+    "HR": "513",
+    "금융": "514",
+    "제조/생산": "515",
+    "교육": "516",
+    "물류/무역": "517",
+    "의료/제약/바이오": "519",
+    "법률/법무": "520",
+    "식음료": "521",
+    "건설/시설": "522",
+    "공공/복지": "523",
+}
+
+# 기본 크롤링 카테고리 (다양한 직종)
+DEFAULT_CRAWL_CATEGORIES = ["개발", "마케팅/광고", "디자인", "경영/비즈니스", "영업", "HR"]
+
+# IT 기술 스택 키워드 목록 (텍스트에서 추출용)
+TECH_STACK_KEYWORDS = [
+    # 프로그래밍 언어
+    "Python", "Java", "JavaScript", "TypeScript", "C++", "C#", "Go", "Golang", "Rust", "Kotlin", "Swift",
+    "Ruby", "PHP", "Scala", "R", "MATLAB", "Perl", "Objective-C", "Dart", "Lua",
+    # 프론트엔드
+    "React", "Vue", "Vue.js", "Angular", "Next.js", "Nuxt", "Svelte", "jQuery", "HTML", "CSS", "SCSS", "Sass",
+    "Tailwind", "Bootstrap", "Redux", "MobX", "Webpack", "Vite", "Babel",
+    # 백엔드
+    "Node.js", "Express", "NestJS", "Spring", "Spring Boot", "Django", "Flask", "FastAPI",
+    "Rails", "Laravel", "ASP.NET", ".NET", "GraphQL", "REST API", "gRPC",
+    # 데이터베이스
+    "MySQL", "PostgreSQL", "MongoDB", "Redis", "Oracle", "SQL Server", "MariaDB", "SQLite",
+    "Elasticsearch", "DynamoDB", "Cassandra", "Neo4j", "Firebase",
+    # 클라우드/인프라
+    "AWS", "Azure", "GCP", "Google Cloud", "Docker", "Kubernetes", "K8s", "Jenkins", "CI/CD",
+    "Terraform", "Ansible", "Nginx", "Apache", "Linux", "Ubuntu", "CentOS",
+    # AI/ML
+    "TensorFlow", "PyTorch", "Keras", "Scikit-learn", "Pandas", "NumPy", "OpenCV",
+    "NLP", "머신러닝", "딥러닝", "AI", "LLM", "GPT", "BERT",
+    # 모바일
+    "Android", "iOS", "React Native", "Flutter", "SwiftUI", "Jetpack Compose",
+    # 기타
+    "Git", "GitHub", "GitLab", "Jira", "Confluence", "Slack", "Figma", "Notion",
+    "Agile", "Scrum", "DevOps", "MSA", "마이크로서비스", "RESTful",
+]
+
+
 class WebCrawlerService:
     """웹 크롤링 서비스"""
-    
+
+    # 기술 스택 키워드를 정규식 패턴으로 컴파일 (대소문자 무시)
+    TECH_PATTERN = re.compile(
+        r'\b(' + '|'.join(re.escape(tech) for tech in TECH_STACK_KEYWORDS) + r')\b',
+        re.IGNORECASE
+    )
+
     def __init__(self, cache_ttl_hours: int = 24, request_delay_seconds: float = 2.0):
         """
         Args:
@@ -61,6 +119,31 @@ class WebCrawlerService:
             self.db_service = None
             self.company_service = None
     
+    def _extract_tech_stack(self, text: str) -> List[str]:
+        """
+        텍스트에서 기술 스택 키워드를 추출합니다.
+
+        Args:
+            text: 분석할 텍스트 (제목, 설명 등)
+
+        Returns:
+            추출된 기술 스택 목록 (중복 제거, 정규화)
+        """
+        if not text:
+            return []
+
+        # 정규식으로 기술 키워드 찾기
+        matches = self.TECH_PATTERN.findall(text)
+
+        # 정규화: 대소문자 통일 (원본 키워드 기준)
+        normalized = set()
+        text_lower = text.lower()
+        for keyword in TECH_STACK_KEYWORDS:
+            if keyword.lower() in text_lower:
+                normalized.add(keyword)
+
+        return list(normalized)
+
     def _generate_cache_key(self, site_name: str, site_url: str, search_keyword: Optional[str] = None, max_results: int = 10) -> str:
         """캐시 키 생성"""
         key_string = f"{site_name}:{site_url}:{search_keyword or 'all'}:{max_results}"
@@ -108,22 +191,28 @@ class WebCrawlerService:
         self,
         search_keyword: Optional[str] = None,
         max_results: int = 10,
-        force_refresh: bool = False
+        force_refresh: bool = False,
+        category: Optional[str] = None
     ) -> Dict:
         """
         원티드(https://www.wanted.co.kr) 사이트에서 채용 정보를 크롤링합니다.
         하루에 한 번만 업데이트되도록 캐싱됩니다.
-        
+
         Args:
             search_keyword: 검색 키워드 (선택)
             max_results: 최대 결과 수
             force_refresh: 캐시를 무시하고 강제로 새로 크롤링할지 여부
-        
+            category: 직종 카테고리 (예: "개발", "마케팅/광고", "디자인" 등)
+
         Returns:
             크롤링 결과 딕셔너리
         """
-        # 캐시 키 생성
-        cache_key = self._generate_cache_key("wanted", "https://www.wanted.co.kr", search_keyword, max_results)
+        # 카테고리 ID 변환
+        category_id = WANTED_CATEGORIES.get(category, "518") if category else None
+
+        # 캐시 키 생성 (카테고리 포함)
+        cache_key_base = f"wanted_{category or 'all'}_{search_keyword or 'all'}_{max_results}"
+        cache_key = self._generate_cache_key("wanted", cache_key_base, search_keyword, max_results)
         
         print(f"[원티드] force_refresh: {force_refresh}, cache_key: {cache_key[:16]}...")
         
@@ -144,20 +233,20 @@ class WebCrawlerService:
             base_url = "https://www.wanted.co.kr"
             search_url = f"{base_url}/wdlist" if not search_keyword else f"{base_url}/search?query={quote(search_keyword)}"
             
-            print(f"[원티드] 크롤링 시작, 키워드: {search_keyword}, max_results: {max_results}")
-            
+            print(f"[원티드] 크롤링 시작, 키워드: {search_keyword}, 카테고리: {category}, max_results: {max_results}")
+
             # 요청 간 딜레이 (IP 차단 방지)
             await self._wait_if_needed()
-            
+
             async with httpx.AsyncClient(
-                timeout=30.0, 
-                headers=self.headers, 
+                timeout=30.0,
+                headers=self.headers,
                 follow_redirects=True,
                 limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)  # 연결 제한
             ) as client:
                 # 원티드는 React/Next.js 기반이므로 HTML 파싱 대신 바로 API 호출
-                print(f"[원티드] API 직접 호출 시도...")
-                job_listings = await self._crawl_wanted_api(client, search_keyword or "", max_results)
+                print(f"[원티드] API 직접 호출 시도... (카테고리: {category or '전체'})")
+                job_listings = await self._crawl_wanted_api(client, search_keyword or "", max_results, category_id)
                 
                 if job_listings:
                     print(f"[원티드] API에서 {len(job_listings)}개 공고 발견")
@@ -219,41 +308,121 @@ class WebCrawlerService:
                 "message": "크롤링 중 오류 발생",
                 "fromCache": False
             }
-    
+
+    async def crawl_wanted_all_categories(
+        self,
+        categories: Optional[List[str]] = None,
+        max_results_per_category: int = 50,
+        force_refresh: bool = False
+    ) -> Dict:
+        """
+        원티드에서 여러 카테고리의 채용 정보를 크롤링합니다.
+
+        Args:
+            categories: 크롤링할 카테고리 목록 (기본값: DEFAULT_CRAWL_CATEGORIES)
+            max_results_per_category: 카테고리당 최대 결과 수
+            force_refresh: 캐시 무시 여부
+
+        Returns:
+            전체 크롤링 결과
+        """
+        categories = categories or DEFAULT_CRAWL_CATEGORIES
+        all_results = []
+        total_count = 0
+        errors = []
+
+        print(f"[원티드] 다중 카테고리 크롤링 시작: {categories}")
+
+        for category in categories:
+            try:
+                print(f"[원티드] 카테고리 '{category}' 크롤링 중...")
+                result = await self.crawl_wanted(
+                    search_keyword=None,
+                    max_results=max_results_per_category,
+                    force_refresh=force_refresh,
+                    category=category
+                )
+
+                if result.get("success"):
+                    job_count = result.get("totalResults", 0)
+                    total_count += job_count
+                    all_results.append({
+                        "category": category,
+                        "count": job_count,
+                        "success": True
+                    })
+                    print(f"[원티드] 카테고리 '{category}': {job_count}개 공고 수집")
+                else:
+                    errors.append({"category": category, "error": result.get("error")})
+                    all_results.append({
+                        "category": category,
+                        "count": 0,
+                        "success": False,
+                        "error": result.get("error")
+                    })
+
+            except Exception as e:
+                errors.append({"category": category, "error": str(e)})
+                all_results.append({
+                    "category": category,
+                    "count": 0,
+                    "success": False,
+                    "error": str(e)
+                })
+
+        print(f"[원티드] 다중 카테고리 크롤링 완료: 총 {total_count}개 공고")
+
+        return {
+            "success": len(errors) == 0,
+            "totalResults": total_count,
+            "categories": all_results,
+            "errors": errors if errors else None
+        }
+
     async def _crawl_wanted_api(
         self,
         client: httpx.AsyncClient,
         keyword: str,
-        max_results: int
+        max_results: int,
+        category_id: Optional[str] = None
     ) -> List[Dict]:
         """
         원티드 API를 통해 채용 정보 가져오기
         모든 페이지를 순회하여 가능한 모든 공고를 가져옵니다.
+
+        Args:
+            client: HTTP 클라이언트
+            keyword: 검색 키워드
+            max_results: 최대 결과 수
+            category_id: 카테고리 ID (예: "518"=개발, "508"=마케팅 등)
         """
         try:
             # 원티드의 실제 API 엔드포인트 시도
             api_url = "https://www.wanted.co.kr/api/v4/jobs"
-            
-            print(f"[원티드 API] 크롤링 시작 - 키워드: '{keyword}', max_results: {max_results}")
-            
+
+            print(f"[원티드 API] 크롤링 시작 - 키워드: '{keyword}', 카테고리ID: {category_id}, max_results: {max_results}")
+
             all_job_listings = []
             offset = 0
             page_size = 100  # 한 번에 가져올 최대 개수
             max_pages = 10  # 최대 페이지 수 (테스트용)
             page = 0
-            
+
             while page < max_pages:
                 # 검색 파라미터 설정
                 params = {
                     "country": "kr",
-                    "tag_type_ids": "518",
                     "job_sort": "job.latest_order",
                     "locations": "all",
                     "years": "-1",
                     "limit": page_size,
                     "offset": offset
                 }
-                
+
+                # 카테고리 ID가 있으면 추가 (없으면 전체 카테고리)
+                if category_id:
+                    params["tag_type_ids"] = category_id
+
                 if keyword:
                     params["query"] = keyword
                 
@@ -330,27 +499,47 @@ class WebCrawlerService:
                         reward = str(reward_data) if reward_data else ""
 
                     experience = job.get("experience_level", "") or job.get("years", "")
-                    
+
+                    # 기술 스택 추출 (skill_tags, skills, tech_stack 등)
+                    tech_stack = []
+                    skill_tags = job.get("skill_tags") or job.get("skills") or job.get("tech_stack") or []
+                    if isinstance(skill_tags, list):
+                        for tag in skill_tags:
+                            if isinstance(tag, dict):
+                                tech_stack.append(tag.get("name") or tag.get("title") or str(tag))
+                            elif isinstance(tag, str):
+                                tech_stack.append(tag)
+                    elif isinstance(skill_tags, str):
+                        tech_stack = [s.strip() for s in skill_tags.split(",") if s.strip()]
+
+                    # 필요 역량 추출 (requirements, qualifications 등)
+                    required_skills = []
+                    requirements = job.get("requirements") or job.get("qualifications") or job.get("preferred") or []
+                    if isinstance(requirements, list):
+                        required_skills = requirements
+                    elif isinstance(requirements, str):
+                        required_skills = [requirements]
+
                     # 상세정보 추출 (description 필드)
                     details = []
-                    
+
                     # 마감일 (due_time, deadline 등)
                     deadline = job.get("due_time") or job.get("deadline") or job.get("closing_timestamp")
                     if deadline:
                         details.append(f"마감: {deadline}")
-                    
+
                     # 학력 (education, required_education 등)
                     education = job.get("required_education_level") or job.get("education")
                     if education:
                         details.append(f"학력: {education}")
-                    
+
                     # 고용형태 (employment_type, job_type 등)
                     employment_type = job.get("employment_type") or job.get("job_type")
                     if employment_type:
                         details.append(f"고용형태: {employment_type}")
-                    
+
                     description = " | ".join(details) if details else ""
-                    
+
                     # 필터링: 유효한 공고만 추가
                     # 1. job_id가 반드시 있어야 함
                     # 2. 회사명이 있어야 함
@@ -376,7 +565,9 @@ class WebCrawlerService:
                             "reward": reward,
                             "experience": experience,
                             "description": description,
-                            "url": f"https://www.wanted.co.kr/wd/{job_id}"
+                            "url": f"https://www.wanted.co.kr/wd/{job_id}",
+                            "tech_stack": tech_stack if tech_stack else None,
+                            "required_skills": required_skills if required_skills else None
                         })
                 
                 all_job_listings.extend(page_job_listings)
@@ -810,7 +1001,10 @@ class WebCrawlerService:
                                 if not job_id:
                                     print(f"[잡코리아] job_id 추출 실패 - gno: {gno}, URL: {final_url[:100]}")
                                     continue
-                                
+
+                                # 기술 스택 추출 (제목 + 전체 텍스트에서)
+                                tech_stack = self._extract_tech_stack(f"{clean_title} {full_text}")
+
                                 # 중복 체크 없이 모두 수집 (DB 저장 시에 중복 처리)
                                 page_job_listings.append({
                                     "id": job_id,
@@ -819,7 +1013,9 @@ class WebCrawlerService:
                                     "location": location,
                                     "url": final_url,
                                     "description": description,
-                                    "experience": experience
+                                    "experience": experience,
+                                    "tech_stack": tech_stack if tech_stack else None,
+                                    "required_skills": None  # 상세 페이지에서 추출 필요
                                 })
                                 
                                 # 디버깅: URL 추출 확인
@@ -1209,10 +1405,13 @@ class WebCrawlerService:
                                 # 제목이 온점(.)으로만 시작하거나 "..."로만 구성되면 제외
                                 if title.strip() in ['...', '..', '.'] or title.startswith('...'):
                                     continue
-                                
+
                                 # URL이 없으면 기본 검색 URL 사용
                                 final_url = job_url if job_url else search_url
-                                
+
+                                # 기술 스택 추출 (제목 + 전체 텍스트에서)
+                                tech_stack = self._extract_tech_stack(f"{title} {full_text}")
+
                                 page_job_listings.append({
                                     "id": item.get("data-recruit-no") or "",
                                     "title": title,
@@ -1220,7 +1419,9 @@ class WebCrawlerService:
                                     "location": location,
                                     "url": final_url,
                                     "description": description,
-                                    "experience": experience
+                                    "experience": experience,
+                                    "tech_stack": tech_stack if tech_stack else None,
+                                    "required_skills": None  # 상세 페이지에서 추출 필요
                                 })
                                 
                                 # 디버깅: URL 추출 확인

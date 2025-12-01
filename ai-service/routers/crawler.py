@@ -5,12 +5,13 @@ from fastapi import APIRouter, HTTPException, Depends
 from models import (
     CrawlRequest,
     CrawlWantedRequest,
+    CrawlWantedAllCategoriesRequest,
     CrawlMultipleSitesRequest,
     CrawlResponse,
     CrawlMultipleSitesResponse,
     JobListing
 )
-from services.web_crawler_service import WebCrawlerService
+from services.web_crawler_service import WebCrawlerService, WANTED_CATEGORIES
 from dependencies import get_web_crawler_service
 
 router = APIRouter(prefix="/api/job-sites", tags=["crawler"])
@@ -94,7 +95,8 @@ async def crawl_wanted(
         result = await web_crawler_service.crawl_wanted(
             search_keyword=request.searchKeyword,
             max_results=max_results,
-            force_refresh=request.forceRefresh or False
+            force_refresh=request.forceRefresh or False,
+            category=request.category
         )
         
         # JobListing 모델로 변환 (모델에 없는 필드 제거)
@@ -145,6 +147,47 @@ async def crawl_wanted(
         error_detail = f"{str(e)}\n{traceback.format_exc()}"
         print(f"원티드 크롤링 에러: {error_detail}")
         raise HTTPException(status_code=500, detail=f"원티드 크롤링 실패: {str(e)}")
+
+
+@router.get("/categories")
+async def get_categories():
+    """
+    원티드에서 지원하는 카테고리 목록을 반환합니다.
+    """
+    return {
+        "categories": list(WANTED_CATEGORIES.keys()),
+        "mapping": WANTED_CATEGORIES
+    }
+
+
+@router.post("/crawl/wanted/all-categories")
+async def crawl_wanted_all_categories(
+    request: CrawlWantedAllCategoriesRequest,
+    web_crawler_service: WebCrawlerService = Depends(get_web_crawler_service)
+):
+    """
+    원티드에서 여러 카테고리의 채용 정보를 한 번에 크롤링합니다.
+    기본 카테고리: 개발, 마케팅/광고, 디자인, 경영/비즈니스, 영업, HR
+    """
+    try:
+        result = await web_crawler_service.crawl_wanted_all_categories(
+            categories=request.categories,
+            max_results_per_category=request.maxResultsPerCategory or 50,
+            force_refresh=request.forceRefresh or False
+        )
+
+        return {
+            "success": result.get("success", False),
+            "totalResults": result.get("totalResults", 0),
+            "categories": result.get("categories", []),
+            "errors": result.get("errors")
+        }
+
+    except Exception as e:
+        import traceback
+        error_detail = f"{str(e)}\n{traceback.format_exc()}"
+        print(f"다중 카테고리 크롤링 에러: {error_detail}")
+        raise HTTPException(status_code=500, detail=f"다중 카테고리 크롤링 실패: {str(e)}")
 
 
 @router.post("/crawl/multiple", response_model=CrawlMultipleSitesResponse)

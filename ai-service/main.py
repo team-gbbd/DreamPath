@@ -21,6 +21,8 @@ from routers import api_router
 from routers.vector_router import router as vector_router
 from routers.rag_router import router as rag_router
 from routers.profile_match_router import router as profile_match_router
+from routers.qnet import router as qnet_router
+from routers.job_agent import router as job_agent_router
 from routers.user_document import router as user_document_router
 from routers.user_embedding import router as user_embedding_router
 from routers.bigfive_router import router as bigfive_router
@@ -75,6 +77,8 @@ app.include_router(api_router)              # 기존 chat, analysis, identity, j
 app.include_router(vector_router, prefix="/api")
 app.include_router(rag_router)
 app.include_router(profile_match_router, prefix="/api")
+app.include_router(qnet_router)             # Q-net 자격증 API
+app.include_router(job_agent_router)        # 채용공고 AI 에이전트 API
 app.include_router(user_document_router, prefix="/analysis", tags=["analysis"])
 app.include_router(user_embedding_router, prefix="/embedding", tags=["embedding"])
 app.include_router(bigfive_router, prefix="/api")
@@ -100,7 +104,7 @@ answer_evaluator = AnswerEvaluatorService() if api_key else None
 code_executor = CodeExecutorService()
 
 recommend_service = RecommendService()
-# hybrid_recommender = HybridRecommendService()  # Temporarily disabled due to Pinecone Index error
+hybrid_recommender = HybridRecommendService()
 
 
 # =========================================

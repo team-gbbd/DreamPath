@@ -89,7 +89,7 @@ public class JobCrawlingScheduler {
     }
 
     /**
-     * 원티드 크롤링
+     * 원티드 크롤링 (전체 카테고리)
      */
     private void crawlWanted() {
         try {
@@ -97,14 +97,15 @@ public class JobCrawlingScheduler {
 
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("searchKeyword", null); // 전체 공고
-            requestBody.put("maxResults", 100); // 최대 100개
+            requestBody.put("category", null); // 전체 카테고리 (tag_type_ids 안 보냄)
+            requestBody.put("maxResults", 200); // 최대 200개
             requestBody.put("forceRefresh", true); // 강제 새로고침
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
 
-            log.info("원티드 크롤링 시작...");
+            log.info("원티드 전체 카테고리 크롤링 시작...");
             ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
