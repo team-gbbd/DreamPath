@@ -228,7 +228,7 @@ export default function AdminDashboardPage() {
           </div>
 
           {/* Recent Applications */}
-          <div className="bg-white rounded-xl shadow-md border-2 border-pink-200 p-8">
+          <div className="bg-white rounded-xl shadow-md border-2 border-pink-200 p-8 mb-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-800 flex items-center">
                 <i className="ri-history-line text-pink-500 mr-3"></i>
@@ -288,6 +288,31 @@ export default function AdminDashboardPage() {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* FAQ Management */}
+          <div className="bg-white rounded-xl shadow-md border-2 border-pink-200 p-8">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-800 flex items-center">
+                <i className="ri-question-answer-line text-pink-500 mr-3"></i>
+                FAQ 관리
+              </h2>
+            </div>
+
+            <div className="text-center py-12 bg-gradient-to-br from-pink-50 to-purple-50 rounded-lg">
+              <div className="w-20 h-20 bg-pink-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i className="ri-settings-3-line text-4xl text-pink-500"></i>
+              </div>
+              <p className="text-lg font-semibold text-gray-800 mb-2">자주 묻는 질문 관리</p>
+              <p className="text-gray-600 mb-6">FAQ를 추가, 수정, 삭제할 수 있습니다.</p>
+              <button
+                onClick={() => navigate('/admin/faq')}
+                className="bg-pink-500 hover:bg-pink-600 text-white px-6 py-3 rounded-xl font-medium transition-all inline-flex items-center gap-2"
+              >
+                <i className="ri-edit-line"></i>
+                FAQ 관리 페이지로 이동
+              </button>
+            </div>
           </div>
         </div>
       </div>

@@ -32,6 +32,7 @@ const MyPage = lazy(() => import("../pages/mypage/page"));
 const MentorApplyPage = lazy(() => import("../pages/mentor/MentorApply"));
 const AdminDashboardPage = lazy(() => import("../pages/admin/AdminDashboard"));
 const MentorApplicationsPage = lazy(() => import("../pages/admin/MentorApplications"));
+const FaqManagementPage = lazy(() => import("../pages/admin/FaqManagement"));
 const MentorsListPage = lazy(() => import("../pages/mentors/MentorsList"));
 const MentorDetailPage = lazy(() => import("../pages/mentors/MentorDetail"));
 const MentorEditPage = lazy(() => import("../pages/mentors/MentorEdit"));
@@ -262,6 +263,10 @@ const routes: RouteObject[] = [
   {
     path: "/admin/crawler",
     element: <CrawlerPage />,
+  },
+  {
+    path: "/admin/faq",
+    element: <FaqManagementPage />,
   },
 
   /* ----------------------
