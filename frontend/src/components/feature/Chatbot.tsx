@@ -54,6 +54,17 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
   const [chunkedCategories, setChunkedCategories] = useState<string[][]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [faqList, setFaqList] = useState<any[]>([]);
+  const [showInquiryForm, setShowInquiryForm] = useState(false);
+  const [inquiryData, setInquiryData] = useState({
+    name: "",
+    email: "",
+    content: "",
+  });
+  const [inquiryErrors, setInquiryErrors] = useState({
+    name: "",
+    email: "",
+    content: "",
+  });
 
   const chatRef = useRef<HTMLDivElement>(null);
   const lastUserIdRef = useRef<string | null>(null);
@@ -227,6 +238,129 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
     onClose?.();
   };
 
+  /* 문의하기 버튼 클릭 */
+  const handleInquiryClick = () => {
+    // 로그인한 사용자 정보 가져오기
+    const userStr = localStorage.getItem("dreampath:user");
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        // 로그인한 사용자는 이름, 이메일 자동 입력
+        setInquiryData({
+          name: user.name || "",
+          email: user.email || "",
+          content: "",
+        });
+      } catch (e) {
+        console.error("사용자 정보 파싱 실패:", e);
+      }
+    } else {
+      // 비로그인 사용자는 빈 폼
+      setInquiryData({ name: "", email: "", content: "" });
+    }
+
+    setShowInquiryForm(true);
+    setInquiryErrors({ name: "", email: "", content: "" });
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "assistant",
+        text: "DreamPath의 문의 처리는 영업일 이내 1~2일 소요 됩니다. 답변은 이메일로 드리고 있으니 이메일을 꼭 확인해주세요.",
+      },
+    ]);
+  };
+
+  /* 이메일 유효성 검사 */
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  /* 입력 필드 변경 시 에러 초기화 */
+  const handleInquiryChange = (field: "name" | "email" | "content", value: string) => {
+    setInquiryData({ ...inquiryData, [field]: value });
+
+    // 입력하면 해당 필드의 에러 메시지 제거
+    if (value.trim()) {
+      setInquiryErrors({ ...inquiryErrors, [field]: "" });
+    }
+  };
+
+  /* 문의 제출 */
+  const handleInquirySubmit = async () => {
+    const errors = { name: "", email: "", content: "" };
+    let hasError = false;
+
+    // 이름 검증
+    if (!inquiryData.name.trim()) {
+      errors.name = "이름을 입력해주세요.";
+      hasError = true;
+    }
+
+    // 이메일 검증
+    if (!inquiryData.email.trim()) {
+      errors.email = "이메일을 입력해주세요.";
+      hasError = true;
+    } else if (!validateEmail(inquiryData.email)) {
+      errors.email = "이메일 형식으로 입력해주세요.";
+      hasError = true;
+    }
+
+    // 문의 내용 검증
+    if (!inquiryData.content.trim()) {
+      errors.content = "문의 내용을 입력해주세요.";
+      hasError = true;
+    }
+
+    if (hasError) {
+      setInquiryErrors(errors);
+      return;
+    }
+
+    try {
+      const userId = getUserId();
+
+      // 서버에 전달할 데이터
+      const requestData = {
+        name: inquiryData.name.trim(),
+        email: inquiryData.email.trim(),
+        content: inquiryData.content.trim(),
+        userId: userId, // 로그인한 경우 userId, 아니면 null
+        sessionId: sessionId || null, // 챗봇 세션 ID (null이면 명시적으로 null)
+      };
+
+      console.log("🔍 문의 제출 데이터:", requestData);
+
+      const response = await fetch("http://localhost:8080/api/inquiry", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json;charset=UTF-8",
+        },
+        body: JSON.stringify(requestData),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            text: "문의가 성공적으로 접수되었습니다. 빠른 시일 내에 답변 드리겠습니다. 감사합니다!",
+          },
+        ]);
+        setShowInquiryForm(false);
+        setInquiryData({ name: "", email: "", content: "" });
+        setInquiryErrors({ name: "", email: "", content: "" });
+      } else {
+        alert(result.message || "문의 접수에 실패했습니다.");
+      }
+    } catch (error) {
+      console.error("문의 제출 오류:", error);
+      alert("문의 접수 중 오류가 발생했습니다.");
+    }
+  };
+
   return (
     <div className="w-full h-full flex flex-col bg-gradient-to-br from-[#eef2ff] to-[#f5e8ff] rounded-lg overflow-hidden">
       {/* 상단바 */}
@@ -270,6 +404,16 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
               ))}
             </div>
           ))}
+
+          {/* 문의하기 버튼 */}
+          <div className="flex gap-2 mt-2">
+            <button
+              onClick={handleInquiryClick}
+              className="inline-flex items-center justify-center py-2 px-4 text-sm rounded-xl shadow bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600"
+            >
+              📧 문의하기
+            </button>
+          </div>
         </div>
 
         {/* 선택된 카테고리의 질문 리스트 */}
@@ -314,6 +458,79 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
               <span className="w-2 h-2 bg-gray-400 rounded-full animate-[typing_1s_infinite]"></span>
               <span className="w-2 h-2 bg-gray-400 rounded-full animate-[typing_1s_infinite_0.2s]"></span>
               <span className="w-2 h-2 bg-gray-400 rounded-full animate-[typing_1s_infinite_0.4s]"></span>
+            </div>
+          </div>
+        )}
+
+        {/* 문의하기 폼 - 스크롤 영역 안에 */}
+        {showInquiryForm && (
+          <div className="bg-white rounded-xl p-4 shadow-md max-w-[90%]">
+            <h3 className="text-sm font-semibold mb-3">문의하기</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">이름</label>
+                <input
+                  type="text"
+                  className={`w-full border rounded-lg px-3 py-2 text-sm ${
+                    inquiryErrors.name ? "border-red-500" : "border-gray-300"
+                  } ${getUserId() !== null ? "bg-gray-100 cursor-not-allowed" : ""}`}
+                  placeholder="이름을 입력하세요"
+                  value={inquiryData.name}
+                  onChange={(e) => handleInquiryChange("name", e.target.value)}
+                  readOnly={getUserId() !== null}
+                />
+                {inquiryErrors.name && (
+                  <p className="text-red-500 text-xs mt-1">{inquiryErrors.name}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">이메일</label>
+                <input
+                  type="email"
+                  className={`w-full border rounded-lg px-3 py-2 text-sm ${
+                    inquiryErrors.email ? "border-red-500" : "border-gray-300"
+                  } ${getUserId() !== null ? "bg-gray-100 cursor-not-allowed" : ""}`}
+                  placeholder="email@example.com"
+                  value={inquiryData.email}
+                  onChange={(e) => handleInquiryChange("email", e.target.value)}
+                  readOnly={getUserId() !== null}
+                />
+                {inquiryErrors.email && (
+                  <p className="text-red-500 text-xs mt-1">{inquiryErrors.email}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">문의 내용</label>
+                <textarea
+                  className={`w-full border rounded-lg px-3 py-2 text-sm resize-none ${
+                    inquiryErrors.content ? "border-red-500" : "border-gray-300"
+                  }`}
+                  placeholder="문의 내용을 입력하세요"
+                  rows={4}
+                  value={inquiryData.content}
+                  onChange={(e) => handleInquiryChange("content", e.target.value)}
+                />
+                {inquiryErrors.content && (
+                  <p className="text-red-500 text-xs mt-1">{inquiryErrors.content}</p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleInquirySubmit}
+                  className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white py-2 rounded-lg text-sm hover:from-purple-600 hover:to-pink-600"
+                >
+                  보내기
+                </button>
+                <button
+                  onClick={() => {
+                    setShowInquiryForm(false);
+                    setInquiryErrors({ name: "", email: "", content: "" });
+                  }}
+                  className="px-4 bg-gray-200 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-300"
+                >
+                  취소
+                </button>
+              </div>
             </div>
           </div>
         )}
