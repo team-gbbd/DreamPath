@@ -102,12 +102,12 @@ jobs:
 
       - name: Update image tag in task definition
         run: |
-          sed -i 's|dreampath-backend:latest|dreampath-backend:${{ github.sha }}|g' .aws/backend-task-definition.json
+          sed -i 's|dreampath-backend:latest|dreampath-backend:${{ github.sha }}|g' .github/ecs/backend-task-definition.json
 
       - name: Register task definition
         run: |
           aws ecs register-task-definition \
-            --cli-input-json file://.aws/backend-task-definition.json
+            --cli-input-json file://.github/ecs/backend-task-definition.json
 
       - name: Update ECS service
         run: |
@@ -146,12 +146,12 @@ jobs:
 
       - name: Update image tag in task definition
         run: |
-          sed -i 's|dreampath-ai-service:latest|dreampath-ai-service:${{ github.sha }}|g' .aws/ai-service-task-definition.json
+          sed -i 's|dreampath-ai-service:latest|dreampath-ai-service:${{ github.sha }}|g' .github/ecs/ai-service-task-definition.json
 
       - name: Register task definition
         run: |
           aws ecs register-task-definition \
-            --cli-input-json file://.aws/ai-service-task-definition.json
+            --cli-input-json file://.github/ecs/ai-service-task-definition.json
 
       - name: Update ECS service
         run: |
