@@ -37,9 +37,15 @@ const STORAGE_KEYS = {
   emotions: 'profileEmotions',
 } as const;
 
-const getInitialValue = (key: string): string => {
+const getStorageKey = (key: string, userId: number | null) => {
+  if (!userId) return key;
+  return `${key}_${userId}`;
+};
+
+const getInitialValue = (key: string, userId: number | null): string => {
   if (typeof window === 'undefined') return '';
-  return localStorage.getItem(key) ?? '';
+  const storageKey = getStorageKey(key, userId);
+  return localStorage.getItem(storageKey) ?? '';
 };
 
 const setProfileCache = (userId: number, profile: unknown) => {
@@ -62,10 +68,21 @@ export default function ProfileInputPage() {
   const [userId] = useState<number | null>(() => getStoredUserId());
   const [profileId, setProfileId] = useState<number | null>(null);
 
-  const [traits, setTraits] = useState(() => getInitialValue(STORAGE_KEYS.traits));
-  const [values, setValues] = useState(() => getInitialValue(STORAGE_KEYS.values));
-  const [interests, setInterests] = useState(() => getInitialValue(STORAGE_KEYS.interests));
-  const [emotions, setEmotions] = useState(() => getInitialValue(STORAGE_KEYS.emotions));
+  // 초기값 로드 시 userId가 있으면 해당 유저의 데이터를, 없으면 빈 문자열
+  const [traits, setTraits] = useState('');
+  const [values, setValues] = useState('');
+  const [interests, setInterests] = useState('');
+  const [emotions, setEmotions] = useState('');
+
+  // 마운트 시 초기값 설정
+  useEffect(() => {
+    if (userId) {
+      setTraits(getInitialValue(STORAGE_KEYS.traits, userId));
+      setValues(getInitialValue(STORAGE_KEYS.values, userId));
+      setInterests(getInitialValue(STORAGE_KEYS.interests, userId));
+      setEmotions(getInitialValue(STORAGE_KEYS.emotions, userId));
+    }
+  }, [userId]);
 
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSubmittingProfile, setIsSubmittingProfile] = useState(false);
@@ -107,12 +124,13 @@ export default function ProfileInputPage() {
      🔹 입력값 캐싱
   ============================== */
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.traits, traits);
-    localStorage.setItem(STORAGE_KEYS.values, values);
-    localStorage.setItem(STORAGE_KEYS.interests, interests);
-    localStorage.setItem(STORAGE_KEYS.emotions, emotions);
+    if (!userId) return;
+    localStorage.setItem(getStorageKey(STORAGE_KEYS.traits, userId), traits);
+    localStorage.setItem(getStorageKey(STORAGE_KEYS.values, userId), values);
+    localStorage.setItem(getStorageKey(STORAGE_KEYS.interests, userId), interests);
+    localStorage.setItem(getStorageKey(STORAGE_KEYS.emotions, userId), emotions);
     setLastSaved(new Date());
-  }, [traits, values, interests, emotions]);
+  }, [traits, values, interests, emotions, userId]);
 
   /* =============================
      🔹 입력 항목 채움 정도
@@ -215,6 +233,7 @@ export default function ProfileInputPage() {
       setProfileId(saved?.profileId ?? profileId);
       setProfileCache(currentUserId, saved);
 
+      // 수정 모드이면 대시보드로, 신규 생성이면 성공 페이지로
       navigate(isEditMode ? '/profile/dashboard' : '/profile/success', {
         replace: true,
       });

@@ -14,13 +14,19 @@ import type {
 } from "@/types/index";
 
 // =============================
-//   🔹 API BASE URL (dev 기준)
+//   API BASE URL (환경변수)
 // =============================
-export const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:8080/api";
-
 export const BACKEND_BASE_URL =
   import.meta.env.VITE_BACKEND_URL || "http://localhost:8080";
+
+export const API_BASE_URL =
+  import.meta.env.VITE_API_URL || `${BACKEND_BASE_URL}/api`;
+
+// Python AI Service URL
+const PYTHON_AI_SERVICE_URL =
+  import.meta.env.VITE_PYTHON_AI_SERVICE_URL || "http://localhost:8000";
+
+const PYTHON_API_URL = `${PYTHON_AI_SERVICE_URL}/api`;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -30,9 +36,15 @@ const api = axios.create({
   withCredentials: true,
 });
 
+const pythonApi = axios.create({
+  baseURL: PYTHON_AI_SERVICE_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
 
 /* ================================
-   🔹 DreamPath – Chat Service
+   DreamPath – Chat Service
    ================================ */
 export const chatService = {
   startSession: async (
@@ -64,7 +76,7 @@ export const chatService = {
 };
 
 /* ================================
-   🔹 DreamPath – Analysis Service
+   DreamPath – Analysis Service
    ================================ */
 export const analysisService = {
   analyzeSession: async (sessionId: string): Promise<AnalysisResponse> => {
@@ -72,17 +84,6 @@ export const analysisService = {
     return response.data;
   },
 };
-
-// Python AI Service URL (채용 정보 크롤링용)
-const PYTHON_AI_SERVICE_URL =
-  import.meta.env.VITE_PYTHON_AI_SERVICE_URL || "http://localhost:8000";
-
-const pythonApi = axios.create({
-  baseURL: PYTHON_AI_SERVICE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
 
 export const jobSiteService = {
   // 취업 사이트 추천
@@ -155,16 +156,24 @@ export const jobSiteService = {
 };
 
 /* ================================
-   🔹 DreamPath – Profile Service
+   DreamPath – Profile Service
    ================================ */
 export const profileService = {
   deleteProfile: async (profileId: number): Promise<void> => {
     await api.delete(`/profiles/${profileId}`);
   },
+
+  // 하이브리드 추천 (벡터 기반 채용 추천)
+  fetchHybridJobs: async (vectorId: string, topK: number = 20) => {
+    const response = await api.get(`/recommend/hybrid`, {
+      params: { vectorId, topK },
+    });
+    return response.data.recommended;
+  },
 };
 
 /* ================================
-   🔹 Learning Path Service (dev)
+   Learning Path Service
    ================================ */
 export const learningPathService = {
   // Learning Path 생성
@@ -202,10 +211,12 @@ export const learningPathService = {
     );
   },
 
-  // 주차별 문제 목록 조회
-  getWeeklyQuestions: async (weeklyId: number): Promise<Question[]> => {
+  // 주차별 문제 목록 조회 (기존 제출 답안 포함)
+  getWeeklyQuestions: async (weeklyId: number, userId?: number): Promise<Question[]> => {
+    const params = userId ? { userId } : {};
     const response = await api.get<Question[]>(
-      `/learning-paths/weekly-sessions/${weeklyId}/questions`
+      `/learning-paths/weekly-sessions/${weeklyId}/questions`,
+      { params }
     );
     return response.data;
   },
@@ -236,6 +247,95 @@ export const learningPathService = {
   },
 };
 
+/* ================================
+   Job Analysis Agent
+   ================================ */
+export const jobAnalysisService = {
+  analyzeMarketTrends: async (careerField?: string, days: number = 30) => {
+    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/market-trends`, {
+      careerField,
+      days,
+    });
+    return response.data;
+  },
+
+  analyzeSkillRequirements: async (careerField: string, days: number = 30) => {
+    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/skill-requirements`, {
+      careerField,
+      days,
+    });
+    return response.data;
+  },
+
+  analyzeSalaryTrends: async (careerField?: string, days: number = 30) => {
+    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/salary-trends`, {
+      careerField,
+      days,
+    });
+    return response.data;
+  },
+
+  getPersonalizedInsights: async (userProfile: any, careerAnalysis: any) => {
+    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/personalized-insights`, {
+      userProfile,
+      careerAnalysis,
+    });
+    return response.data;
+  },
+
+  compareJobs: async (jobIds: number[]) => {
+    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/compare-jobs`, {
+      jobIds,
+    });
+    return response.data;
+  },
+};
+
+/* ================================
+   Job Recommendation Agent
+   ================================ */
+export const jobRecommendationService = {
+  getRecommendations: async (userId: number, careerAnalysis: any, userProfile?: any, limit: number = 10) => {
+    const response = await axios.post(`${PYTHON_API_URL}/agent/job-recommendations`, {
+      userId,
+      careerAnalysis,
+      userProfile,
+      limit,
+    });
+    return response.data;
+  },
+
+  getRealtimeRecommendations: async (userId: number, careerKeywords: string[], limit: number = 5) => {
+    const response = await axios.post(`${PYTHON_API_URL}/agent/job-recommendations/realtime`, {
+      userId,
+      careerKeywords,
+      limit,
+    });
+    return response.data;
+  },
+
+  // 채용 공고 + 필요 기술/자격증 통합 추천
+  getRecommendationsWithRequirements: async (
+    userId: number,
+    careerAnalysis: any,
+    userProfile?: any,
+    userSkills?: string[],
+    limit: number = 10
+  ) => {
+    const response = await axios.post(`${PYTHON_API_URL}/agent/job-recommendations/with-requirements`, {
+      userId,
+      careerAnalysis,
+      userProfile,
+      userSkills,
+      limit,
+    });
+    return response.data;
+  },
+};
+
+/* ================================
+   Mentor Service
+   ================================ */
 export const mentorService = {
   // 멘토 신청
   applyForMentor: async (data: {
@@ -308,6 +408,9 @@ export const mentorService = {
   },
 };
 
+/* ================================
+   Mentoring Session Service
+   ================================ */
 export const mentoringSessionService = {
   // 멘토링 세션 생성
   createSession: async (data: {
@@ -360,6 +463,9 @@ export const mentoringSessionService = {
   },
 };
 
+/* ================================
+   Payment Service
+   ================================ */
 export const paymentService = {
   // 결제 준비
   preparePayment: async (userId: number, sessionPackage: string) => {
@@ -400,6 +506,9 @@ export const paymentService = {
   },
 };
 
+/* ================================
+   Booking Service
+   ================================ */
 export const bookingService = {
   // 멘토링 예약 생성 (세션 기반)
   createBooking: async (data: {
@@ -462,6 +571,9 @@ export const bookingService = {
   },
 };
 
+/* ================================
+   User Service
+   ================================ */
 export const userService = {
   // 사용자 프로필 조회
   getUserProfile: async (userId: number) => {
@@ -482,98 +594,7 @@ export const userService = {
 };
 
 /* ================================
-   🔹 Job Analysis Agent
-   ================================ */
-const PYTHON_API_URL = "http://localhost:8000/api";
-
-export const jobAnalysisService = {
-  analyzeMarketTrends: async (careerField?: string, days: number = 30) => {
-    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/market-trends`, {
-      careerField,
-      days,
-    });
-    return response.data;
-  },
-
-  analyzeSkillRequirements: async (careerField: string, days: number = 30) => {
-    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/skill-requirements`, {
-      careerField,
-      days,
-    });
-    return response.data;
-  },
-
-  analyzeSalaryTrends: async (careerField?: string, days: number = 30) => {
-    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/salary-trends`, {
-      careerField,
-      days,
-    });
-    return response.data;
-  },
-
-  getPersonalizedInsights: async (userProfile: any, careerAnalysis: any) => {
-    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/personalized-insights`, {
-      userProfile,
-      careerAnalysis,
-    });
-    return response.data;
-  },
-
-  compareJobs: async (jobIds: number[]) => {
-    const response = await axios.post(`${PYTHON_API_URL}/job-analysis/compare-jobs`, {
-      jobIds,
-    });
-    return response.data;
-  },
-};
-
-/* ================================
-   🔹 Job Recommendation Agent
-   ================================ */
-export const jobRecommendationService = {
-  getRecommendations: async (userId: number, careerAnalysis: any, userProfile?: any, limit: number = 10) => {
-    const response = await axios.post(`${PYTHON_API_URL}/agent/job-recommendations`, {
-      userId,
-      careerAnalysis,
-      userProfile,
-      limit,
-    });
-    return response.data;
-  },
-
-  getRealtimeRecommendations: async (userId: number, careerKeywords: string[], limit: number = 5) => {
-    const response = await axios.post(`${PYTHON_API_URL}/agent/job-recommendations/realtime`, {
-      userId,
-      careerKeywords,
-      limit,
-    });
-    return response.data;
-  },
-
-  // 채용 공고 + 필요 기술/자격증 통합 추천
-  getRecommendationsWithRequirements: async (
-    userId: number,
-    careerAnalysis: any,
-    userProfile?: any,
-    userSkills?: string[],
-    limit: number = 10
-  ) => {
-    const response = await axios.post(`${PYTHON_API_URL}/agent/job-recommendations/with-requirements`, {
-      userId,
-      careerAnalysis,
-      userProfile,
-      userSkills,
-      limit,
-    });
-    return response.data;
-  },
-};
-
-/* ================================
-   🔹 Q-net 자격증 Service
-   ================================ */
-/* ================================
-   🔹 Job Agent (OpenAI Agents SDK)
+   Job Agent (OpenAI Agents SDK)
    ================================ */
 export const jobAgentService = {
   // 채용 에이전트와 대화
@@ -587,6 +608,9 @@ export const jobAgentService = {
   },
 };
 
+/* ================================
+   Q-net 자격증 Service
+   ================================ */
 export const qnetService = {
   // 계열 코드 목록 조회
   getSeriesCodes: async () => {

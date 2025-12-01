@@ -4,8 +4,6 @@ import { learningPathService } from "@/lib/api";
 import Header from "@/components/feature/Header";
 
 import {
-    LineChart,
-    Line,
     BarChart,
     Bar,
     XAxis,
@@ -13,15 +11,64 @@ import {
     CartesianGrid,
     Tooltip,
     ResponsiveContainer,
+    LineChart,
+    Line,
 } from "recharts";
+
+interface LearningPath {
+    pathId: number;
+    domain: string;
+    subDomain?: string;
+    overallProgress: number;
+    currentWeek: number;
+}
+
+interface WeeklyProgress {
+    weekNumber: number;
+    status: string;
+    questionCount: number;
+    correctCount: number;
+    correctRate: number;
+}
+
+interface TypeAccuracy {
+    questionType: string;
+    accuracy: number;
+}
+
+interface WeaknessAnalysis {
+    totalWeak: number;
+    weakTags: string[];
+    feedbackList?: FeedbackItem[];
+}
+
+interface FeedbackItem {
+    questionText: string;
+    feedback: string;
+    isCorrect: boolean;
+    score: number;
+    maxScore: number;
+    correctAnswer?: string;
+    userAnswer?: string;
+    questionType?: string;
+}
+
+interface DashboardStats {
+    correctRate: number;
+    correctCount: number;
+    totalQuestions: number;
+    answeredQuestions: number;
+    weeklyProgress: WeeklyProgress[];
+    typeAccuracy: TypeAccuracy[];
+    weaknessAnalysis: WeaknessAnalysis;
+}
 
 export default function Dashboard() {
     const navigate = useNavigate();
 
-    const [learningPaths, setLearningPaths] = useState([]);
+    const [learningPaths, setLearningPaths] = useState<LearningPath[]>([]);
     const [selectedPathId, setSelectedPathId] = useState<number | null>(null);
-
-    const [stats, setStats] = useState(null);
+    const [stats, setStats] = useState<DashboardStats | null>(null);
     const [loading, setLoading] = useState(false);
 
     const getCurrentUserId = () => {
@@ -54,326 +101,369 @@ export default function Dashboard() {
 
     const getTypeLabel = (type: string) => {
         switch (type) {
-            case "MCQ":
-                return "객관식";
-            case "SCENARIO":
-                return "시나리오";
-            case "CODING":
-                return "코딩";
-            case "DESIGN":
-                return "설계";
-            default:
-                return type;
+            case "MCQ": return "객관식";
+            case "SCENARIO": return "시나리오";
+            case "CODING": return "코딩";
+            case "DESIGN": return "설계";
+            default: return type;
         }
     };
 
-    const weeklyProgressData =
-        stats?.weeklyProgress?.map((w) => ({
-            name: `${w.weekNumber}주차`,
-            정답률: w.correctRate,
-        })) ?? [];
+    // 안전한 계산 함수들
+    const safePercent = (part: number, total: number): number => {
+        if (!total || total === 0) return 0;
+        return (part / total) * 100;
+    };
 
-    const typeAccuracyData =
-        stats?.typeAccuracy?.map((t) => ({
-            name: getTypeLabel(t.questionType),
-            정답률: t.accuracy,
-        })) ?? [];
+    const safeNumber = (value: number, decimals: number = 1): string => {
+        if (isNaN(value) || !isFinite(value)) return "0";
+        return value.toFixed(decimals);
+    };
+
+    const calcTotalQuestions = (s: DashboardStats): number => {
+        if (s.totalQuestions > 0) return s.totalQuestions;
+        return s.weeklyProgress?.reduce((sum, w) => sum + w.questionCount, 0) || 0;
+    };
+
+    const calcCorrectCount = (s: DashboardStats): number => {
+        if (s.correctCount > 0) return s.correctCount;
+        return s.weeklyProgress?.reduce((sum, w) => sum + w.correctCount, 0) || 0;
+    };
+
+    const weeklyProgressData = stats?.weeklyProgress?.map((w) => ({
+        name: `${w.weekNumber}주차`,
+        정답률: w.correctRate,
+    })) ?? [];
+
+    const typeAccuracyData = stats?.typeAccuracy?.map((t) => ({
+        name: getTypeLabel(t.questionType),
+        정답률: t.accuracy,
+    })) ?? [];
+
+    const selectedPath = learningPaths.find(p => p.pathId === selectedPathId);
+
+    // 계산된 값들
+    const totalQ = stats ? calcTotalQuestions(stats) : 0;
+    const correctC = stats ? calcCorrectCount(stats) : 0;
+    const correctRate = safePercent(correctC, totalQ);
 
     return (
         <div className="min-h-screen bg-[#FFF5F7]">
             <Header />
 
-            <div className="max-w-[1650px] mx-auto px-6 pt-24 pb-10 flex gap-8">
+            <div className="max-w-[1600px] mx-auto px-6 pt-24 pb-8">
+                {/* 상단 헤더 */}
+                <div className="flex items-center justify-between mb-5 pb-4 border-b border-pink-100">
+                    <div className="flex items-center gap-4">
+                        <h1 className="text-lg font-semibold text-gray-900">학습 대시보드</h1>
+                        {selectedPath && (
+                            <div className="flex items-center gap-2 text-sm">
+                                <span className="text-pink-300">|</span>
+                                <span className="text-gray-600">{selectedPath.domain}</span>
+                                {selectedPath.subDomain && (
+                                    <span className="text-gray-400 text-xs">/ {selectedPath.subDomain}</span>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
 
-                {/* ===================================================
-            오른쪽 상단 고정 카드 리스트 (MPM 사이드 바 느낌)
-        =================================================== */}
-                <aside className="w-[360px] flex-shrink-0 sticky top-28">
-                    <h2 className="text-lg font-bold text-gray-900 mb-3">진행중인 학습</h2>
-
-                    <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
-
-                        {learningPaths.length === 0 && (
-                            <div className="py-16 text-center text-gray-500 text-sm">
-                                진행 중인 학습이 없습니다
+                <div className="grid grid-cols-12 gap-5">
+                    {/* 좌측: 메인 통계 영역 */}
+                    <div className="col-span-9 space-y-5">
+                        {/* 상단 KPI */}
+                        {stats && (
+                            <div className="grid grid-cols-4 gap-4">
+                                <div className="bg-white border border-gray-200 rounded p-4">
+                                    <p className="text-xs text-gray-500 mb-1">전체 정답률</p>
+                                    <p className="text-2xl font-bold text-gray-900">{safeNumber(correctRate)}%</p>
+                                    <p className="text-xs text-gray-400 mt-1">{correctC} / {totalQ}</p>
+                                </div>
+                                <div className="bg-white border border-gray-200 rounded p-4">
+                                    <p className="text-xs text-gray-500 mb-1">완료한 문제</p>
+                                    <p className="text-2xl font-bold text-gray-900">{stats.answeredQuestions}</p>
+                                    <p className="text-xs text-gray-400 mt-1">/ {totalQ} 문제</p>
+                                </div>
+                                <div className="bg-white border border-gray-200 rounded p-4">
+                                    <p className="text-xs text-gray-500 mb-1">완료 주차</p>
+                                    <p className="text-2xl font-bold text-gray-900">
+                                        {stats.weeklyProgress.filter((w) => w.status === "COMPLETED").length}
+                                    </p>
+                                    <p className="text-xs text-gray-400 mt-1">/ 4 주차</p>
+                                </div>
+                                <div className="bg-white border border-gray-200 rounded p-4">
+                                    <p className="text-xs text-gray-500 mb-1">약점 태그</p>
+                                    <p className="text-2xl font-bold text-gray-900">{stats.weaknessAnalysis.totalWeak}</p>
+                                    <p className="text-xs text-gray-400 mt-1">
+                                        {stats.weaknessAnalysis.totalWeak > 0 ? (
+                                            <span className="text-rose-500">주의 필요</span>
+                                        ) : (
+                                            <span className="text-emerald-500">양호</span>
+                                        )}
+                                    </p>
+                                </div>
                             </div>
                         )}
 
-                        {learningPaths.map((p) => (
-                            <div
-                                key={p.pathId}
-                                className={`
-                  p-4 border rounded-xl cursor-pointer transition-all shadow-sm
-                  ${
-                                    selectedPathId === p.pathId
-                                        ? "border-pink-400 bg-pink-50 shadow"
-                                        : "border-pink-200 bg-white hover:border-pink-300 hover:shadow"
-                                }
-                `}
-                                onClick={() => handlePathSelect(p.pathId)}
-                            >
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-400 to-pink-500 flex items-center justify-center">
-                                        <i className="ri-book-line text-white text-lg" />
+                        {/* 차트 영역 */}
+                        {stats && (
+                            <div className="grid grid-cols-2 gap-4">
+                                {/* 주차별 정답률 */}
+                                <div className="bg-white border border-gray-200 rounded p-4">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <p className="text-sm font-medium text-gray-900">주차별 정답률</p>
+                                        <div className="flex items-center gap-3 text-xs text-gray-400">
+                                            <span className="flex items-center gap-1">
+                                                <span className="w-2 h-2 rounded-full bg-pink-500"></span>
+                                                정답률
+                                            </span>
+                                        </div>
                                     </div>
-
-                                    <div className="min-w-0 flex-1">
-                                        <p className="text-sm font-semibold text-gray-900 truncate">
-                                            {p.domain}
-                                        </p>
-                                        {p.subDomain && (
-                                            <p className="text-xs text-gray-500 truncate">{p.subDomain}</p>
-                                        )}
-                                    </div>
+                                    <ResponsiveContainer width="100%" height={180}>
+                                        <LineChart data={weeklyProgressData}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#fce7f3" vertical={false} />
+                                            <XAxis dataKey="name" fontSize={11} tickLine={false} axisLine={false} />
+                                            <YAxis fontSize={11} tickLine={false} axisLine={false} domain={[0, 100]} />
+                                            <Tooltip
+                                                contentStyle={{
+                                                    fontSize: 12,
+                                                    border: '1px solid #fce7f3',
+                                                    borderRadius: 4,
+                                                    boxShadow: 'none'
+                                                }}
+                                            />
+                                            <Line
+                                                type="monotone"
+                                                dataKey="정답률"
+                                                stroke="#ec4899"
+                                                strokeWidth={2}
+                                                dot={{ fill: '#ec4899', r: 3 }}
+                                            />
+                                        </LineChart>
+                                    </ResponsiveContainer>
                                 </div>
 
-                                <div className="h-1.5 bg-pink-100 rounded-full overflow-hidden mb-2">
-                                    <div
-                                        className="h-full bg-gradient-to-r from-pink-400 to-pink-500"
-                                        style={{ width: `${p.overallProgress}%` }}
-                                    />
-                                </div>
-
-                                <div className="flex justify-between text-xs text-gray-600">
-                                    <span className="font-bold">{p.overallProgress}% 완료</span>
-                                    <span>{p.currentWeek}/4주차</span>
+                                {/* 유형별 정답률 */}
+                                <div className="bg-white border border-gray-200 rounded p-4">
+                                    <p className="text-sm font-medium text-gray-900 mb-4">유형별 정답률</p>
+                                    <ResponsiveContainer width="100%" height={180}>
+                                        <BarChart data={typeAccuracyData} layout="vertical">
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#fce7f3" horizontal={false} />
+                                            <XAxis type="number" fontSize={11} tickLine={false} axisLine={false} domain={[0, 100]} />
+                                            <YAxis type="category" dataKey="name" fontSize={11} tickLine={false} axisLine={false} width={60} />
+                                            <Tooltip
+                                                contentStyle={{
+                                                    fontSize: 12,
+                                                    border: '1px solid #fce7f3',
+                                                    borderRadius: 4,
+                                                    boxShadow: 'none'
+                                                }}
+                                            />
+                                            <Bar dataKey="정답률" fill="#f472b6" radius={[0, 2, 2, 0]} barSize={20} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                </aside>
+                        )}
 
-                {/* ===================================================
-            메인 상세 대시보드 (ㄴ자형 MPM 분석 레이아웃)
-        =================================================== */}
-                <main className="flex-1 space-y-8">
+                        {/* 주차별 상세 테이블 */}
+                        {stats && (
+                            <div className="bg-white border border-gray-200 rounded">
+                                <div className="px-4 py-3 border-b border-gray-100">
+                                    <p className="text-sm font-medium text-gray-900">주차별 상세 현황</p>
+                                </div>
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="border-b border-gray-100 bg-gray-50/50">
+                                            <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">주차</th>
+                                            <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">상태</th>
+                                            <th className="text-right px-4 py-2.5 text-xs font-medium text-gray-500">문제 수</th>
+                                            <th className="text-right px-4 py-2.5 text-xs font-medium text-gray-500">정답 수</th>
+                                            <th className="text-right px-4 py-2.5 text-xs font-medium text-gray-500">정답률</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {stats.weeklyProgress.map((w) => (
+                                            <tr key={w.weekNumber} className="border-b border-gray-50 hover:bg-gray-50/50">
+                                                <td className="px-4 py-2.5 text-gray-900">{w.weekNumber}주차</td>
+                                                <td className="px-4 py-2.5">
+                                                    {w.status === "COMPLETED" ? (
+                                                        <span className="text-xs text-pink-600 bg-pink-50 px-2 py-0.5 rounded">완료</span>
+                                                    ) : w.status === "UNLOCKED" ? (
+                                                        <span className="text-xs text-pink-500 bg-pink-50/50 px-2 py-0.5 rounded">진행중</span>
+                                                    ) : (
+                                                        <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">잠김</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-2.5 text-right text-gray-600">{w.questionCount}</td>
+                                                <td className="px-4 py-2.5 text-right text-gray-600">{w.correctCount}</td>
+                                                <td className="px-4 py-2.5 text-right">
+                                                    <span className={w.correctRate >= 70 ? "text-pink-600" : w.correctRate >= 40 ? "text-amber-600" : "text-rose-600"}>
+                                                        {safeNumber(w.correctRate)}%
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
 
-                    {/* 선택 안됨 */}
-                    {!selectedPathId && (
-                        <div className="h-[600px] flex flex-col items-center justify-center">
-                            <i className="ri-bar-chart-line text-7xl text-gray-300 mb-5" />
-                            <p className="text-lg text-gray-700 font-semibold">학습 경로를 선택해주세요</p>
-                            <p className="text-sm text-gray-400 mt-2">
-                                오른쪽 학습 카드에서 선택하면 상세 분석이 표시됩니다
-                            </p>
-                        </div>
-                    )}
-
-                    {loading && (
-                        <div className="h-[600px] flex flex-col items-center justify-center">
-                            <div className="h-10 w-10 rounded-full border-4 border-indigo-600 border-t-transparent animate-spin mb-4" />
-                            <p className="text-sm text-gray-500">데이터 로딩 중...</p>
-                        </div>
-                    )}
-
-                    {/* ================================ */}
-                    {/*   선택된 학습 상세 데이터 출력   */}
-                    {/* ================================ */}
-                    {!loading && stats && (
-                        <>
-                            {/* 상단 KPI 카드들 */}
-                            <section className="grid grid-cols-4 gap-4">
-                                {[
-                                    {
-                                        label: "전체 정답률",
-                                        icon: "ri-percent-line",
-                                        value: `${stats.correctRate.toFixed(1)}%`,
-                                        sub: `${stats.correctCount} / ${stats.totalQuestions}`,
-                                    },
-                                    {
-                                        label: "완료한 문제",
-                                        icon: "ri-checkbox-circle-line",
-                                        value: stats.answeredQuestions,
-                                        sub: `/ ${stats.totalQuestions}`,
-                                    },
-                                    {
-                                        label: "완료 주차",
-                                        icon: "ri-calendar-check-line",
-                                        value: stats.weeklyProgress.filter((w) => w.status === "COMPLETED").length,
-                                        sub: "/ 4",
-                                    },
-                                    {
-                                        label: "약점 개수",
-                                        icon: "ri-alert-line",
-                                        value: stats.weaknessAnalysis.totalWeak,
-                                        sub: "개",
-                                    },
-                                ].map((c, i) => (
-                                    <div
-                                        key={i}
-                                        className="bg-white border border-pink-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all"
-                                    >
-                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-400 to-pink-500 flex items-center justify-center mb-3">
-                                            <i className={`${c.icon} text-white text-lg`} />
-                                        </div>
-                                        <p className="text-xs text-gray-500 mb-1">{c.label}</p>
-                                        <p className="text-2xl font-bold text-gray-900">{c.value}</p>
-                                        <p className="text-xs text-gray-400 mt-1">{c.sub}</p>
+                        {/* AI 학습 피드백 */}
+                        {stats && stats.weaknessAnalysis.feedbackList && stats.weaknessAnalysis.feedbackList.length > 0 && (
+                            <div className="bg-white border border-gray-200 rounded">
+                                <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-sm font-medium text-gray-900">AI 학습 피드백</p>
+                                        {stats.weaknessAnalysis.totalWeak > 0 && (
+                                            <span className="text-xs text-rose-600 bg-rose-50 px-2 py-0.5 rounded">
+                                                오답 {stats.weaknessAnalysis.totalWeak}개
+                                            </span>
+                                        )}
                                     </div>
-                                ))}
-                            </section>
-
-                            {/* ======= ㄴ자형 MPM 레이아웃 ======= */}
-                            <section className="grid grid-cols-3 gap-8">
-
-                                {/* -----------------------------------
-                    좌측 패널 (유형별 / 약점)
-                ----------------------------------- */}
-                                <div className="col-span-1 space-y-8">
-                                    {/* 문제 유형별 */}
-                                    <div className="bg-white border border-pink-200 rounded-xl p-6 shadow-sm">
-                                        <h3 className="text-sm font-semibold text-gray-900 mb-4">
-                                            문제 유형별 정답률
-                                        </h3>
-
-                                        {stats.typeAccuracy.map((t) => (
-                                            <div key={t.questionType} className="mb-4">
-                                                <div className="flex justify-between text-xs mb-1">
-                                                    <span className="font-medium text-gray-700">{getTypeLabel(t.questionType)}</span>
-                                                    <span className="font-semibold text-gray-900">{t.accuracy.toFixed(1)}%</span>
+                                    <span className="text-xs text-gray-400">최근 {stats.weaknessAnalysis.feedbackList.length}문제</span>
+                                </div>
+                                <div className="divide-y divide-gray-50 max-h-[500px] overflow-y-auto">
+                                    {stats.weaknessAnalysis.feedbackList.map((item, i) => (
+                                        <div key={i} className={`p-4 ${item.isCorrect ? 'bg-white' : 'bg-rose-50/30'}`}>
+                                            <div className="flex items-start gap-3">
+                                                <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
+                                                    item.isCorrect
+                                                        ? 'bg-pink-100 text-pink-600'
+                                                        : 'bg-rose-100 text-rose-600'
+                                                }`}>
+                                                    {item.isCorrect ? '✓' : '✗'}
                                                 </div>
-                                                <div className="h-2 bg-pink-100 rounded-full overflow-hidden">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+                                                                {item.questionType === 'MCQ' ? '객관식' :
+                                                                 item.questionType === 'SCENARIO' ? '시나리오' :
+                                                                 item.questionType === 'CODING' ? '코딩' : '설계'}
+                                                            </span>
+                                                            <p className="text-sm text-gray-700 truncate">{item.questionText}</p>
+                                                        </div>
+                                                        <span className={`flex-shrink-0 text-xs font-medium ${
+                                                            item.isCorrect ? 'text-pink-600' : 'text-rose-600'
+                                                        }`}>
+                                                            {item.score}/{item.maxScore}점
+                                                        </span>
+                                                    </div>
+
+                                                    {/* 내 답변 vs 정답 */}
+                                                    {!item.isCorrect && (
+                                                        <div className="mb-2 p-2 bg-white rounded border border-gray-100 text-xs">
+                                                            <div className="flex gap-4">
+                                                                <div className="flex-1">
+                                                                    <span className="text-gray-400">내 답변: </span>
+                                                                    <span className="text-rose-600">{item.userAnswer || '-'}</span>
+                                                                </div>
+                                                                {item.correctAnswer && (
+                                                                    <div className="flex-1">
+                                                                        <span className="text-gray-400">정답: </span>
+                                                                        <span className="text-pink-600 font-medium">{item.correctAnswer}</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* AI 피드백 */}
+                                                    <div className="text-xs text-gray-600 leading-relaxed">
+                                                        <span className="text-pink-500 font-medium">AI: </span>
+                                                        {item.feedback}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 선택 안됨 */}
+                        {!stats && !loading && (
+                            <div className="bg-white border border-gray-200 rounded p-12 text-center">
+                                <p className="text-gray-400 text-sm">우측에서 학습을 선택해주세요</p>
+                            </div>
+                        )}
+
+                        {/* 로딩 */}
+                        {loading && (
+                            <div className="bg-white border border-gray-200 rounded p-12 text-center">
+                                <div className="w-6 h-6 border-2 border-pink-200 border-t-pink-500 rounded-full animate-spin mx-auto"></div>
+                                <p className="text-gray-400 text-sm mt-3">로딩 중...</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* 우측: 학습 목록 */}
+                    <div className="col-span-3">
+                        <div className="bg-white border border-gray-200 rounded sticky top-24">
+                            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                                <p className="text-sm font-medium text-gray-900">진행중인 학습</p>
+                                <span className="text-xs text-gray-400">{learningPaths.length}개</span>
+                            </div>
+                            <div className="max-h-[500px] overflow-y-auto">
+                                {learningPaths.length === 0 ? (
+                                    <div className="p-6 text-center">
+                                        <div className="w-12 h-12 bg-pink-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                                            <i className="ri-chat-smile-2-line text-xl text-pink-400"></i>
+                                        </div>
+                                        <p className="text-sm text-gray-600 mb-1">아직 학습이 없어요</p>
+                                        <p className="text-xs text-gray-400 mb-4">진로 상담 후 직업을 선택하면<br/>맞춤 학습이 생성됩니다</p>
+                                        <button
+                                            onClick={() => navigate('/career-chat')}
+                                            className="text-xs text-pink-600 hover:text-pink-700 font-medium"
+                                        >
+                                            진로 상담 시작하기 →
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="divide-y divide-gray-50">
+                                        {learningPaths.map((p) => (
+                                            <div
+                                                key={p.pathId}
+                                                onClick={() => handlePathSelect(p.pathId)}
+                                                className={`px-4 py-3 cursor-pointer transition-colors ${
+                                                    selectedPathId === p.pathId
+                                                        ? "bg-pink-50 border-l-2 border-l-pink-500"
+                                                        : "hover:bg-pink-50/30 border-l-2 border-l-transparent"
+                                                }`}
+                                            >
+                                                <p className={`text-sm truncate ${
+                                                    selectedPathId === p.pathId ? "text-pink-700 font-medium" : "text-gray-700"
+                                                }`}>
+                                                    {p.domain}
+                                                </p>
+                                                {p.subDomain && (
+                                                    <p className="text-xs text-gray-400 truncate mt-0.5">{p.subDomain}</p>
+                                                )}
+                                                <div className="flex items-center justify-between mt-2">
+                                                    <span className="text-xs text-gray-400">{p.currentWeek ?? 1}/4주차</span>
+                                                    <span className={`text-xs font-medium ${
+                                                        selectedPathId === p.pathId ? "text-pink-600" : "text-gray-500"
+                                                    }`}>
+                                                        {p.overallProgress ?? 0}%
+                                                    </span>
+                                                </div>
+                                                <div className="mt-1.5 h-1 bg-pink-100 rounded-full overflow-hidden">
                                                     <div
-                                                        className="h-full bg-gradient-to-r from-pink-400 to-pink-500"
-                                                        style={{ width: `${t.accuracy}%` }}
+                                                        className={`h-full rounded-full ${
+                                                            selectedPathId === p.pathId ? "bg-pink-500" : "bg-pink-300"
+                                                        }`}
+                                                        style={{ width: `${p.overallProgress ?? 0}%` }}
                                                     />
                                                 </div>
                                             </div>
                                         ))}
-
-                                        {/* 바 차트 */}
-                                        <div className="mt-6">
-                                            <ResponsiveContainer width="100%" height={120}>
-                                                <BarChart data={typeAccuracyData}>
-                                                    <CartesianGrid strokeDasharray="3 3" stroke="#fce7f3" />
-                                                    <XAxis dataKey="name" fontSize={10} />
-                                                    <YAxis fontSize={10} />
-                                                    <Tooltip />
-                                                    <Bar dataKey="정답률" fill="#f472b6" radius={[4, 4, 0, 0]} />
-                                                </BarChart>
-                                            </ResponsiveContainer>
-                                        </div>
                                     </div>
-
-                                    {/* 약점 분석 */}
-                                    <div className="bg-white border border-pink-200 rounded-xl p-6 shadow-sm">
-                                        <h3 className="text-sm font-semibold text-gray-900 mb-4">약점 분석</h3>
-
-                                        {stats.weaknessAnalysis.totalWeak === 0 ? (
-                                            <div className="text-center py-10">
-                                                <div className="text-4xl mb-2">🎉</div>
-                                                <p className="text-gray-700 font-semibold">약점이 없습니다!</p>
-                                                <p className="text-xs text-gray-400 mt-1">모든 영역에서 잘하고 있어요</p>
-                                            </div>
-                                        ) : (
-                                            <>
-                                                <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg mb-4">
-                                                    <p className="text-sm font-semibold text-orange-800 mb-1">
-                                                        총 {stats.weaknessAnalysis.totalWeak} 개의 약점 발견
-                                                    </p>
-                                                    <p className="text-xs text-orange-700">아래 항목을 집중적으로 공부하세요!</p>
-                                                </div>
-
-                                                <div className="flex flex-wrap gap-2">
-                                                    {stats.weaknessAnalysis.weakTags.map((tag, i) => (
-                                                        <span
-                                                            key={i}
-                                                            className="px-3 py-1 bg-orange-100 border border-orange-200 text-orange-800 rounded-md text-xs"
-                                                        >
-                              {tag}
-                            </span>
-                                                    ))}
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* -----------------------------------
-                    우측 패널 (트렌드 + 테이블)
-                ----------------------------------- */}
-                                <div className="col-span-2 space-y-8">
-
-                                    {/* 라인 차트 */}
-                                    <div className="bg-white border border-pink-200 rounded-xl p-6 shadow-sm">
-                                        <h3 className="text-sm font-semibold text-gray-900">주차별 학습 진도</h3>
-                                        <p className="text-xs text-gray-400 mb-4">정답률 추이</p>
-
-                                        <ResponsiveContainer width="100%" height={240}>
-                                            <LineChart data={weeklyProgressData}>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="#fce7f3" />
-                                                <XAxis dataKey="name" fontSize={11} />
-                                                <YAxis fontSize={11} />
-                                                <Tooltip />
-                                                <Line
-                                                    type="monotone"
-                                                    dataKey="정답률"
-                                                    stroke="#f472b6"
-                                                    strokeWidth={2.5}
-                                                />
-                                            </LineChart>
-                                        </ResponsiveContainer>
-                                    </div>
-
-                                    {/* 테이블 */}
-                                    <div className="bg-white border border-pink-200 rounded-xl p-6 shadow-sm">
-                                        <h3 className="text-sm font-semibold text-gray-900 mb-4">주차별 상세 현황</h3>
-
-                                        <table className="w-full text-xs">
-                                            <thead>
-                                            <tr className="border-b">
-                                                <th className="text-left py-2">주차</th>
-                                                <th className="text-left py-2">상태</th>
-                                                <th className="text-right py-2">문제</th>
-                                                <th className="text-right py-2">정답</th>
-                                                <th className="text-right py-2">정답률</th>
-                                            </tr>
-                                            </thead>
-
-                                            <tbody>
-                                            {stats.weeklyProgress.map((w) => (
-                                                <tr
-                                                    key={w.weekNumber}
-                                                    className="border-b hover:bg-gray-50 transition-colors"
-                                                >
-                                                    <td className="py-3">{w.weekNumber}주차</td>
-                                                    <td className="py-3">
-                              <span
-                                  className={`px-2 py-1 rounded-md border text-xs font-semibold
-                                  ${
-                                      w.status === "COMPLETED"
-                                          ? "bg-pink-50 text-pink-700 border-pink-300"
-                                          : w.status === "UNLOCKED"
-                                              ? "bg-pink-100 text-pink-800 border-pink-400"
-                                              : "bg-gray-50 text-gray-600 border-gray-300"
-                                  }
-                                `}
-                              >
-                                {w.status === "COMPLETED"
-                                    ? "완료"
-                                    : w.status === "UNLOCKED"
-                                        ? "진행중"
-                                        : "잠김"}
-                              </span>
-                                                    </td>
-
-                                                    <td className="py-3 text-right">{w.questionCount}</td>
-                                                    <td className="py-3 text-right">{w.correctCount}</td>
-                                                    <td className="py-3 text-right font-bold">
-                                                        {w.correctRate.toFixed(1)}%
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-
-                                </div>
-                            </section>
-                        </>
-                    )}
-
-                </main>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );
