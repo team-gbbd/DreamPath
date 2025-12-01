@@ -35,11 +35,23 @@ public class Inquiry {
     @Column(columnDefinition = "text", nullable = false)
     private String content;
 
+    @Column(nullable = false)
+    private Boolean answered = false;
+
+    @Column(name = "answered_at")
+    private LocalDateTime answeredAt;
+
+    @Column(name = "reply_content", columnDefinition = "text")
+    private String replyContent;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+        if (answered == null) {
+            answered = false;
+        }
     }
 }

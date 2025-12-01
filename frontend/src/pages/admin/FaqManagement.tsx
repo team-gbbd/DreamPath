@@ -193,7 +193,7 @@ export default function FaqManagementPage() {
             </div>
             <div className="flex gap-3">
               <button
-                onClick={() => navigate('/admin/dashboard')}
+                onClick={() => navigate('/admin')}
                 className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-medium transition-all flex items-center gap-2"
               >
                 <i className="ri-arrow-left-line"></i>
