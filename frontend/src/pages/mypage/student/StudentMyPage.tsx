@@ -622,7 +622,7 @@ export default function StudentMyPage() {
                     <h3 className="font-semibold text-gray-900 mb-1">멘토가 되어보세요!</h3>
                     <p className="text-xs text-gray-600 mb-4">후배들의 성장을 도와주실 멘토를 모집합니다.</p>
                     <button
-                      onClick={() => navigate('/mentor/apply')}
+                      onClick={() => navigate('/mentors/apply')}
                       className="text-sm bg-violet-500 hover:bg-violet-600 text-white px-4 py-2 rounded transition-colors"
                     >
                       멘토 신청하기

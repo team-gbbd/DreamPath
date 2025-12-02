@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { mentorService } from '@/lib/api';
 
 interface Mentor {
@@ -17,10 +17,10 @@ interface Mentor {
 
 export default function MentorEditPage() {
   const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mentorId, setMentorId] = useState<number | null>(null);
 
   const [company, setCompany] = useState('');
   const [job, setJob] = useState('');
@@ -48,27 +48,26 @@ export default function MentorEditPage() {
       return;
     }
 
-    if (id) {
-      fetchMentor();
-    }
-  }, [id]);
+    fetchMentor();
+  }, [userId]);
 
   const fetchMentor = async () => {
-    if (!id) return;
+    if (!userId) return;
 
     try {
       setIsLoading(true);
       setError(null);
 
-      const data: Mentor = await mentorService.getMentorDetail(parseInt(id));
+      // 로그인한 사용자의 멘토 정보를 가져옴
+      const data: Mentor = await mentorService.getMyApplication(userId);
 
-      // 본인의 프로필인지 확인
-      if (userId !== data.userId) {
-        alert('본인의 프로필만 수정할 수 있습니다.');
-        navigate(`/mentors/${id}`);
+      if (data.status !== 'APPROVED') {
+        alert('승인된 멘토만 프로필을 수정할 수 있습니다.');
+        navigate('/mypage');
         return;
       }
 
+      setMentorId(data.mentorId);
       setCompany(data.company || '');
       setJob(data.job || '');
       setExperience(data.experience || '');
@@ -76,6 +75,11 @@ export default function MentorEditPage() {
       setCareer(data.career || '');
     } catch (err: any) {
       console.error('멘토 정보 로딩 실패:', err);
+      if (err.response?.status === 404) {
+        alert('멘토 정보를 찾을 수 없습니다.');
+        navigate('/mypage');
+        return;
+      }
       setError(err.response?.data || '멘토 정보를 불러오는 중 오류가 발생했습니다.');
     } finally {
       setIsLoading(false);
@@ -85,7 +89,7 @@ export default function MentorEditPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!id) return;
+    if (!mentorId) return;
 
     if (!company.trim()) {
       alert('회사명을 입력해주세요.');
@@ -116,7 +120,7 @@ export default function MentorEditPage() {
       setIsSaving(true);
       setError(null);
 
-      await mentorService.updateMentorProfile(parseInt(id), {
+      await mentorService.updateMentorProfile(mentorId, {
         company,
         job,
         experience,
@@ -125,7 +129,7 @@ export default function MentorEditPage() {
       });
 
       alert('프로필이 수정되었습니다!');
-      navigate(`/mentors/${id}`);
+      navigate('/mypage');
     } catch (err: any) {
       console.error('프로필 수정 실패:', err);
       setError(err.response?.data || '프로필 수정 중 오류가 발생했습니다.');
@@ -161,7 +165,7 @@ export default function MentorEditPage() {
               </div>
             </div>
             <button
-              onClick={() => navigate(`/mentors/${id}`)}
+              onClick={() => navigate('/mypage')}
               className="text-gray-500 hover:text-gray-700 transition-colors"
             >
               <i className="ri-close-line text-2xl"></i>
@@ -283,7 +287,7 @@ export default function MentorEditPage() {
           <div className="flex gap-3">
             <button
               type="button"
-              onClick={() => navigate(`/mentors/${id}`)}
+              onClick={() => navigate('/mypage')}
               className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-200 transition-colors"
             >
               취소
