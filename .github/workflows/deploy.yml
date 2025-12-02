@@ -1,0 +1,163 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+
+jobs:
+  # 변경된 파일 감지
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+      ai-service: ${{ steps.filter.outputs.ai-service }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+            backend:
+              - 'backend/**'
+            ai-service:
+              - 'ai-service/**'
+
+  # Frontend 배포 (S3 + CloudFront)
+  deploy-frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+        env:
+          VITE_API_URL: https://api.dreampathai.link/api
+          VITE_PYTHON_AI_SERVICE_URL: https://ai.dreampathai.link
+          VITE_LIVEKIT_URL: wss://dreampath-lsh17376.livekit.cloud
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Deploy to S3
+        working-directory: frontend
+        run: aws s3 sync out/ s3://${{ secrets.S3_BUCKET }} --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
+
+  # Backend 배포 (ECR + ECS)
+  deploy-backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to Amazon ECR
+        working-directory: backend
+        run: |
+          docker buildx build --platform linux/amd64 --provenance=false \
+            -t ${{ env.ECR_REGISTRY }}/dreampath-backend:latest \
+            -t ${{ env.ECR_REGISTRY }}/dreampath-backend:${{ github.sha }} \
+            --push .
+
+      - name: Update image tag in task definition
+        run: |
+          sed -i 's|dreampath-backend:latest|dreampath-backend:${{ github.sha }}|g' .github/ecs/backend-task-definition.json
+
+      - name: Register task definition
+        run: |
+          aws ecs register-task-definition \
+            --cli-input-json file://.github/ecs/backend-task-definition.json
+
+      - name: Update ECS service
+        run: |
+          aws ecs update-service \
+            --cluster dreampath-cluster \
+            --service dreampath-backend-service \
+            --task-definition dreampath-backend-task \
+            --force-new-deployment
+
+  # AI Service 배포 (ECR + ECS)
+  deploy-ai-service:
+    needs: changes
+    if: needs.changes.outputs.ai-service == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to Amazon ECR
+        working-directory: ai-service
+        run: |
+          docker buildx build --platform linux/amd64 --provenance=false \
+            -t ${{ env.ECR_REGISTRY }}/dreampath-ai-service:latest \
+            -t ${{ env.ECR_REGISTRY }}/dreampath-ai-service:${{ github.sha }} \
+            --push .
+
+      - name: Update image tag in task definition
+        run: |
+          sed -i 's|dreampath-ai-service:latest|dreampath-ai-service:${{ github.sha }}|g' .github/ecs/ai-service-task-definition.json
+
+      - name: Register task definition
+        run: |
+          aws ecs register-task-definition \
+            --cli-input-json file://.github/ecs/ai-service-task-definition.json
+
+      - name: Update ECS service
+        run: |
+          aws ecs update-service \
+            --cluster dreampath-cluster \
+            --service dreampath-ai-service \
+            --task-definition dreampath-ai-task \
+            --force-new-deployment

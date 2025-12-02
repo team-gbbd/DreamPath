@@ -1,6 +1,6 @@
 """
 DreamPath Career Analysis AI Service
-Python FastAPI Microservice
+Python FastAPI Microservice v1.2
 """
 
 import os
@@ -27,6 +27,11 @@ from routers import api_router
 from routers.vector_router import router as vector_router
 from routers.rag_router import router as rag_router
 from routers.profile_match_router import router as profile_match_router
+from routers.user_document import router as user_document_router
+from routers.user_embedding import router as user_embedding_router
+from routers.bigfive_router import router as bigfive_router
+from routers.mbti_router import router as mbti_router
+from routers.personality_profile_router import router as personality_profile_router
 from routers.chatbot_router import router as chatbot_router
 
 # ====== Services ======
@@ -75,8 +80,13 @@ app.add_middleware(
 # =========================================
 app.include_router(api_router)              # 기존 chat, analysis, identity, job_sites API
 app.include_router(vector_router, prefix="/api")
-app.include_router(rag_router, prefix="/api")
+app.include_router(rag_router)
 app.include_router(profile_match_router, prefix="/api")
+app.include_router(user_document_router, prefix="/analysis", tags=["analysis"])
+app.include_router(user_embedding_router, prefix="/embedding", tags=["embedding"])
+app.include_router(bigfive_router, prefix="/api")
+app.include_router(personality_profile_router, prefix="/api")
+app.include_router(mbti_router, prefix='/api')
 app.include_router(chatbot_router)  # chatbot API (prefix는 router에 정의됨)
 
 
@@ -98,7 +108,7 @@ answer_evaluator = AnswerEvaluatorService() if api_key else None
 code_executor = CodeExecutorService()
 
 recommend_service = RecommendService()
-hybrid_recommender = HybridRecommendService()
+# hybrid_recommender = HybridRecommendService()  # Temporarily disabled due to Pinecone Index error
 
 
 # =========================================
@@ -372,6 +382,27 @@ async def recommend_schools(payload: dict):
     try:
         svc = RecommendService()
         return {"items": svc.recommend_school(vector_id)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/recommend/hybrid-jobs")
+async def recommend_hybrid_jobs(payload: dict):
+    """
+    Hybrid job recommendation endpoint for Spring Boot backend
+    Temporarily using basic recommend service
+    """
+    vector_id = payload.get("vectorId")
+    top_k = payload.get("topK", 20)
+
+    if not vector_id:
+        raise HTTPException(status_code=400, detail="vectorId 필요")
+
+    try:
+        # Using basic RecommendService instead of HybridRecommendService
+        svc = RecommendService()
+        result = svc.recommend_jobs(vector_id, top_k)  # Fixed: recommend_jobs not recommend_job
+        return {"recommended": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

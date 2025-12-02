@@ -5,17 +5,14 @@ import com.dreampath.domain.learning.entity.WeeklySession;
 import com.dreampath.global.enums.Difficulty;
 import com.dreampath.global.enums.QuestionType;
 import com.dreampath.domain.learning.repository.WeeklyQuestionRepository;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.langchain4j.model.chat.ChatLanguageModel;
-import dev.langchain4j.model.openai.OpenAiChatModel;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,23 +25,10 @@ public class QuestionGeneratorService {
 
     private final WeeklyQuestionRepository questionRepository;
     private final ObjectMapper objectMapper;
+    private final RestTemplate restTemplate;
 
-    @Value("${openai.api.key}")
-    private String apiKey;
-
-    @Value("${openai.api.model:gpt-4o-mini}")
-    private String modelName;
-
-    private ChatLanguageModel chatModel;
-
-    @PostConstruct
-    public void init() {
-        this.chatModel = OpenAiChatModel.builder()
-                .apiKey(apiKey)
-                .modelName(modelName)
-                .temperature(0.7)
-                .build();
-    }
+    @Value("${python.ai.service.url:http://localhost:8000}")
+    private String pythonServiceUrl;
 
     @Transactional
     public List<WeeklyQuestion> generateQuestions(WeeklySession session, String domain, int count) {
@@ -58,127 +42,83 @@ public class QuestionGeneratorService {
             return existingQuestions;
         }
 
-        String prompt = buildPrompt(domain, session.getWeekNumber(), count);
-        String response = chatModel.generate(prompt);
+        // Python AI Service 호출
+        List<Map<String, Object>> generatedQuestions = callPythonService(domain, session.getWeekNumber(), count);
 
-        List<WeeklyQuestion> questions = parseQuestions(response, session);
+        // 응답을 WeeklyQuestion 엔티티로 변환
+        List<WeeklyQuestion> questions = convertToEntities(generatedQuestions, session);
         return questionRepository.saveAll(questions);
     }
 
-    private String buildPrompt(String domain, Integer weekNumber, int count) {
-        // 도메인에 따라 적절한 문제 유형 결정
-        String typeGuidelines = getTypeGuidelines(domain);
+    private List<Map<String, Object>> callPythonService(String domain, int weekNumber, int count) {
+        String url = pythonServiceUrl + "/api/learning/generate-questions";
 
-        return String.format("""
-            당신은 %s 분야의 전문 교육자입니다.
-            %d주차 학습을 위한 문제 %d개를 생성해주세요.
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
 
-            문제는 다음 형식의 JSON 배열로 작성해주세요:
-            [
-              {
-                "type": "MCQ|SCENARIO|CODING|DESIGN",
-                "difficulty": "EASY|MEDIUM|HARD",
-                "question": "문제 내용",
-                "options": ["선택지1", "선택지2", "선택지3", "선택지4"],
-                "answer": "정답",
-                "maxScore": 점수
-              }
-            ]
+        Map<String, Object> requestBody = Map.of(
+            "domain", domain,
+            "weekNumber", weekNumber,
+            "count", count
+        );
 
-            %s
-
-            규칙:
-            - 난이도: EASY(10점), MEDIUM(20점), HARD(30점)
-            - 문제는 실무 중심으로 구성
-            - 도메인의 특성을 반영한 문제를 만드세요
-            - JSON만 출력 (다른 설명 없이)
-            """, domain, weekNumber, count, typeGuidelines);
-    }
-
-    private String getTypeGuidelines(String domain) {
-        String domainLower = domain.toLowerCase();
-
-        // IT/프로그래밍 관련
-        if (domainLower.contains("프로그래밍") || domainLower.contains("개발") ||
-            domainLower.contains("코딩") || domainLower.contains("소프트웨어") ||
-            domainLower.contains("programming") || domainLower.contains("coding")) {
-            return """
-                문제 유형:
-                - MCQ: 개념/이론 객관식 문제
-                - SCENARIO: 실무 상황 기반 문제 해결
-                - CODING: 코드 작성/분석 문제
-                - DESIGN: 시스템 설계/아키텍처 문제
-                """;
-        }
-
-        // 디자인/예술 관련
-        if (domainLower.contains("디자인") || domainLower.contains("design") ||
-            domainLower.contains("예술") || domainLower.contains("미술")) {
-            return """
-                문제 유형:
-                - MCQ: 디자인 원칙/이론 객관식 문제
-                - SCENARIO: 클라이언트 요구사항 기반 문제
-                - DESIGN: 디자인 컨셉/레이아웃 설계 문제
-                (CODING 유형은 사용하지 마세요)
-                """;
-        }
-
-        // 비즈니스/금융/경제 관련
-        if (domainLower.contains("금융") || domainLower.contains("경제") ||
-            domainLower.contains("비즈니스") || domainLower.contains("경영") ||
-            domainLower.contains("finance") || domainLower.contains("business")) {
-            return """
-                문제 유형:
-                - MCQ: 개념/이론 객관식 문제
-                - SCENARIO: 비즈니스 상황 분석 및 의사결정 문제
-                (CODING, DESIGN 유형은 사용하지 마세요)
-                """;
-        }
-
-        // 인문/사회/정치 관련
-        if (domainLower.contains("정치") || domainLower.contains("사회") ||
-            domainLower.contains("역사") || domainLower.contains("철학") ||
-            domainLower.contains("문학") || domainLower.contains("심리")) {
-            return """
-                문제 유형:
-                - MCQ: 개념/이론 객관식 문제
-                - SCENARIO: 사례 분석 및 비판적 사고 문제
-                (CODING, DESIGN 유형은 사용하지 마세요)
-                """;
-        }
-
-        // 기타 - 안전하게 MCQ와 SCENARIO만
-        return """
-            문제 유형:
-            - MCQ: 개념/이론 객관식 문제
-            - SCENARIO: 실무/사례 기반 분석 문제
-            (CODING, DESIGN 유형은 해당 도메인에 적합할 경우에만 사용하세요)
-            """;
-    }
-
-    private List<WeeklyQuestion> parseQuestions(String jsonResponse, WeeklySession session) {
-        List<WeeklyQuestion> questions = new ArrayList<>();
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
 
         try {
-            // JSON 파싱
-            String cleanedJson = extractJsonArray(jsonResponse);
-            List<Map<String, Object>> questionMaps = objectMapper.readValue(
-                cleanedJson,
-                new TypeReference<List<Map<String, Object>>>() {}
+            log.info("Python AI Service 호출: {}", url);
+            ResponseEntity<Map> response = restTemplate.exchange(
+                url,
+                HttpMethod.POST,
+                request,
+                Map.class
             );
 
-            int orderNum = 1;
-            for (Map<String, Object> qMap : questionMaps) {
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Map<String, Object> body = response.getBody();
+                Boolean success = (Boolean) body.get("success");
+
+                if (Boolean.TRUE.equals(success)) {
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> questions = (List<Map<String, Object>>) body.get("questions");
+                    log.info("Python AI Service 응답: {}개 문제 생성됨", questions.size());
+                    return questions;
+                }
+            }
+
+            throw new RuntimeException("Python AI Service 응답 오류");
+
+        } catch (Exception e) {
+            log.error("Python AI Service 호출 실패: {}", e.getMessage());
+            throw new RuntimeException("AI 문제 생성 실패: " + e.getMessage(), e);
+        }
+    }
+
+    private List<WeeklyQuestion> convertToEntities(List<Map<String, Object>> questionMaps, WeeklySession session) {
+        List<WeeklyQuestion> questions = new ArrayList<>();
+
+        int orderNum = 1;
+        for (Map<String, Object> qMap : questionMaps) {
+            try {
                 WeeklyQuestion question = new WeeklyQuestion();
                 question.setWeeklySession(session);
                 question.setQuestionType(QuestionType.valueOf((String) qMap.get("type")));
                 question.setDifficulty(Difficulty.valueOf((String) qMap.get("difficulty")));
                 question.setQuestionText((String) qMap.get("question"));
-                question.setMaxScore((Integer) qMap.get("maxScore"));
+
+                // maxScore 처리 (Integer 또는 Double 가능)
+                Object maxScoreObj = qMap.get("maxScore");
+                if (maxScoreObj instanceof Integer) {
+                    question.setMaxScore((Integer) maxScoreObj);
+                } else if (maxScoreObj instanceof Double) {
+                    question.setMaxScore(((Double) maxScoreObj).intValue());
+                } else {
+                    question.setMaxScore(10); // 기본값
+                }
+
                 question.setOrderNum(orderNum++);
 
-                // options를 JSONB로 저장
-                if (qMap.containsKey("options")) {
+                // options를 JSON 문자열로 저장
+                if (qMap.containsKey("options") && qMap.get("options") != null) {
                     question.setOptions(objectMapper.writeValueAsString(qMap.get("options")));
                 }
 
@@ -188,26 +128,13 @@ public class QuestionGeneratorService {
                 }
 
                 questions.add(question);
-            }
 
-        } catch (JsonProcessingException e) {
-            log.error("JSON 파싱 오류: {}", e.getMessage());
-            throw new RuntimeException("AI 응답 파싱 실패", e);
+            } catch (Exception e) {
+                log.error("문제 변환 오류: {}", e.getMessage());
+            }
         }
 
         return questions;
-    }
-
-    private String extractJsonArray(String response) {
-        // 응답에서 JSON 배열 부분만 추출
-        int start = response.indexOf('[');
-        int end = response.lastIndexOf(']') + 1;
-
-        if (start >= 0 && end > start) {
-            return response.substring(start, end);
-        }
-
-        return response;
     }
 
     @Transactional(readOnly = true)

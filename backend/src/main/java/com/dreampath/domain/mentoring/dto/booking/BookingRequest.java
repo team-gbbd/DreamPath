@@ -1,6 +1,5 @@
 package com.dreampath.domain.mentoring.dto.booking;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 

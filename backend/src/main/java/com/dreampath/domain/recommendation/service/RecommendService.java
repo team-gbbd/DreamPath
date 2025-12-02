@@ -30,6 +30,33 @@ public class RecommendService {
         return postForItems("/recommend/schools", vectorId);
     }
 
+    public Map<String, Object> recommendHybridJob(String vectorId, int topK) {
+        Map<String, Object> payload = Map.of(
+                "vectorId", vectorId,
+                "topK", topK);
+
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = (Map<String, Object>) restTemplate.postForObject(
+                    recommendBaseUrl + "/recommend/hybrid-jobs",
+                    payload,
+                    Map.class);
+
+            if (response == null) {
+                return Map.of("recommended", Collections.emptyList());
+            }
+
+            Object recommended = response.get("recommended");
+            if (recommended == null) {
+                return Map.of("recommended", Collections.emptyList());
+            }
+
+            return Map.of("recommended", recommended);
+        } catch (Exception e) {
+            return Map.of("recommended", Collections.emptyList(), "error", e.getMessage());
+        }
+    }
+
     private List<?> postForItems(String path, String vectorId) {
         Map<String, Object> payload = Map.of("vectorId", vectorId);
         Map<?, ?> response = restTemplate.postForObject(recommendBaseUrl + path, payload, Map.class);

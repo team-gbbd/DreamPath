@@ -29,6 +29,7 @@ public class UserProfileService {
     private final ProfileAnalysisService analysisService;
     private final ProfileAnalysisRepository analysisRepository;
     private final ProfileHistoryRepository historyRepository;
+    private final ProfileVectorService vectorService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -58,6 +59,10 @@ public class UserProfileService {
 
         // 🔥 프로필 생성 후 분석 자동 생성
         ProfileAnalysis analysis = analysisService.generateAnalysis(saved);
+
+        // 🔥 벡터 자동 생성 (추가됨)
+        String document = saved.toDocument();
+        vectorService.generateVector(saved.getProfileId(), document);
 
         return saved;
     }
@@ -94,6 +99,10 @@ public class UserProfileService {
         analysisService.generateAnalysis(saved);
         saveHistory(saved.getProfileId(), "UPDATE", beforeData, toJsonString(saved));
 
+        // 🔥 벡터 자동 재생성 (추가됨)
+        String document = saved.toDocument();
+        vectorService.generateVector(saved.getProfileId(), document);
+
         return saved;
     }
 
@@ -129,6 +138,10 @@ public class UserProfileService {
         // 🔥 부분 수정 후 분석 자동 재생성
         analysisService.generateAnalysis(saved);
 
+        // 🔥 벡터 자동 재생성 (추가됨)
+        String document = saved.toDocument();
+        vectorService.generateVector(saved.getProfileId(), document);
+
         return saved;
     }
 
@@ -158,7 +171,8 @@ public class UserProfileService {
     }
 
     private String toJsonString(UserProfile profile) {
-        if (profile == null) return null;
+        if (profile == null)
+            return null;
         try {
             return objectMapper.writeValueAsString(profile);
         } catch (JsonProcessingException e) {

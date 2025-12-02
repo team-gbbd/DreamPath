@@ -20,7 +20,8 @@ from services.ingest.ingest_career_job import CareerJobIngest
 from services.ingest.ingest_career_department import CareerDepartmentIngest
 from services.ingest.ingest_career_case import CareerCaseIngest
 
-from services.ingest.ingest_worknet import WorkNetJobIngest
+# WorkNet은 벡터DB가 아닌 실시간 조회 API로 사용
+# from services.ingest.ingest_worknet import WorkNetJobIngest
 
 
 class IngestAll:
@@ -69,13 +70,17 @@ class IngestAll:
         except Exception as e:
             print('Career Case Error:', e)
 
-        print('\n===== [8] WorkNet 채용공고 ingest =====')
-        try:
-            WorkNetJobIngest().ingest_all()
-        except Exception as e:
-            print('WorkNet Error:', e)
+        # WorkNet은 벡터DB에 저장하지 않고 실시간 조회 API로 사용
+        # print('\n===== [8] WorkNet 채용공고 ingest =====')
+        # try:
+        #     WorkNetJobIngest().ingest_all()
+        # except Exception as e:
+        #     print('WorkNet Error:', e)
 
         print('\n===== 🎉 모든 ingest 완료! =====')
+        print('⚠️  NCS API는 현재 500 에러 (외부 서버 문제)')
+        print('✅ CareerNet API 데이터 입력 완료')
+        print('ℹ️  WorkNet은 실시간 조회 API로 사용 (벡터DB 미사용)')
 
 
 if __name__ == '__main__':

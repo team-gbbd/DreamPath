@@ -317,10 +317,10 @@ const Dashboard = () => {
         key === 'growth'
           ? '#4caf50'
           : key === 'security'
-          ? '#3f51b5'
-          : key === 'creativity'
-          ? '#9c27b0'
-          : '#f97316',
+            ? '#3f51b5'
+            : key === 'creativity'
+              ? '#9c27b0'
+              : '#f97316',
     }));
   }, [analysisData, profileData]);
 
@@ -413,70 +413,70 @@ const Dashboard = () => {
 
     return (
       <div className="mt-6 space-y-6">
-      <div className="rounded-xl border p-4">
-        <h3 className="text-lg font-semibold text-gray-800">성격 특성 분포</h3>
-        {personalityChartData ? (
-          <div className="mt-4 h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={personalityChartData}>
-                <PolarGrid />
-                <PolarAngleAxis dataKey="trait" />
-                <Radar name="Personality" dataKey="score" stroke="#4f46e5" fill="#6366f1" fillOpacity={0.5} />
-                <Tooltip />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
-        ) : (
-          <p className="mt-4 text-sm text-gray-500">성격 데이터가 없습니다.</p>
-        )}
-      </div>
-
-      <div className="rounded-xl border p-4">
-        <h3 className="text-lg font-semibold text-gray-800">감정 반응 지표</h3>
-        {emotionProgressData ? (
-          <div className="mt-4 space-y-4">
-            {emotionProgressData.map((item, index) => (
-              <ProgressBar
-                key={item.name}
-                label={item.name}
-                value={item.score}
-                color={index % 2 === 0 ? 'bg-emerald-500' : 'bg-blue-500'}
-              />
-            ))}
-          </div>
-        ) : (
-          <p className="mt-4 text-sm text-gray-500">감정 데이터가 없습니다.</p>
-        )}
-      </div>
-
-      <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4">
-        <h3 className="text-lg font-semibold text-indigo-700">MBTI Insights</h3>
-        <p className="mt-1 text-sm text-indigo-500">
-          {analysisData?.mbti ? `${analysisData.mbti} 유형` : 'MBTI 정보 없음'}
-        </p>
-        <p className="mt-3 text-gray-700">
-          {selectedMbtiDetail
-            ? selectedMbtiDetail.description
-            : 'MBTI 데이터가 준비되면 이 영역에서 해석을 확인할 수 있습니다.'}
-        </p>
-      </div>
-      {mbtiTraits && (
         <div className="rounded-xl border p-4">
-          <h3 className="text-lg font-semibold text-gray-800">MBTI 결정 근거</h3>
-          <div className="mt-4 space-y-3">
-            {mbtiTraits.map((trait) => (
-              <div key={trait.pair} className="rounded-lg border bg-gray-50 px-4 py-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-gray-700">{trait.pair}</span>
-                  <span className="text-sm text-gray-500">{(trait.score * 100).toFixed(0)}%</span>
-                </div>
-                <p className="mt-1 text-sm text-gray-600">{trait.explanation}</p>
-              </div>
-            ))}
-          </div>
+          <h3 className="text-lg font-semibold text-gray-800">성격 특성 분포</h3>
+          {personalityChartData ? (
+            <div className="mt-4 h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart data={personalityChartData}>
+                  <PolarGrid />
+                  <PolarAngleAxis dataKey="trait" />
+                  <Radar name="Personality" dataKey="score" stroke="#4f46e5" fill="#6366f1" fillOpacity={0.5} />
+                  <Tooltip />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-gray-500">성격 데이터가 없습니다.</p>
+          )}
         </div>
-      )}
-    </div>
+
+        <div className="rounded-xl border p-4">
+          <h3 className="text-lg font-semibold text-gray-800">감정 반응 지표</h3>
+          {emotionProgressData ? (
+            <div className="mt-4 space-y-4">
+              {emotionProgressData.map((item, index) => (
+                <ProgressBar
+                  key={item.name}
+                  label={item.name}
+                  value={item.score}
+                  color={index % 2 === 0 ? 'bg-emerald-500' : 'bg-blue-500'}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-gray-500">감정 데이터가 없습니다.</p>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4">
+          <h3 className="text-lg font-semibold text-indigo-700">MBTI Insights</h3>
+          <p className="mt-1 text-sm text-indigo-500">
+            {analysisData?.mbti ? `${analysisData.mbti} 유형` : 'MBTI 정보 없음'}
+          </p>
+          <p className="mt-3 text-gray-700">
+            {selectedMbtiDetail
+              ? selectedMbtiDetail.description
+              : 'MBTI 데이터가 준비되면 이 영역에서 해석을 확인할 수 있습니다.'}
+          </p>
+        </div>
+        {mbtiTraits && (
+          <div className="rounded-xl border p-4">
+            <h3 className="text-lg font-semibold text-gray-800">MBTI 결정 근거</h3>
+            <div className="mt-4 space-y-3">
+              {mbtiTraits.map((trait) => (
+                <div key={trait.pair} className="rounded-lg border bg-gray-50 px-4 py-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-gray-700">{trait.pair}</span>
+                    <span className="text-sm text-gray-500">{(trait.score * 100).toFixed(0)}%</span>
+                  </div>
+                  <p className="mt-1 text-sm text-gray-600">{trait.explanation}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -564,11 +564,10 @@ const Dashboard = () => {
                 key={tab.key}
                 type="button"
                 onClick={() => setActiveTab(tab.key)}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                activeTab === tab.key
-                  ? 'bg-indigo-600 text-white shadow'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${activeTab === tab.key
+                    ? 'bg-indigo-600 text-white shadow'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
               >
                 {tab.label}
               </button>
@@ -604,11 +603,16 @@ const Dashboard = () => {
               {activeTab === 'overview' && renderOverviewSection()}
               {activeTab === 'personality' && renderPersonalitySection()}
               {activeTab === 'values' && renderValuesSection()}
-              {activeTab === 'jobRecommend' && renderJobRecommendSection()}
-              {activeTab === 'jobHiring' && renderHiringSection()}
-              {activeTab === 'departmentRecommend' && renderDepartmentSection()}
-              {activeTab === 'schoolRecommend' && renderSchoolSection()}
-            </div>
+              {activeTab === 'jobRecommend' && (
+                <HybridJobRecommendPanel embedded profileId={profileData?.profileId} />
+              )}
+              {activeTab === 'jobHiring' && <WorknetRecommendPanel embedded profileId={profileData?.profileId} />}
+              {activeTab === 'departmentRecommend' && (
+                <MajorRecommendPanel embedded profileId={profileData?.profileId} />
+              )}
+              {activeTab === 'schoolRecommend' && (
+                <SchoolRecommendPanel embedded profileId={profileData?.profileId} />
+              )}</div>
           )}
         </section>
       </div>

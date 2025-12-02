@@ -44,7 +44,7 @@ public class ProfileService {
 
             pv.setVectorDbId(result.getVectorDbId());
             pv.setOriginalText(document);
-            pv.setMetadata("{}");
+            pv.setMetadata(java.util.Collections.emptyMap());
             profileVectorRepo.save(pv);
         });
 

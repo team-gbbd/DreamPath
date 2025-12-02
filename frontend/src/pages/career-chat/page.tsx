@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SurveyModal from '../../components/profile/SurveyModal';
+import { API_BASE_URL } from '@/lib/api';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -65,7 +66,7 @@ export default function CareerChatPage() {
     if (savedSessionId) {
       // 기존 세션이 있으면 대화 이력 불러오기
       try {
-        const response = await fetch(`http://localhost:8080/api/chat/history/${savedSessionId}`);
+        const response = await fetch(`${API_BASE_URL}/chat/history/${savedSessionId}`);
         if (response.ok) {
           const history = await response.json();
           if (history && history.length > 0) {
@@ -93,7 +94,7 @@ export default function CareerChatPage() {
             // 2. 백엔드에서 다시 계산해서 가져오기
             try {
               console.log('백엔드에서 정체성 상태 조회 시도:', savedSessionId);
-              const identityResponse = await fetch(`http://localhost:8080/api/identity/${savedSessionId}`);
+              const identityResponse = await fetch(`${API_BASE_URL}/identity/${savedSessionId}`);
               console.log('정체성 응답 상태:', identityResponse.status);
               if (identityResponse.ok) {
                 const identityData = await identityResponse.json();
@@ -120,7 +121,7 @@ export default function CareerChatPage() {
 
   const startNewSession = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/chat/start', {
+      const response = await fetch(`${API_BASE_URL}/chat/start`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -171,7 +172,7 @@ export default function CareerChatPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8080/api/chat', {
+      const response = await fetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

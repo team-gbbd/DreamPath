@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import axios from 'axios';
+import { PYTHON_AI_SERVICE_URL } from '@/lib/api';
 
 interface CrawlResult {
   success: boolean;
@@ -29,7 +30,7 @@ const CrawlerPage = () => {
       let response;
 
       if (selectedSite === 'wanted') {
-        response = await axios.post('http://localhost:8000/api/job-sites/crawl/wanted', {
+        response = await axios.post(`${PYTHON_AI_SERVICE_URL}/api/job-sites/crawl/wanted`, {
           searchKeyword,
           maxResults,
           forceRefresh: true
@@ -37,7 +38,7 @@ const CrawlerPage = () => {
           timeout: 120000
         });
       } else if (selectedSite === 'jobkorea') {
-        response = await axios.post('http://localhost:8000/api/job-sites/crawl', {
+        response = await axios.post(`${PYTHON_AI_SERVICE_URL}/api/job-sites/crawl`, {
           siteName: 'jobkorea',
           siteUrl: `https://www.jobkorea.co.kr/Search/?stext=${encodeURIComponent(searchKeyword)}&menucode=local`,
           searchKeyword,
@@ -47,7 +48,7 @@ const CrawlerPage = () => {
           timeout: 120000
         });
       } else if (selectedSite === 'saramin') {
-        response = await axios.post('http://localhost:8000/api/job-sites/crawl', {
+        response = await axios.post(`${PYTHON_AI_SERVICE_URL}/api/job-sites/crawl`, {
           siteName: 'saramin',
           siteUrl: `https://www.saramin.co.kr/zf_user/search?searchword=${encodeURIComponent(searchKeyword)}`,
           searchKeyword,

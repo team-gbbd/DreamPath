@@ -26,7 +26,7 @@ public class ProfileVectorService {
         }
         pv.setVectorDbId(result.getVectorDbId());
         pv.setOriginalText(document);
-        pv.setMetadata("{}");
+        pv.setMetadata(java.util.Collections.emptyMap());
         return vectorRepo.save(pv);
     }
 }

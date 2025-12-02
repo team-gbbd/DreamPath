@@ -1,4 +1,4 @@
-package com.dreampath.domain.user.dto;
+package com.dreampath.domain.user.dto.user;
 
 import com.dreampath.domain.user.entity.User;
 import com.dreampath.global.enums.Role;

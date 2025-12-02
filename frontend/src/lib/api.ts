@@ -74,7 +74,7 @@ export const analysisService = {
 };
 
 // Python AI Service URL (채용 정보 크롤링용)
-const PYTHON_AI_SERVICE_URL =
+export const PYTHON_AI_SERVICE_URL =
   import.meta.env.VITE_PYTHON_AI_SERVICE_URL || "http://localhost:8000";
 
 const pythonApi = axios.create({
@@ -560,3 +560,4 @@ export const userService = {
 };
 
 export default api;
+// trigger deploy

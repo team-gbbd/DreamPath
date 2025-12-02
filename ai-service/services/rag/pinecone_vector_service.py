@@ -1,6 +1,6 @@
 import os
-from openai import OpenAI
 from pinecone import Pinecone, ServerlessSpec
+from openai import OpenAI
 
 
 class PineconeVectorService:
@@ -17,15 +17,17 @@ class PineconeVectorService:
         # Pinecone
         api_key = os.getenv("PINECONE_API_KEY")
         environment = os.getenv("PINECONE_ENV", "us-east-1")
-        index_name = os.getenv("PINECONE_INDEX", "dreampath-index")
+        index_name = os.getenv("PINECONE_INDEX", "dreampath")
 
+        # Initialize Pinecone client (SDK v3+)
         self.pc = Pinecone(api_key=api_key)
 
-        # 인덱스 없으면 자동 생성
-        if index_name not in [idx["name"] for idx in self.pc.list_indexes()]:
+        # Create index if it does not exist
+        existing_indexes = [idx.name for idx in self.pc.list_indexes()]
+        if index_name not in existing_indexes:
             self.pc.create_index(
                 name=index_name,
-                dimension=1536,
+                dimension=3072,
                 metric="cosine",
                 spec=ServerlessSpec(
                     cloud="aws",
@@ -40,7 +42,7 @@ class PineconeVectorService:
         OpenAI 임베딩 생성
         """
         response = self.client.embeddings.create(
-            model="text-embedding-3-small",
+            model="text-embedding-3-large",
             input=document
         )
         return response.data[0].embedding

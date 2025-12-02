@@ -33,14 +33,14 @@ class SupabaseVectorRepository:
 
     def get_vector_by_id(self, vector_id: str):
         """
-        profile_vector 테이블에서 특정 vector_id에 해당하는 임베딩을 반환
+        profile_vector 테이블에서 특정 vector_db_id에 해당하는 임베딩을 반환
         """
         response = (
             self.supabase.table('profile_vector')
-            .select('embedding')
-            .eq('vector_id', vector_id)
+            .select('vector_data')
+            .eq('vector_db_id', vector_id)
             .execute()
         )
         if response.data:
-            return response.data[0].get('embedding')
+            return response.data[0].get('vector_data')
         return None
