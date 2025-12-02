@@ -331,7 +331,8 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
 
       console.log("🔍 문의 제출 데이터:", requestData);
 
-      const response = await fetch("http://localhost:8080/api/inquiry", {
+      const AI_SERVICE_URL = import.meta.env.VITE_AI_SERVICE_URL || "http://localhost:8000";
+      const response = await fetch(`${AI_SERVICE_URL}/api/inquiry`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json;charset=UTF-8",

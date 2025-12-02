@@ -4,10 +4,16 @@ Python FastAPI Microservice
 """
 
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
 # 환경변수를 먼저 로드 (다른 모듈 import 전에 반드시 실행)
-load_dotenv()
+# 1. 루트 .env 로드 (메일 설정 등)
+root_env = Path(__file__).parent.parent / ".env"
+load_dotenv(root_env)
+
+# 2. ai-service/.env 로드 (AI 서비스 전용 설정, 덮어쓰기 방지)
+load_dotenv(override=False)
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,6 +27,7 @@ from routers import api_router
 from routers.vector_router import router as vector_router
 from routers.rag_router import router as rag_router
 from routers.profile_match_router import router as profile_match_router
+from routers.chatbot_router import router as chatbot_router
 
 # ====== Services ======
 from services.common.openai_client import OpenAIService as OpenAIServiceDev
@@ -70,6 +77,7 @@ app.include_router(api_router)              # 기존 chat, analysis, identity, j
 app.include_router(vector_router, prefix="/api")
 app.include_router(rag_router, prefix="/api")
 app.include_router(profile_match_router, prefix="/api")
+app.include_router(chatbot_router)  # chatbot API (prefix는 router에 정의됨)
 
 
 # =========================================
