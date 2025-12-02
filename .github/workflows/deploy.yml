@@ -54,6 +54,7 @@ jobs:
         run: npm run build
         env:
           VITE_API_URL: https://api.dreampathai.link/api
+          VITE_PYTHON_AI_SERVICE_URL: https://ai.dreampathai.link
           VITE_LIVEKIT_URL: wss://dreampath-lsh17376.livekit.cloud
 
       - name: Configure AWS credentials

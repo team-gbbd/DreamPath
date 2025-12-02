@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mentorService, paymentService, userService, bookingService } from '@/lib/api';
+import { mentorService, paymentService, userService, bookingService, API_BASE_URL } from '@/lib/api';
 import Header from '@/components/feature/Header';
 
 interface UserProfile {
@@ -95,7 +95,7 @@ export default function StudentMyPage() {
       const profileData = await userService.getUserProfile(userId);
       setUserProfile(profileData);
 
-      const pathsResponse = await fetch(`http://localhost:8080/api/learning-paths/user/${userId}`);
+      const pathsResponse = await fetch(`${API_BASE_URL}/learning-paths/user/${userId}`);
       if (!pathsResponse.ok) throw new Error('학습 경로를 불러오는데 실패했습니다.');
       const pathsData = await pathsResponse.json();
       setLearningPaths(pathsData);

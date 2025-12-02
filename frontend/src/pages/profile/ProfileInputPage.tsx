@@ -1,11 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-/* ============================
-   🔹 API / LocalStorage 설정
-=============================== */
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+import { API_BASE_URL } from '@/lib/api';
 
 const PROFILE_CACHE_KEY = 'dreampath:profile-cache';
 

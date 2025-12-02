@@ -1,6 +1,6 @@
 // src/lib/getFaq.ts
 
-const API_BASE_URL = "http://localhost:8080/api";
+import { API_BASE_URL } from "./api";
 
 /* ==========================================================
    📌 1) 모든 FAQ 불러오기 (카테고리 목록 만들 때 사용)
