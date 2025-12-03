@@ -30,14 +30,6 @@ class CrawlWantedRequest(BaseModel):
     searchKeyword: Optional[str] = None
     maxResults: Optional[int] = 10
     forceRefresh: Optional[bool] = False
-    category: Optional[str] = None  # 카테고리 (예: "개발", "마케팅/광고", "디자인" 등)
-
-
-class CrawlWantedAllCategoriesRequest(BaseModel):
-    """원티드 다중 카테고리 크롤링 요청"""
-    categories: Optional[List[str]] = None  # 크롤링할 카테고리 목록 (None이면 기본 카테고리)
-    maxResultsPerCategory: Optional[int] = 50
-    forceRefresh: Optional[bool] = False
 
 
 class CrawlMultipleSitesRequest(BaseModel):

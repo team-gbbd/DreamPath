@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { submitCode, runJavaScriptLocally, LANGUAGE_IDS } from '@/lib/judge0';
 import { completeCodingTest, getCareerProgress } from '@/utils/careerProgress';
+import { PYTHON_AI_SERVICE_URL } from '@/lib/api';
 
 const DEFAULT_CODE = {
   javascript: `function solution() {
@@ -80,7 +81,7 @@ export default function CodingTest() {
   const generateProblem = async (difficulty: 'EASY' | 'MEDIUM' | 'HARD') => {
     setIsLoadingProblem(true);
     try {
-      const response = await fetch('http://localhost:8000/api/learning/generate-coding-problem', {
+      const response = await fetch(`${PYTHON_AI_SERVICE_URL}/api/learning/generate-coding-problem`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ difficulty }),
@@ -123,7 +124,7 @@ export default function CodingTest() {
     setChatMessages([...chatMessages, { role: 'user', content: userMessage }]);
 
     try {
-      const response = await fetch('http://localhost:8000/api/learning/coding-help', {
+      const response = await fetch(`${PYTHON_AI_SERVICE_URL}/api/learning/coding-help`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

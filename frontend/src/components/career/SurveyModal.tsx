@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API_BASE_URL } from '@/lib/api';
 
 interface SurveyQuestion {
   id: string;
@@ -73,7 +74,7 @@ export default function SurveyModal({ isOpen, questions, sessionId, onComplete, 
 
     setIsSubmitting(true);
     try {
-      const response = await fetch('http://localhost:8080/api/chat/survey', {
+      const response = await fetch(`${API_BASE_URL}/chat/survey`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

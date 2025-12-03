@@ -20,10 +20,6 @@ class HybridRecommendService:
         1) Pinecone에서 Top20 후보 검색
         2) LLM이 최종 Top5 재정렬 + 이유 생성
         """
-        if not self._initialized:
-            print("[HybridRecommendService] Pinecone이 초기화되지 않아 recommend를 건너뜁니다.")
-            return []
-
         user_vector = self.repo.get_vector_by_id(user_vector_id)
         if user_vector is None:
             return []
