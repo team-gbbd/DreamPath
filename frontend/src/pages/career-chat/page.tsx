@@ -44,10 +44,25 @@ export default function CareerChatPage() {
   const [identityStatus, setIdentityStatus] = useState<IdentityStatus | null>(null);
   const [showSurvey, setShowSurvey] = useState(false);
   const [surveyQuestions, setSurveyQuestions] = useState<any[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // 로그인한 사용자 정보 가져오기 및 세션 초기화
   useEffect(() => {
-    initializeSession();
+    const userStr = localStorage.getItem('dreampath:user');
+    let currentUserId: string | null = null;
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        currentUserId = user.id?.toString() || user.userId?.toString() || null;
+        setUserId(currentUserId);
+        console.log('로그인 사용자 ID:', currentUserId);
+      } catch (e) {
+        console.warn('사용자 정보 파싱 실패');
+      }
+    }
+    // userId 설정 후 세션 초기화
+    initializeSession(currentUserId);
   }, []);
 
   useEffect(() => {
@@ -58,7 +73,7 @@ export default function CareerChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const initializeSession = async () => {
+  const initializeSession = async (currentUserId: string | null = null) => {
     // localStorage에서 기존 세션 ID 확인
     const savedSessionId = localStorage.getItem('career_chat_session_id');
     
@@ -115,16 +130,20 @@ export default function CareerChatPage() {
     }
     
     // 새 세션 시작
-    await startNewSession();
+    await startNewSession(currentUserId);
   };
 
-  const startNewSession = async () => {
+  const startNewSession = async (currentUserId: string | null = null) => {
+    const userIdToUse = currentUserId || userId;
     try {
       const response = await fetch('http://localhost:8080/api/chat/start', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          userId: userIdToUse,
+        }),
       });
 
       const data = await response.json();
@@ -179,6 +198,7 @@ export default function CareerChatPage() {
         body: JSON.stringify({
           sessionId: sessionId,
           message: inputMessage,
+          userId: userId,
         }),
       });
 
