@@ -748,3 +748,46 @@ class DatabaseService:
             print(f"쿼리 실행 실패: {str(e)}")
             raise e
 
+    def get_conversation_history_by_user_id(self, user_id: str, limit: int = 100) -> str:
+        """
+        userId로 사용자의 모든 대화 기록을 조회합니다.
+
+        Args:
+            user_id: 사용자 ID
+            limit: 최대 메시지 수
+
+        Returns:
+            대화 기록 문자열 (role: content 형식)
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                # career_sessions와 chat_messages 조인하여 조회
+                query = """
+                    SELECT cm.role, cm.content, cm.timestamp
+                    FROM chat_messages cm
+                    INNER JOIN career_sessions cs ON cm.session_id = cs.id
+                    WHERE cs.user_id = %s
+                    ORDER BY cm.timestamp ASC
+                    LIMIT %s
+                """
+                cursor.execute(query, (user_id, limit))
+                results = cursor.fetchall()
+
+                if not results:
+                    return ""
+
+                # 대화 형식으로 변환
+                conversation_lines = []
+                for row in results:
+                    role = row.get('role', row[0]) if isinstance(row, dict) else row[0]
+                    content = row.get('content', row[1]) if isinstance(row, dict) else row[1]
+                    conversation_lines.append(f"{role}: {content}")
+
+                return "\n".join(conversation_lines)
+
+        except Exception as e:
+            print(f"대화 기록 조회 실패: {str(e)}")
+            return ""
+

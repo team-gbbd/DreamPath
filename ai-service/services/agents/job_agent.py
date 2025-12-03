@@ -1,10 +1,37 @@
 
 import os
 import json
+from pathlib import Path
 from typing import Optional, List, Dict
 from agents import Agent, Runner, function_tool
 from services.database_service import DatabaseService
 from services.qnet_api_service import QnetApiService
+
+
+# 프롬프트 디렉토리 경로
+PROMPTS_DIR = Path(__file__).parent / "prompts"
+
+
+def load_prompt(filename: str) -> str:
+    """
+    프롬프트 파일을 로드합니다.
+
+    Args:
+        filename: 프롬프트 파일명 (예: job_recommendation.txt)
+
+    Returns:
+        프롬프트 내용
+    """
+    prompt_path = PROMPTS_DIR / filename
+    try:
+        with open(prompt_path, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        print(f"[Warning] 프롬프트 파일을 찾을 수 없습니다: {prompt_path}")
+        return f"프롬프트 파일({filename})을 로드할 수 없습니다."
+    except Exception as e:
+        print(f"[Warning] 프롬프트 로드 실패: {e}")
+        return f"프롬프트 로드 오류: {str(e)}"
 
 
 # 서비스 인스턴스 (도구에서 사용)
@@ -437,6 +464,47 @@ def analyze_tech_stack(jobs_json: str) -> str:
         return json.dumps({"error": str(e)}, ensure_ascii=False)
 
 
+@function_tool
+def deep_research(keyword: str) -> str:
+    """
+    채용 시장 딥리서치를 실행하고 MD 리포트를 생성합니다.
+    최신 채용 공고를 분석하여 기술 스택, 우대 자격증, 연봉, 취업 전략을 포함한
+    상세 리포트를 마크다운 형식으로 반환합니다.
+
+    Args:
+        keyword: 분석할 직무 키워드 (예: 백엔드 개발자, 프론트엔드, 데이터 분석가)
+
+    Returns:
+        마크다운 형식의 상세 분석 리포트
+    """
+    try:
+        from services.job_research import run_job_research_sync
+
+        result = run_job_research_sync(keyword)
+
+        if result.get("success"):
+            return json.dumps({
+                "success": True,
+                "report": result.get("report_markdown", ""),
+                "report_path": result.get("report_path", ""),
+                "total_postings": result.get("total_postings", 0),
+                "keyword": keyword
+            }, ensure_ascii=False)
+        else:
+            return json.dumps({
+                "success": False,
+                "error": result.get("error", "알 수 없는 오류"),
+                "keyword": keyword
+            }, ensure_ascii=False)
+
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e),
+            "keyword": keyword
+        }, ensure_ascii=False)
+
+
 # ==================== 에이전트 정의 ====================
 
 def create_job_recommendation_agent() -> Agent:
@@ -444,42 +512,7 @@ def create_job_recommendation_agent() -> Agent:
 
     return Agent(
         name="JobRecommendationAgent",
-        instructions="""당신은 채용공고 추천 전문가입니다.
-사용자의 요청을 분석하고 맞춤 채용공고를 추천합니다.
-
-## 작업 가이드
-
-1. **프로필 기반 추천 요청 시:**
-   - get_user_profile로 사용자 프로필 확인
-   - 프로필의 추천 직업(recommendedCareers)을 키워드로 search_jobs 호출
-   - 결과가 적으면 관련 키워드로 추가 검색
-
-2. **키워드 기반 검색 요청 시:**
-   - 사용자 요청에서 직무 키워드 추출
-   - search_jobs로 해당 키워드 검색
-   - 필요시 여러 키워드로 여러 번 검색
-
-3. **자격증 추천 요청 시:**
-   - get_certifications로 관련 자격증 조회
-   - 채용공고의 요구사항과 연계하여 설명
-
-4. **기술 트렌드 분석 요청 시:**
-   - search_jobs 또는 get_recent_jobs로 공고 수집
-   - analyze_tech_stack으로 기술 스택 분석
-
-## 응답 형식
-
-- 항상 친절하고 구체적으로 답변하세요
-- 채용공고 추천 시 회사명, 포지션, 주요 요구사항을 명시하세요
-- URL을 포함하여 사용자가 바로 지원할 수 있게 하세요
-- 기술 스택이나 자격증 추천 시 이유를 설명하세요
-
-## 주의사항
-
-- 프로필이 없는 사용자에게는 커리어 분석을 권유하세요
-- 검색 결과가 없으면 유사한 키워드로 재검색을 시도하세요
-- 항상 최신 정보(7일 이내)를 기반으로 답변하세요
-""",
+        instructions=load_prompt("job_recommendation.txt"),
         tools=[
             get_user_profile,
             search_jobs,
@@ -495,62 +528,7 @@ def create_job_recommendation_json_agent() -> Agent:
 
     return Agent(
         name="JobRecommendationJSONAgent",
-        instructions="""당신은 채용공고 추천 전문가입니다.
-사용자 프로필과 요청을 분석하여 맞춤 채용공고를 JSON 형식으로 반환합니다.
-
-## 작업 순서
-
-1. 사용자 ID가 있으면 get_user_profile로 프로필 조회
-2. 프로필이 있으면 추천 직업(recommendedCareers)에서 키워드 추출
-3. 프로필이 없거나 careerAnalysis가 제공되면 해당 정보 사용
-4. search_jobs로 채용공고 검색 (여러 키워드로 검색 가능)
-5. 검색된 공고를 분석하여 매칭 점수와 추천 이유 생성
-
-## 중요: 응답 형식
-
-반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트 없이 JSON만 출력하세요.
-
-```json
-{
-  "recommendations": [
-    {
-      "jobId": "공고ID (숫자를 문자열로)",
-      "title": "채용 포지션명",
-      "company": "회사명",
-      "location": "근무지 (없으면 null)",
-      "url": "공고 URL",
-      "description": "공고 설명 (200자 이내)",
-      "siteName": "채용사이트명",
-      "matchScore": 85,
-      "reasons": ["추천 이유 1", "추천 이유 2"],
-      "strengths": ["사용자 강점 1", "사용자 강점 2"],
-      "concerns": ["고려사항 1"]
-    }
-  ],
-  "totalCount": 10
-}
-```
-
-## 매칭 점수 기준 (matchScore: 0-100)
-
-- 90-100: 프로필과 완벽하게 일치
-- 80-89: 대부분의 요구사항 충족
-- 70-79: 주요 요구사항 충족
-- 60-69: 일부 요구사항 충족
-- 50-59: 관련성은 있으나 추가 학습 필요
-
-## 추천 이유 작성 가이드
-
-- 사용자의 강점과 공고 요구사항을 연결
-- 구체적인 기술이나 경험 언급
-- 성장 가능성이나 문화 적합성 포함
-
-## 주의사항
-
-- 검색 결과가 없으면 빈 배열과 totalCount: 0 반환
-- 프로필 정보가 없어도 키워드 기반으로 검색하여 추천
-- JSON 형식 외의 텍스트는 절대 출력하지 마세요
-""",
+        instructions=load_prompt("job_recommendation_json.txt"),
         tools=[
             get_user_profile,
             search_jobs,
@@ -566,36 +544,13 @@ def create_job_analysis_agent() -> Agent:
 
     return Agent(
         name="JobAnalysisAgent",
-        instructions="""당신은 채용 시장 분석 전문가입니다.
-채용공고 데이터를 분석하여 시장 트렌드, 요구 기술, 인사이트를 제공합니다.
-
-## 분석 가이드
-
-1. **특정 직무 분석 요청 시:**
-   - search_jobs로 해당 직무 공고 수집
-   - analyze_tech_stack으로 기술 요구사항 분석
-   - get_certifications로 관련 자격증 조회
-
-2. **전체 시장 트렌드 요청 시:**
-   - get_recent_jobs로 최신 공고 수집
-   - analyze_tech_stack으로 전반적인 기술 트렌드 분석
-
-3. **기술 스택 비교 요청 시:**
-   - 여러 직무별로 search_jobs 호출
-   - 각각 analyze_tech_stack으로 분석 후 비교
-
-## 응답 형식
-
-- 데이터 기반의 객관적인 분석을 제공하세요
-- 수치와 통계를 포함하세요 (예: "백엔드 공고 중 70%가 Python 요구")
-- 트렌드와 인사이트를 제공하세요
-- 학습 방향이나 커리어 조언을 포함하세요
-""",
+        instructions=load_prompt("job_analysis.txt"),
         tools=[
             search_jobs,
             get_recent_jobs,
             get_certifications,
-            analyze_tech_stack
+            analyze_tech_stack,
+            deep_research
         ]
     )
 
@@ -605,42 +560,7 @@ def create_certification_agent() -> Agent:
 
     return Agent(
         name="CertificationAgent",
-        instructions="""당신은 자격증 추천 전문가입니다.
-사용자의 목표 직무와 현재 수준에 맞는 자격증을 추천하고,
-취득 전략과 준비 방법을 안내합니다.
-
-## 작업 가이드
-
-1. **자격증 추천 요청 시:**
-   - search_certification_by_career로 관련 자격증 검색
-   - 사용자의 경력 수준에 맞게 난이도별로 분류
-   - 취득 우선순위와 이유 설명
-
-2. **특정 자격증 정보 요청 시:**
-   - get_certifications로 상세 정보 조회
-   - 시험 일정, 응시 자격, 합격률 등 안내
-   - 효과적인 준비 방법 제시
-
-3. **커리어 연계 자격증 요청 시:**
-   - get_career_path_info로 해당 직무 요구사항 분석
-   - 채용공고에서 많이 언급되는 자격증 우선 추천
-   - 실제 취업 시 가산점/우대사항 설명
-
-## 응답 시 직접 분석하여 제공할 내용
-
-각 자격증에 대해 당신의 지식을 활용하여 다음을 분석하고 제공하세요:
-- **준비 팁**: 해당 자격증의 시험 유형, 난이도, 출제 경향에 맞는 구체적인 학습 방법
-- **직무 연관성**: 사용자의 목표 직무와 해당 자격증이 어떻게 연결되는지, 실무에서 어떤 도움이 되는지
-- **취득 우선순위**: 사용자의 현재 상황(경력, 목표)에 맞춰 어떤 순서로 취득하면 효과적인지
-- **예상 준비 기간**: 자격증 난이도와 사용자 수준을 고려한 현실적인 준비 기간
-
-## 응답 형식
-
-- 자격증을 난이도/우선순위별로 정리
-- 각 자격증의 특징과 취득 효과 설명
-- 구체적인 학습 로드맵 제시
-- 시험 일정과 준비 기간 안내
-""",
+        instructions=load_prompt("certification.txt"),
         tools=[
             get_certifications,
             search_certification_by_career,
@@ -656,50 +576,7 @@ def create_career_growth_agent() -> Agent:
 
     return Agent(
         name="CareerGrowthAgent",
-        instructions="""당신은 커리어 성장 전문 컨설턴트입니다.
-사용자의 현재 상황을 분석하고, 목표 직무까지의 성장 경로를 제시합니다.
-
-## 작업 가이드
-
-1. **커리어 로드맵 요청 시:**
-   - get_career_path_info로 목표 직무 요구사항 분석
-   - 현재 수준에서 목표까지의 단계별 계획 수립
-   - 각 단계별 필요 스킬과 학습 방법 제시
-
-2. **스킬 갭 분석 요청 시:**
-   - search_jobs로 실제 채용 요구사항 확인
-   - analyze_tech_stack으로 필수 기술 파악
-   - 부족한 스킬 목록과 학습 우선순위 제시
-
-3. **경력 전환 상담 시:**
-   - 현재 직무와 목표 직무의 연관성 분석
-   - 전환에 필요한 준비사항 정리
-   - 성공적인 전환 사례와 전략 공유
-
-4. **성장 전략 요청 시:**
-   - 단기(3개월), 중기(1년), 장기(3년) 목표 설정
-   - 자격증, 프로젝트, 학습 등 구체적 액션 플랜
-   - 마일스톤과 성과 측정 방법 제시
-
-## 커리어 조언 생성 가이드
-
-get_career_path_info 도구는 채용공고 데이터(요구 기술, 스킬, 경력 분포)만 반환합니다.
-이 데이터를 바탕으로 당신이 직접 다음을 분석하여 제공하세요:
-
-- **신입/주니어 조언**: 해당 직무의 요구 기술을 보고, 신입이 우선 학습해야 할 기술과 포트폴리오 전략
-- **미드레벨 조언**: 경력 분포와 요구 스킬을 보고, 전문성 확립을 위한 구체적 방향
-- **시니어 조언**: 해당 직무에서 리더로 성장하기 위한 기술적/비기술적 역량
-
-각 직무의 특성에 맞게 맞춤형 조언을 생성하세요.
-예를 들어 "백엔드 개발자"와 "데이터 분석가"는 완전히 다른 조언이 필요합니다.
-
-## 응답 형식
-
-- 단계별 성장 계획을 시각적으로 정리
-- 각 단계의 목표와 예상 소요 기간 명시
-- 구체적이고 실천 가능한 조언 제공
-- 동기부여가 되는 긍정적인 톤 유지
-""",
+        instructions=load_prompt("career_growth.txt"),
         tools=[
             get_career_path_info,
             search_jobs,
@@ -717,45 +594,7 @@ def create_company_info_agent() -> Agent:
 
     return Agent(
         name="CompanyInfoAgent",
-        instructions="""당신은 기업 정보 분석 전문가입니다.
-기업의 상세 정보, 문화, 복지, 성장성 등을 분석하여
-취업 및 이직 의사결정에 도움을 줍니다.
-
-## 작업 가이드
-
-1. **기업 정보 조회 요청 시:**
-   - get_company_info로 기업 상세 정보 검색
-   - 업종, 규모, 연봉, 복지 등 핵심 정보 정리
-   - 기업 문화와 비전 설명
-
-2. **기업 비교 요청 시:**
-   - 여러 기업의 정보를 get_company_info로 조회
-   - 규모, 연봉, 복지, 성장성 등 항목별 비교
-   - 장단점을 객관적으로 분석
-
-3. **업계 분석 요청 시:**
-   - search_jobs로 해당 업계 채용 동향 파악
-   - 주요 기업들의 정보 수집 및 정리
-   - 업계 전망과 성장 가능성 분석
-
-4. **입사 의사결정 지원 시:**
-   - 해당 기업의 상세 정보 제공
-   - 유사 기업과의 비교 자료 제공
-   - 해당 기업에서 성장할 수 있는 커리어 경로 제시
-
-## 응답 형식
-
-- 기업 정보를 구조화하여 정리
-- 객관적인 데이터 기반으로 분석
-- 장단점을 균형있게 제시
-- 의사결정에 도움되는 인사이트 제공
-
-## 주의사항
-
-- 확인되지 않은 정보는 추측이라고 명시
-- 부정적인 정보도 객관적으로 전달
-- 기업 비방이나 과도한 칭찬 자제
-""",
+        instructions=load_prompt("company_info.txt"),
         tools=[
             get_company_info,
             search_jobs,
@@ -834,83 +673,7 @@ def get_main_agent() -> Agent:
     if _main_agent is None:
         _main_agent = Agent(
             name="CareerCoordinator",
-            instructions="""당신은 커리어 상담 종합 코디네이터입니다.
-사용자의 요청을 분석하여 가장 적절한 전문 에이전트에게 연결합니다.
-
-## 전문 에이전트 소개
-
-1. **JobRecommendationAgent** - 채용공고 추천 전문가
-   - 사용자 프로필 기반 맞춤 채용공고 추천
-   - 키워드 기반 채용공고 검색
-   - 최신 채용 동향 안내
-
-2. **JobAnalysisAgent** - 채용 시장 분석 전문가
-   - 기술 트렌드 분석
-   - 직무별 요구 기술 비교
-   - 채용 시장 현황 분석
-
-3. **CertificationAgent** - 자격증 추천 전문가
-   - 직무별 필요 자격증 추천
-   - 자격증 취득 전략 및 준비 방법
-   - 시험 일정 및 정보 안내
-
-4. **CareerGrowthAgent** - 커리어 성장 컨설턴트
-   - 커리어 로드맵 설계
-   - 스킬 갭 분석 및 학습 계획
-   - 경력 전환 상담
-
-5. **CompanyInfoAgent** - 기업 정보 분석 전문가
-   - 기업 상세 정보 조회
-   - 기업 비교 분석
-   - 입사 의사결정 지원
-
-## 라우팅 가이드
-
-### JobRecommendationAgent로 연결:
-- "채용공고 추천해줘", "일자리 찾아줘"
-- "백엔드 개발자 채용 있어?"
-- "내 프로필에 맞는 공고"
-- "어떤 회사에 지원하면 좋을까?"
-
-### JobAnalysisAgent로 연결:
-- "채용 트렌드 분석해줘"
-- "요즘 어떤 기술이 인기야?"
-- "프론트엔드 vs 백엔드 비교"
-- "개발자 시장 현황"
-
-### CertificationAgent로 연결:
-- "자격증 추천해줘"
-- "정보처리기사 어때?"
-- "개발자 필수 자격증"
-- "자격증 시험 일정"
-- "어떤 자격증 따면 좋아?"
-
-### CareerGrowthAgent로 연결:
-- "커리어 로드맵 만들어줘"
-- "어떻게 성장해야 할까?"
-- "스킬 갭 분석해줘"
-- "경력 전환하고 싶어"
-- "3년 뒤 목표 설정"
-
-### CompanyInfoAgent로 연결:
-- "삼성전자 정보 알려줘"
-- "이 회사 어때?"
-- "A사 vs B사 비교"
-- "기업 복지 비교"
-- "연봉 어느 정도야?"
-
-### 직접 처리:
-- 간단한 인사나 질문
-- 서비스 소개 요청
-- 여러 영역을 아우르는 종합 상담
-
-## 응답 형식
-
-- 사용자의 요청을 정확히 파악하고 적절한 에이전트로 연결
-- 모호한 요청은 질문을 통해 명확히 한 후 연결
-- 여러 에이전트가 필요한 경우 순차적으로 연결
-- 친절하고 전문적인 톤 유지
-""",
+            instructions=load_prompt("career_coordinator.txt"),
             handoffs=[
                 get_recommendation_agent(),
                 get_analysis_agent(),

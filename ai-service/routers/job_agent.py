@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 from services.agents.job_agent import run_job_agent
 
-router = APIRouter(prefix="/api/agent", tags=["job-agent"])
+router = APIRouter(prefix="/api/job-agent", tags=["job-agent"])
 
 
 class AgentRequest(BaseModel):

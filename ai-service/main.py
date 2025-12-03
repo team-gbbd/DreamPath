@@ -105,8 +105,14 @@ question_generator = QuestionGeneratorService() if api_key else None
 answer_evaluator = AnswerEvaluatorService() if api_key else None
 code_executor = CodeExecutorService()
 
-recommend_service = RecommendService()
-hybrid_recommender = HybridRecommendService()
+# Supabase 환경변수가 있을 때만 초기화
+try:
+    recommend_service = RecommendService()
+    hybrid_recommender = HybridRecommendService()
+except Exception as e:
+    print(f"RecommendService 초기화 실패 (SUPABASE 환경변수 확인): {e}")
+    recommend_service = None
+    hybrid_recommender = None
 
 
 # =========================================
