@@ -1,0 +1,1078 @@
+"""
+데이터베이스 서비스
+MySQL/PostgreSQL 데이터베이스 연결 및 채용 공고 저장/조회 기능
+"""
+import os
+import json
+from typing import List, Dict, Optional
+from datetime import datetime
+from contextlib import contextmanager
+
+# DB 타입에 따라 다른 드라이버 사용
+DB_TYPE = os.getenv('DB_TYPE', 'mysql').lower()
+
+if DB_TYPE == 'postgres' or DB_TYPE == 'postgresql':
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+    USE_POSTGRES = True
+else:
+    import pymysql
+    from pymysql.cursors import DictCursor
+    USE_POSTGRES = False
+
+
+class DatabaseService:
+    """데이터베이스 서비스"""
+    
+    def __init__(self):
+        """데이터베이스 연결 정보 초기화"""
+        if USE_POSTGRES:
+            self.db_config = {
+                'host': os.getenv('DB_HOST', 'localhost'),
+                'port': int(os.getenv('DB_PORT', 5432)),
+                'user': os.getenv('DB_USER', 'postgres'),
+                'password': os.getenv('DB_PASSWORD', 'postgres'),
+                'database': os.getenv('DB_NAME', 'postgres'),
+                'sslmode': os.getenv('DB_SSLMODE', 'prefer'),
+                'cursor_factory': RealDictCursor
+            }
+        else:
+            self.db_config = {
+                'host': os.getenv('DB_HOST', 'db'),
+                'port': int(os.getenv('DB_PORT', 3306)),
+                'user': os.getenv('DB_USER', 'dreamuser'),
+                'password': os.getenv('DB_PASSWORD', 'dreampass'),
+                'database': os.getenv('DB_NAME', 'dreampath'),
+                'charset': 'utf8mb4',
+                'cursorclass': DictCursor,
+                'autocommit': False
+            }
+        self._ensure_table_exists()
+    
+    @contextmanager
+    def get_connection(self):
+        """데이터베이스 연결 컨텍스트 매니저"""
+        conn = None
+        try:
+            if USE_POSTGRES:
+                conn = psycopg2.connect(**self.db_config)
+            else:
+                conn = pymysql.connect(**self.db_config)
+            yield conn
+            conn.commit()
+        except Exception as e:
+            if conn:
+                conn.rollback()
+            raise e
+        finally:
+            if conn:
+                conn.close()
+    
+    def _ensure_table_exists(self):
+        """테이블이 존재하는지 확인하고 없으면 생성"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # 테이블 존재 여부 확인
+                if USE_POSTGRES:
+                    cursor.execute("""
+                        SELECT COUNT(*) as count
+                        FROM information_schema.tables
+                        WHERE table_schema = 'public' AND table_name = 'job_listings'
+                    """)
+                else:
+                    cursor.execute("""
+                        SELECT COUNT(*) as count
+                        FROM information_schema.tables
+                        WHERE table_schema = %s AND table_name = 'job_listings'
+                    """, (self.db_config['database'],))
+                
+                result = cursor.fetchone()
+                if result['count'] == 0:
+                    # PostgreSQL과 MySQL 각각 테이블 생성
+                    if USE_POSTGRES:
+                        # PostgreSQL 전용 테이블 생성
+                        cursor.execute("""
+                            CREATE TABLE IF NOT EXISTS job_listings (
+                                id BIGSERIAL PRIMARY KEY,
+                                site_name VARCHAR(100) NOT NULL,
+                                site_url VARCHAR(500) NOT NULL,
+                                job_id VARCHAR(255),
+                                title VARCHAR(500) NOT NULL,
+                                company VARCHAR(255),
+                                location VARCHAR(255),
+                                description TEXT,
+                                url VARCHAR(1000) NOT NULL,
+                                reward VARCHAR(255),
+                                experience VARCHAR(255),
+                                search_keyword VARCHAR(255),
+                                tech_stack TEXT,
+                                required_skills TEXT,
+                                crawled_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                UNIQUE (site_name, job_id)
+                            )
+                        """)
+                        cursor.execute("CREATE INDEX IF NOT EXISTS idx_site_name ON job_listings (site_name)")
+                        cursor.execute("CREATE INDEX IF NOT EXISTS idx_search_keyword ON job_listings (search_keyword)")
+                        cursor.execute("CREATE INDEX IF NOT EXISTS idx_company ON job_listings (company)")
+                        cursor.execute("CREATE INDEX IF NOT EXISTS idx_crawled_at ON job_listings (crawled_at)")
+                        cursor.execute("CREATE INDEX IF NOT EXISTS idx_site_job_id ON job_listings (site_name, job_id)")
+                    else:
+                        # MySQL 전용 테이블 생성
+                        cursor.execute("""
+                            CREATE TABLE IF NOT EXISTS job_listings (
+                                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                site_name VARCHAR(100) NOT NULL COMMENT '사이트 이름',
+                                site_url VARCHAR(500) NOT NULL COMMENT '사이트 URL',
+                                job_id VARCHAR(255) COMMENT '사이트별 채용 공고 ID',
+                                title VARCHAR(500) NOT NULL COMMENT '채용 공고 제목',
+                                company VARCHAR(255) COMMENT '회사명',
+                                location VARCHAR(255) COMMENT '근무지역',
+                                description TEXT COMMENT '채용 공고 설명',
+                                url VARCHAR(1000) NOT NULL COMMENT '채용 공고 URL',
+                                reward VARCHAR(255) COMMENT '보상금/급여',
+                                experience VARCHAR(255) COMMENT '경력 요구사항',
+                                search_keyword VARCHAR(255) COMMENT '검색 키워드',
+                                tech_stack TEXT COMMENT '기술 스택 (JSON)',
+                                required_skills TEXT COMMENT '필요 역량 (JSON)',
+                                crawled_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '크롤링 시간',
+                                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 시간',
+                                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정 시간',
+                                INDEX idx_site_name (site_name),
+                                INDEX idx_search_keyword (search_keyword),
+                                INDEX idx_company (company),
+                                INDEX idx_crawled_at (crawled_at),
+                                INDEX idx_site_job_id (site_name, job_id),
+                                UNIQUE KEY uk_site_job_id (site_name, job_id)
+                            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='채용 공고 정보'
+                        """)
+                    conn.commit()
+                    print("job_listings 테이블이 생성되었습니다.")
+                else:
+                    # 테이블이 이미 존재하는 경우, 새 컬럼 추가
+                    self._add_job_listings_columns(conn)
+
+                # company_info 테이블 생성
+                self._ensure_company_info_table(conn)
+        except Exception as e:
+            print(f"테이블 생성 확인 중 오류 발생: {str(e)}")
+            # 테이블 생성 실패해도 계속 진행 (이미 존재할 수 있음)
+
+    def _add_job_listings_columns(self, conn):
+        """job_listings 테이블에 새 컬럼 추가 (기존 테이블용)"""
+        try:
+            cursor = conn.cursor()
+            new_columns = [
+                ("tech_stack", "TEXT"),
+                ("required_skills", "TEXT"),
+            ]
+
+            if USE_POSTGRES:
+                for col_name, col_type in new_columns:
+                    try:
+                        cursor.execute(f"ALTER TABLE job_listings ADD COLUMN IF NOT EXISTS {col_name} {col_type}")
+                    except Exception as e:
+                        print(f"컬럼 {col_name} 추가 중 오류 (무시 가능): {str(e)}")
+                conn.commit()
+                print("✓ job_listings 새 컬럼 추가 완료 (tech_stack, required_skills)")
+            else:
+                # MySQL: 컬럼 존재 여부 확인 후 추가
+                for col_name, col_type in new_columns:
+                    try:
+                        cursor.execute("""
+                            SELECT COUNT(*) as count
+                            FROM information_schema.columns
+                            WHERE table_schema = %s AND table_name = 'job_listings' AND column_name = %s
+                        """, (self.db_config['database'], col_name))
+                        col_result = cursor.fetchone()
+                        if col_result['count'] == 0:
+                            comment = '기술 스택 (JSON)' if col_name == 'tech_stack' else '필요 역량 (JSON)'
+                            cursor.execute(f"ALTER TABLE job_listings ADD COLUMN {col_name} {col_type} COMMENT '{comment}'")
+                            print(f"✓ job_listings 컬럼 추가: {col_name}")
+                    except Exception as e:
+                        print(f"컬럼 {col_name} 추가 중 오류 (무시 가능): {str(e)}")
+                conn.commit()
+            cursor.close()
+        except Exception as e:
+            print(f"job_listings 컬럼 추가 중 오류: {str(e)}")
+
+    def _ensure_company_info_table(self, conn):
+        """company_info 테이블 생성"""
+        try:
+            cursor = conn.cursor()
+
+            # 테이블 존재 여부 확인
+            if USE_POSTGRES:
+                cursor.execute("""
+                    SELECT COUNT(*) as count
+                    FROM information_schema.tables
+                    WHERE table_schema = 'public' AND table_name = 'company_info'
+                """)
+            else:
+                cursor.execute("""
+                    SELECT COUNT(*) as count
+                    FROM information_schema.tables
+                    WHERE table_schema = %s AND table_name = 'company_info'
+                """, (self.db_config['database'],))
+
+            result = cursor.fetchone()
+            if result['count'] == 0:
+                if USE_POSTGRES:
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS company_info (
+                            id BIGSERIAL PRIMARY KEY,
+                            site_name VARCHAR(100) NOT NULL,
+                            company_id VARCHAR(255),
+                            company_name VARCHAR(255) NOT NULL,
+                            industry VARCHAR(255),
+                            established_year VARCHAR(50),
+                            employee_count VARCHAR(100),
+                            location VARCHAR(500),
+                            address TEXT,
+                            description TEXT,
+                            vision TEXT,
+                            benefits TEXT,
+                            culture TEXT,
+                            average_salary VARCHAR(100),
+                            company_type VARCHAR(100),
+                            revenue VARCHAR(100),
+                            ceo_name VARCHAR(100),
+                            capital VARCHAR(100),
+                            homepage_url VARCHAR(1000),
+                            recruitment_url VARCHAR(1000),
+                            logo_url VARCHAR(1000),
+                            crawled_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            UNIQUE (site_name, company_id)
+                        )
+                    """)
+                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_company_site_name ON company_info (site_name)")
+                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_company_name ON company_info (company_name)")
+                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_company_industry ON company_info (industry)")
+                else:
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS company_info (
+                            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                            site_name VARCHAR(100) NOT NULL COMMENT '사이트 이름',
+                            company_id VARCHAR(255) COMMENT '사이트별 기업 ID',
+                            company_name VARCHAR(255) NOT NULL COMMENT '회사명',
+                            industry VARCHAR(255) COMMENT '업종',
+                            established_year VARCHAR(50) COMMENT '설립연도',
+                            employee_count VARCHAR(100) COMMENT '직원수',
+                            location VARCHAR(500) COMMENT '위치',
+                            address TEXT COMMENT '주소',
+                            description TEXT COMMENT '회사 설명',
+                            vision TEXT COMMENT '비전/미션',
+                            benefits TEXT COMMENT '복지/혜택',
+                            culture TEXT COMMENT '기업문화',
+                            average_salary VARCHAR(100) COMMENT '평균 연봉',
+                            company_type VARCHAR(100) COMMENT '기업구분',
+                            revenue VARCHAR(100) COMMENT '매출액',
+                            ceo_name VARCHAR(100) COMMENT '대표자',
+                            capital VARCHAR(100) COMMENT '자본금',
+                            homepage_url VARCHAR(1000) COMMENT '홈페이지',
+                            recruitment_url VARCHAR(1000) COMMENT '채용 페이지',
+                            logo_url VARCHAR(1000) COMMENT '로고 URL',
+                            crawled_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '크롤링 시간',
+                            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 시간',
+                            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정 시간',
+                            INDEX idx_company_site_name (site_name),
+                            INDEX idx_company_name (company_name),
+                            INDEX idx_company_industry (industry),
+                            UNIQUE KEY uk_site_company_id (site_name, company_id)
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='기업 정보'
+                    """)
+                conn.commit()
+                print("company_info 테이블이 생성되었습니다.")
+            else:
+                # 테이블이 이미 존재하는 경우, 새 컬럼 추가 (ALTER TABLE)
+                print("company_info 테이블이 이미 존재합니다. 새 컬럼을 추가합니다...")
+                if USE_POSTGRES:
+                    # PostgreSQL: ADD COLUMN IF NOT EXISTS
+                    try:
+                        cursor.execute("ALTER TABLE company_info ADD COLUMN IF NOT EXISTS company_type VARCHAR(100)")
+                        cursor.execute("ALTER TABLE company_info ADD COLUMN IF NOT EXISTS revenue VARCHAR(100)")
+                        cursor.execute("ALTER TABLE company_info ADD COLUMN IF NOT EXISTS ceo_name VARCHAR(100)")
+                        cursor.execute("ALTER TABLE company_info ADD COLUMN IF NOT EXISTS capital VARCHAR(100)")
+                        conn.commit()
+                        print("✓ 새 컬럼 추가 완료 (company_type, revenue, ceo_name, capital)")
+                    except Exception as alter_error:
+                        print(f"컬럼 추가 중 오류 (무시 가능): {str(alter_error)}")
+                else:
+                    # MySQL: 컬럼 존재 여부 확인 후 추가
+                    new_columns = [
+                        ("company_type", "VARCHAR(100) COMMENT '기업구분'"),
+                        ("revenue", "VARCHAR(100) COMMENT '매출액'"),
+                        ("ceo_name", "VARCHAR(100) COMMENT '대표자'"),
+                        ("capital", "VARCHAR(100) COMMENT '자본금'"),
+                    ]
+                    for col_name, col_def in new_columns:
+                        try:
+                            cursor.execute(f"""
+                                SELECT COUNT(*) as count
+                                FROM information_schema.columns
+                                WHERE table_schema = %s AND table_name = 'company_info' AND column_name = %s
+                            """, (self.db_config['database'], col_name))
+                            col_result = cursor.fetchone()
+                            if col_result['count'] == 0:
+                                cursor.execute(f"ALTER TABLE company_info ADD COLUMN {col_name} {col_def}")
+                                print(f"✓ 컬럼 추가: {col_name}")
+                        except Exception as alter_error:
+                            print(f"컬럼 {col_name} 추가 중 오류 (무시 가능): {str(alter_error)}")
+                    conn.commit()
+            cursor.close()
+        except Exception as e:
+            print(f"company_info 테이블 생성 중 오류: {str(e)}")
+    
+    def save_job_listings(
+        self,
+        site_name: str,
+        site_url: str,
+        job_listings: List[Dict],
+        search_keyword: Optional[str] = None
+    ) -> int:
+        """
+        채용 공고를 데이터베이스에 저장합니다.
+        중복된 공고는 무시됩니다 (UNIQUE 제약).
+        
+        Args:
+            site_name: 사이트 이름
+            site_url: 사이트 URL
+            job_listings: 채용 공고 리스트
+            search_keyword: 검색 키워드 (선택)
+        
+        Returns:
+            저장된 공고 수
+        """
+        if not job_listings:
+            return 0
+        
+        saved_count = 0
+        
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # 1단계: 모든 job_id를 한 번에 추출
+                job_ids_to_check = []
+                job_data_map = {}  # job_id -> job data
+                
+                for job in job_listings:
+                    job_id = job.get("id") or job.get("job_id") or None
+                    url = job.get("url") or site_url
+                    
+                    # job_id가 없으면 URL에서 추출 시도
+                    if not job_id and url:
+                        import re
+                        match = re.search(r'/(\d+)(?:[/?#]|$)', url)
+                        if match:
+                            job_id = match.group(1)
+                    
+                    if job_id:
+                        job_ids_to_check.append(str(job_id))
+                        job_data_map[str(job_id)] = job
+                
+                # 2단계: 배치로 중복 체크 (IN 절 사용)
+                existing_job_ids = set()
+                if job_ids_to_check:
+                    placeholders = ','.join(['%s'] * len(job_ids_to_check))
+                    check_sql = f"""
+                        SELECT job_id FROM job_listings 
+                        WHERE site_name = %s AND job_id IN ({placeholders})
+                    """
+                    cursor.execute(check_sql, [site_name] + job_ids_to_check)
+                    existing_job_ids = {row['job_id'] for row in cursor.fetchall()}
+                
+                # 3단계: 새 공고만 INSERT
+                insert_sql = """
+                    INSERT INTO job_listings (
+                        site_name, site_url, job_id, title, company,
+                        location, description, url, reward, experience,
+                        search_keyword, tech_stack, required_skills, crawled_at
+                    ) VALUES (
+                        %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s
+                    )
+                """
+                
+                skipped_count = len(existing_job_ids)
+                
+                for job in job_listings:
+                    try:
+                        job_id = job.get("id") or job.get("job_id") or None
+                        title = job.get("title") or "채용 공고"
+                        url = job.get("url") or site_url
+                        
+                        # job_id가 없으면 URL에서 추출 시도
+                        if not job_id and url:
+                            import re
+                            match = re.search(r'/(\d+)(?:[/?#]|$)', url)
+                            if match:
+                                job_id = match.group(1)
+                        
+                        # 이미 존재하는 공고는 건너뛰기
+                        if job_id and str(job_id) in existing_job_ids:
+                            continue
+                        
+                        # reward가 딕셔너리인 경우 문자열로 변환
+                        reward = job.get("reward")
+                        if isinstance(reward, dict):
+                            reward = reward.get("formatted_total") or reward.get("formatted_recommender") or str(reward)
+                        elif reward is not None:
+                            reward = str(reward)
+                        
+                        # experience도 문자열로 변환
+                        experience = job.get("experience")
+                        if experience is not None:
+                            experience = str(experience)
+                        
+                        # company가 None이면 빈 문자열로 처리
+                        company = job.get("company") or ""
+
+                        # tech_stack, required_skills 처리 (리스트면 JSON 문자열로 변환)
+                        tech_stack = job.get("tech_stack")
+                        if isinstance(tech_stack, list):
+                            tech_stack = json.dumps(tech_stack, ensure_ascii=False)
+
+                        required_skills = job.get("required_skills")
+                        if isinstance(required_skills, list):
+                            required_skills = json.dumps(required_skills, ensure_ascii=False)
+
+                        cursor.execute(insert_sql, (
+                            site_name,
+                            site_url,
+                            job_id,
+                            title,
+                            company,
+                            job.get("location"),
+                            job.get("description"),
+                            url,
+                            reward,
+                            experience,
+                            search_keyword,
+                            tech_stack,
+                            required_skills,
+                            datetime.now()
+                        ))
+                        conn.commit()  # 각 INSERT 후 즉시 커밋
+                        saved_count += 1
+                    except Exception as e:
+                        conn.rollback()  # 에러 발생 시 rollback
+                        print(f"채용 공고 저장 실패: {job}, 에러: {str(e)}")
+                        continue
+                print(f"[DEBUG] Commit completed. Saved={saved_count}, Skipped={skipped_count}")
+                print(f"[DEBUG] Connected to: {self.db_config['host']}, DB: {self.db_config['database']}")
+                if saved_count > 0:
+                    print(f"{saved_count}개의 새로운 채용 공고가 데이터베이스에 저장되었습니다.")
+                if skipped_count > 0:
+                    print(f"{skipped_count}개의 채용 공고는 이미 존재하여 건너뛰었습니다.")
+                
+        except Exception as e:
+            print(f"데이터베이스 저장 중 오류 발생: {str(e)}")
+            raise e
+        
+        return saved_count
+    
+    def get_job_listings(
+        self,
+        site_name: Optional[str] = None,
+        search_keyword: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0
+    ) -> List[Dict]:
+        """
+        데이터베이스에서 채용 공고를 조회합니다.
+        
+        Args:
+            site_name: 사이트 이름 필터 (선택)
+            search_keyword: 검색 키워드 필터 (선택)
+            limit: 최대 결과 수
+            offset: 오프셋
+        
+        Returns:
+            채용 공고 리스트
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                where_clauses = []
+                params = []
+                
+                if site_name:
+                    where_clauses.append("site_name = %s")
+                    params.append(site_name)
+                
+                if search_keyword:
+                    where_clauses.append("(search_keyword LIKE %s OR title LIKE %s OR company LIKE %s)")
+                    keyword_pattern = f"%{search_keyword}%"
+                    params.extend([keyword_pattern, keyword_pattern, keyword_pattern])
+                
+                where_sql = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+                
+                query = f"""
+                    SELECT 
+                        id, site_name, site_url, job_id, title, company,
+                        location, description, url, reward, experience,
+                        search_keyword, crawled_at, created_at, updated_at
+                    FROM job_listings
+                    {where_sql}
+                    ORDER BY crawled_at DESC
+                    LIMIT %s OFFSET %s
+                """
+                
+                params.extend([limit, offset])
+                cursor.execute(query, params)
+                
+                results = cursor.fetchall()
+                
+                # DictCursor를 사용하므로 이미 딕셔너리 형태
+                return list(results)
+                
+        except Exception as e:
+            print(f"데이터베이스 조회 중 오류 발생: {str(e)}")
+            return []
+    
+    def count_job_listings(
+        self,
+        site_name: Optional[str] = None,
+        search_keyword: Optional[str] = None
+    ) -> int:
+        """
+        채용 공고 개수를 조회합니다.
+        
+        Args:
+            site_name: 사이트 이름 필터 (선택)
+            search_keyword: 검색 키워드 필터 (선택)
+        
+        Returns:
+            채용 공고 개수
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                where_clauses = []
+                params = []
+                
+                if site_name:
+                    where_clauses.append("site_name = %s")
+                    params.append(site_name)
+                
+                if search_keyword:
+                    where_clauses.append("(search_keyword LIKE %s OR title LIKE %s OR company LIKE %s)")
+                    keyword_pattern = f"%{search_keyword}%"
+                    params.extend([keyword_pattern, keyword_pattern, keyword_pattern])
+                
+                where_sql = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+                
+                query = f"SELECT COUNT(*) as count FROM job_listings {where_sql}"
+                cursor.execute(query, params)
+                
+                result = cursor.fetchone()
+                return result['count'] if result else 0
+                
+        except Exception as e:
+            print(f"데이터베이스 카운트 조회 중 오류 발생: {str(e)}")
+            return 0
+
+    def save_company_info(
+        self,
+        site_name: str,
+        companies: List[Dict]
+    ) -> int:
+        """
+        기업 정보를 데이터베이스에 저장합니다.
+        중복된 기업은 업데이트됩니다.
+
+        Args:
+            site_name: 사이트 이름
+            companies: 기업 정보 리스트
+
+        Returns:
+            저장된 기업 수
+        """
+        if not companies:
+            return 0
+
+        saved_count = 0
+        skipped_count = 0
+
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                for company in companies:
+                    try:
+                        if USE_POSTGRES:
+                            # PostgreSQL UPSERT (ON CONFLICT UPDATE)
+                            cursor.execute("""
+                                INSERT INTO company_info (
+                                    site_name, company_id, company_name, industry,
+                                    established_year, employee_count, location, address,
+                                    description, vision, benefits, culture, average_salary,
+                                    company_type, revenue, ceo_name, capital,
+                                    homepage_url, recruitment_url, logo_url, crawled_at
+                                ) VALUES (
+                                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP
+                                )
+                                ON CONFLICT (site_name, company_id)
+                                DO UPDATE SET
+                                    company_name = EXCLUDED.company_name,
+                                    industry = EXCLUDED.industry,
+                                    established_year = EXCLUDED.established_year,
+                                    employee_count = EXCLUDED.employee_count,
+                                    location = EXCLUDED.location,
+                                    address = EXCLUDED.address,
+                                    description = EXCLUDED.description,
+                                    vision = EXCLUDED.vision,
+                                    benefits = EXCLUDED.benefits,
+                                    culture = EXCLUDED.culture,
+                                    average_salary = EXCLUDED.average_salary,
+                                    company_type = EXCLUDED.company_type,
+                                    revenue = EXCLUDED.revenue,
+                                    ceo_name = EXCLUDED.ceo_name,
+                                    capital = EXCLUDED.capital,
+                                    homepage_url = EXCLUDED.homepage_url,
+                                    recruitment_url = EXCLUDED.recruitment_url,
+                                    logo_url = EXCLUDED.logo_url,
+                                    crawled_at = CURRENT_TIMESTAMP,
+                                    updated_at = CURRENT_TIMESTAMP
+                            """, (
+                                site_name,
+                                company.get('company_id'),
+                                company.get('company_name'),
+                                company.get('industry'),
+                                company.get('established_year'),
+                                company.get('employee_count'),
+                                company.get('location'),
+                                company.get('address'),
+                                company.get('description'),
+                                company.get('vision'),
+                                company.get('benefits'),
+                                company.get('culture'),
+                                company.get('average_salary'),
+                                company.get('company_type'),
+                                company.get('revenue'),
+                                company.get('ceo_name'),
+                                company.get('capital'),
+                                company.get('homepage_url'),
+                                company.get('recruitment_url'),
+                                company.get('logo_url')
+                            ))
+                        else:
+                            # MySQL UPSERT (ON DUPLICATE KEY UPDATE)
+                            cursor.execute("""
+                                INSERT INTO company_info (
+                                    site_name, company_id, company_name, industry,
+                                    established_year, employee_count, location, address,
+                                    description, vision, benefits, culture, average_salary,
+                                    company_type, revenue, ceo_name, capital,
+                                    homepage_url, recruitment_url, logo_url
+                                ) VALUES (
+                                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                                )
+                                ON DUPLICATE KEY UPDATE
+                                    company_name = VALUES(company_name),
+                                    industry = VALUES(industry),
+                                    established_year = VALUES(established_year),
+                                    employee_count = VALUES(employee_count),
+                                    location = VALUES(location),
+                                    address = VALUES(address),
+                                    description = VALUES(description),
+                                    vision = VALUES(vision),
+                                    benefits = VALUES(benefits),
+                                    culture = VALUES(culture),
+                                    average_salary = VALUES(average_salary),
+                                    company_type = VALUES(company_type),
+                                    revenue = VALUES(revenue),
+                                    ceo_name = VALUES(ceo_name),
+                                    capital = VALUES(capital),
+                                    homepage_url = VALUES(homepage_url),
+                                    recruitment_url = VALUES(recruitment_url),
+                                    logo_url = VALUES(logo_url),
+                                    crawled_at = CURRENT_TIMESTAMP,
+                                    updated_at = CURRENT_TIMESTAMP
+                            """, (
+                                site_name,
+                                company.get('company_id'),
+                                company.get('company_name'),
+                                company.get('industry'),
+                                company.get('established_year'),
+                                company.get('employee_count'),
+                                company.get('location'),
+                                company.get('address'),
+                                company.get('description'),
+                                company.get('vision'),
+                                company.get('benefits'),
+                                company.get('culture'),
+                                company.get('average_salary'),
+                                company.get('company_type'),
+                                company.get('revenue'),
+                                company.get('ceo_name'),
+                                company.get('capital'),
+                                company.get('homepage_url'),
+                                company.get('recruitment_url'),
+                                company.get('logo_url')
+                            ))
+
+                        saved_count += 1
+                    except Exception as e:
+                        print(f"기업 정보 저장 실패 ({company.get('company_name')}): {str(e)}")
+                        skipped_count += 1
+                        continue
+
+                conn.commit()
+                cursor.close()
+
+                print(f"[DEBUG] Commit completed. Saved={saved_count}, Skipped={skipped_count}")
+
+                if saved_count > 0:
+                    print(f"{saved_count}개의 기업 정보가 데이터베이스에 저장되었습니다.")
+                if skipped_count > 0:
+                    print(f"{skipped_count}개의 기업 정보 저장 중 오류가 발생했습니다.")
+
+                return saved_count
+
+        except Exception as e:
+            print(f"기업 정보 저장 중 오류 발생: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return 0
+
+    def execute_query(self, query: str, params: tuple = None):
+        """
+        SQL 쿼리 실행 (SELECT 전용)
+
+        Args:
+            query: SQL 쿼리
+            params: 쿼리 파라미터
+
+        Returns:
+            쿼리 결과 (튜플 리스트)
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                if params:
+                    cursor.execute(query, params)
+                else:
+                    cursor.execute(query)
+
+                results = cursor.fetchall()
+
+                # DictCursor/RealDictCursor 결과를 튜플 리스트로 변환
+                if results and isinstance(results[0], dict):
+                    # 딕셔너리 결과를 튜플로 변환
+                    return [tuple(row.values()) for row in results]
+
+                return results
+
+        except Exception as e:
+            print(f"쿼리 실행 실패: {str(e)}")
+            raise e
+
+    # ============== 자격증 관련 메서드 ==============
+
+    def _ensure_certification_table(self, conn):
+        """certifications 테이블 생성"""
+        try:
+            cursor = conn.cursor()
+
+            # 테이블 존재 여부 확인
+            if USE_POSTGRES:
+                cursor.execute("""
+                    SELECT COUNT(*) as count
+                    FROM information_schema.tables
+                    WHERE table_schema = 'public' AND table_name = 'certifications'
+                """)
+            else:
+                cursor.execute("""
+                    SELECT COUNT(*) as count
+                    FROM information_schema.tables
+                    WHERE table_schema = %s AND table_name = 'certifications'
+                """, (self.db_config['database'],))
+
+            result = cursor.fetchone()
+            if result['count'] == 0:
+                if USE_POSTGRES:
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS certifications (
+                            id BIGSERIAL PRIMARY KEY,
+                            code VARCHAR(50) UNIQUE,
+                            name VARCHAR(255) NOT NULL,
+                            eng_name VARCHAR(500),
+                            series_code VARCHAR(10),
+                            series_name VARCHAR(100),
+                            oblig_fld_name VARCHAR(100),
+                            impl_nm VARCHAR(255),
+                            insti_nm VARCHAR(255),
+                            summary TEXT,
+                            career TEXT,
+                            job TEXT,
+                            trend TEXT,
+                            hist TEXT,
+                            source VARCHAR(50) DEFAULT 'qnet',
+                            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """)
+                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_cert_code ON certifications (code)")
+                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_cert_name ON certifications (name)")
+                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_cert_series ON certifications (series_code)")
+                else:
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS certifications (
+                            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                            code VARCHAR(50) UNIQUE COMMENT '종목코드',
+                            name VARCHAR(255) NOT NULL COMMENT '자격증명',
+                            eng_name VARCHAR(500) COMMENT '영문명',
+                            series_code VARCHAR(10) COMMENT '계열코드',
+                            series_name VARCHAR(100) COMMENT '계열명',
+                            oblig_fld_name VARCHAR(100) COMMENT '직무분야명',
+                            impl_nm VARCHAR(255) COMMENT '시행기관명',
+                            insti_nm VARCHAR(255) COMMENT '출제기관명',
+                            summary TEXT COMMENT '요약',
+                            career TEXT COMMENT '관련 진로',
+                            job TEXT COMMENT '직무내용',
+                            trend TEXT COMMENT '동향',
+                            hist TEXT COMMENT '변천이력',
+                            source VARCHAR(50) DEFAULT 'qnet' COMMENT '데이터 출처',
+                            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 시간',
+                            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정 시간',
+                            INDEX idx_cert_code (code),
+                            INDEX idx_cert_name (name),
+                            INDEX idx_cert_series (series_code)
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='자격증 정보'
+                    """)
+                conn.commit()
+                print("certifications 테이블이 생성되었습니다.")
+            cursor.close()
+        except Exception as e:
+            print(f"certifications 테이블 생성 중 오류: {str(e)}")
+
+    def ensure_certification_table(self):
+        """외부에서 호출 가능한 자격증 테이블 생성 메서드"""
+        try:
+            with self.get_connection() as conn:
+                self._ensure_certification_table(conn)
+        except Exception as e:
+            print(f"자격증 테이블 생성 실패: {str(e)}")
+
+    def save_certifications(self, certifications: List[Dict]) -> int:
+        """
+        자격증 정보를 데이터베이스에 저장합니다.
+        중복된 자격증은 업데이트됩니다.
+
+        Args:
+            certifications: 자격증 정보 리스트
+
+        Returns:
+            저장된 자격증 수
+        """
+        if not certifications:
+            return 0
+
+        # 테이블 존재 확인
+        self.ensure_certification_table()
+
+        saved_count = 0
+
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                for cert in certifications:
+                    try:
+                        if USE_POSTGRES:
+                            cursor.execute("""
+                                INSERT INTO certifications (
+                                    code, name, eng_name, series_code, series_name,
+                                    oblig_fld_name, impl_nm, insti_nm, summary,
+                                    career, job, trend, hist, source
+                                ) VALUES (
+                                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                                )
+                                ON CONFLICT (code)
+                                DO UPDATE SET
+                                    name = EXCLUDED.name,
+                                    eng_name = EXCLUDED.eng_name,
+                                    series_code = EXCLUDED.series_code,
+                                    series_name = EXCLUDED.series_name,
+                                    oblig_fld_name = EXCLUDED.oblig_fld_name,
+                                    impl_nm = EXCLUDED.impl_nm,
+                                    insti_nm = EXCLUDED.insti_nm,
+                                    summary = EXCLUDED.summary,
+                                    career = EXCLUDED.career,
+                                    job = EXCLUDED.job,
+                                    trend = EXCLUDED.trend,
+                                    hist = EXCLUDED.hist,
+                                    source = EXCLUDED.source,
+                                    updated_at = CURRENT_TIMESTAMP
+                            """, (
+                                cert.get('code'),
+                                cert.get('name'),
+                                cert.get('engName'),
+                                cert.get('seriesCode'),
+                                cert.get('seriesName'),
+                                cert.get('obligFldName'),
+                                cert.get('implNm'),
+                                cert.get('instiNm'),
+                                cert.get('summary'),
+                                cert.get('career'),
+                                cert.get('job'),
+                                cert.get('trend'),
+                                cert.get('hist'),
+                                cert.get('source', 'qnet')
+                            ))
+                        else:
+                            cursor.execute("""
+                                INSERT INTO certifications (
+                                    code, name, eng_name, series_code, series_name,
+                                    oblig_fld_name, impl_nm, insti_nm, summary,
+                                    career, job, trend, hist, source
+                                ) VALUES (
+                                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                                )
+                                ON DUPLICATE KEY UPDATE
+                                    name = VALUES(name),
+                                    eng_name = VALUES(eng_name),
+                                    series_code = VALUES(series_code),
+                                    series_name = VALUES(series_name),
+                                    oblig_fld_name = VALUES(oblig_fld_name),
+                                    impl_nm = VALUES(impl_nm),
+                                    insti_nm = VALUES(insti_nm),
+                                    summary = VALUES(summary),
+                                    career = VALUES(career),
+                                    job = VALUES(job),
+                                    trend = VALUES(trend),
+                                    hist = VALUES(hist),
+                                    source = VALUES(source),
+                                    updated_at = CURRENT_TIMESTAMP
+                            """, (
+                                cert.get('code'),
+                                cert.get('name'),
+                                cert.get('engName'),
+                                cert.get('seriesCode'),
+                                cert.get('seriesName'),
+                                cert.get('obligFldName'),
+                                cert.get('implNm'),
+                                cert.get('instiNm'),
+                                cert.get('summary'),
+                                cert.get('career'),
+                                cert.get('job'),
+                                cert.get('trend'),
+                                cert.get('hist'),
+                                cert.get('source', 'qnet')
+                            ))
+
+                        saved_count += 1
+                    except Exception as e:
+                        print(f"자격증 저장 실패 ({cert.get('name')}): {str(e)}")
+                        continue
+
+                conn.commit()
+                cursor.close()
+
+                if saved_count > 0:
+                    print(f"{saved_count}개의 자격증 정보가 저장되었습니다.")
+
+                return saved_count
+
+        except Exception as e:
+            print(f"자격증 저장 중 오류 발생: {str(e)}")
+            return 0
+
+    def get_certifications(
+        self,
+        series_code: Optional[str] = None,
+        keyword: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0
+    ) -> List[Dict]:
+        """
+        자격증 정보를 조회합니다.
+
+        Args:
+            series_code: 계열코드 필터
+            keyword: 검색 키워드
+            limit: 최대 결과 수
+            offset: 오프셋
+
+        Returns:
+            자격증 리스트
+        """
+        # 테이블 존재 확인
+        self.ensure_certification_table()
+
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                where_clauses = []
+                params = []
+
+                if series_code:
+                    where_clauses.append("series_code = %s")
+                    params.append(series_code)
+
+                if keyword:
+                    where_clauses.append("(name LIKE %s OR oblig_fld_name LIKE %s)")
+                    keyword_pattern = f"%{keyword}%"
+                    params.extend([keyword_pattern, keyword_pattern])
+
+                where_sql = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+
+                query = f"""
+                    SELECT
+                        id, code, name, eng_name, series_code, series_name,
+                        oblig_fld_name, impl_nm, insti_nm, summary,
+                        career, job, trend, hist, source, created_at, updated_at
+                    FROM certifications
+                    {where_sql}
+                    ORDER BY series_code, name
+                    LIMIT %s OFFSET %s
+                """
+
+                params.extend([limit, offset])
+                cursor.execute(query, params)
+
+                results = cursor.fetchall()
+                cursor.close()
+
+                return list(results)
+
+        except Exception as e:
+            print(f"자격증 조회 중 오류 발생: {str(e)}")
+            return []
+
+    def count_certifications(self, series_code: Optional[str] = None) -> int:
+        """자격증 개수 조회"""
+        self.ensure_certification_table()
+
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                if series_code:
+                    cursor.execute(
+                        "SELECT COUNT(*) as count FROM certifications WHERE series_code = %s",
+                        (series_code,)
+                    )
+                else:
+                    cursor.execute("SELECT COUNT(*) as count FROM certifications")
+
+                result = cursor.fetchone()
+                cursor.close()
+                return result['count'] if result else 0
+
+        except Exception as e:
+            print(f"자격증 카운트 조회 중 오류: {str(e)}")
+            return 0
+

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
 
 interface RecommendItem {
@@ -10,24 +10,41 @@ interface RecommendItem {
 
 interface Props {
   embedded?: boolean;
+  profileId?: number;
 }
 
-const WorknetRecommendPanel = ({ embedded = false }: Props) => {
-  const [vectorId, setVectorId] = useState("");
+const WorknetRecommendPanel = ({ embedded = false, profileId }: Props) => {
   const [items, setItems] = useState<RecommendItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  const handleFetch = async () => {
-    if (!vectorId.trim()) {
-      setError("벡터 ID를 입력해 주세요.");
-      return;
-    }
+  useEffect(() => {
+    if (!profileId) return;
+
+    const checkVector = async () => {
+      try {
+        const res = await api.get(`/vector/status/${profileId}`);
+        if (res.data?.ready && res.data?.vectorId) {
+          fetchRecommendations(res.data.vectorId);
+        } else {
+          setStatusMessage("벡터 생성 중입니다... 잠시만 기다려주세요.");
+        }
+      } catch (e) {
+        console.error("벡터 상태 조회 실패", e);
+      }
+    };
+
+    checkVector();
+  }, [profileId]);
+
+  const fetchRecommendations = async (vid: string) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.post("/recommend/worknet", { vectorId: vectorId.trim() });
+      const res = await api.post("/recommend/worknet", { vectorId: vid });
       setItems(res.data?.items || []);
+      setStatusMessage(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : "채용 추천 호출 중 오류가 발생했습니다.";
       setError(message);
@@ -36,43 +53,25 @@ const WorknetRecommendPanel = ({ embedded = false }: Props) => {
     }
   };
 
+
+
   const hasItems = useMemo(() => items.length > 0, [items.length]);
   const containerClass = embedded ? "space-y-6" : "space-y-8";
 
   return (
     <div className={containerClass}>
-      <section className="rounded-2xl border border-gray-100 bg-white p-6">
-        <label className="text-sm font-semibold text-gray-700">사용자 벡터 ID</label>
-        <div className="mt-3 flex flex-wrap gap-3">
-          <input
-            value={vectorId}
-            onChange={(e) => setVectorId(e.target.value)}
-            placeholder="예) user_1234_abcdef"
-            className="flex-1 min-w-[200px] rounded-xl border px-4 py-3 text-sm shadow-sm focus:border-indigo-500 focus:outline-none"
-          />
-          <button
-            type="button"
-            onClick={handleFetch}
-            className="rounded-full bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-indigo-500 disabled:opacity-50"
-            disabled={loading}
-          >
-            {loading ? "추천 생성 중..." : "추천 받기"}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setVectorId("");
-              setItems([]);
-              setError(null);
-            }}
-            className="rounded-full border border-gray-300 px-6 py-3 text-sm font-semibold text-gray-600 hover:bg-gray-100 disabled:opacity-50"
-            disabled={loading}
-          >
-            초기화
-          </button>
+      {/* 상태 메시지 표시 영역 */}
+      {(statusMessage || error) && (
+        <div className="rounded-xl bg-gray-50 p-4 mb-4">
+          {statusMessage && (
+            <div className="flex items-center gap-2 text-blue-600">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
+              <p className="text-sm font-medium">{statusMessage}</p>
+            </div>
+          )}
+          {error && <p className="text-sm text-red-500">{error}</p>}
         </div>
-        {error && <p className="mt-3 text-sm text-red-500">{error}</p>}
-      </section>
+      )}
 
       <section className="space-y-4 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
         <div className="flex items-center justify-between">

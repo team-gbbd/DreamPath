@@ -1,0 +1,10 @@
+{
+  "userId": 1,
+  "careerAnalysis": {
+    "recommendedCareers": [{"careerName": "백엔드 개발자"}],
+    "strengths": ["문제 해결", "논리적 사고"],
+    "values": ["성장"],
+    "interests": ["프로그래밍"]
+  },
+  "limit": 3
+}

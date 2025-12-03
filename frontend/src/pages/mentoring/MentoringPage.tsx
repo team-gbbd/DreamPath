@@ -2,33 +2,12 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { mentorService, bookingService, mentoringSessionService } from '@/lib/api';
 import Header from '@/components/feature/Header';
-
-const DAYS_OF_WEEK = [
-  { key: 'monday', label: '월요일' },
-  { key: 'tuesday', label: '화요일' },
-  { key: 'wednesday', label: '수요일' },
-  { key: 'thursday', label: '목요일' },
-  { key: 'friday', label: '금요일' },
-  { key: 'saturday', label: '토요일' },
-  { key: 'sunday', label: '일요일' },
-];
-
-const TIME_SLOTS = [
-  '09:00-10:00', '10:00-11:00', '11:00-12:00',
-  '13:00-14:00', '14:00-15:00', '15:00-16:00',
-  '16:00-17:00', '17:00-18:00', '18:00-19:00',
-  '19:00-20:00', '20:00-21:00'
-];
-
-const SPECIALIZATIONS = [
-  '프론트엔드',
-  '백엔드',
-  '풀스택',
-  '데이터 사이언스',
-  '디자인',
-  'PM/기획',
-  '마케팅'
-];
+import LoadingSpinner from '@/components/common/LoadingSpinner';
+import EmptyState from '@/components/common/EmptyState';
+import { useToast } from '@/components/common/Toast';
+import { DAYS_OF_WEEK, TIME_SLOTS, SPECIALIZATIONS, BOOKING_STATUS_LABELS } from '@/constants/mentoring';
+import { formatKoreanDate, formatKoreanDateTime, getTodayString } from '@/utils/dateUtils';
+import { validateSessionForm, type SessionFormData, type ValidationErrors } from '@/utils/validation';
 
 interface Mentor {
   mentorId: number;
@@ -66,21 +45,35 @@ interface Booking {
   createdAt: string;
 }
 
+interface MentoringSession {
+  sessionId: number;
+  mentorId: number;
+  mentorName: string;
+  title: string;
+  description: string;
+  sessionDate: string;
+  durationMinutes: number;
+  price: number;
+  status: string;
+}
+
 export default function MentoringPage() {
   const navigate = useNavigate();
+  const { showToast, ToastContainer } = useToast();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isMentor, setIsMentor] = useState(false);
   const [myMentorInfo, setMyMentorInfo] = useState<Mentor | null>(null);
-  const [sessions, setSessions] = useState<any[]>([]);
-  const [filteredSessions, setFilteredSessions] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<MentoringSession[]>([]);
+  const [filteredSessions, setFilteredSessions] = useState<MentoringSession[]>([]);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSpecializations, setSelectedSpecializations] = useState<string[]>([]);
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
 
   // 세션 등록 폼 state
-  const [sessionForm, setSessionForm] = useState({
+  const [sessionForm, setSessionForm] = useState<SessionFormData>({
     title: '',
     description: '',
     sessionDate: '',
@@ -92,7 +85,7 @@ export default function MentoringPage() {
   useEffect(() => {
     const userStr = localStorage.getItem('dreampath:user');
     if (!userStr) {
-      alert('로그인이 필요합니다.');
+      showToast('로그인이 필요합니다.', 'warning');
       navigate('/login');
       return;
     }
@@ -161,18 +154,17 @@ export default function MentoringPage() {
   };
 
   const handleSaveSession = async () => {
-    if (!sessionForm.title.trim()) {
-      alert('제목을 입력해주세요.');
-      return;
-    }
+    // 유효성 검사
+    const errors = validateSessionForm(sessionForm);
+    setValidationErrors(errors);
 
-    if (!sessionForm.sessionDate || !sessionForm.sessionTime) {
-      alert('날짜와 시간을 선택해주세요.');
+    if (Object.keys(errors).length > 0) {
+      showToast('입력 내용을 확인해주세요.', 'error');
       return;
     }
 
     if (!myMentorInfo) {
-      alert('멘토 정보를 찾을 수 없습니다.');
+      showToast('멘토 정보를 찾을 수 없습니다.', 'error');
       return;
     }
 
@@ -191,7 +183,7 @@ export default function MentoringPage() {
         price: sessionForm.price,
       });
 
-      alert('멘토링 세션이 성공적으로 등록되었습니다!');
+      showToast('멘토링 세션이 성공적으로 등록되었습니다!', 'success');
       setShowScheduleModal(false);
 
       // 폼 초기화
@@ -203,12 +195,16 @@ export default function MentoringPage() {
         durationMinutes: 60,
         price: 0,
       });
+      setValidationErrors({});
 
-      // 페이지 새로고침
-      window.location.reload();
-    } catch (error: any) {
+      // 세션 목록 다시 불러오기
+      if (currentUser) {
+        checkMentorStatus(currentUser.userId);
+      }
+    } catch (error) {
       console.error('세션 등록 실패:', error);
-      alert(error.response?.data || '세션 등록 중 오류가 발생했습니다.');
+      const apiError = error as { response?: { data?: string } };
+      showToast(apiError.response?.data || '세션 등록 중 오류가 발생했습니다.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -240,17 +236,16 @@ export default function MentoringPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <i className="ri-loader-4-line text-5xl text-blue-500 animate-spin"></i>
-          <p className="mt-4 text-gray-600">로딩 중...</p>
-        </div>
-      </div>
+      <>
+        <Header />
+        <LoadingSpinner fullScreen message="멘토링 정보를 불러오는 중..." />
+      </>
     );
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <ToastContainer />
       <Header />
       <div className="pt-16"> {/* Header 높이만큼 패딩 */}
       {/* 멘토 전용 버튼 - 우측 상단 고정 */}
@@ -401,13 +396,15 @@ export default function MentoringPage() {
             </div>
 
             {filteredSessions.length === 0 ? (
-              <div className="bg-white rounded-3xl shadow-lg p-20 text-center">
-                <div className="w-32 h-32 mx-auto mb-6 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center">
-                  <i className="ri-calendar-line text-6xl text-purple-300"></i>
-                </div>
-                <p className="text-gray-600 text-lg">등록된 멘토링 세션이 없어요</p>
-                <p className="text-gray-500 text-sm mt-2">다른 검색어나 분야를 선택해보세요</p>
-              </div>
+              <EmptyState
+                icon="ri-calendar-line"
+                title="등록된 멘토링 세션이 없어요"
+                description={
+                  searchQuery || selectedSpecializations.length > 0
+                    ? "다른 검색어나 분야를 선택해보세요"
+                    : "곧 새로운 멘토링 세션이 등록될 예정이에요"
+                }
+              />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredSessions.map((session) => (
@@ -514,22 +511,36 @@ export default function MentoringPage() {
                     value={sessionForm.title}
                     onChange={(e) => setSessionForm({ ...sessionForm, title: e.target.value })}
                     placeholder="예: 백엔드 면접 준비 멘토링"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-pink-400 focus:ring-2 focus:ring-pink-200 focus:outline-none"
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:outline-none ${
+                      validationErrors.title
+                        ? 'border-red-500 focus:border-red-500 focus:ring-red-200'
+                        : 'border-gray-300 focus:border-pink-400 focus:ring-pink-200'
+                    }`}
                   />
+                  {validationErrors.title && (
+                    <p className="mt-1 text-sm text-red-500">{validationErrors.title}</p>
+                  )}
                 </div>
 
                 {/* 설명 */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    설명
+                    설명 <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     value={sessionForm.description}
                     onChange={(e) => setSessionForm({ ...sessionForm, description: e.target.value })}
-                    placeholder="멘토링 세션에 대한 설명을 입력해주세요"
+                    placeholder="멘토링 세션에 대한 설명을 입력해주세요 (최소 10자)"
                     rows={4}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-pink-400 focus:ring-2 focus:ring-pink-200 focus:outline-none resize-none"
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:outline-none resize-none ${
+                      validationErrors.description
+                        ? 'border-red-500 focus:border-red-500 focus:ring-red-200'
+                        : 'border-gray-300 focus:border-pink-400 focus:ring-pink-200'
+                    }`}
                   />
+                  {validationErrors.description && (
+                    <p className="mt-1 text-sm text-red-500">{validationErrors.description}</p>
+                  )}
                 </div>
 
                 {/* 날짜 & 시간 */}
@@ -541,9 +552,17 @@ export default function MentoringPage() {
                     <input
                       type="date"
                       value={sessionForm.sessionDate}
+                      min={getTodayString()}
                       onChange={(e) => setSessionForm({ ...sessionForm, sessionDate: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-pink-400 focus:ring-2 focus:ring-pink-200 focus:outline-none"
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:outline-none ${
+                        validationErrors.sessionDate
+                          ? 'border-red-500 focus:border-red-500 focus:ring-red-200'
+                          : 'border-gray-300 focus:border-pink-400 focus:ring-pink-200'
+                      }`}
                     />
+                    {validationErrors.sessionDate && (
+                      <p className="mt-1 text-sm text-red-500">{validationErrors.sessionDate}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">

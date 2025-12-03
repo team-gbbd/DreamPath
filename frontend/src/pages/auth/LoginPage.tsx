@@ -81,7 +81,7 @@ export default function LoginPage() {
       window.dispatchEvent(new Event("dreampath-auth-change"));
       alert(`${res.data.name}님 환영합니다!`);
       navigate("/", { replace: true });
-    } catch (err: any) {
+    } catch (err) {
       alert(resolveErrorMessage(err, "로그인에 실패했습니다."));
     } finally {
       setIsSubmitting(false);
