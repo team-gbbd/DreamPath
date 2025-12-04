@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import api from "@/lib/api";
+import { backendApi, pythonApi } from "@/lib/api";
 
 interface RecommendItem {
   id?: string;
@@ -24,7 +24,7 @@ const MajorRecommendPanel = ({ embedded = false, profileId }: Props) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.post("/recommend/majors", { vectorId: vid });
+      const res = await pythonApi.post("/recommend/majors", { vectorId: vid });
       const data = res.data;
       if (Array.isArray(data)) {
         setItems(data);
@@ -45,7 +45,7 @@ const MajorRecommendPanel = ({ embedded = false, profileId }: Props) => {
 
     try {
       console.log("Checking vector status for profileId:", profileId);
-      const res = await api.get(`/vector/status/${profileId}`);
+      const res = await backendApi.get(`/vector/status/${profileId}`);
       console.log("Vector status response:", res.data);
 
       if (res.data?.ready && res.data?.vectorId) {
@@ -66,7 +66,7 @@ const MajorRecommendPanel = ({ embedded = false, profileId }: Props) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.post("/recommend/majors/search", { query: searchQuery });
+      const res = await pythonApi.post("/recommend/majors/search", { query: searchQuery });
       const data = res.data;
       if (Array.isArray(data)) {
         setItems(data);

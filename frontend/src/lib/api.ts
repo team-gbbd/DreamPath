@@ -19,11 +19,19 @@ import type {
 export const BACKEND_BASE_URL =
   import.meta.env.VITE_BACKEND_URL || "http://localhost:8080";
 
-export const API_BASE_URL =
-  import.meta.env.VITE_API_URL || `${BACKEND_BASE_URL}/api`;
+export const API_BASE_URL = `${BACKEND_BASE_URL}/api`;
 
 const api = axios.create({
   baseURL: API_BASE_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+  withCredentials: true,
+});
+
+// Axios instance for Spring Boot backend
+export const backendApi = axios.create({
+  baseURL: `${BACKEND_BASE_URL}/api`,
   headers: {
     "Content-Type": "application/json",
   },
@@ -77,7 +85,7 @@ export const analysisService = {
 const PYTHON_AI_SERVICE_URL =
   import.meta.env.VITE_PYTHON_AI_SERVICE_URL || "http://localhost:8000";
 
-const pythonApi = axios.create({
+export const pythonApi = axios.create({
   baseURL: PYTHON_AI_SERVICE_URL,
   headers: {
     "Content-Type": "application/json",

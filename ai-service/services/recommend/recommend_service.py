@@ -196,7 +196,13 @@ class RecommendService:
                     }
                 
                 final_title = item["title"]
+                if final_title:
+                    final_title = final_title.strip()
+                
+                print(f"[DEBUG] Processing item: id={item['id']}, title='{final_title}'")
+                
                 if final_title and final_title in seen_titles:
+                    print(f"[DEBUG] Duplicate found: {final_title}")
                     continue
                 
                 if final_title:

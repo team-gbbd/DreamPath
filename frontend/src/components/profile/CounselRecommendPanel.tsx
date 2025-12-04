@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import api from "@/lib/api";
+import { backendApi, pythonApi } from "@/lib/api";
 
 interface CounselItem {
     id?: string;
@@ -29,7 +29,7 @@ const CounselRecommendPanel = ({ embedded = false, profileId }: Props) => {
         const checkVector = async () => {
             try {
                 console.log("Checking vector status for profileId:", profileId);
-                const res = await api.get(`/vector/status/${profileId}`);
+                const res = await backendApi.get(`/vector/status/${profileId}`);
                 console.log("Vector status response:", res.data);
 
                 if (res.data?.ready && res.data?.vectorId) {
@@ -51,7 +51,7 @@ const CounselRecommendPanel = ({ embedded = false, profileId }: Props) => {
         setLoading(true);
         setError(null);
         try {
-            const res = await api.post("/recommend/counsel", { vectorId: vid });
+            const res = await pythonApi.post("/recommend/counsel", { vectorId: vid });
             const data = res.data;
             if (Array.isArray(data)) {
                 setItems(data);

@@ -1,0 +1,244 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "io.pinecone",
+    "module": "pinecone-client",
+    "version": "1.0.0",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "6.8",
+      "buildId": "fgafgjzhc5hylkecbj2qdojlei"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 8,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api"
+      },
+      "dependencies": [
+        {
+          "group": "io.grpc",
+          "module": "grpc-protobuf",
+          "version": {
+            "requires": "1.60.2"
+          }
+        },
+        {
+          "group": "io.grpc",
+          "module": "grpc-stub",
+          "version": {
+            "requires": "1.60.2"
+          }
+        },
+        {
+          "group": "io.grpc",
+          "module": "grpc-netty",
+          "version": {
+            "requires": "1.60.2"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "pinecone-client-1.0.0.jar",
+          "url": "pinecone-client-1.0.0.jar",
+          "size": 553065,
+          "sha512": "3849a3db2d8be2f2f431ac68c0b4d528f14433d683ee6e5c40c8b1efa85b486c50c4ec017d90437958da80c84274713501c22e98ca37c7364d742a2ba764f450",
+          "sha256": "69b622f4f9cfe7ff20b4395e3077221528ebb861b9ab4d59ea760d78f0c44330",
+          "sha1": "b44a8b7a516f10934f43c6a3a5a94f0307ade048",
+          "md5": "d2e887da9745d69be16d9ea4a245b77d"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 8,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "org.slf4j",
+          "module": "slf4j-api",
+          "version": {
+            "requires": "2.0.5"
+          }
+        },
+        {
+          "group": "com.google.api.grpc",
+          "module": "proto-google-common-protos",
+          "version": {
+            "requires": "2.14.3"
+          }
+        },
+        {
+          "group": "com.squareup.okhttp3",
+          "module": "okhttp",
+          "version": {
+            "requires": "4.12.0"
+          }
+        },
+        {
+          "group": "com.squareup.okhttp3",
+          "module": "logging-interceptor",
+          "version": {
+            "requires": "4.12.0"
+          }
+        },
+        {
+          "group": "com.fasterxml.jackson.core",
+          "module": "jackson-databind",
+          "version": {
+            "requires": "2.14.2"
+          }
+        },
+        {
+          "group": "com.fasterxml.jackson.core",
+          "module": "jackson-core",
+          "version": {
+            "requires": "2.14.2"
+          }
+        },
+        {
+          "group": "com.google.code.gson",
+          "module": "gson",
+          "version": {
+            "requires": "2.9.1"
+          }
+        },
+        {
+          "group": "io.gsonfire",
+          "module": "gson-fire",
+          "version": {
+            "requires": "1.8.5"
+          }
+        },
+        {
+          "group": "org.openapitools",
+          "module": "jackson-databind-nullable",
+          "version": {
+            "requires": "0.2.6"
+          }
+        },
+        {
+          "group": "com.google.protobuf",
+          "module": "protobuf-java",
+          "version": {
+            "requires": "3.25.2"
+          }
+        },
+        {
+          "group": "io.grpc",
+          "module": "grpc-protobuf",
+          "version": {
+            "requires": "1.60.2"
+          }
+        },
+        {
+          "group": "io.grpc",
+          "module": "grpc-stub",
+          "version": {
+            "requires": "1.60.2"
+          }
+        },
+        {
+          "group": "io.grpc",
+          "module": "grpc-netty",
+          "version": {
+            "requires": "1.60.2"
+          }
+        },
+        {
+          "group": "io.netty",
+          "module": "netty-tcnative-boringssl-static",
+          "version": {
+            "requires": "2.0.61.Final"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "pinecone-client-1.0.0.jar",
+          "url": "pinecone-client-1.0.0.jar",
+          "size": 553065,
+          "sha512": "3849a3db2d8be2f2f431ac68c0b4d528f14433d683ee6e5c40c8b1efa85b486c50c4ec017d90437958da80c84274713501c22e98ca37c7364d742a2ba764f450",
+          "sha256": "69b622f4f9cfe7ff20b4395e3077221528ebb861b9ab4d59ea760d78f0c44330",
+          "sha1": "b44a8b7a516f10934f43c6a3a5a94f0307ade048",
+          "md5": "d2e887da9745d69be16d9ea4a245b77d"
+        }
+      ]
+    },
+    {
+      "name": "shadowRuntimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "shadowed",
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "pinecone-client-1.0.0-all.jar",
+          "url": "pinecone-client-1.0.0-all.jar",
+          "size": 18939611,
+          "sha512": "284b2cbb1141a44eadf1f7259f03dccb7a7785da70ef8daf339becd96ac7d35a244952d7f8c722ba031191e4b70a81fc993b1de1f5146f2f6119867bc6b52333",
+          "sha256": "0ec8927b652ccb6105d5752f419eb2b6ed3c4d81f01f4cd3df3048f2ab6cf948",
+          "sha1": "6b6c59b9e7702fae622a08ed9ad177bfaf027550",
+          "md5": "aa73755b97b4b1d41234c9d09220fc31"
+        }
+      ]
+    },
+    {
+      "name": "sourcesElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "pinecone-client-1.0.0-sources.jar",
+          "url": "pinecone-client-1.0.0-sources.jar",
+          "size": 267942,
+          "sha512": "36d56d52d1aad0906a7ea72337ba91b40b1325fd5c30decc556aecb4c2c667ee7c784d0e867ca7d30a64c9aa1b2c31c8a8db71b5d5eae8c66f853dcd543038d5",
+          "sha256": "3741b8a77b3e852e1b42f97f86b31aa8cf0e407123a9d3152491b19a9fbb5828",
+          "sha1": "009d96f3e52bb5f1710749e0693c91c2e568060b",
+          "md5": "dc140bbfc18f03eb7812d92cb2936021"
+        }
+      ]
+    },
+    {
+      "name": "javadocElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "javadoc",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "pinecone-client-1.0.0-javadoc.jar",
+          "url": "pinecone-client-1.0.0-javadoc.jar",
+          "size": 831276,
+          "sha512": "cc6f19a959e964d4427c5ca7d6dc9c57afe44251bba9feb6cf103a4330f185263fcc9bbaf51a9a8d9dd01625824aec69bd7bb16b6028a41045c5c3602040f69d",
+          "sha256": "f0201bd8a1ac6357cd7f01c8d800fd035dd1231960cc6c4c1ba5e059363795af",
+          "sha1": "1918d705557f85a8c9d2ea688de7fca482780cdf",
+          "md5": "6a6a0532e006b80c03dd8fd98d651ed0"
+        }
+      ]
+    }
+  ]
+}
