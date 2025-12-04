@@ -62,7 +62,7 @@ export default function CareerChatPage() {
   const initializeSession = async () => {
     // localStorage에서 기존 세션 ID 확인
     const savedSessionId = localStorage.getItem('career_chat_session_id');
-    
+
     if (savedSessionId) {
       // 기존 세션이 있으면 대화 이력 불러오기
       try {
@@ -77,7 +77,7 @@ export default function CareerChatPage() {
               timestamp: new Date(msg.timestamp),
             })));
             console.log('기존 세션 복원:', savedSessionId, '메시지 수:', history.length);
-            
+
             // 마지막 정체성 상태 복원
             // 1. 먼저 localStorage에서 시도
             try {
@@ -90,7 +90,7 @@ export default function CareerChatPage() {
             } catch (err) {
               console.warn('localStorage 정체성 복원 실패');
             }
-            
+
             // 2. 백엔드에서 다시 계산해서 가져오기
             try {
               console.log('백엔드에서 정체성 상태 조회 시도:', savedSessionId);
@@ -114,7 +114,7 @@ export default function CareerChatPage() {
         console.log('세션 복원 실패, 새 세션 시작:', error);
       }
     }
-    
+
     // 새 세션 시작
     await startNewSession();
   };
@@ -122,31 +122,35 @@ export default function CareerChatPage() {
   const startNewSession = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/chat/start`, {
+
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          userId: userId ? String(userId) : null
+        }),
       });
 
       const data = await response.json();
       setSessionId(data.sessionId);
-      
+
       // localStorage에 세션 ID 저장
       localStorage.setItem('career_chat_session_id', data.sessionId);
-      
+
       // 설문조사 필요 여부 확인
       if (data.needsSurvey && data.surveyQuestions) {
         setSurveyQuestions(data.surveyQuestions);
         setShowSurvey(true);
       }
-      
+
       // 초기 메시지 추가
       setMessages([{
         role: 'assistant',
         content: data.message,
         timestamp: new Date(),
       }]);
-      
+
       console.log('새 세션 시작:', data.sessionId);
     } catch (error) {
       console.error('세션 시작 실패:', error);
@@ -184,10 +188,10 @@ export default function CareerChatPage() {
       });
 
       const data = await response.json();
-      
+
       console.log('백엔드 응답:', data);
       console.log('정체성 상태:', data.identityStatus);
-      
+
       const assistantMessage: Message = {
         role: 'assistant',
         content: data.message,
@@ -195,12 +199,12 @@ export default function CareerChatPage() {
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-      
+
       // 정체성 상태 업데이트
       if (data.identityStatus) {
         console.log('정체성 업데이트:', data.identityStatus);
         setIdentityStatus(data.identityStatus);
-        
+
         // localStorage에도 마지막 정체성 상태 저장
         try {
           localStorage.setItem('career_chat_identity', JSON.stringify(data.identityStatus));
@@ -240,9 +244,57 @@ export default function CareerChatPage() {
     return stages[stage] || stage;
   };
 
-  const handleAnalyze = () => {
-    if (!sessionId) return;
-    navigate('/profile/input');
+  const handleAnalyze = async () => {
+    if (!sessionId) {
+      alert('세션 정보가 없습니다. 대화를 먼저 진행해주세요.');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      console.log('🔍 분석 API 호출 시작:', sessionId);
+
+      // 분석 API 호출
+      const response = await fetch(`http://localhost:8080/api/analysis/${sessionId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || '분석 요청 실패');
+      }
+
+      const analysisResult = await response.json();
+      console.log('✅ 분석 완료:', analysisResult);
+
+      // 성공 메시지 추가
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: '✨ 분석이 완료되었습니다! 이제 대시보드에서 상세한 결과를 확인할 수 있어요.',
+        timestamp: new Date(),
+      }]);
+
+      // 잠시 후 대시보드로 이동
+      setTimeout(() => {
+        navigate('/profile/dashboard');
+      }, 1000);
+
+    } catch (error) {
+      console.error('❌ 분석 실패:', error);
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `분석 중 오류가 발생했습니다: ${errorMessage}\n\n대화를 더 진행한 후 다시 시도해주세요.`,
+        timestamp: new Date(),
+      }]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleNewChat = () => {
@@ -300,7 +352,7 @@ export default function CareerChatPage() {
                   </p>
                 </div>
               </div>
-              
+
               <button
                 onClick={handleNewChat}
                 className="text-sm text-gray-600 hover:text-gray-800 transition-colors border border-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-50"
@@ -309,12 +361,12 @@ export default function CareerChatPage() {
                 새 상담 시작
               </button>
             </div>
-            
+
             {identityStatus && identityStatus.overallProgress != null && (
               <div className="hidden md:flex items-center space-x-2">
                 <span className="text-sm text-gray-600">전체 진행률:</span>
                 <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
-                  <div 
+                  <div
                     className="h-full bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] transition-all duration-500"
                     style={{ width: `${identityStatus.overallProgress}%` }}
                   ></div>
@@ -340,11 +392,10 @@ export default function CareerChatPage() {
                     className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-[70%] rounded-2xl px-5 py-3 ${
-                        message.role === 'user'
-                          ? 'bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
+                      className={`max-w-[70%] rounded-2xl px-5 py-3 ${message.role === 'user'
+                        ? 'bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white'
+                        : 'bg-gray-100 text-gray-800'
+                        }`}
                     >
                       <p className="text-sm md:text-base whitespace-pre-wrap">{message.content}</p>
                       <p className={`text-xs mt-2 ${message.role === 'user' ? 'text-white/70' : 'text-gray-500'}`}>
@@ -353,7 +404,7 @@ export default function CareerChatPage() {
                     </div>
                   </div>
                 ))}
-                
+
                 {isLoading && (
                   <div className="flex justify-start">
                     <div className="bg-gray-100 rounded-2xl px-5 py-3">
@@ -365,7 +416,7 @@ export default function CareerChatPage() {
                     </div>
                   </div>
                 )}
-                
+
                 <div ref={messagesEndRef} />
               </div>
 
@@ -411,7 +462,7 @@ export default function CareerChatPage() {
                 <i className="ri-user-heart-line text-[#5A7BFF] mr-2"></i>
                 나의 정체성
               </h3>
-              
+
               {identityStatus ? (
                 <div className="space-y-4">
                   {/* 인사이트 알림 */}
@@ -451,7 +502,7 @@ export default function CareerChatPage() {
                         <span className="text-sm font-bold text-[#5A7BFF]">{identityStatus.clarity}%</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-                        <div 
+                        <div
                           className="bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] h-2 rounded-full transition-all duration-500"
                           style={{ width: `${identityStatus.clarity}%` }}
                         ></div>

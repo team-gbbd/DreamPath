@@ -1,0 +1,205 @@
+{
+  "database": {
+    "users": {
+      "row_count": 18,
+      "sample": [
+        {
+          "user_id": 1,
+          "birth": null,
+          "created_at": "2025-11-18T16:46:39.838971",
+          "email": "dldmd022@kakao.com",
+          "is_active": true,
+          "name": "김경진",
+          "password": "$2a$10$q78J2ZMbReYpXf1ko4kmg.YsA5KjwXAbygx4TFo4hDZK/qgft2jGu",
+          "phone": null,
+          "provider": "kakao",
+          "provider_id": "4546365671",
+          "role": "USER",
+          "updated_at": "2025-11-18T16:46:39.839014",
+          "username": "kakao_4546365671",
+          "remaining_sessions": 0
+        },
+        {
+          "user_id": 4,
+          "birth": "2009-06-26",
+          "created_at": "2025-11-20T19:53:29.676759",
+          "email": "esuhyun0416@gmail.com",
+          "is_active": true,
+          "name": "이수현",
+          "password": "$2a$10$F/nnxVtAtQupmvJooEulc.X.XJ.3MyDs3KxTXlX0jLOJIiNTT9YNa",
+          "phone": "01046166728",
+          "provider": null,
+          "provider_id": null,
+          "role": "USER",
+          "updated_at": "2025-11-20T19:53:29.676759",
+          "username": "dltngus0416",
+          "remaining_sessions": 0
+        }
+      ]
+    },
+    "user_profiles": {
+      "row_count": 4,
+      "sample": [
+        {
+          "profile_id": 4,
+          "confidence_score": 100,
+          "emotions": "일이 계획대로 풀리지않을때",
+          "interests": "개발",
+          "last_analyzed_at": "2025-12-03T10:00:24.468822",
+          "personality_traits": "꼼꼼하다",
+          "values": "약속 지키기",
+          "user_id": 4,
+          "full_name": null,
+          "updated_at": null
+        },
+        {
+          "profile_id": 2,
+          "confidence_score": 100,
+          "emotions": "의사소통 안될때",
+          "interests": "없음",
+          "last_analyzed_at": "2025-12-03T10:03:13.199766",
+          "personality_traits": "낯가림",
+          "values": "워라밸",
+          "user_id": 7,
+          "full_name": null,
+          "updated_at": null
+        }
+      ]
+    },
+    "profile_analysis": {
+      "row_count": 4,
+      "sample": [
+        {
+          "analysis_id": 5,
+          "user_id": 9,
+          "personality": {
+            "openness": 0.88,
+            "stability": 0.41,
+            "extraversion": 0.68,
+            "agreeableness": 0.01,
+            "conscientiousness": 0.91
+          },
+          "values": {
+            "growth": 0.58,
+            "security": 0.42,
+            "creativity": 0.25
+          },
+          "emotions": {
+            "summary": "목표 지향적이고 안정적인 성향을 보이는 사용자입니다."
+          },
+          "interests": "프로그래밍, 개발자, 엔지니어, AI",
+          "confidence_score": 0.588980267229106,
+          "created_at": "2025-11-27T14:23:45.604621",
+          "mbti": "ENTJ",
+          "content_hash": "1ec61819b3c0cba94e604368c8763f7a5a2587bfa4f8d685cf06dac39784bb76"
+        },
+        {
+          "analysis_id": 6,
+          "user_id": 4,
+          "personality": {
+            "openness": 0.19,
+            "stability": 0.55,
+            "extraversion": 0.25,
+            "agreeableness": 0.27,
+            "conscientiousness": 0.35
+          },
+          "values": {
+            "growth": 0.62,
+            "security": 0.46,
+            "creativity": 0.27
+          },
+          "emotions": {
+            "summary": "목표 지향적이고 안정적인 성향을 보이는 사용자입니다."
+          },
+          "interests": "개발",
+          "confidence_score": 0.58696426272252,
+          "created_at": "2025-12-01T18:19:57.006627",
+          "mbti": "ISTP",
+          "content_hash": "0df4df07513e3f4c078cf6af1c9ec2a8095b487279384f1a220ce9a5fee016b0"
+        }
+      ]
+    },
+    "profile_vector": {
+      "row_count": 4,
+      "sample": [
+        {
+          "id": 2,
+          "profile_id": 3,
+          "vector_db_id": "user-3",
+          "original_text": "새로운 환경을 빠르게 흡수하는 성격이다 정직함과 신뢰를 우선시하지만 사람의 감정이 중요하다고 생각해 다른 사람들한테 피해를 끼치지 않게 하는게 나의 가치관이다 명확한 목표가 있을때 몰입도가 올라가며 혼자 있을때 집중력이 최대로 높아지는거 같다. 또한 조용한 공간에서 일을 하면 효율이 높아지는듯 하다. 그리고 아이디어가 풍부하다 프로그래밍, 개발자, 엔지니어, AI",
+          "metadata": {},
+          "created_at": null,
+          "updated_at": null
+        },
+        {
+          "id": 3,
+          "profile_id": 4,
+          "vector_db_id": "user-4",
+          "original_text": "꼼꼼하다 약속 지키기 일이 계획대로 풀리지않을때 개발",
+          "metadata": {},
+          "created_at": null,
+          "updated_at": null
+        }
+      ]
+    },
+    "chat_messages": {
+      "row_count": 534,
+      "sample": [
+        {
+          "id": 147,
+          "content": "hello",
+          "role": "USER",
+          "timestamp": "2025-11-27T05:40:45.224236",
+          "session_id": 109
+        },
+        {
+          "id": 151,
+          "content": "어떤고민이 있을것같아?",
+          "role": "USER",
+          "timestamp": "2025-11-27T05:48:16.748387",
+          "session_id": 110
+        }
+      ]
+    }
+  },
+  "pinecone": {
+    "total_vectors": 1986,
+    "dimension": 3072,
+    "user_vectors": [
+      {
+        "id": "user-1",
+        "dimension": 3072,
+        "metadata": {
+          "length": 217,
+          "type": "user_profile",
+          "userId": 1
+        }
+      },
+      {
+        "id": "user-2",
+        "dimension": 3072,
+        "metadata": {
+          "length": 19,
+          "type": "user_profile",
+          "userId": 2
+        }
+      },
+      {
+        "id": "user-3",
+        "dimension": 3072,
+        "metadata": {
+          "length": 204,
+          "type": "user_profile",
+          "userId": 3
+        }
+      }
+    ]
+  },
+  "integrity": {
+    "db_pinecone_match": 3
+  },
+  "issues": [
+    "Table chat_sessions: {'message': \"Could not find the table 'public.chat_sessions' in the schema cache\", 'code': 'PGRST205', 'hint': \"Perhaps you meant the table 'public.chatbot_sessions'\", 'details': None}",
+    "⚠️ DB에는 있지만 Pinecone에 없는 벡터: ['user-4']"
+  ]
+}

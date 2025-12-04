@@ -30,6 +30,15 @@ const api = axios.create({
   withCredentials: true,
 });
 
+// Axios instance for Spring Boot backend
+export const backendApi = axios.create({
+  baseURL: `${BACKEND_BASE_URL}/api`,
+  headers: {
+    "Content-Type": "application/json",
+  },
+  withCredentials: true,
+});
+
 
 /* ================================
    🔹 DreamPath – Chat Service
@@ -77,7 +86,7 @@ export const analysisService = {
 export const PYTHON_AI_SERVICE_URL =
   import.meta.env.VITE_PYTHON_AI_SERVICE_URL || "http://localhost:8000";
 
-const pythonApi = axios.create({
+export const pythonApi = axios.create({
   baseURL: PYTHON_AI_SERVICE_URL,
   headers: {
     "Content-Type": "application/json",

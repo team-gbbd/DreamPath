@@ -11,7 +11,8 @@ type UseProfileResult = {
 };
 
 /**
- * /api/profiles/{id}에서 프로필을 불러오는 커스텀 훅
+ * /api/profiles/{userId}/analysis에서 성향 분석 결과를 불러오는 커스텀 훅
+ * 프로필 입력 폼 대신 챗봇 기반 분석 결과를 사용합니다.
  */
 export default function useProfile(userId?: number | null): UseProfileResult {
   const [data, setData] = useState<UserProfile | null>(null);
@@ -32,10 +33,11 @@ export default function useProfile(userId?: number | null): UseProfileResult {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`${API_BASE_URL}/profiles/${userId}`);
+        // 성향 분석 API 호출 (프로필 입력 폼 대신 분석 결과 사용)
+        const response = await fetch(`${API_BASE_URL}/profiles/${userId}/analysis`);
         if (!response.ok) {
           const message = await response.text();
-          throw new Error(message || '프로필을 불러오지 못했습니다.');
+          throw new Error(message || '성향 분석 결과를 불러오지 못했습니다.');
         }
         const json = (await response.json()) as UserProfile;
         if (!cancelled) {
@@ -43,8 +45,8 @@ export default function useProfile(userId?: number | null): UseProfileResult {
         }
       } catch (err) {
         if (cancelled) return;
-        console.error('프로필 로드 실패', err);
-        const message = err instanceof Error ? err.message : '프로필을 불러오는 중 오류가 발생했습니다.';
+        console.error('성향 분석 로드 실패', err);
+        const message = err instanceof Error ? err.message : '성향 분석을 불러오는 중 오류가 발생했습니다.';
         setError(message);
         setData(null);
       } finally {
@@ -66,16 +68,16 @@ export default function useProfile(userId?: number | null): UseProfileResult {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/profiles/${userId}`);
+      const response = await fetch(`${API_BASE_URL}/profiles/${userId}/analysis`);
       if (!response.ok) {
         const message = await response.text();
-        throw new Error(message || '프로필을 불러오지 못했습니다.');
+        throw new Error(message || '성향 분석 결과를 불러오지 못했습니다.');
       }
       const json = (await response.json()) as UserProfile;
       setData(json);
     } catch (err) {
-      console.error('프로필 새로고침 실패', err);
-      const message = err instanceof Error ? err.message : '프로필을 새로고침하는 중 문제가 발생했습니다.';
+      console.error('성향 분석 새로고침 실패', err);
+      const message = err instanceof Error ? err.message : '성향 분석을 새로고침하는 중 문제가 발생했습니다.';
       setError(message);
     } finally {
       setLoading(false);
