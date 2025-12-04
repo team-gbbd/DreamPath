@@ -319,6 +319,44 @@ export default function CareerChatPage() {
                   </p>
                 </div>
               </div>
+
+              {/* 대화 진행률 표시 (8턴 기준) */}
+              <div className="hidden md:flex items-center space-x-3 ml-4">
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-gray-500">분석 정확도</span>
+                  <div className="flex space-x-1">
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((turn) => {
+                      const userMessageCount = messages.filter(m => m.role === 'user').length;
+                      const isCompleted = userMessageCount >= turn;
+                      return (
+                        <div
+                          key={turn}
+                          className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                            isCompleted
+                              ? 'bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF]'
+                              : 'bg-gray-200'
+                          }`}
+                          title={`${turn}번째 대화`}
+                        />
+                      );
+                    })}
+                  </div>
+                  <span className="text-xs font-medium text-gray-700">
+                    {Math.min(messages.filter(m => m.role === 'user').length, 8)}/8
+                  </span>
+                </div>
+                {messages.filter(m => m.role === 'user').length < 8 && (
+                  <span className="text-xs text-orange-500 font-medium">
+                    {8 - messages.filter(m => m.role === 'user').length}회 더 대화 필요
+                  </span>
+                )}
+                {messages.filter(m => m.role === 'user').length >= 8 && (
+                  <span className="text-xs text-green-500 font-medium flex items-center">
+                    <i className="ri-checkbox-circle-fill mr-1"></i>
+                    정확한 분석 가능
+                  </span>
+                )}
+              </div>
               
               <button
                 onClick={handleNewChat}

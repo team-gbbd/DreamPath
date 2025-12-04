@@ -277,14 +277,14 @@ class JobAnalysisAgent:
 
             return [
                 {
-                    "id": row[0],
-                    "title": row[1],
-                    "company": row[2],
-                    "location": row[3],
-                    "description": row[4] or "",
-                    "url": row[5],
-                    "site_name": row[6],
-                    "crawled_at": row[7]
+                    "id": row.get("id"),
+                    "title": row.get("title"),
+                    "company": row.get("company"),
+                    "location": row.get("location"),
+                    "description": row.get("description") or "",
+                    "url": row.get("url"),
+                    "site_name": row.get("site_name"),
+                    "crawled_at": row.get("crawled_at")
                 }
                 for row in results
             ]
@@ -305,13 +305,13 @@ class JobAnalysisAgent:
 
             return [
                 {
-                    "id": row[0],
-                    "title": row[1],
-                    "company": row[2],
-                    "location": row[3],
-                    "description": row[4] or "",
-                    "url": row[5],
-                    "site_name": row[6]
+                    "id": row.get("id"),
+                    "title": row.get("title"),
+                    "company": row.get("company"),
+                    "location": row.get("location"),
+                    "description": row.get("description") or "",
+                    "url": row.get("url"),
+                    "site_name": row.get("site_name")
                 }
                 for row in results
             ]

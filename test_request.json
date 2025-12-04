@@ -1,0 +1,14 @@
+{
+  "userId": 1,
+  "careerAnalysis": {
+    "recommendedCareers": [
+      {"careerName": "백엔드 개발자"},
+      {"careerName": "풀스택 개발자"}
+    ],
+    "strengths": ["문제 해결력", "논리적 사고", "꼼꼼함"],
+    "values": ["성장", "안정성"],
+    "interests": ["프로그래밍", "시스템 설계", "데이터베이스"]
+  },
+  "userSkills": ["Python", "Java", "Spring", "MySQL", "Docker", "Git"],
+  "limit": 3
+}

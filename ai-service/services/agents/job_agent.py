@@ -80,8 +80,8 @@ def get_user_profile(user_id: int) -> str:
         """
         results = db.execute_query(query, (user_id,))
 
-        if results and results[0][0]:
-            analysis_data = results[0][0]
+        if results and results[0].get("analysis_data"):
+            analysis_data = results[0].get("analysis_data")
             if isinstance(analysis_data, str):
                 return analysis_data
             return json.dumps(analysis_data, ensure_ascii=False)
@@ -115,7 +115,7 @@ def search_jobs(keyword: str, limit: int = 10) -> str:
                    site_name, tech_stack, required_skills
             FROM job_listings
             WHERE (title ILIKE %s OR description ILIKE %s)
-            AND crawled_at >= NOW() - INTERVAL '7 days'
+            AND crawled_at >= NOW() - INTERVAL '30 days'
             ORDER BY crawled_at DESC
             LIMIT %s
         """
@@ -124,14 +124,14 @@ def search_jobs(keyword: str, limit: int = 10) -> str:
 
         jobs = []
         for row in results:
-            tech_stack = row[7]
+            tech_stack = row.get("tech_stack")
             if tech_stack and isinstance(tech_stack, str):
                 try:
                     tech_stack = json.loads(tech_stack)
                 except:
                     tech_stack = [tech_stack]
 
-            required_skills = row[8]
+            required_skills = row.get("required_skills")
             if required_skills and isinstance(required_skills, str):
                 try:
                     required_skills = json.loads(required_skills)
@@ -139,13 +139,13 @@ def search_jobs(keyword: str, limit: int = 10) -> str:
                     required_skills = [required_skills]
 
             jobs.append({
-                "id": row[0],
-                "title": row[1],
-                "company": row[2],
-                "location": row[3],
-                "url": row[4],
-                "description": (row[5] or "")[:300],
-                "site_name": row[6],
+                "id": row.get("id"),
+                "title": row.get("title"),
+                "company": row.get("company"),
+                "location": row.get("location"),
+                "url": row.get("url"),
+                "description": (row.get("description") or "")[:300],
+                "site_name": row.get("site_name"),
                 "tech_stack": tech_stack,
                 "required_skills": required_skills
             })
@@ -178,7 +178,7 @@ def get_recent_jobs(limit: int = 20) -> str:
             SELECT id, title, company, location, url, description,
                    site_name, tech_stack, required_skills
             FROM job_listings
-            WHERE crawled_at >= NOW() - INTERVAL '7 days'
+            WHERE crawled_at >= NOW() - INTERVAL '30 days'
             ORDER BY crawled_at DESC
             LIMIT %s
         """
@@ -186,7 +186,7 @@ def get_recent_jobs(limit: int = 20) -> str:
 
         jobs = []
         for row in results:
-            tech_stack = row[7]
+            tech_stack = row.get("tech_stack")
             if tech_stack and isinstance(tech_stack, str):
                 try:
                     tech_stack = json.loads(tech_stack)
@@ -194,13 +194,13 @@ def get_recent_jobs(limit: int = 20) -> str:
                     tech_stack = [tech_stack]
 
             jobs.append({
-                "id": row[0],
-                "title": row[1],
-                "company": row[2],
-                "location": row[3],
-                "url": row[4],
-                "description": (row[5] or "")[:300],
-                "site_name": row[6],
+                "id": row.get("id"),
+                "title": row.get("title"),
+                "company": row.get("company"),
+                "location": row.get("location"),
+                "url": row.get("url"),
+                "description": (row.get("description") or "")[:300],
+                "site_name": row.get("site_name"),
                 "tech_stack": tech_stack
             })
 
@@ -268,21 +268,21 @@ def get_company_info(company_name: str) -> str:
         companies = []
         for row in results:
             companies.append({
-                "company_name": row[0],
-                "industry": row[1],
-                "established_year": row[2],
-                "employee_count": row[3],
-                "address": row[4],
-                "description": (row[5] or "")[:500],
-                "vision": row[6],
-                "benefits": row[7],
-                "culture": row[8],
-                "average_salary": row[9],
-                "company_type": row[10],
-                "revenue": row[11],
-                "ceo_name": row[12],
-                "capital": row[13],
-                "homepage_url": row[14]
+                "company_name": row.get("company_name"),
+                "industry": row.get("industry"),
+                "established_year": row.get("established_year"),
+                "employee_count": row.get("employee_count"),
+                "address": row.get("address"),
+                "description": (row.get("description") or "")[:500],
+                "vision": row.get("vision"),
+                "benefits": row.get("benefits"),
+                "culture": row.get("culture"),
+                "average_salary": row.get("average_salary"),
+                "company_type": row.get("company_type"),
+                "revenue": row.get("revenue"),
+                "ceo_name": row.get("ceo_name"),
+                "capital": row.get("capital"),
+                "homepage_url": row.get("homepage_url")
             })
 
         return json.dumps({
@@ -328,7 +328,7 @@ def get_career_path_info(target_position: str) -> str:
         experience_levels = {"신입": 0, "1-3년": 0, "3-5년": 0, "5년 이상": 0}
 
         for row in results:
-            description = row[2] or ""
+            description = row.get("description") or ""
 
             # 경력 분석
             if "신입" in description or "경력무관" in description:
@@ -341,7 +341,7 @@ def get_career_path_info(target_position: str) -> str:
                 experience_levels["5년 이상"] += 1
 
             # 기술 스택
-            tech_stack = row[3]
+            tech_stack = row.get("tech_stack")
             if tech_stack:
                 if isinstance(tech_stack, str):
                     try:
@@ -353,7 +353,7 @@ def get_career_path_info(target_position: str) -> str:
                         tech_count[tech] = tech_count.get(tech, 0) + 1
 
             # 요구 스킬
-            skills = row[4]
+            skills = row.get("required_skills")
             if skills:
                 if isinstance(skills, str):
                     try:

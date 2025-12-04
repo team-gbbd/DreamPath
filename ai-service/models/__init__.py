@@ -67,6 +67,15 @@ from .agent import (
     JobRecommendationResponse,
     RealTimeRecommendationRequest,
 
+    # 채용 공고 + 기술/자격증 추천
+    RequiredTechnology,
+    ExamSchedule,
+    RequiredCertification,
+    LearningResource,
+    JobWithRequirements,
+    JobWithRequirementsRequest,
+    JobWithRequirementsResponse,
+
     # 지원 현황 추적
     Application,
     ApplicationStatus,
@@ -192,6 +201,15 @@ __all__ = [
     "JobRecommendation",
     "JobRecommendationResponse",
     "RealTimeRecommendationRequest",
+
+    # AI 에이전트 - 채용 공고 + 기술/자격증 추천
+    "RequiredTechnology",
+    "ExamSchedule",
+    "RequiredCertification",
+    "LearningResource",
+    "JobWithRequirements",
+    "JobWithRequirementsRequest",
+    "JobWithRequirementsResponse",
 
     # AI 에이전트 - 지원 현황 추적
     "Application",

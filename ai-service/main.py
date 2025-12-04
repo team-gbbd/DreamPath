@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 # 환경변수를 먼저 로드 (다른 모듈 import 전에 반드시 실행)
 load_dotenv()
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -16,6 +17,7 @@ from typing import List, Optional
 
 from config import settings
 from routers import api_router
+from scheduler import start_scheduler, stop_scheduler
 
 # ====== Routers (kyoungjin additions) ======
 from routers.vector_router import router as vector_router
@@ -52,12 +54,27 @@ api_key = os.getenv("OPENAI_API_KEY", "")
 model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 # =========================================
+# Lifespan (Startup/Shutdown Events)
+# =========================================
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    print("[AI Service] 서버 시작...")
+    start_scheduler()
+    yield
+    # Shutdown
+    print("[AI Service] 서버 종료...")
+    stop_scheduler()
+
+
+# =========================================
 # FastAPI Application Init
 # =========================================
 app = FastAPI(
     title=settings.API_TITLE,
     description=settings.API_DESCRIPTION,
-    version=settings.API_VERSION
+    version=settings.API_VERSION,
+    lifespan=lifespan
 )
 
 # =========================================
@@ -126,6 +143,28 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "healthy"}
+
+
+@app.post("/api/scheduler/trigger")
+async def trigger_crawl():
+    """수동으로 크롤링 즉시 실행 (테스트/관리자용)"""
+    from scheduler import trigger_crawl_now
+    result = await trigger_crawl_now()
+    return result
+
+
+@app.get("/api/scheduler/status")
+async def scheduler_status():
+    """스케줄러 상태 확인"""
+    from scheduler import scheduler
+    if scheduler and scheduler.running:
+        job = scheduler.get_job("daily_crawl")
+        next_run = job.next_run_time.isoformat() if job else None
+        return {
+            "running": True,
+            "next_run": next_run
+        }
+    return {"running": False, "next_run": None}
 
 
 # =========================================

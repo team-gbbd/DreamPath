@@ -39,37 +39,38 @@ def crawl_jobs(state: JobResearchState) -> Dict[str, Any]:
         results = db.execute_query(query, (pattern, pattern))
 
         for row in results:
-            tech_stack = row[7]
+            tech_stack = row.get("tech_stack")
             if tech_stack and isinstance(tech_stack, str):
                 try:
                     tech_stack = json.loads(tech_stack)
                 except:
                     tech_stack = [tech_stack] if tech_stack else []
 
-            required_skills = row[8]
+            required_skills = row.get("required_skills")
             if required_skills and isinstance(required_skills, str):
                 try:
                     required_skills = json.loads(required_skills)
                 except:
                     required_skills = [required_skills] if required_skills else []
 
+            crawled_at = row.get("crawled_at")
             job_postings.append({
-                "id": str(row[0]),
-                "title": row[1] or "",
-                "company": row[2] or "",
-                "location": row[3],
-                "url": row[4] or "",
-                "description": row[5] or "",
-                "site_name": row[6] or "unknown",
+                "id": str(row.get("id")),
+                "title": row.get("title") or "",
+                "company": row.get("company") or "",
+                "location": row.get("location"),
+                "url": row.get("url") or "",
+                "description": row.get("description") or "",
+                "site_name": row.get("site_name") or "unknown",
                 "tech_stack": tech_stack or [],
                 "required_skills": required_skills or [],
                 "experience": None,
                 "salary": None,
-                "crawled_at": row[9].isoformat() if row[9] else datetime.now().isoformat()
+                "crawled_at": crawled_at.isoformat() if crawled_at else datetime.now().isoformat()
             })
 
             # 사이트별 집계
-            site = row[6] or "unknown"
+            site = row.get("site_name") or "unknown"
             if site not in sites_crawled:
                 sites_crawled.append(site)
 
