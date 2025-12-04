@@ -4,10 +4,20 @@ Python FastAPI Microservice v1.2
 """
 
 import os
+import logging
 from dotenv import load_dotenv
 
 # 환경변수를 먼저 로드 (다른 모듈 import 전에 반드시 실행)
 load_dotenv()
+
+# 로깅 설정 (에이전트 로그 표시용)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+# 에이전트 관련 로거만 DEBUG 레벨로
+logging.getLogger("services.agents").setLevel(logging.DEBUG)
+logging.getLogger("services.chat_service").setLevel(logging.DEBUG)
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware

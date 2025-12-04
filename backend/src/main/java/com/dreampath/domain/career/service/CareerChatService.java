@@ -1,5 +1,6 @@
 package com.dreampath.domain.career.service;
 
+import com.dreampath.domain.career.dto.AgentAction;
 import com.dreampath.domain.career.dto.ChatRequest;
 import com.dreampath.domain.career.dto.ChatResponse;
 import com.dreampath.domain.career.dto.SurveyRequest;
@@ -91,14 +92,34 @@ public class CareerChatService {
             }
         }
 
+        // userId를 Long으로 변환 (nullable)
+        Long userIdLong = null;
+        if (request.getUserId() != null && !request.getUserId().isEmpty()) {
+            try {
+                userIdLong = Long.parseLong(request.getUserId());
+            } catch (NumberFormatException e) {
+                log.warn("userId 파싱 실패: {}", request.getUserId());
+            }
+        }
+
+        // identityStatus를 Map으로 변환
+        Map<String, Object> identityStatusMap = null;
+        if (request.getIdentityStatus() != null) {
+            identityStatusMap = objectMapper.convertValue(request.getIdentityStatus(), Map.class);
+        }
+
         // Python AI 서비스의 LangChain을 통해 응답 생성
-        String aiResponse = pythonChatService.generateChatResponse(
+        Map<String, Object> aiResult = pythonChatService.generateChatResponse(
             session.getSessionId(),
             request.getMessage(),
             session.getCurrentStage().name(),
             conversationHistory,
-            surveyData
+            surveyData,
+            userIdLong,
+            identityStatusMap
         );
+
+        String aiResponse = (String) aiResult.get("message");
 
         // AI 응답 저장
         ChatMessage assistantMessage = ChatMessage.builder()
@@ -111,16 +132,21 @@ public class CareerChatService {
 
         sessionRepository.save(session);
 
-        log.info("응답 생성 완료 - 세션: {}, 단계: {}, 메시지 수: {}", 
-            session.getSessionId(), 
+        // AgentAction 변환
+        AgentAction agentAction = convertToAgentAction(aiResult.get("agentAction"));
+
+        log.info("응답 생성 완료 - 세션: {}, 단계: {}, 메시지 수: {}, 에이전트액션: {}",
+            session.getSessionId(),
             session.getCurrentStage().getDisplayName(),
-            session.getStageMessageCount());
+            session.getStageMessageCount(),
+            agentAction != null ? agentAction.getType() : "없음");
 
         return ChatResponse.builder()
                 .sessionId(session.getSessionId())
                 .message(aiResponse)
                 .role("assistant")
                 .timestamp(System.currentTimeMillis())
+                .agentAction(agentAction)
                 .build();
     }
 
@@ -337,6 +363,48 @@ public class CareerChatService {
         } catch (JsonProcessingException e) {
             log.error("설문조사 데이터 저장 실패", e);
             throw new RuntimeException("설문조사 데이터 저장 실패: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Python AI 서비스에서 반환된 agentAction Map을 AgentAction DTO로 변환
+     */
+    @SuppressWarnings("unchecked")
+    private AgentAction convertToAgentAction(Object agentActionObj) {
+        if (agentActionObj == null) {
+            return null;
+        }
+
+        try {
+            Map<String, Object> actionMap = (Map<String, Object>) agentActionObj;
+            log.info("agentAction 맵 키들: {}", actionMap.keySet());
+            log.info("agentAction summary 값: {}", actionMap.get("summary"));
+
+            // 액션 버튼 변환
+            List<AgentAction.ActionButton> buttons = new ArrayList<>();
+            List<Map<String, Object>> actionsList = (List<Map<String, Object>>) actionMap.get("actions");
+            if (actionsList != null) {
+                for (Map<String, Object> btnMap : actionsList) {
+                    AgentAction.ActionButton button = AgentAction.ActionButton.builder()
+                            .id((String) btnMap.get("id"))
+                            .label((String) btnMap.get("label"))
+                            .primary((Boolean) btnMap.get("primary"))
+                            .params((Map<String, Object>) btnMap.get("params"))
+                            .build();
+                    buttons.add(button);
+                }
+            }
+
+            return AgentAction.builder()
+                    .type((String) actionMap.get("type"))
+                    .reason((String) actionMap.get("reason"))
+                    .summary((String) actionMap.get("summary"))
+                    .data((Map<String, Object>) actionMap.get("data"))
+                    .actions(buttons)
+                    .build();
+        } catch (Exception e) {
+            log.error("AgentAction 변환 실패: {}", e.getMessage());
+            return null;
         }
     }
 }
