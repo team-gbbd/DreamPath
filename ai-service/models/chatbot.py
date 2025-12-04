@@ -15,27 +15,13 @@ class ChatRequestDto(BaseModel):
 class FaqRequest(BaseModel):
     category: str
     question: str
-    answer: Optional[str] = None  # function일 때는 None
-    user_type: str = "guest"  # 'guest', 'member', 'both'
-    answer_type: str = "static"  # 'static', 'function'
-    function_name: Optional[str] = None
-    function_description: Optional[str] = None
-    keywords: Optional[list[str]] = None
-    priority: int = 0
-    is_active: bool = True
+    answer: str
 
 
 class FaqUpdateRequest(BaseModel):
     category: Optional[str] = None
     question: Optional[str] = None
     answer: Optional[str] = None
-    user_type: Optional[str] = None
-    answer_type: Optional[str] = None
-    function_name: Optional[str] = None
-    function_description: Optional[str] = None
-    keywords: Optional[list[str]] = None
-    priority: Optional[int] = None
-    is_active: Optional[bool] = None
 
 
 class InquiryRequest(BaseModel):

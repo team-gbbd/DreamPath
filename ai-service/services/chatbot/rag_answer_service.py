@@ -9,7 +9,6 @@ class RagAnswerService:
 
     def generate_answer(self, question: str, matches: List[Dict[str, Any]]) -> str:
         """FAQ 전용 답변 생성 메서드"""
-
         # FAQ 형식으로 context 생성
         context = []
 
@@ -23,29 +22,35 @@ class RagAnswerService:
             elif "text" in metadata:
                 context.append(f"- {metadata['text']}\n")
 
-        # FAQ가 없으면 무조건 범위 외 메시지 반환
-        if not context or len(context) == 0:
-            return "죄송하지만, DreamPath 서비스 관련 질문 외에는 답변할 수 없습니다. DreamPath와 관련된 질문이나 도움이 필요하시면 언제든지 말씀해 주세요!😊"
-
         context_str = "\n".join(context)
 
-        # FAQ가 있으면 GPT로 자연스러운 답변 생성
         prompt = f"""당신은 DreamPath 진로 상담 서비스의 친절한 AI 어시스턴트입니다.
+아래 정보를 참고하여 사용자의 질문에 답변해주세요.
+친절하고 자연스럽게 한국어로 답변하세요.
 
-아래 참고 정보를 바탕으로 사용자의 질문에 친절하고 자연스럽게 한국어로 답변하세요.
+⚠️ 중요 규칙:
 
-**중요 규칙:**
-1. 사용자 질문이 참고 정보의 내용과 관련이 있다면, 참고 정보를 바탕으로 친절하게 답변하세요.
-2. 사용자 질문이 DreamPath와 전혀 관련 없는 일상적인 질문(예: 날씨, 음식 추천, 일반 상식 등)이라면,
-   다음 메시지를 **정확히 그대로** 반환하세요:
-   "죄송하지만, DreamPath 서비스 관련 질문 외에는 답변할 수 없습니다. DreamPath와 관련된 질문이나 도움이 필요하시면 언제든지 말씀해 주세요! 😊"
+1. 먼저 참고 정보를 확인하세요:
+   - 참고 정보가 비어있거나 사용자 질문과 전혀 관련 없음 → "정보 없음 답변" 사용
+   - 참고 정보에 관련된 FAQ가 있음 → "FAQ 기반 답변" 제공
+
+2. 정보 없음 답변 (관련 FAQ가 없을 때):
+   반드시 정확히 이렇게만 답변:
+   "죄송하지만 해당 질문에 대한 정보가 없습니다. DreamPath팀에 문의를 남기시겠습니까?"
+
+3. FAQ 기반 답변 (관련 FAQ가 있을 때):
+   - FAQ 정보를 바탕으로 공감과 이해를 담아 대화하듯이 답변
+   - 사용자의 상황을 이해하고 있다는 느낌을 주세요
+   - 필요하다면 추가 팁이나 관련 정보를 덧붙이세요
+
+예시:
+- 좋은 예: "아이디 변경에 대해 문의주셨군요! 안타깝게도 DreamPath에서는 보안상의 이유로 한 번 설정된 아이디는 변경이 불가능해요."
 
 참고 정보:
 {context_str}
 
 사용자 질문: {question}
-
-답변:"""
+"""
 
         try:
             response = self.client.chat.completions.create(
