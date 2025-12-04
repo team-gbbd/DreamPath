@@ -9,7 +9,7 @@ interface Faq {
   category: string;
   question: string;
   answer: string;
-  updatedAt: string;
+  updated_at: string;
 }
 
 const API_BASE_URL = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8000';
@@ -286,7 +286,12 @@ export default function FaqManagementPage() {
                       </div>
                     </div>
                     <p className="text-sm text-gray-500">
-                      마지막 수정: {new Date(faq.updatedAt).toLocaleString('ko-KR')}
+                      마지막 수정: {(() => {
+                        // 시간대 정보가 없으면 'Z' 붙여서 UTC로 처리
+                        const dateStr = faq.updated_at.endsWith('Z') ? faq.updated_at : faq.updated_at + 'Z';
+                        const date = new Date(dateStr);
+                        return date.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+                      })()}
                     </p>
                   </div>
                 ))}
