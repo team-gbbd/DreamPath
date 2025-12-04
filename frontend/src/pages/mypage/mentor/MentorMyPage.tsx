@@ -262,7 +262,7 @@ export default function MentorMyPage() {
                   {[
                     { icon: 'ri-calendar-line', color: 'pink', label: '세션 관리', desc: '예약된 멘토링 확인', action: () => setActiveTab('sessions') },
                     { icon: 'ri-edit-line', color: 'violet', label: '프로필 수정', desc: '멘토 정보 업데이트', action: () => setActiveTab('profile') },
-                    { icon: 'ri-history-line', color: 'emerald', label: '히스토리', desc: '멘토링 기록 보기', action: () => navigate('/my-bookings') },
+                    { icon: 'ri-history-line', color: 'emerald', label: '히스토리', desc: '멘토링 기록 보기', action: () => navigate('/mypage/bookings') },
                   ].map((item, i) => (
                     <div
                       key={i}
@@ -472,7 +472,7 @@ export default function MentorMyPage() {
                     </div>
                   </div>
                   <button
-                    onClick={() => navigate(`/mentors/${mentorInfo.mentorId}/edit`)}
+                    onClick={() => navigate('/mypage/mentor/edit')}
                     className="text-xs text-pink-600 hover:text-pink-700"
                   >
                     <i className="ri-edit-line mr-1"></i>수정하기

@@ -19,7 +19,7 @@ interface Booking {
   mentorBio?: string;
 }
 
-export default function MyBookingsPage() {
+export default function BookingsPage() {
   const navigate = useNavigate();
 
   const [bookings, setBookings] = useState<Booking[]>([]);

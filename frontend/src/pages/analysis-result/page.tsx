@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { API_BASE_URL } from '@/lib/api';
 
 interface EmotionAnalysis {
   description: string;
@@ -60,7 +61,7 @@ export default function AnalysisResultPage() {
   const analyzeSession = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`http://localhost:8080/api/analysis/${sessionId}`, {
+      const response = await fetch(`${API_BASE_URL}/analysis/${sessionId}`, {
         method: 'POST',
       });
 
@@ -114,7 +115,7 @@ export default function AnalysisResultPage() {
       setIsCreatingPath(true);
       setSelectedCareer(careerName);
 
-      const response = await fetch('http://localhost:8080/api/learning-paths/from-career', {
+      const response = await fetch(`${API_BASE_URL}/learning-paths/from-career`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

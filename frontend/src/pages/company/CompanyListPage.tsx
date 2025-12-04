@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { PYTHON_AI_SERVICE_URL } from '@/lib/api';
 
 interface Company {
   id: number;
@@ -51,7 +52,7 @@ const CompanyListPage = () => {
   const fetchCompanies = async () => {
     setLoading(true);
     try {
-      let url = `http://localhost:8000/api/company/list?page=${page}&page_size=${pageSize}`;
+      let url = `${PYTHON_AI_SERVICE_URL}/api/company/list?page=${page}&page_size=${pageSize}`;
 
       if (siteFilter) {
         url += `&site_name=${siteFilter}`;
@@ -79,7 +80,7 @@ const CompanyListPage = () => {
     setLoading(true);
     try {
       const response = await axios.get(
-        `http://localhost:8000/api/company/search/by-name?name=${searchInput}&page=${page}&page_size=${pageSize}`
+        `${PYTHON_AI_SERVICE_URL}/api/company/search/by-name?name=${searchInput}&page=${page}&page_size=${pageSize}`
       );
 
       if (response.data.success) {
@@ -113,13 +114,13 @@ const CompanyListPage = () => {
       let response;
 
       if (crawlSite === 'wanted') {
-        response = await axios.post('http://localhost:8000/api/job-sites/crawl/wanted', {
+        response = await axios.post(`${PYTHON_AI_SERVICE_URL}/api/job-sites/crawl/wanted`, {
           searchKeyword: crawlKeyword,
           maxResults: crawlMaxResults,
           forceRefresh: true
         }, { timeout: 120000 });
       } else if (crawlSite === 'jobkorea') {
-        response = await axios.post('http://localhost:8000/api/job-sites/crawl', {
+        response = await axios.post(`${PYTHON_AI_SERVICE_URL}/api/job-sites/crawl`, {
           siteName: 'jobkorea',
           siteUrl: `https://www.jobkorea.co.kr/Search/?stext=${encodeURIComponent(crawlKeyword)}&menucode=local`,
           searchKeyword: crawlKeyword,
@@ -127,7 +128,7 @@ const CompanyListPage = () => {
           forceRefresh: true
         }, { timeout: 120000 });
       } else if (crawlSite === 'saramin') {
-        response = await axios.post('http://localhost:8000/api/job-sites/crawl', {
+        response = await axios.post(`${PYTHON_AI_SERVICE_URL}/api/job-sites/crawl`, {
           siteName: 'saramin',
           siteUrl: `https://www.saramin.co.kr/zf_user/search?searchword=${encodeURIComponent(crawlKeyword)}`,
           searchKeyword: crawlKeyword,

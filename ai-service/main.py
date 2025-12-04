@@ -1,13 +1,19 @@
 """
 DreamPath Career Analysis AI Service
-Python FastAPI Microservice
+Python FastAPI Microservice v1.2
 """
 
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
 # 환경변수를 먼저 로드 (다른 모듈 import 전에 반드시 실행)
-load_dotenv()
+# 1. 루트 .env 로드 (메일 설정 등)
+root_env = Path(__file__).parent.parent / ".env"
+load_dotenv(root_env)
+
+# 2. ai-service/.env 로드 (AI 서비스 전용 설정, 덮어쓰기 방지)
+load_dotenv(override=False)
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,6 +32,10 @@ from routers.user_embedding import router as user_embedding_router
 from routers.bigfive_router import router as bigfive_router
 from routers.mbti_router import router as mbti_router
 from routers.personality_profile_router import router as personality_profile_router
+from routers.chatbot_router import router as chatbot_router
+from routers.faq_router import router as faq_router
+from routers.inquiry_router import router as inquiry_router
+from routers.chatbotassistant_router import router as chatbotassistant_router
 
 # ====== Services ======
 from services.common.openai_client import OpenAIService as OpenAIServiceDev
@@ -80,6 +90,10 @@ app.include_router(user_embedding_router, prefix="/embedding", tags=["embedding"
 app.include_router(bigfive_router, prefix="/api")
 app.include_router(personality_profile_router, prefix="/api")
 app.include_router(mbti_router, prefix='/api')
+app.include_router(chatbot_router)
+app.include_router(faq_router)
+app.include_router(inquiry_router)
+app.include_router(chatbotassistant_router)
 
 
 # =========================================
@@ -402,7 +416,7 @@ async def recommend_hybrid_jobs(payload: dict):
     """
     vector_id = payload.get("vectorId")
     top_k = payload.get("topK", 20)
-    
+
     if not vector_id:
         raise HTTPException(status_code=400, detail="vectorId 필요")
 

@@ -113,7 +113,7 @@ export default function MentorDetailPage() {
             </button>
             {isOwnProfile && (
               <button
-                onClick={() => navigate(`/mentors/${mentor.mentorId}/edit`)}
+                onClick={() => navigate('/mypage/mentor/edit')}
                 className="flex items-center text-pink-500 hover:text-pink-600 transition-colors"
               >
                 <i className="ri-edit-line mr-1"></i>
@@ -256,7 +256,7 @@ export default function MentorDetailPage() {
                 마이페이지에서 세션 관리
               </button>
               <button
-                onClick={() => navigate(`/mentors/${mentor.mentorId}/edit`)}
+                onClick={() => navigate('/mypage/mentor/edit')}
                 className="px-6 bg-white text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors border border-gray-200"
               >
                 프로필 수정
