@@ -1,0 +1,60 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "org.springframework",
+    "module": "spring-jcl",
+    "version": "6.2.12",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "8.14.3"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 17,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api"
+      },
+      "files": [
+        {
+          "name": "spring-jcl-6.2.12.jar",
+          "url": "spring-jcl-6.2.12.jar",
+          "size": 24541,
+          "sha512": "243b75bb602abd335ab2da4bc94644e69c4ce23dbc615ba3759c8b4ca01306c1666e6ec61c3a265072fd518c38518a7e9d720e660ca43e3b3e29709f27db8893",
+          "sha256": "8244ee2a515291f41ed4f99aa89b4cd41fc13961c21d7c271a381210f6075fed",
+          "sha1": "d127f5020441b3cfe197668d32a327391587ff59",
+          "md5": "d7bb9ea434b5ec7cdd4970198e876fa8"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.version": 17,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "spring-jcl-6.2.12.jar",
+          "url": "spring-jcl-6.2.12.jar",
+          "size": 24541,
+          "sha512": "243b75bb602abd335ab2da4bc94644e69c4ce23dbc615ba3759c8b4ca01306c1666e6ec61c3a265072fd518c38518a7e9d720e660ca43e3b3e29709f27db8893",
+          "sha256": "8244ee2a515291f41ed4f99aa89b4cd41fc13961c21d7c271a381210f6075fed",
+          "sha1": "d127f5020441b3cfe197668d32a327391587ff59",
+          "md5": "d7bb9ea434b5ec7cdd4970198e876fa8"
+        }
+      ]
+    }
+  ]
+}
