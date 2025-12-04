@@ -46,7 +46,7 @@ const MentorSessionsPage = lazy(() => import("../pages/mypage/mentor/MentorSessi
 const MentoringMeetingPage = lazy(() => import("../pages/mentoring/MentoringMeeting"));
 const JobAnalysisPage = lazy(() => import("../pages/job-analysis/JobAnalysisPage"));
 const PersonalizedInsightsPage = lazy(() => import("../pages/job-analysis/PersonalizedInsightsPage"));
-const JobRecommendationsPage = lazy(() => import("../pages/job-recommendations/JobRecommendationsPage"));
+const JobRecommendationsPage = lazy(() => import("../pages/job-recommendations/JobWithRequirementsPage"));
 
 const routes: RouteObject[] = [
   {
