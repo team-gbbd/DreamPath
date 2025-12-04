@@ -525,3 +525,90 @@ class JobComparisonResponse(BaseModel):
     jobs: List[JobComparisonInfo]
     comparison: ComparisonDetail
     recommendation: str
+
+
+# ============== 6. 채용 공고 + 기술/자격증 추천 ==============
+
+class RequiredTechnology(BaseModel):
+    """필요 기술"""
+    name: str
+    category: str
+    importance: str  # 필수/우대
+    description: Optional[str] = None
+
+
+class ExamSchedule(BaseModel):
+    """시험 일정"""
+    year: Optional[str] = None
+    round: Optional[str] = None
+    docRegStart: Optional[str] = None
+    docRegEnd: Optional[str] = None
+    docExamStart: Optional[str] = None
+    docPassDt: Optional[str] = None
+    pracRegStart: Optional[str] = None
+    pracExamStart: Optional[str] = None
+    pracPassDt: Optional[str] = None
+
+
+class RequiredCertification(BaseModel):
+    """필요 자격증"""
+    name: str
+    code: Optional[str] = None
+    issuer: str
+    importance: str  # 필수/추천/우대
+    difficulty: str  # 초급/중급/고급
+    estimatedPrepTime: Optional[str] = None
+    description: Optional[str] = None
+    seriesName: Optional[str] = None
+    obligFldName: Optional[str] = None
+    qualTypeName: Optional[str] = None
+    summary: Optional[str] = None
+    career: Optional[str] = None
+    trend: Optional[str] = None
+    nextExam: Optional[ExamSchedule] = None
+    isFromQnet: bool = False
+
+
+class LearningResource(BaseModel):
+    """학습 자료"""
+    name: str
+    type: str  # 강의/도서/문서
+    url: Optional[str] = None
+    description: Optional[str] = None
+
+
+class JobWithRequirements(BaseModel):
+    """기술/자격증 포함 채용 공고"""
+    jobId: str
+    title: str
+    company: str
+    location: Optional[str] = None
+    url: str
+    description: Optional[str] = None
+    siteName: str
+    matchScore: int = Field(ge=0, le=100)
+    reasons: List[str] = []
+    strengths: List[str] = []
+    concerns: List[str] = []
+    requiredTechnologies: List[RequiredTechnology] = []
+    requiredCertifications: List[RequiredCertification] = []
+    learningResources: List[LearningResource] = []
+    skillGap: List[str] = []
+
+
+class JobWithRequirementsRequest(BaseModel):
+    """기술/자격증 포함 추천 요청"""
+    userId: int
+    careerAnalysis: Dict
+    userProfile: Optional[Dict] = None
+    userSkills: Optional[List[str]] = []
+    limit: int = Field(default=15, ge=1, le=30)
+
+
+class JobWithRequirementsResponse(BaseModel):
+    """기술/자격증 포함 추천 응답"""
+    recommendations: List[JobWithRequirements]
+    totalCount: int
+    commonRequiredTechnologies: List[RequiredTechnology] = []
+    commonRequiredCertifications: List[RequiredCertification] = []
+    overallLearningPath: List[str] = []
