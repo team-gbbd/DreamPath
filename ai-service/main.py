@@ -1,19 +1,13 @@
 """
 DreamPath Career Analysis AI Service
-Python FastAPI Microservice v1.2
+Python FastAPI Microservice
 """
 
 import os
-from pathlib import Path
 from dotenv import load_dotenv
 
 # 환경변수를 먼저 로드 (다른 모듈 import 전에 반드시 실행)
-# 1. 루트 .env 로드 (메일 설정 등)
-root_env = Path(__file__).parent.parent / ".env"
-load_dotenv(root_env)
-
-# 2. ai-service/.env 로드 (AI 서비스 전용 설정, 덮어쓰기 방지)
-load_dotenv(override=False)
+load_dotenv()
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
@@ -29,6 +23,8 @@ from scheduler import start_scheduler, stop_scheduler
 from routers.vector_router import router as vector_router
 from routers.rag_router import router as rag_router
 from routers.profile_match_router import router as profile_match_router
+from routers.qnet import router as qnet_router
+from routers.job_agent import router as job_agent_router
 from routers.user_document import router as user_document_router
 from routers.user_embedding import router as user_embedding_router
 from routers.bigfive_router import router as bigfive_router
@@ -102,15 +98,17 @@ app.include_router(api_router)              # 기존 chat, analysis, identity, j
 app.include_router(vector_router, prefix="/api")
 app.include_router(rag_router)
 app.include_router(profile_match_router, prefix="/api")
+app.include_router(qnet_router)             # Q-net 자격증 API
+app.include_router(job_agent_router)        # 채용공고 AI 에이전트 API
 app.include_router(user_document_router, prefix="/analysis", tags=["analysis"])
 app.include_router(user_embedding_router, prefix="/embedding", tags=["embedding"])
 app.include_router(bigfive_router, prefix="/api")
 app.include_router(personality_profile_router, prefix="/api")
 app.include_router(mbti_router, prefix='/api')
-app.include_router(chatbot_router)
-app.include_router(faq_router)
-app.include_router(inquiry_router)
-app.include_router(chatbotassistant_router)
+app.include_router(chatbot_router)            # 챗봇/FAQ/문의 API
+app.include_router(faq_router)                # FAQ API (dev)
+app.include_router(inquiry_router)            # 문의 API (dev)
+app.include_router(chatbotassistant_router)   # 챗봇 어시스턴트 API (dev)
 
 
 # =========================================
@@ -437,22 +435,6 @@ async def recommend_schools(payload: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/recommend/counsel")
-async def recommend_counsel(payload: dict):
-
-    vector_id = payload.get("vectorId")
-    if not vector_id:
-        raise HTTPException(status_code=400, detail="vectorId 필요")
-
-    top_k = payload.get("topK", 10)
-
-    try:
-        svc = RecommendService()
-        return {"items": svc.recommend_counsel(vector_id, top_k)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @app.post("/recommend/hybrid-jobs")
 async def recommend_hybrid_jobs(payload: dict):
     """
@@ -461,7 +443,7 @@ async def recommend_hybrid_jobs(payload: dict):
     """
     vector_id = payload.get("vectorId")
     top_k = payload.get("topK", 20)
-
+    
     if not vector_id:
         raise HTTPException(status_code=400, detail="vectorId 필요")
 
