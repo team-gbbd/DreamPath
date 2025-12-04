@@ -8,10 +8,6 @@ from models import (
     JobRecommendationResponse,
     RealTimeRecommendationRequest,
 
-    # 채용 공고 + 기술/자격증 통합 추천
-    JobWithRequirementsRequest,
-    JobWithRequirementsResponse,
-
     # 지원 현황 추적
     ApplicationAnalysisRequest,
     ApplicationAnalysisResponse,
@@ -43,7 +39,6 @@ from services.agents.job_recommendation_agent import JobRecommendationAgent
 from services.agents.application_tracker_agent import ApplicationTrackerAgent
 from services.agents.career_growth_agent import CareerGrowthAgent
 from services.agents.resume_optimizer_agent import ResumeOptimizerAgent
-from services.agents.job_agent import run_job_agent, run_job_agent_json  # OpenAI Agents SDK 기반
 
 router = APIRouter(prefix="/api/agent", tags=["ai-agent"])
 
@@ -56,41 +51,23 @@ resume_optimizer_agent = ResumeOptimizerAgent()
 
 # ============== 1. 채용 공고 추천 ==============
 
-@router.post("/job-recommendations")
+@router.post("/job-recommendations", response_model=JobRecommendationResponse)
 async def get_job_recommendations(request: JobRecommendationRequest):
     """
-    사용자에게 맞는 채용 공고 추천 (OpenAI Agents SDK 기반)
-
-    Returns:
-        - 성공 시: 추천 채용공고 목록
-        - 프로필 필요 시: needsProfile=True와 안내 메시지
+    사용자에게 맞는 채용 공고 추천
     """
     try:
-        # OpenAI Agents SDK 기반 JSON 에이전트 사용
-        result = await run_job_agent_json(
+        recommendations = await job_recommendation_agent.get_recommendations(
             user_id=request.userId,
             career_analysis=request.careerAnalysis,
             user_profile=request.userProfile,
             limit=request.limit
         )
 
-        # 성공 응답
-        if result.get("success"):
-            return {
-                "success": True,
-                "needsProfile": False,
-                "recommendations": result.get("recommendations", []),
-                "totalCount": result.get("totalCount", 0)
-            }
-
-        # 실패 응답 (JSON 파싱 실패 등)
-        return {
-            "success": False,
-            "needsProfile": False,
-            "error": result.get("error", "추천 실패"),
-            "recommendations": result.get("recommendations", []),
-            "totalCount": result.get("totalCount", 0)
-        }
+        return JobRecommendationResponse(
+            recommendations=recommendations,
+            totalCount=len(recommendations)
+        )
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"채용 공고 추천 실패: {str(e)}")
@@ -115,38 +92,6 @@ async def get_realtime_recommendations(request: RealTimeRecommendationRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"실시간 추천 실패: {str(e)}")
-
-
-@router.post("/job-recommendations/with-requirements", response_model=JobWithRequirementsResponse)
-async def get_job_recommendations_with_requirements(request: JobWithRequirementsRequest):
-    """
-    채용 공고 추천 + 필요 기술/자격증 통합 분석
-
-    사용자의 커리어 분석 결과를 바탕으로 적합한 채용 공고를 추천하고,
-    각 공고에서 요구하는 기술과 자격증을 함께 분석합니다.
-
-    응답 내용:
-    - recommendations: 추천 채용 공고 목록 (필요 기술/자격증 포함)
-    - commonRequiredTechnologies: 채용 시장에서 공통적으로 요구하는 기술
-    - commonRequiredCertifications: 공통 필요 자격증
-    - overallLearningPath: 전체 학습 경로 추천
-    """
-    try:
-        result = await job_recommendation_agent.get_recommendations_with_requirements(
-            user_id=request.userId,
-            career_analysis=request.careerAnalysis,
-            user_profile=request.userProfile,
-            user_skills=request.userSkills,
-            limit=request.limit
-        )
-
-        return JobWithRequirementsResponse(**result)
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"채용 공고 + 기술/자격증 추천 실패: {str(e)}"
-        )
 
 
 # ============== 2. 지원 현황 추적 ==============
@@ -324,64 +269,3 @@ async def suggest_keywords(request: KeywordSuggestionRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"키워드 추천 실패: {str(e)}")
-
-
-# ============== 5. OpenAI Agents SDK 기반 채용 에이전트 ==============
-
-from pydantic import BaseModel
-from typing import Optional
-
-class JobAgentRequest(BaseModel):
-    """채용 에이전트 요청 모델"""
-    message: str  # 사용자 메시지
-    userId: Optional[int] = None  # 사용자 ID (선택)
-    agentType: str = "main"  # 에이전트 타입: main, recommendation, analysis
-
-class JobAgentResponse(BaseModel):
-    """채용 에이전트 응답 모델"""
-    success: bool
-    response: Optional[str] = None  # AI 응답 (자연어)
-    agent: Optional[str] = None  # 사용된 에이전트 이름
-    error: Optional[str] = None  # 에러 메시지
-
-
-@router.post("/job-agent", response_model=JobAgentResponse)
-async def chat_with_job_agent(request: JobAgentRequest):
-    """
-    OpenAI Agents SDK 기반 채용 에이전트와 대화
-
-    사용자의 자연어 요청을 처리하여 채용공고 추천, 시장 분석 등을 수행합니다.
-
-    Args:
-        message: 사용자 메시지 (예: "백엔드 개발자 채용 추천해줘")
-        userId: 사용자 ID (프로필 기반 추천에 필요)
-        agentType:
-            - "main": 자동으로 적절한 에이전트 선택
-            - "recommendation": 채용공고 추천 전문
-            - "analysis": 채용 시장 분석 전문
-
-    Returns:
-        - response: AI의 자연어 응답 (마크다운 형식)
-        - agent: 응답한 에이전트 이름
-    """
-    try:
-        result = await run_job_agent(
-            user_request=request.message,
-            user_id=request.userId,
-            agent_type=request.agentType
-        )
-
-        if result.get("success"):
-            return JobAgentResponse(
-                success=True,
-                response=result.get("response"),
-                agent=result.get("agent")
-            )
-        else:
-            return JobAgentResponse(
-                success=False,
-                error=result.get("error", "에이전트 실행 실패")
-            )
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"채용 에이전트 오류: {str(e)}")

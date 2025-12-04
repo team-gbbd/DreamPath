@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { PYTHON_AI_SERVICE_URL } from '@/lib/api';
 
 interface Company {
   id: number;
@@ -44,7 +45,7 @@ const CompanyDetailPage = () => {
   const fetchCompanyDetail = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`http://localhost:8000/api/company/${id}`);
+      const response = await axios.get(`${PYTHON_AI_SERVICE_URL}/api/company/${id}`);
 
       if (response.data.success) {
         setCompany(response.data.company);

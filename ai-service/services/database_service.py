@@ -3,10 +3,11 @@
 MySQL/PostgreSQL 데이터베이스 연결 및 채용 공고 저장/조회 기능
 """
 import os
-import json
 from typing import List, Dict, Optional
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from contextlib import contextmanager
+from sqlalchemy import create_engine, text
+from sqlalchemy.pool import QueuePool
 
 # DB 타입에 따라 다른 드라이버 사용
 DB_TYPE = os.getenv('DB_TYPE', 'mysql').lower()
@@ -21,11 +22,50 @@ else:
     USE_POSTGRES = False
 
 
+# 글로벌 connection pool (애플리케이션 전체에서 공유)
+_engine = None
+
+def get_engine():
+    """SQLAlchemy 엔진 가져오기 (싱글톤 패턴)"""
+    global _engine
+    if _engine is None:
+        if USE_POSTGRES:
+            # PostgreSQL connection string
+            db_url = (
+                f"postgresql+psycopg2://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
+                f"@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
+                f"?sslmode={os.getenv('DB_SSLMODE', 'require')}"
+            )
+        else:
+            # MySQL connection string
+            db_url = (
+                f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
+                f"@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
+                f"?charset=utf8mb4"
+            )
+
+        # Connection pool 설정
+        _engine = create_engine(
+            db_url,
+            poolclass=QueuePool,
+            pool_size=5,              # 최대 5개 연결 유지
+            max_overflow=10,          # 초과 시 최대 10개 추가 연결
+            pool_timeout=30,          # 연결 대기 시간 30초
+            pool_recycle=3600,        # 1시간마다 연결 재생성
+            pool_pre_ping=True,       # 연결 재사용 전 ping 체크
+            echo=False
+        )
+    return _engine
+
+
 class DatabaseService:
     """데이터베이스 서비스"""
-    
+
     def __init__(self):
         """데이터베이스 연결 정보 초기화"""
+        self.engine = get_engine()
+
+        # 레거시 코드 호환성을 위한 설정 (사용하지 않음)
         if USE_POSTGRES:
             self.db_config = {
                 'host': os.getenv('DB_HOST', 'localhost'),
@@ -47,26 +87,22 @@ class DatabaseService:
                 'cursorclass': DictCursor,
                 'autocommit': False
             }
-        self._ensure_table_exists()
+        # 테이블 체크 비활성화 (이미 존재하며, Supabase 연결 한계 방지)
+        # self._ensure_table_exists()
     
     @contextmanager
     def get_connection(self):
-        """데이터베이스 연결 컨텍스트 매니저"""
-        conn = None
+        """데이터베이스 연결 컨텍스트 매니저 (SQLAlchemy pool 사용)"""
+        # raw connection을 가져와서 기존 코드와 호환
+        conn = self.engine.raw_connection()
         try:
-            if USE_POSTGRES:
-                conn = psycopg2.connect(**self.db_config)
-            else:
-                conn = pymysql.connect(**self.db_config)
             yield conn
             conn.commit()
         except Exception as e:
-            if conn:
-                conn.rollback()
+            conn.rollback()
             raise e
         finally:
-            if conn:
-                conn.close()
+            conn.close()
     
     def _ensure_table_exists(self):
         """테이블이 존재하는지 확인하고 없으면 생성"""
@@ -107,8 +143,6 @@ class DatabaseService:
                                 reward VARCHAR(255),
                                 experience VARCHAR(255),
                                 search_keyword VARCHAR(255),
-                                tech_stack TEXT,
-                                required_skills TEXT,
                                 crawled_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                 updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -136,8 +170,6 @@ class DatabaseService:
                                 reward VARCHAR(255) COMMENT '보상금/급여',
                                 experience VARCHAR(255) COMMENT '경력 요구사항',
                                 search_keyword VARCHAR(255) COMMENT '검색 키워드',
-                                tech_stack TEXT COMMENT '기술 스택 (JSON)',
-                                required_skills TEXT COMMENT '필요 역량 (JSON)',
                                 crawled_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '크롤링 시간',
                                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 시간',
                                 updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정 시간',
@@ -151,53 +183,12 @@ class DatabaseService:
                         """)
                     conn.commit()
                     print("job_listings 테이블이 생성되었습니다.")
-                else:
-                    # 테이블이 이미 존재하는 경우, 새 컬럼 추가
-                    self._add_job_listings_columns(conn)
 
                 # company_info 테이블 생성
                 self._ensure_company_info_table(conn)
         except Exception as e:
             print(f"테이블 생성 확인 중 오류 발생: {str(e)}")
             # 테이블 생성 실패해도 계속 진행 (이미 존재할 수 있음)
-
-    def _add_job_listings_columns(self, conn):
-        """job_listings 테이블에 새 컬럼 추가 (기존 테이블용)"""
-        try:
-            cursor = conn.cursor()
-            new_columns = [
-                ("tech_stack", "TEXT"),
-                ("required_skills", "TEXT"),
-            ]
-
-            if USE_POSTGRES:
-                for col_name, col_type in new_columns:
-                    try:
-                        cursor.execute(f"ALTER TABLE job_listings ADD COLUMN IF NOT EXISTS {col_name} {col_type}")
-                    except Exception as e:
-                        print(f"컬럼 {col_name} 추가 중 오류 (무시 가능): {str(e)}")
-                conn.commit()
-                print("✓ job_listings 새 컬럼 추가 완료 (tech_stack, required_skills)")
-            else:
-                # MySQL: 컬럼 존재 여부 확인 후 추가
-                for col_name, col_type in new_columns:
-                    try:
-                        cursor.execute("""
-                            SELECT COUNT(*) as count
-                            FROM information_schema.columns
-                            WHERE table_schema = %s AND table_name = 'job_listings' AND column_name = %s
-                        """, (self.db_config['database'], col_name))
-                        col_result = cursor.fetchone()
-                        if col_result['count'] == 0:
-                            comment = '기술 스택 (JSON)' if col_name == 'tech_stack' else '필요 역량 (JSON)'
-                            cursor.execute(f"ALTER TABLE job_listings ADD COLUMN {col_name} {col_type} COMMENT '{comment}'")
-                            print(f"✓ job_listings 컬럼 추가: {col_name}")
-                    except Exception as e:
-                        print(f"컬럼 {col_name} 추가 중 오류 (무시 가능): {str(e)}")
-                conn.commit()
-            cursor.close()
-        except Exception as e:
-            print(f"job_listings 컬럼 추가 중 오류: {str(e)}")
 
     def _ensure_company_info_table(self, conn):
         """company_info 테이블 생성"""
@@ -392,11 +383,11 @@ class DatabaseService:
                     INSERT INTO job_listings (
                         site_name, site_url, job_id, title, company,
                         location, description, url, reward, experience,
-                        search_keyword, tech_stack, required_skills, crawled_at
+                        search_keyword, crawled_at
                     ) VALUES (
                         %s, %s, %s, %s, %s,
                         %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s
+                        %s, %s
                     )
                 """
                 
@@ -433,16 +424,7 @@ class DatabaseService:
                         
                         # company가 None이면 빈 문자열로 처리
                         company = job.get("company") or ""
-
-                        # tech_stack, required_skills 처리 (리스트면 JSON 문자열로 변환)
-                        tech_stack = job.get("tech_stack")
-                        if isinstance(tech_stack, list):
-                            tech_stack = json.dumps(tech_stack, ensure_ascii=False)
-
-                        required_skills = job.get("required_skills")
-                        if isinstance(required_skills, list):
-                            required_skills = json.dumps(required_skills, ensure_ascii=False)
-
+                        
                         cursor.execute(insert_sql, (
                             site_name,
                             site_url,
@@ -455,8 +437,6 @@ class DatabaseService:
                             reward,
                             experience,
                             search_keyword,
-                            tech_stack,
-                            required_skills,
                             datetime.now()
                         ))
                         conn.commit()  # 각 INSERT 후 즉시 커밋
@@ -465,8 +445,6 @@ class DatabaseService:
                         conn.rollback()  # 에러 발생 시 rollback
                         print(f"채용 공고 저장 실패: {job}, 에러: {str(e)}")
                         continue
-                print(f"[DEBUG] Commit completed. Saved={saved_count}, Skipped={skipped_count}")
-                print(f"[DEBUG] Connected to: {self.db_config['host']}, DB: {self.db_config['database']}")
                 if saved_count > 0:
                     print(f"{saved_count}개의 새로운 채용 공고가 데이터베이스에 저장되었습니다.")
                 if skipped_count > 0:
@@ -730,8 +708,6 @@ class DatabaseService:
                 conn.commit()
                 cursor.close()
 
-                print(f"[DEBUG] Commit completed. Saved={saved_count}, Skipped={skipped_count}")
-
                 if saved_count > 0:
                     print(f"{saved_count}개의 기업 정보가 데이터베이스에 저장되었습니다.")
                 if skipped_count > 0:
@@ -754,11 +730,14 @@ class DatabaseService:
             params: 쿼리 파라미터
 
         Returns:
-            쿼리 결과 (튜플 리스트)
+            쿼리 결과 (딕셔너리 리스트)
         """
         try:
             with self.get_connection() as conn:
-                cursor = conn.cursor()
+                if USE_POSTGRES:
+                    cursor = conn.cursor(cursor_factory=RealDictCursor)
+                else:
+                    cursor = conn.cursor(DictCursor)
 
                 if params:
                     cursor.execute(query, params)
@@ -767,312 +746,58 @@ class DatabaseService:
 
                 results = cursor.fetchall()
 
-                # DictCursor/RealDictCursor 결과를 튜플 리스트로 변환
-                if results and isinstance(results[0], dict):
-                    # 딕셔너리 결과를 튜플로 변환
-                    return [tuple(row.values()) for row in results]
+                # DictCursor/RealDictCursor 결과를 딕셔너리로 변환하면서 datetime/timedelta 처리
+                processed_results = []
 
-                return results
+                for row in results:
+                    row_dict = dict(row) if isinstance(row, dict) else row
+                    # datetime/timedelta 객체를 문자열로 변환
+                    for key, value in row_dict.items():
+                        if isinstance(value, datetime):
+                            # datetime을 ISO 형식 문자열로 변환 (UTC 표시용 'Z' 추가)
+                            row_dict[key] = value.strftime('%Y-%m-%dT%H:%M:%S') + 'Z'
+                        elif hasattr(value, 'total_seconds'):  # timedelta 타입
+                            # timedelta를 HH:MM:SS 형식으로 변환
+                            total_seconds = int(value.total_seconds())
+                            hours = total_seconds // 3600
+                            minutes = (total_seconds % 3600) // 60
+                            seconds = total_seconds % 60
+                            row_dict[key] = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+                    processed_results.append(row_dict)
+
+                return processed_results
 
         except Exception as e:
             print(f"쿼리 실행 실패: {str(e)}")
             raise e
 
-    # ============== 자격증 관련 메서드 ==============
+    def execute_update(self, query: str, params: tuple = None):
+        """
+        SQL 쿼리 실행 (INSERT, UPDATE, DELETE 전용)
 
-    def _ensure_certification_table(self, conn):
-        """certifications 테이블 생성"""
+        Args:
+            query: SQL 쿼리
+            params: 쿼리 파라미터
+
+        Returns:
+            영향받은 행 수
+        """
         try:
-            cursor = conn.cursor()
-
-            # 테이블 존재 여부 확인
-            if USE_POSTGRES:
-                cursor.execute("""
-                    SELECT COUNT(*) as count
-                    FROM information_schema.tables
-                    WHERE table_schema = 'public' AND table_name = 'certifications'
-                """)
-            else:
-                cursor.execute("""
-                    SELECT COUNT(*) as count
-                    FROM information_schema.tables
-                    WHERE table_schema = %s AND table_name = 'certifications'
-                """, (self.db_config['database'],))
-
-            result = cursor.fetchone()
-            if result['count'] == 0:
+            with self.get_connection() as conn:
                 if USE_POSTGRES:
-                    cursor.execute("""
-                        CREATE TABLE IF NOT EXISTS certifications (
-                            id BIGSERIAL PRIMARY KEY,
-                            code VARCHAR(50) UNIQUE,
-                            name VARCHAR(255) NOT NULL,
-                            eng_name VARCHAR(500),
-                            series_code VARCHAR(10),
-                            series_name VARCHAR(100),
-                            oblig_fld_name VARCHAR(100),
-                            impl_nm VARCHAR(255),
-                            insti_nm VARCHAR(255),
-                            summary TEXT,
-                            career TEXT,
-                            job TEXT,
-                            trend TEXT,
-                            hist TEXT,
-                            source VARCHAR(50) DEFAULT 'qnet',
-                            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-                        )
-                    """)
-                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_cert_code ON certifications (code)")
-                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_cert_name ON certifications (name)")
-                    cursor.execute("CREATE INDEX IF NOT EXISTS idx_cert_series ON certifications (series_code)")
+                    cursor = conn.cursor(cursor_factory=RealDictCursor)
                 else:
-                    cursor.execute("""
-                        CREATE TABLE IF NOT EXISTS certifications (
-                            id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                            code VARCHAR(50) UNIQUE COMMENT '종목코드',
-                            name VARCHAR(255) NOT NULL COMMENT '자격증명',
-                            eng_name VARCHAR(500) COMMENT '영문명',
-                            series_code VARCHAR(10) COMMENT '계열코드',
-                            series_name VARCHAR(100) COMMENT '계열명',
-                            oblig_fld_name VARCHAR(100) COMMENT '직무분야명',
-                            impl_nm VARCHAR(255) COMMENT '시행기관명',
-                            insti_nm VARCHAR(255) COMMENT '출제기관명',
-                            summary TEXT COMMENT '요약',
-                            career TEXT COMMENT '관련 진로',
-                            job TEXT COMMENT '직무내용',
-                            trend TEXT COMMENT '동향',
-                            hist TEXT COMMENT '변천이력',
-                            source VARCHAR(50) DEFAULT 'qnet' COMMENT '데이터 출처',
-                            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 시간',
-                            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '수정 시간',
-                            INDEX idx_cert_code (code),
-                            INDEX idx_cert_name (name),
-                            INDEX idx_cert_series (series_code)
-                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='자격증 정보'
-                    """)
-                conn.commit()
-                print("certifications 테이블이 생성되었습니다.")
-            cursor.close()
-        except Exception as e:
-            print(f"certifications 테이블 생성 중 오류: {str(e)}")
+                    cursor = conn.cursor(DictCursor)
 
-    def ensure_certification_table(self):
-        """외부에서 호출 가능한 자격증 테이블 생성 메서드"""
-        try:
-            with self.get_connection() as conn:
-                self._ensure_certification_table(conn)
-        except Exception as e:
-            print(f"자격증 테이블 생성 실패: {str(e)}")
-
-    def save_certifications(self, certifications: List[Dict]) -> int:
-        """
-        자격증 정보를 데이터베이스에 저장합니다.
-        중복된 자격증은 업데이트됩니다.
-
-        Args:
-            certifications: 자격증 정보 리스트
-
-        Returns:
-            저장된 자격증 수
-        """
-        if not certifications:
-            return 0
-
-        # 테이블 존재 확인
-        self.ensure_certification_table()
-
-        saved_count = 0
-
-        try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-
-                for cert in certifications:
-                    try:
-                        if USE_POSTGRES:
-                            cursor.execute("""
-                                INSERT INTO certifications (
-                                    code, name, eng_name, series_code, series_name,
-                                    oblig_fld_name, impl_nm, insti_nm, summary,
-                                    career, job, trend, hist, source
-                                ) VALUES (
-                                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-                                )
-                                ON CONFLICT (code)
-                                DO UPDATE SET
-                                    name = EXCLUDED.name,
-                                    eng_name = EXCLUDED.eng_name,
-                                    series_code = EXCLUDED.series_code,
-                                    series_name = EXCLUDED.series_name,
-                                    oblig_fld_name = EXCLUDED.oblig_fld_name,
-                                    impl_nm = EXCLUDED.impl_nm,
-                                    insti_nm = EXCLUDED.insti_nm,
-                                    summary = EXCLUDED.summary,
-                                    career = EXCLUDED.career,
-                                    job = EXCLUDED.job,
-                                    trend = EXCLUDED.trend,
-                                    hist = EXCLUDED.hist,
-                                    source = EXCLUDED.source,
-                                    updated_at = CURRENT_TIMESTAMP
-                            """, (
-                                cert.get('code'),
-                                cert.get('name'),
-                                cert.get('engName'),
-                                cert.get('seriesCode'),
-                                cert.get('seriesName'),
-                                cert.get('obligFldName'),
-                                cert.get('implNm'),
-                                cert.get('instiNm'),
-                                cert.get('summary'),
-                                cert.get('career'),
-                                cert.get('job'),
-                                cert.get('trend'),
-                                cert.get('hist'),
-                                cert.get('source', 'qnet')
-                            ))
-                        else:
-                            cursor.execute("""
-                                INSERT INTO certifications (
-                                    code, name, eng_name, series_code, series_name,
-                                    oblig_fld_name, impl_nm, insti_nm, summary,
-                                    career, job, trend, hist, source
-                                ) VALUES (
-                                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-                                )
-                                ON DUPLICATE KEY UPDATE
-                                    name = VALUES(name),
-                                    eng_name = VALUES(eng_name),
-                                    series_code = VALUES(series_code),
-                                    series_name = VALUES(series_name),
-                                    oblig_fld_name = VALUES(oblig_fld_name),
-                                    impl_nm = VALUES(impl_nm),
-                                    insti_nm = VALUES(insti_nm),
-                                    summary = VALUES(summary),
-                                    career = VALUES(career),
-                                    job = VALUES(job),
-                                    trend = VALUES(trend),
-                                    hist = VALUES(hist),
-                                    source = VALUES(source),
-                                    updated_at = CURRENT_TIMESTAMP
-                            """, (
-                                cert.get('code'),
-                                cert.get('name'),
-                                cert.get('engName'),
-                                cert.get('seriesCode'),
-                                cert.get('seriesName'),
-                                cert.get('obligFldName'),
-                                cert.get('implNm'),
-                                cert.get('instiNm'),
-                                cert.get('summary'),
-                                cert.get('career'),
-                                cert.get('job'),
-                                cert.get('trend'),
-                                cert.get('hist'),
-                                cert.get('source', 'qnet')
-                            ))
-
-                        saved_count += 1
-                    except Exception as e:
-                        print(f"자격증 저장 실패 ({cert.get('name')}): {str(e)}")
-                        continue
+                if params:
+                    cursor.execute(query, params)
+                else:
+                    cursor.execute(query)
 
                 conn.commit()
-                cursor.close()
-
-                if saved_count > 0:
-                    print(f"{saved_count}개의 자격증 정보가 저장되었습니다.")
-
-                return saved_count
+                return cursor.rowcount
 
         except Exception as e:
-            print(f"자격증 저장 중 오류 발생: {str(e)}")
-            return 0
-
-    def get_certifications(
-        self,
-        series_code: Optional[str] = None,
-        keyword: Optional[str] = None,
-        limit: int = 100,
-        offset: int = 0
-    ) -> List[Dict]:
-        """
-        자격증 정보를 조회합니다.
-
-        Args:
-            series_code: 계열코드 필터
-            keyword: 검색 키워드
-            limit: 최대 결과 수
-            offset: 오프셋
-
-        Returns:
-            자격증 리스트
-        """
-        # 테이블 존재 확인
-        self.ensure_certification_table()
-
-        try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-
-                where_clauses = []
-                params = []
-
-                if series_code:
-                    where_clauses.append("series_code = %s")
-                    params.append(series_code)
-
-                if keyword:
-                    where_clauses.append("(name LIKE %s OR oblig_fld_name LIKE %s)")
-                    keyword_pattern = f"%{keyword}%"
-                    params.extend([keyword_pattern, keyword_pattern])
-
-                where_sql = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
-
-                query = f"""
-                    SELECT
-                        id, code, name, eng_name, series_code, series_name,
-                        oblig_fld_name, impl_nm, insti_nm, summary,
-                        career, job, trend, hist, source, created_at, updated_at
-                    FROM certifications
-                    {where_sql}
-                    ORDER BY series_code, name
-                    LIMIT %s OFFSET %s
-                """
-
-                params.extend([limit, offset])
-                cursor.execute(query, params)
-
-                results = cursor.fetchall()
-                cursor.close()
-
-                return list(results)
-
-        except Exception as e:
-            print(f"자격증 조회 중 오류 발생: {str(e)}")
-            return []
-
-    def count_certifications(self, series_code: Optional[str] = None) -> int:
-        """자격증 개수 조회"""
-        self.ensure_certification_table()
-
-        try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-
-                if series_code:
-                    cursor.execute(
-                        "SELECT COUNT(*) as count FROM certifications WHERE series_code = %s",
-                        (series_code,)
-                    )
-                else:
-                    cursor.execute("SELECT COUNT(*) as count FROM certifications")
-
-                result = cursor.fetchone()
-                cursor.close()
-                return result['count'] if result else 0
-
-        except Exception as e:
-            print(f"자격증 카운트 조회 중 오류: {str(e)}")
-            return 0
+            print(f"쿼리 실행 실패: {str(e)}")
+            raise e
 

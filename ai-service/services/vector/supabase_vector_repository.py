@@ -10,20 +10,7 @@ class SupabaseVectorRepository:
     def __init__(self):
         url = os.getenv('SUPABASE_URL')
         key = os.getenv('SUPABASE_SERVICE_KEY')
-        self.supabase = None
-        self._initialized = False
-
-        if not url or not key:
-            print("[Supabase] URL 또는 KEY가 설정되지 않았습니다. Supabase 기능이 비활성화됩니다.")
-            return
-
-        try:
-            self.supabase: Client = create_client(url, key)
-            self._initialized = True
-            print("[Supabase] 초기화 완료")
-        except Exception as e:
-            print(f"[Supabase] 초기화 실패: {e}")
-            print("[Supabase] Supabase 기능이 비활성화됩니다.")
+        self.supabase: Client = create_client(url, key)
 
     def save_vector(self, table: str, record: dict):
         '''
@@ -34,15 +21,9 @@ class SupabaseVectorRepository:
             'vector_id': 'pinecone vector ID'
         }
         '''
-        if not self._initialized:
-            print("[Supabase] 초기화되지 않아 save_vector를 건너뜁니다.")
-            return None
         return self.supabase.table(table).insert(record).execute()
 
     def get_by_original_id(self, table: str, original_id: str):
-        if not self._initialized:
-            print("[Supabase] 초기화되지 않아 get_by_original_id를 건너뜁니다.")
-            return None
         return (
             self.supabase.table(table)
             .select('*')
@@ -54,9 +35,6 @@ class SupabaseVectorRepository:
         """
         profile_vector 테이블에서 특정 vector_db_id에 해당하는 임베딩을 반환
         """
-        if not self._initialized:
-            print("[Supabase] 초기화되지 않아 get_vector_by_id를 건너뜁니다.")
-            return None
         response = (
             self.supabase.table('profile_vector')
             .select('vector_data')
@@ -65,4 +43,21 @@ class SupabaseVectorRepository:
         )
         if response.data:
             return response.data[0].get('vector_data')
+        return None
+
+    def get_user_interests(self, user_id: int):
+        """
+        user_profiles 테이블에서 사용자의 관심사(interests) 조회
+        """
+        try:
+            response = (
+                self.supabase.table('user_profiles')
+                .select('interests')
+                .eq('user_id', user_id)
+                .execute()
+            )
+            if response.data:
+                return response.data[0].get('interests')
+        except Exception as e:
+            print(f"Error fetching user interests: {e}")
         return None

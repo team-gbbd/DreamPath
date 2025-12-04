@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { mentorService, userService } from '@/lib/api';
-import StudentMyPage from './StudentMyPage';
-import MentorMyPage from './MentorMyPage';
-import AdminMyPage from './AdminMyPage';
+import StudentMyPage from './student/StudentMyPage';
+import MentorMyPage from './mentor/MentorMyPage';
+import AdminMyPage from './admin/AdminMyPage';
 import { useToast } from '@/components/common/Toast';
 
 interface UserProfile {

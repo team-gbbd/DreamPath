@@ -1,13 +1,15 @@
 package com.dreampath.domain.profile.service;
 
 import com.dreampath.domain.profile.entity.ProfileAnalysis;
-import com.dreampath.domain.profile.entity.UserProfile;
 import com.dreampath.domain.profile.repository.ProfileAnalysisRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Random;
 
 @Service
@@ -25,14 +27,18 @@ public class ProfileAnalysisService {
      * 프로필 기반 분석 생성 (임시 버전)
      * 추후 벡터/RAG로 교체 예정
      */
-    public ProfileAnalysis generateAnalysis(UserProfile profile) {
+    public ProfileAnalysis generateAnalysis(ProfileDocument profile) {
+        if (profile == null) {
+            throw new IllegalArgumentException("ProfileDocument가 필요합니다.");
+        }
+
         // 1. 해시 계산
         String currentHash = calculateHash(profile);
 
         // 2. 기존 분석 조회
-        ProfileAnalysis analysis = analysisRepository.findByUserId(profile.getUser().getUserId())
+        ProfileAnalysis analysis = analysisRepository.findByUserId(profile.userId())
                 .orElseGet(() -> ProfileAnalysis.builder()
-                        .userId(profile.getUser().getUserId())
+                        .userId(profile.userId())
                         .build());
 
         // 3. 해시가 같으면 재계산 건너뜀 (기존 데이터 반환)
@@ -73,7 +79,7 @@ public class ProfileAnalysisService {
         analysis.setPersonality(personalityJson);
         analysis.setValues(valuesJson);
         analysis.setEmotions(emotionJson);
-        analysis.setInterests(ensureJson(profile.getInterests()));
+        analysis.setInterests(ensureJson(profile.interests()));
         analysis.setConfidenceScore(r.nextDouble());
         analysis.setMbti(generateMbti(personalityJson));
 
@@ -83,15 +89,15 @@ public class ProfileAnalysisService {
         return analysisRepository.save(analysis);
     }
 
-    private String calculateHash(UserProfile profile) {
+    private String calculateHash(ProfileDocument profile) {
         try {
             String content = String.join("|",
-                    String.valueOf(profile.getPersonalityTraits()),
-                    String.valueOf(profile.getValues()),
-                    String.valueOf(profile.getInterests()),
-                    String.valueOf(profile.getEmotions()));
-            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    String.valueOf(profile.personalityTraits()),
+                    String.valueOf(profile.values()),
+                    String.valueOf(profile.interests()),
+                    String.valueOf(profile.emotions()));
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(content.getBytes(StandardCharsets.UTF_8));
             StringBuilder hexString = new StringBuilder();
             for (byte b : hash) {
                 String hex = Integer.toHexString(0xff & b);
@@ -100,7 +106,7 @@ public class ProfileAnalysisService {
                 hexString.append(hex);
             }
             return hexString.toString();
-        } catch (Exception e) {
+        } catch (NoSuchAlgorithmException e) {
             return null;
         }
     }
@@ -141,6 +147,23 @@ public class ProfileAnalysisService {
             return new String(new char[] { eOrI, sOrN, tOrF, jOrP });
         } catch (JsonProcessingException e) {
             return null;
+        }
+    }
+
+    /**
+     * 성향 분석을 생성할 때 필요한 최소 데이터 묶음.
+     */
+    public record ProfileDocument(
+            Long userId,
+            String personalityTraits,
+            String values,
+            String interests,
+            String emotions
+    ) {
+        public ProfileDocument {
+            if (userId == null) {
+                throw new IllegalArgumentException("userId는 필수입니다.");
+            }
         }
     }
 }

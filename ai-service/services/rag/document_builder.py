@@ -108,3 +108,19 @@ class DocumentBuilder:
             parts.append("No related cases found.\n")
         return "\n".join(parts)
 
+        return "\n".join(parts)
+
+    @staticmethod
+    def build_ncs_ability_document(ncs):
+        """
+        ncs: {
+            "compeUnitName": "",
+            "compeUnitLevel": "",
+            "ncsLclasCdnm": "",
+            "ncsMclasCdnm": "",
+            "ncsSclasCdnm": "",
+            "ncsSubdCdnm": "",
+            "compeUnitDef": ""
+        }
+        """
+        return DocumentTemplate.build_ncs_ability(ncs)

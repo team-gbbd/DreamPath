@@ -54,14 +54,15 @@ export default function AdminPage() {
   const fetchData = async () => {
     try {
       setIsLoading(true);
+      const AI_SERVICE_URL = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8000';
 
-      const faqResponse = await fetch('http://localhost:8080/api/faq/all');
+      const faqResponse = await fetch(`${AI_SERVICE_URL}/api/faq/all`);
       if (faqResponse.ok) {
         const faqData = await faqResponse.json();
         setFaqCount(faqData.length);
       }
 
-      const inquiryResponse = await fetch('http://localhost:8080/api/inquiry/all');
+      const inquiryResponse = await fetch(`${AI_SERVICE_URL}/api/inquiry/all`);
       if (inquiryResponse.ok) {
         const inquiryData = await inquiryResponse.json();
         // 미답변 개수만 세기

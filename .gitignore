@@ -50,4 +50,6 @@ infra/livekit-local/community/.env-e
 # Claude Code 설정 (개인 설정)
 .claude/
 CLAUDE.md
-.claude/settings.local.json
+
+backend-dev.log
+ai-service-dev.log

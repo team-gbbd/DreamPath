@@ -1,6 +1,5 @@
 import { lazy } from "react";
 import type { RouteObject } from "react-router-dom";
-import ProfileInputPage from "@/pages/profile/ProfileInputPage";
 import VectorStatusPage from "@/pages/profile/VectorStatusPage";
 import JobRecommend from "@/pages/profile/JobRecommend";
 import RecruitRecommend from "@/pages/profile/RecruitRecommend";
@@ -8,7 +7,6 @@ import MajorRecommend from "@/pages/profile/MajorRecommend";
 import SchoolRecommend from "@/pages/profile/SchoolRecommend";
 
 const ProfileDashboardPage = lazy(() => import("../pages/profile/Dashboard"));
-const ProfileSuccessPage = lazy(() => import("../pages/profile/ProfileSubmitSuccess"));
 const HomePage = lazy(() => import("../pages/home/page"));
 const NotFoundPage = lazy(() => import("../pages/NotFound"));
 const CareerChatPage = lazy(() => import("../pages/career-chat/page"));
@@ -29,7 +27,7 @@ const CompanyListPage = lazy(() => import("../pages/company/CompanyListPage"));
 const CompanyDetailPage = lazy(() => import("../pages/company/CompanyDetailPage"));
 const CrawlerPage = lazy(() => import("../pages/admin/CrawlerPage"));
 const MyPage = lazy(() => import("../pages/mypage/page"));
-const MentorApplyPage = lazy(() => import("../pages/mentor/MentorApply"));
+const MentorApplyPage = lazy(() => import("../pages/mentors/MentorApply"));
 const AdminDashboardPage = lazy(() => import("../pages/admin/AdminDashboard"));
 const MentorApplicationsPage = lazy(() => import("../pages/admin/MentorApplications"));
 const FaqManagementPage = lazy(() => import("../pages/admin/FaqManagement"));
@@ -37,19 +35,18 @@ const InquiriesManagementPage = lazy(() => import("../pages/admin/InquiriesManag
 const AdminPage = lazy(() => import("../pages/admin/AdminPage.tsx"));
 const MentorsListPage = lazy(() => import("../pages/mentors/MentorsList"));
 const MentorDetailPage = lazy(() => import("../pages/mentors/MentorDetail"));
-const MentorEditPage = lazy(() => import("../pages/mentors/MentorEdit"));
+const MentorEditPage = lazy(() => import("../pages/mypage/mentor/MentorEditPage"));
 const PaymentPurchasePage = lazy(() => import("../pages/payments/PaymentPurchase"));
 const PaymentHistoryPage = lazy(() => import("../pages/payments/PaymentHistory"));
 const PaymentSuccessPage = lazy(() => import("../pages/payments/PaymentSuccess"));
 const PaymentFailPage = lazy(() => import("../pages/payments/PaymentFail"));
 const BookMentoringPage = lazy(() => import("../pages/mentoring/BookMentoring"));
-const MyBookingsPage = lazy(() => import("../pages/my-bookings/page"));
+const MyBookingsPage = lazy(() => import("../pages/mypage/shared/BookingsPage"));
+const MentorSessionsPage = lazy(() => import("../pages/mypage/mentor/MentorSessionsPage"));
 const MentoringMeetingPage = lazy(() => import("../pages/mentoring/MentoringMeeting"));
 const JobAnalysisPage = lazy(() => import("../pages/job-analysis/JobAnalysisPage"));
 const PersonalizedInsightsPage = lazy(() => import("../pages/job-analysis/PersonalizedInsightsPage"));
 const JobRecommendationsPage = lazy(() => import("../pages/job-recommendations/JobRecommendationsPage"));
-const JobWithRequirementsPage = lazy(() => import("../pages/job-recommendations/JobWithRequirementsPage"));
-const CertificationsPage = lazy(() => import("../pages/certifications/CertificationsPage"));
 
 const routes: RouteObject[] = [
   {
@@ -88,14 +85,6 @@ const routes: RouteObject[] = [
   /* ----------------------
      PROFILE
      ---------------------- */
-  {
-    path: "/profile/input",
-    element: <ProfileInputPage />,
-  },
-  {
-    path: "/profile/success",
-    element: <ProfileSuccessPage />,
-  },
   {
     path: "/profile/dashboard",
     element: <ProfileDashboardPage />,
@@ -196,14 +185,22 @@ const routes: RouteObject[] = [
     path: "/mypage",
     element: <MyPage />,
   },
+  {
+    path: "/mypage/bookings",
+    element: <MyBookingsPage />,
+  },
+  {
+    path: "/mypage/mentor/sessions",
+    element: <MentorSessionsPage />,
+  },
+  {
+    path: "/mypage/mentor/edit",
+    element: <MentorEditPage />,
+  },
 
   /* ----------------------
-     MENTOR
+     MENTORS
      ---------------------- */
-  {
-    path: "/mentor/apply",
-    element: <MentorApplyPage />,
-  },
   {
     path: "/mentors",
     element: <MentorsListPage />,
@@ -213,8 +210,8 @@ const routes: RouteObject[] = [
     element: <MentorDetailPage />,
   },
   {
-    path: "/mentors/:id/edit",
-    element: <MentorEditPage />,
+    path: "/mentors/apply",
+    element: <MentorApplyPage />,
   },
 
   /* ----------------------
@@ -227,10 +224,6 @@ const routes: RouteObject[] = [
   {
     path: "/mentoring/meeting/:bookingId",
     element: <MentoringMeetingPage />,
-  },
-  {
-    path: "/my-bookings",
-    element: <MyBookingsPage />,
   },
 
   /* ----------------------
@@ -287,33 +280,6 @@ const routes: RouteObject[] = [
   {
     path: "*",
     element: <NotFoundPage />,
-  },
-  {
-    path: "/chatbot",
-    element: <ChatbotPage />,
-  },
-  {
-    path: "/job-analysis",
-    element: <JobAnalysisPage />,
-  },
-  {
-    path: "/job-analysis/personalized",
-    element: <PersonalizedInsightsPage />,
-  },
-  {
-    path: "/job-recommendations",
-    element: <JobRecommendationsPage />,
-  },
-  {
-    path: "/job-recommendations/with-requirements",
-    element: <JobWithRequirementsPage />,
-  },
-  /* ----------------------
-     🔹 CERTIFICATIONS (Q-net)
-     ---------------------- */
-  {
-    path: "/certifications",
-    element: <CertificationsPage />,
   },
 ];
 

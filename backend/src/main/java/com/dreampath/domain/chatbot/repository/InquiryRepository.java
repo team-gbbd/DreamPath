@@ -9,6 +9,6 @@ import java.util.List;
 @Repository
 public interface InquiryRepository extends JpaRepository<Inquiry, Long> {
 
-    // 생성일 기준 내림차순 정렬 (최신순)
+    // 최신 순으로 모든 문의 조회
     List<Inquiry> findAllByOrderByCreatedAtDesc();
 }
