@@ -4,6 +4,7 @@ Python FastAPI Microservice v1.2
 """
 
 import os
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -14,6 +15,15 @@ load_dotenv(root_env)
 
 # 2. ai-service/.env 로드 (AI 서비스 전용 설정, 덮어쓰기 방지)
 load_dotenv(override=False)
+
+# 로깅 설정 (에이전트 로그 표시용)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+# 에이전트 관련 로거만 DEBUG 레벨로
+logging.getLogger("services.agents").setLevel(logging.DEBUG)
+logging.getLogger("services.chat_service").setLevel(logging.DEBUG)
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException

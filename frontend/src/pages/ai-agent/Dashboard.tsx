@@ -5,7 +5,6 @@ import Footer from '../../components/feature/Footer';
 
 /**
  * AI 에이전트 대시보드
- * 원티드 스타일의 커리어 AI 에이전트 기능
  */
 export default function AIAgentDashboard() {
   const [activeTab, setActiveTab] = useState<'recommendations' | 'applications' | 'growth' | 'resume'>('recommendations');

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { learningPathService } from "@/lib/api";
 import Header from "@/components/feature/Header";
 
@@ -65,11 +65,13 @@ interface DashboardStats {
 
 export default function Dashboard() {
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
 
     const [learningPaths, setLearningPaths] = useState<LearningPath[]>([]);
     const [selectedPathId, setSelectedPathId] = useState<number | null>(null);
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [loading, setLoading] = useState(false);
+    const [creating, setCreating] = useState(false);
 
     const getCurrentUserId = () => {
         const raw = localStorage.getItem("dreampath:user");
@@ -80,8 +82,41 @@ export default function Dashboard() {
     useEffect(() => {
         const userId = getCurrentUserId();
         if (!userId) return navigate("/login");
-        loadLearningPaths(userId);
+
+        const careerParam = searchParams.get("career");
+        if (careerParam) {
+            // career 파라미터가 있으면 학습 경로 생성 시도
+            createLearningPathFromCareer(userId, careerParam);
+        } else {
+            loadLearningPaths(userId);
+        }
     }, []);
+
+    const createLearningPathFromCareer = async (userId: number, career: string) => {
+        setCreating(true);
+        try {
+            // 학습 경로 생성
+            const newPath = await learningPathService.createLearningPath({
+                userId,
+                domain: career,
+            });
+
+            // URL에서 career 파라미터 제거
+            setSearchParams({});
+
+            // 목록 새로고침 후 새로 생성된 경로 선택
+            await loadLearningPaths(userId);
+            if (newPath.pathId) {
+                handlePathSelect(newPath.pathId);
+            }
+        } catch (error) {
+            console.error("학습 경로 생성 실패:", error);
+            // 실패해도 기존 목록은 로드
+            await loadLearningPaths(userId);
+        } finally {
+            setCreating(false);
+        }
+    };
 
     const loadLearningPaths = async (userId: number) => {
         const data = await learningPathService.getUserLearningPaths(userId);
@@ -394,6 +429,15 @@ export default function Dashboard() {
                             <div className="bg-white border border-gray-200 rounded p-12 text-center">
                                 <div className="w-6 h-6 border-2 border-pink-200 border-t-pink-500 rounded-full animate-spin mx-auto"></div>
                                 <p className="text-gray-400 text-sm mt-3">로딩 중...</p>
+                            </div>
+                        )}
+
+                        {/* 학습 경로 생성 중 */}
+                        {creating && (
+                            <div className="bg-white border border-gray-200 rounded p-12 text-center">
+                                <div className="w-8 h-8 border-2 border-pink-200 border-t-pink-500 rounded-full animate-spin mx-auto"></div>
+                                <p className="text-gray-700 text-sm mt-4 font-medium">학습 경로를 생성하고 있어요</p>
+                                <p className="text-gray-400 text-xs mt-1">AI가 맞춤형 커리큘럼을 준비 중입니다...</p>
                             </div>
                         )}
                     </div>
