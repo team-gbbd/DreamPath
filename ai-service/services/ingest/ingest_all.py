@@ -1,7 +1,6 @@
 import os
 import sys
-
-
+import concurrent.futures
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -11,76 +10,57 @@ PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, os.pardir, os.pardir))
 if PROJECT_ROOT not in sys.path:
     sys.path.append(PROJECT_ROOT)
 
-from services.ingest.ingest_ncs_sqf import NCS_SQF_Ingest
-from services.ingest.ingest_ncs_basic import NCS_Basic_Ingest
-from services.ingest.ingest_ncs_jobcom import NCS_JobCom_Ingest
-from services.ingest.ingest_ncs_jobbase import NCS_JobBase_Ingest
-
 from services.ingest.ingest_career_job import CareerJobIngest
 from services.ingest.ingest_career_department import CareerDepartmentIngest
 from services.ingest.ingest_career_case import CareerCaseIngest
-
-# WorkNet은 벡터DB가 아닌 실시간 조회 API로 사용
-# from services.ingest.ingest_worknet import WorkNetJobIngest
 
 
 class IngestAll:
 
     @staticmethod
-    def run_all():
-        print('\n===== [1] NCS SQF ingest =====')
-        try:
-            NCS_SQF_Ingest().ingest_all()
-        except Exception as e:
-            print('NCS SQF Error:', e)
-
-        print('\n===== [2] NCS Basic ingest =====')
-        try:
-            NCS_Basic_Ingest().ingest_all()
-        except Exception as e:
-            print('NCS Basic Error:', e)
-
-        print('\n===== [3] NCS JobCom ingest =====')
-        try:
-            NCS_JobCom_Ingest().ingest_all()
-        except Exception as e:
-            print('NCS JobCom Error:', e)
-
-        print('\n===== [4] NCS JobBase ingest =====')
-        try:
-            NCS_JobBase_Ingest().ingest_all()
-        except Exception as e:
-            print('NCS JobBase Error:', e)
-
-        print('\n===== [5] CareerNet 직업백과 ingest =====')
+    def run_job_ingest():
+        print('\n===== [1] CareerNet 직업백과 (Job Encyclopedia) ingest 시작 =====')
         try:
             CareerJobIngest().ingest_all()
+            print('✅ 직업 데이터 수집 완료')
         except Exception as e:
-            print('Career Job Error:', e)
+            print(f'❌ 직업 데이터 수집 실패: {e}')
 
-        print('\n===== [6] CareerNet 학과정보 ingest =====')
+    @staticmethod
+    def run_dept_ingest():
+        print('\n===== [2] CareerNet 학과정보 (Department) ingest 시작 =====')
         try:
             CareerDepartmentIngest().ingest_all()
+            print('✅ 학과 데이터 수집 완료')
         except Exception as e:
-            print('Career Department Error:', e)
+            print(f'❌ 학과 데이터 수집 실패: {e}')
 
-        print('\n===== [7] CareerNet 상담사례 ingest =====')
+    @staticmethod
+    def run_case_ingest():
+        print('\n===== [3] CareerNet 상담사례 (Counsel Case) ingest 시작 =====')
         try:
+            # 상담사례 수집 실행
             CareerCaseIngest().ingest_all()
+            print('✅ 상담사례 수집 완료')
         except Exception as e:
-            print('Career Case Error:', e)
+            print(f'❌ 상담사례 수집 실패: {e}')
 
-        # WorkNet은 벡터DB에 저장하지 않고 실시간 조회 API로 사용
-        # print('\n===== [8] WorkNet 채용공고 ingest =====')
-        # try:
-        #     WorkNetJobIngest().ingest_all()
-        # except Exception as e:
-        #     print('WorkNet Error:', e)
+    @staticmethod
+    def run_all():
+        print('🚀 데이터 수집 시작 (병렬 실행)...')
+        
+        # 직업과 학과를 병렬로 실행
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            future_job = executor.submit(IngestAll.run_job_ingest)
+            future_dept = executor.submit(IngestAll.run_dept_ingest)
+            
+            # 완료 대기
+            concurrent.futures.wait([future_job, future_dept])
+            
+        # 상담사례는 순차적으로 (또는 건너뜀)
+        IngestAll.run_case_ingest()
 
-        print('\n===== 🎉 모든 ingest 완료! =====')
-        print('⚠️  NCS API는 현재 500 에러 (외부 서버 문제)')
-        print('✅ CareerNet API 데이터 입력 완료')
-        print('ℹ️  WorkNet은 실시간 조회 API로 사용 (벡터DB 미사용)')
+        print('\n===== 🎉 모든 ingest 작업 완료! =====')
 
 
 if __name__ == '__main__':

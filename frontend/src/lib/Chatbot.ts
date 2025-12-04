@@ -1,7 +1,7 @@
-import { API_BASE_URL } from "./api";
+import { PYTHON_AI_SERVICE_URL } from "./api";
 
 export async function sendChatMessage(body: any) {
-  const res = await fetch(`${API_BASE_URL}/chat-rag/message`, {
+  const res = await fetch(`${PYTHON_AI_SERVICE_URL}/api/chat-rag/message`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -14,7 +14,7 @@ export async function sendChatMessage(body: any) {
 
 export async function getChatHistory(sessionId: string) {
   const res = await fetch(
-    `${API_BASE_URL}/chat-rag/history/${sessionId}`
+    `${PYTHON_AI_SERVICE_URL}/api/chat-rag/history/${sessionId}`
   );
 
   if (!res.ok) throw new Error("대화 내역 조회 오류");

@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import { sendChatMessage, getChatHistory } from "@/lib/Chatbot";
+import { sendAssistantMessage, getAssistantHistory } from "@/lib/ChatbotAssistant";
 import { fetchAllFaq, fetchFaqByCategory } from "@/lib/getFaq";
+import ReactMarkdown from "react-markdown";
 
 // 페이지 로드 시 sessionStorage 초기화 (새로고침 시 대화 내역 삭제)
 if (typeof window !== "undefined") {
@@ -201,17 +203,33 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
 
     try {
       const userId = getUserId(); // 숫자 타입으로 반환됨 (로그인 시)
-      const guestId = getGuestId(); // 게스트 ID (비회원 시)
+      const isLoggedIn = userId !== null;
 
-      console.log("🔍 챗봇 메시지 전송:", { userId, guestId });
+      console.log("🔍 챗봇 메시지 전송:", { userId, isLoggedIn });
 
-      const res = await sendChatMessage({
-        sessionId,
-        userId, // Long 타입 (숫자) - 로그인한 경우
-        guestId, // 비회원 게스트 ID
-        message: userMsg,
-        conversationTitle: sessionId ? undefined : userMsg.slice(0, 20),
-      });
+      let res;
+
+      if (isLoggedIn) {
+        // 🆕 회원 전용 AI 비서 (Function Calling)
+        console.log("👤 회원용 AI 비서 호출");
+        res = await sendAssistantMessage({
+          userId: userId as number,
+          sessionId,
+          message: userMsg,
+          conversationTitle: sessionId ? undefined : userMsg.slice(0, 20),
+        });
+      } else {
+        // 기존 비회원 챗봇 (FAQ)
+        console.log("😊 비회원 일반 챗봇 호출");
+        const guestId = getGuestId();
+        res = await sendChatMessage({
+          sessionId,
+          userId: null,
+          guestId,
+          message: userMsg,
+          conversationTitle: sessionId ? undefined : userMsg.slice(0, 20),
+        });
+      }
 
       if (!sessionId) setSessionId(res.session);
       setMessages((prev) => [
@@ -331,7 +349,8 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
 
       console.log("🔍 문의 제출 데이터:", requestData);
 
-      const response = await fetch("http://localhost:8080/api/inquiry", {
+      const AI_SERVICE_URL = import.meta.env.VITE_AI_SERVICE_URL || "http://localhost:8000";
+      const response = await fetch(`${AI_SERVICE_URL}/api/inquiry`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json;charset=UTF-8",
@@ -366,8 +385,15 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
       {/* 상단바 */}
       <div className="flex items-center justify-between px-4 py-3 bg-white border-b">
         <div className="flex items-center gap-2">
-          <span className="text-xl">🤖</span>
-          <span className="font-semibold">AI 챗봇과 대화 중 ···</span>
+          <span className="text-xl">{getUserId() !== null ? "✨" : "🤖"}</span>
+          <span className="font-semibold">
+            {getUserId() !== null ? "AI 비서와 대화 중 ···" : "AI 챗봇과 대화 중 ···"}
+          </span>
+          {getUserId() !== null && (
+            <span className="text-xs bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-0.5 rounded-full">
+              회원 전용
+            </span>
+          )}
         </div>
         <button
           onClick={handleClose}
@@ -381,8 +407,17 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
       <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-2">
         {/* 인사말 */}
         <div className="max-w-[78%] bg-white text-gray-1000 px-4 py-2 rounded-2xl rounded-bl-none shadow-sm text-[14px] leading-relaxed">
-          <p>안녕하세요! DreamPath AI 챗봇이에요😊</p>
-          <p>무엇을 도와드릴까요?</p>
+          {getUserId() !== null ? (
+            <>
+              <p>안녕하세요! DreamPath AI 비서입니다✨</p>
+              <p>멘토링 예약, 학습 진행 상황 등을 물어보세요!</p>
+            </>
+          ) : (
+            <>
+              <p>안녕하세요! DreamPath AI 챗봇이에요😊</p>
+              <p>무엇을 도와드릴까요?</p>
+            </>
+          )}
         </div>
 
         {/* FAQ 카테고리 */}
@@ -446,7 +481,23 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
                   : "bg-white text-gray-1000"
               }`}
             >
-              {m.text}
+              {m.role === "assistant" ? (
+                <div className="prose prose-sm max-w-none">
+                  <ReactMarkdown
+                    components={{
+                      p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                      strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
+                      ul: ({ children }) => <ul className="list-disc list-inside space-y-1 my-2">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal list-inside space-y-1 my-2">{children}</ol>,
+                      li: ({ children }) => <li className="ml-2">{children}</li>,
+                    }}
+                  >
+                    {m.text}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                m.text
+              )}
             </div>
           </div>
         ))}

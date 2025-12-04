@@ -4,8 +4,10 @@ MySQL/PostgreSQL 데이터베이스 연결 및 채용 공고 저장/조회 기�
 """
 import os
 from typing import List, Dict, Optional
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from contextlib import contextmanager
+from sqlalchemy import create_engine, text
+from sqlalchemy.pool import QueuePool
 
 # DB 타입에 따라 다른 드라이버 사용
 DB_TYPE = os.getenv('DB_TYPE', 'mysql').lower()
@@ -20,11 +22,50 @@ else:
     USE_POSTGRES = False
 
 
+# 글로벌 connection pool (애플리케이션 전체에서 공유)
+_engine = None
+
+def get_engine():
+    """SQLAlchemy 엔진 가져오기 (싱글톤 패턴)"""
+    global _engine
+    if _engine is None:
+        if USE_POSTGRES:
+            # PostgreSQL connection string
+            db_url = (
+                f"postgresql+psycopg2://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
+                f"@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
+                f"?sslmode={os.getenv('DB_SSLMODE', 'require')}"
+            )
+        else:
+            # MySQL connection string
+            db_url = (
+                f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
+                f"@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
+                f"?charset=utf8mb4"
+            )
+
+        # Connection pool 설정
+        _engine = create_engine(
+            db_url,
+            poolclass=QueuePool,
+            pool_size=5,              # 최대 5개 연결 유지
+            max_overflow=10,          # 초과 시 최대 10개 추가 연결
+            pool_timeout=30,          # 연결 대기 시간 30초
+            pool_recycle=3600,        # 1시간마다 연결 재생성
+            pool_pre_ping=True,       # 연결 재사용 전 ping 체크
+            echo=False
+        )
+    return _engine
+
+
 class DatabaseService:
     """데이터베이스 서비스"""
-    
+
     def __init__(self):
         """데이터베이스 연결 정보 초기화"""
+        self.engine = get_engine()
+
+        # 레거시 코드 호환성을 위한 설정 (사용하지 않음)
         if USE_POSTGRES:
             self.db_config = {
                 'host': os.getenv('DB_HOST', 'localhost'),
@@ -46,26 +87,22 @@ class DatabaseService:
                 'cursorclass': DictCursor,
                 'autocommit': False
             }
-        self._ensure_table_exists()
+        # 테이블 체크 비활성화 (이미 존재하며, Supabase 연결 한계 방지)
+        # self._ensure_table_exists()
     
     @contextmanager
     def get_connection(self):
-        """데이터베이스 연결 컨텍스트 매니저"""
-        conn = None
+        """데이터베이스 연결 컨텍스트 매니저 (SQLAlchemy pool 사용)"""
+        # raw connection을 가져와서 기존 코드와 호환
+        conn = self.engine.raw_connection()
         try:
-            if USE_POSTGRES:
-                conn = psycopg2.connect(**self.db_config)
-            else:
-                conn = pymysql.connect(**self.db_config)
             yield conn
             conn.commit()
         except Exception as e:
-            if conn:
-                conn.rollback()
+            conn.rollback()
             raise e
         finally:
-            if conn:
-                conn.close()
+            conn.close()
     
     def _ensure_table_exists(self):
         """테이블이 존재하는지 확인하고 없으면 생성"""
@@ -408,8 +445,6 @@ class DatabaseService:
                         conn.rollback()  # 에러 발생 시 rollback
                         print(f"채용 공고 저장 실패: {job}, 에러: {str(e)}")
                         continue
-                print(f"[DEBUG] Commit completed. Saved={saved_count}, Skipped={skipped_count}")
-                print(f"[DEBUG] Connected to: {self.db_config['host']}, DB: {self.db_config['database']}")
                 if saved_count > 0:
                     print(f"{saved_count}개의 새로운 채용 공고가 데이터베이스에 저장되었습니다.")
                 if skipped_count > 0:
@@ -673,8 +708,6 @@ class DatabaseService:
                 conn.commit()
                 cursor.close()
 
-                print(f"[DEBUG] Commit completed. Saved={saved_count}, Skipped={skipped_count}")
-
                 if saved_count > 0:
                     print(f"{saved_count}개의 기업 정보가 데이터베이스에 저장되었습니다.")
                 if skipped_count > 0:
@@ -701,7 +734,10 @@ class DatabaseService:
         """
         try:
             with self.get_connection() as conn:
-                cursor = conn.cursor()
+                if USE_POSTGRES:
+                    cursor = conn.cursor(cursor_factory=RealDictCursor)
+                else:
+                    cursor = conn.cursor(DictCursor)
 
                 if params:
                     cursor.execute(query, params)
@@ -710,12 +746,26 @@ class DatabaseService:
 
                 results = cursor.fetchall()
 
-                # DictCursor/RealDictCursor 결과를 딕셔너리로 반환
-                if results and isinstance(results[0], dict):
-                    # 딕셔너리 그대로 반환
-                    return [dict(row) for row in results]
+                # DictCursor/RealDictCursor 결과를 딕셔너리로 변환하면서 datetime/timedelta 처리
+                processed_results = []
 
-                return results
+                for row in results:
+                    row_dict = dict(row) if isinstance(row, dict) else row
+                    # datetime/timedelta 객체를 문자열로 변환
+                    for key, value in row_dict.items():
+                        if isinstance(value, datetime):
+                            # datetime을 ISO 형식 문자열로 변환 (UTC 표시용 'Z' 추가)
+                            row_dict[key] = value.strftime('%Y-%m-%dT%H:%M:%S') + 'Z'
+                        elif hasattr(value, 'total_seconds'):  # timedelta 타입
+                            # timedelta를 HH:MM:SS 형식으로 변환
+                            total_seconds = int(value.total_seconds())
+                            hours = total_seconds // 3600
+                            minutes = (total_seconds % 3600) // 60
+                            seconds = total_seconds % 60
+                            row_dict[key] = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+                    processed_results.append(row_dict)
+
+                return processed_results
 
         except Exception as e:
             print(f"쿼리 실행 실패: {str(e)}")
@@ -734,7 +784,10 @@ class DatabaseService:
         """
         try:
             with self.get_connection() as conn:
-                cursor = conn.cursor()
+                if USE_POSTGRES:
+                    cursor = conn.cursor(cursor_factory=RealDictCursor)
+                else:
+                    cursor = conn.cursor(DictCursor)
 
                 if params:
                     cursor.execute(query, params)
@@ -747,47 +800,4 @@ class DatabaseService:
         except Exception as e:
             print(f"쿼리 실행 실패: {str(e)}")
             raise e
-
-    def get_conversation_history_by_user_id(self, user_id: str, limit: int = 100) -> str:
-        """
-        userId로 사용자의 모든 대화 기록을 조회합니다.
-
-        Args:
-            user_id: 사용자 ID
-            limit: 최대 메시지 수
-
-        Returns:
-            대화 기록 문자열 (role: content 형식)
-        """
-        try:
-            with self.get_connection() as conn:
-                cursor = conn.cursor()
-
-                # career_sessions와 chat_messages 조인하여 조회
-                query = """
-                    SELECT cm.role, cm.content, cm.timestamp
-                    FROM chat_messages cm
-                    INNER JOIN career_sessions cs ON cm.session_id = cs.id
-                    WHERE cs.user_id = %s
-                    ORDER BY cm.timestamp ASC
-                    LIMIT %s
-                """
-                cursor.execute(query, (user_id, limit))
-                results = cursor.fetchall()
-
-                if not results:
-                    return ""
-
-                # 대화 형식으로 변환
-                conversation_lines = []
-                for row in results:
-                    role = row.get('role', row[0]) if isinstance(row, dict) else row[0]
-                    content = row.get('content', row[1]) if isinstance(row, dict) else row[1]
-                    conversation_lines.append(f"{role}: {content}")
-
-                return "\n".join(conversation_lines)
-
-        except Exception as e:
-            print(f"대화 기록 조회 실패: {str(e)}")
-            return ""
 
