@@ -19,6 +19,9 @@ backend/build/
 # AWS (contains deployment secrets)
 .aws/
 
+# Docs (개발 문서)
+docs/
+
 # Frontend build output
 frontend/out/
 
