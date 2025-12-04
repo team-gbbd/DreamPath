@@ -12,7 +12,7 @@ interface Faq {
   updatedAt: string;
 }
 
-const API_BASE_URL = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
 export default function FaqManagementPage() {
   const navigate = useNavigate();
