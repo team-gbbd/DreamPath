@@ -23,15 +23,18 @@ class PineconeVectorService:
         self.pc = Pinecone(api_key=api_key)
 
         # Create index if it does not exist
-        existing_indexes = [idx.name for idx in self.pc.list_indexes()]
-        if index_name not in existing_indexes:
-            self.pc.create_index(
-                name=index_name,
-                dimension=3072,
-                metric="cosine",
-                spec=ServerlessSpec(
-                    cloud="aws",
-                    region=environment
+        self._initialized = False
+        try:
+            existing_indexes = [idx.name for idx in self.pc.list_indexes()]
+            if index_name not in existing_indexes:
+                self.pc.create_index(
+                    name=index_name,
+                    dimension=3072,
+                    metric="cosine",
+                    spec=ServerlessSpec(
+                        cloud="aws",
+                        region=environment
+                    )
                 )
             )
 
