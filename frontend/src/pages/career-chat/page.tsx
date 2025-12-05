@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SurveyModal from '../../components/profile/SurveyModal';
-import { API_BASE_URL } from '@/lib/api';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -81,7 +80,7 @@ export default function CareerChatPage() {
     if (savedSessionId) {
       // 기존 세션이 있으면 대화 이력 불러오기
       try {
-        const response = await fetch(`${API_BASE_URL}/chat/history/${savedSessionId}`);
+        const response = await fetch(`http://localhost:8080/api/chat/history/${savedSessionId}`);
         if (response.ok) {
           const history = await response.json();
           if (history && history.length > 0) {
@@ -109,7 +108,7 @@ export default function CareerChatPage() {
             // 2. 백엔드에서 다시 계산해서 가져오기
             try {
               console.log('백엔드에서 정체성 상태 조회 시도:', savedSessionId);
-              const identityResponse = await fetch(`${API_BASE_URL}/identity/${savedSessionId}`);
+              const identityResponse = await fetch(`http://localhost:8080/api/identity/${savedSessionId}`);
               console.log('정체성 응답 상태:', identityResponse.status);
               if (identityResponse.ok) {
                 const identityData = await identityResponse.json();
@@ -137,7 +136,7 @@ export default function CareerChatPage() {
   const startNewSession = async (currentUserId: string | null = null) => {
     const userIdToUse = currentUserId || userId;
     try {
-      const response = await fetch(`${API_BASE_URL}/chat/start`, {
+      const response = await fetch('http://localhost:8080/api/chat/start', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -191,7 +190,7 @@ export default function CareerChatPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/chat`, {
+      const response = await fetch('http://localhost:8080/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -319,6 +318,44 @@ export default function CareerChatPage() {
                     {identityStatus ? `${getStageKorean(identityStatus.currentStage)} 단계` : '대화 시작'}
                   </p>
                 </div>
+              </div>
+
+              {/* 대화 진행률 표시 (8턴 기준) */}
+              <div className="hidden md:flex items-center space-x-3 ml-4">
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-gray-500">분석 정확도</span>
+                  <div className="flex space-x-1">
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((turn) => {
+                      const userMessageCount = messages.filter(m => m.role === 'user').length;
+                      const isCompleted = userMessageCount >= turn;
+                      return (
+                        <div
+                          key={turn}
+                          className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                            isCompleted
+                              ? 'bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF]'
+                              : 'bg-gray-200'
+                          }`}
+                          title={`${turn}번째 대화`}
+                        />
+                      );
+                    })}
+                  </div>
+                  <span className="text-xs font-medium text-gray-700">
+                    {Math.min(messages.filter(m => m.role === 'user').length, 8)}/8
+                  </span>
+                </div>
+                {messages.filter(m => m.role === 'user').length < 8 && (
+                  <span className="text-xs text-orange-500 font-medium">
+                    {8 - messages.filter(m => m.role === 'user').length}회 더 대화 필요
+                  </span>
+                )}
+                {messages.filter(m => m.role === 'user').length >= 8 && (
+                  <span className="text-xs text-green-500 font-medium flex items-center">
+                    <i className="ri-checkbox-circle-fill mr-1"></i>
+                    정확한 분석 가능
+                  </span>
+                )}
               </div>
               
               <button

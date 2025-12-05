@@ -7,20 +7,24 @@ from typing import List, Optional
 
 class ClarityRequest(BaseModel):
     conversationHistory: str
+    userId: Optional[str] = None  # userId가 있으면 이전 대화도 포함
 
 
 class IdentityRequest(BaseModel):
     conversationHistory: str
+    userId: Optional[str] = None  # userId가 있으면 이전 대화도 포함
 
 
 class InsightRequest(BaseModel):
     recentMessages: str
     previousContext: str
+    userId: Optional[str] = None
 
 
 class ProgressRequest(BaseModel):
     conversationHistory: str
     currentStage: str
+    userId: Optional[str] = None
 
 
 class ClarityResponse(BaseModel):

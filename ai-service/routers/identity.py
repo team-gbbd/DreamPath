@@ -19,9 +19,12 @@ async def assess_clarity(
     request: ClarityRequest,
     identity_service: IdentityAnalysisService = Depends(get_identity_service)
 ):
-    """정체성 명확도 평가"""
+    """정체성 명확도 평가 (userId가 있으면 이전 대화 기록도 포함)"""
     try:
-        result = await identity_service.assess_clarity(request.conversationHistory)
+        result = await identity_service.assess_clarity(
+            request.conversationHistory,
+            request.userId
+        )
         return ClarityResponse(**result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"명확도 평가 실패: {str(e)}")
@@ -32,9 +35,12 @@ async def extract_identity(
     request: IdentityRequest,
     identity_service: IdentityAnalysisService = Depends(get_identity_service)
 ):
-    """정체성 특징 추출"""
+    """정체성 특징 추출 (userId가 있으면 이전 대화 기록도 포함)"""
     try:
-        result = await identity_service.extract_identity(request.conversationHistory)
+        result = await identity_service.extract_identity(
+            request.conversationHistory,
+            request.userId
+        )
         # traits 변환
         traits = [IdentityTrait(**t) for t in result.get("traits", [])]
         return IdentityResponse(
@@ -69,11 +75,12 @@ async def assess_progress(
     request: ProgressRequest,
     identity_service: IdentityAnalysisService = Depends(get_identity_service)
 ):
-    """단계 진행 평가"""
+    """단계 진행 평가 (userId가 있으면 이전 대화 기록도 포함)"""
     try:
         result = await identity_service.assess_stage_progress(
             request.conversationHistory,
-            request.currentStage
+            request.currentStage,
+            request.userId
         )
         return ProgressResponse(**result)
     except Exception as e:

@@ -312,6 +312,24 @@ export const jobRecommendationService = {
     });
     return response.data;
   },
+
+  // 기술/자격증 포함 추천
+  getRecommendationsWithRequirements: async (
+    userId: number,
+    careerAnalysis: any,
+    userProfile?: any,
+    userSkills?: string[],
+    limit: number = 15
+  ) => {
+    const response = await pythonApi.post("/api/agent/job-recommendations/with-requirements", {
+      userId,
+      careerAnalysis,
+      userProfile,
+      userSkills,
+      limit,
+    });
+    return response.data;
+  },
 };
 
 export const mentorService = {
