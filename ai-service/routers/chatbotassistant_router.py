@@ -6,23 +6,19 @@ from uuid import UUID, uuid4
 from datetime import datetime
 
 from models.chatbotassistant import AssistantChatRequest, AssistantChatResponse
-from services.chatbotassistant_service import ChatbotAssistantService
+from services.chatbot import MemberChatbotService
 from services.database_service import DatabaseService
 
 router = APIRouter(prefix="/api/chatbot-assistant", tags=["chatbot-assistant"])
 
-# 서비스 인스턴스
-assistant_service = ChatbotAssistantService()
+# 서비스 인스턴스 (싱글톤)
+assistant_service = MemberChatbotService()
+db_service = DatabaseService()
 
 
 def get_db():
-    """데이터베이스 서비스 의존성"""
-    db = DatabaseService()
-    try:
-        yield db
-    finally:
-        # 연결 정리 (필요시 추가 cleanup 로직)
-        pass
+    """데이터베이스 서비스 의존성 (싱글톤 인스턴스 재사용)"""
+    return db_service
 
 
 @router.post("/chat", response_model=AssistantChatResponse)

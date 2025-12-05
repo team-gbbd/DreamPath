@@ -44,14 +44,14 @@ def get_engine():
                 f"?charset=utf8mb4"
             )
 
-        # Connection pool 설정
+        # Connection pool 설정 (Supabase Session mode 최적화)
         _engine = create_engine(
             db_url,
             poolclass=QueuePool,
-            pool_size=5,              # 최대 5개 연결 유지
-            max_overflow=10,          # 초과 시 최대 10개 추가 연결
+            pool_size=2,              # 기본 연결 2개 (Supabase 제한 고려)
+            max_overflow=3,           # 최대 3개 추가 연결 (총 5개)
             pool_timeout=30,          # 연결 대기 시간 30초
-            pool_recycle=3600,        # 1시간마다 연결 재생성
+            pool_recycle=300,         # 5분마다 연결 재생성 (idle 연결 방지)
             pool_pre_ping=True,       # 연결 재사용 전 ping 체크
             echo=False
         )

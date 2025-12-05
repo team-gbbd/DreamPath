@@ -410,7 +410,7 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
           {getUserId() !== null ? (
             <>
               <p>안녕하세요! DreamPath AI 비서입니다✨</p>
-              <p>멘토링 예약, 학습 진행 상황 등을 물어보세요!</p>
+              <p>멘토링 예약, 진로 추천 결과 등 서비스 관련 궁금한 내용을 모두 물어보세요!</p>
             </>
           ) : (
             <>
