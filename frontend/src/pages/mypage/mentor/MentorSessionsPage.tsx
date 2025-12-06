@@ -93,7 +93,7 @@ export default function MentorSessionsPage() {
     } catch (error: any) {
       console.error('멘토 정보 조회 실패:', error);
       alert('멘토로 승인된 사용자만 접근할 수 있습니다.');
-      navigate('/mypage');
+      navigate('/profile/dashboard');
     }
   };
 

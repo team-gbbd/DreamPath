@@ -189,11 +189,11 @@ export default function PaymentPurchasePage() {
       <div className="pt-16">
         <div className="max-w-7xl mx-auto px-6 py-8">
           <button
-            onClick={() => navigate('/mypage')}
+            onClick={() => navigate('/profile/dashboard')}
             className="mb-6 text-gray-600 hover:text-gray-800 transition-colors flex items-center"
           >
             <i className="ri-arrow-left-line text-xl mr-1"></i>
-            <span className="text-sm">마이페이지로</span>
+            <span className="text-sm">프로파일링으로</span>
           </button>
 
           {/* Main Container */}
@@ -417,7 +417,7 @@ export default function PaymentPurchasePage() {
                 </li>
                 <li className="flex items-start">
                   <i className="ri-checkbox-circle-fill text-pink-500 mr-2 mt-0.5"></i>
-                  <span>결제 및 사용 내역은 마이페이지에서 확인할 수 있습니다.</span>
+                  <span>결제 및 사용 내역은 프로파일링 대시보드에서 확인할 수 있습니다.</span>
                 </li>
               </ul>
             </div>

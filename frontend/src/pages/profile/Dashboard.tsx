@@ -1049,10 +1049,10 @@ export default function NewDashboard() {
             <div className="flex items-center space-x-4">
               {currentUser ? (
                 <>
-                  <Link to="/mypage">
+                  <Link to="/profile/dashboard">
                     <Button variant="secondary" size="sm">
                       <i className="ri-user-line mr-1"></i>
-                      마이페이지
+                      프로파일링
                     </Button>
                   </Link>
                   <Button size="sm" onClick={handleLogout}>
