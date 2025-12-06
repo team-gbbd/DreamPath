@@ -89,6 +89,10 @@ class DatabaseService:
             }
         # 테이블 체크 비활성화 (이미 존재하며, Supabase 연결 한계 방지)
         # self._ensure_table_exists()
+
+    def cleanup(self):
+        """연결 정리용 스텁"""
+        pass
     
     @contextmanager
     def get_connection(self):
@@ -800,4 +804,3 @@ class DatabaseService:
         except Exception as e:
             print(f"쿼리 실행 실패: {str(e)}")
             raise e
-

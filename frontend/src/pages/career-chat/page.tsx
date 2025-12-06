@@ -46,8 +46,24 @@ export default function CareerChatPage() {
   const [showSurvey, setShowSurvey] = useState(false);
   const [surveyQuestions, setSurveyQuestions] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const hasCheckedAuth = useRef(false); // 인증 확인 중복 방지
 
   useEffect(() => {
+    // 이미 인증 확인을 했다면 스킵 (React Strict Mode 대응)
+    if (hasCheckedAuth.current) return;
+    hasCheckedAuth.current = true;
+
+    // 로그인 확인
+    const userStr = localStorage.getItem('dreampath:user');
+
+    if (!userStr) {
+      // 비회원인 경우 로그인 페이지로 리다이렉트
+      alert('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
+
+    // 로그인 사용자만 세션 초기화
     initializeSession();
   }, []);
 
@@ -60,12 +76,50 @@ export default function CareerChatPage() {
   };
 
   const initializeSession = async () => {
-    // localStorage에서 기존 세션 ID 확인
-    const savedSessionId = localStorage.getItem('career_chat_session_id');
-
-    if (savedSessionId) {
-      // 기존 세션이 있으면 대화 이력 불러오기
+    // localStorage에서 userId 가져오기
+    const getCurrentUserId = (): number | null => {
       try {
+        const userStr = localStorage.getItem('dreampath:user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          return user.userId || null;
+        }
+      } catch (e) {
+        console.warn('userId 가져오기 실패:', e);
+      }
+      return null;
+    };
+
+    const currentUserId = getCurrentUserId();
+
+    // localStorage에서 기존 세션 정보 확인
+    const savedSessionData = localStorage.getItem('career_chat_session');
+
+    if (savedSessionData) {
+      try {
+        const sessionData = JSON.parse(savedSessionData);
+
+        // 마이그레이션: 이전 형식(문자열만 저장)인 경우 삭제
+        if (typeof sessionData === 'string' || !sessionData.userId) {
+          console.warn('이전 형식의 세션 데이터 감지, 삭제 후 새 세션 시작');
+          localStorage.removeItem('career_chat_session');
+          localStorage.removeItem('career_chat_identity');
+          await startNewSession();
+          return;
+        }
+
+        const { sessionId: savedSessionId, userId: savedUserId } = sessionData;
+
+        // userId 검증: 현재 로그인한 사용자와 세션의 사용자가 다르면 세션 삭제
+        if (currentUserId && savedUserId && currentUserId !== savedUserId) {
+          console.warn('다른 사용자의 세션 감지, 세션 초기화');
+          localStorage.removeItem('career_chat_session');
+          localStorage.removeItem('career_chat_identity');
+          await startNewSession();
+          return;
+        }
+
+        // 기존 세션이 있으면 대화 이력 불러오기
         const response = await fetch(`${API_BASE_URL}/chat/history/${savedSessionId}`);
         if (response.ok) {
           const history = await response.json();
@@ -112,6 +166,8 @@ export default function CareerChatPage() {
         }
       } catch (error) {
         console.log('세션 복원 실패, 새 세션 시작:', error);
+        localStorage.removeItem('career_chat_session');
+        localStorage.removeItem('career_chat_identity');
       }
     }
 
@@ -121,6 +177,18 @@ export default function CareerChatPage() {
 
   const startNewSession = async () => {
     try {
+      // localStorage에서 userId 가져오기
+      let userId: number | null = null;
+      try {
+        const userStr = localStorage.getItem('dreampath:user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          userId = user.userId || null;
+        }
+      } catch (e) {
+        console.warn('localStorage에서 userId 가져오기 실패:', e);
+      }
+
       const response = await fetch(`${API_BASE_URL}/chat/start`, {
 
         method: 'POST',
@@ -135,8 +203,11 @@ export default function CareerChatPage() {
       const data = await response.json();
       setSessionId(data.sessionId);
 
-      // localStorage에 세션 ID 저장
-      localStorage.setItem('career_chat_session_id', data.sessionId);
+      // localStorage에 세션 정보 저장 (userId와 함께)
+      localStorage.setItem('career_chat_session', JSON.stringify({
+        sessionId: data.sessionId,
+        userId: userId
+      }));
 
       // 설문조사 필요 여부 확인
       if (data.needsSurvey && data.surveyQuestions) {
@@ -151,7 +222,7 @@ export default function CareerChatPage() {
         timestamp: new Date(),
       }]);
 
-      console.log('새 세션 시작:', data.sessionId);
+      console.log('새 세션 시작:', data.sessionId, 'userId:', userId);
     } catch (error) {
       console.error('세션 시작 실패:', error);
       setMessages([{
@@ -165,6 +236,14 @@ export default function CareerChatPage() {
   const sendMessage = async () => {
     if (!inputMessage.trim() || !sessionId || isLoading) return;
 
+    // 로그인 확인
+    const userStr = localStorage.getItem('dreampath:user');
+    if (!userStr) {
+      alert('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
+
     const userMessage: Message = {
       role: 'user',
       content: inputMessage,
@@ -176,6 +255,10 @@ export default function CareerChatPage() {
     setIsLoading(true);
 
     try {
+      // userId 가져오기
+      const user = JSON.parse(userStr);
+      const userId = user.userId;
+
       const response = await fetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
         headers: {
@@ -184,6 +267,7 @@ export default function CareerChatPage() {
         body: JSON.stringify({
           sessionId: sessionId,
           message: inputMessage,
+          userId: String(userId),
         }),
       });
 
@@ -253,6 +337,37 @@ export default function CareerChatPage() {
     try {
       setIsLoading(true);
 
+      // 먼저 성향 분석 결과가 이미 존재하는지 확인
+      const userId = JSON.parse(localStorage.getItem('dreampath:user') || '{}').userId;
+
+      if (userId) {
+        try {
+          // UserProfile이 아니라 실제 분석 결과(ProfileAnalysis)가 있는지 확인
+          const analysisCheckResponse = await fetch(`http://localhost:8080/api/profiles/${userId}/analysis`);
+
+          if (analysisCheckResponse.ok) {
+            // 분석 결과가 이미 존재하면 바로 대시보드로 이동
+            console.log('✅ 기존 분석 결과 발견, 대시보드로 이동');
+
+            setMessages(prev => [...prev, {
+              role: 'assistant',
+              content: '✨ 이미 분석이 완료되어 있습니다! 대시보드로 이동합니다.',
+              timestamp: new Date(),
+            }]);
+
+            setTimeout(() => {
+              navigate('/profile/dashboard');
+            }, 800);
+
+            setIsLoading(false);
+            return;
+          }
+        } catch (error) {
+          // 프로파일이 없으면 계속 진행
+          console.log('프로파일 없음, 새로 분석 시작');
+        }
+      }
+
       console.log('🔍 분석 API 호출 시작:', sessionId);
 
       // 분석 API 호출
@@ -299,7 +414,7 @@ export default function CareerChatPage() {
 
   const handleNewChat = () => {
     // 현재 세션 종료하고 새 세션 시작
-    localStorage.removeItem('career_chat_session_id');
+    localStorage.removeItem('career_chat_session');
     localStorage.removeItem('career_chat_identity');
     setMessages([]);
     setSessionId(null);

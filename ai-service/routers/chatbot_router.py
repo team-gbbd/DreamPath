@@ -15,6 +15,7 @@ from services.chatbot import (
     RagAnswerService,
 )
 from services.database_service import DatabaseService
+from dependencies import get_db
 
 router = APIRouter(prefix="/api/chat-rag", tags=["chatbot"])
 
@@ -22,11 +23,6 @@ router = APIRouter(prefix="/api/chat-rag", tags=["chatbot"])
 embedding_service = RagEmbeddingService()
 search_service = RagSearchService()
 answer_service = RagAnswerService()
-
-
-def get_db():
-    """데이터베이스 서비스 의존성"""
-    return DatabaseService()
 
 
 # ============ Chat RAG API ============

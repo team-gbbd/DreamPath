@@ -12,16 +12,12 @@ from services.chatbot import (
     EmailService,
 )
 from services.database_service import DatabaseService
+from dependencies import get_db
 
 router = APIRouter(prefix="/api/inquiry", tags=["inquiry"])
 
 # 서비스 인스턴스
 email_service = EmailService()
-
-def get_db():
-    """데이터베이스 서비스 의존성"""
-    return DatabaseService()
-
 
 # ============ Inquiry API ============
 
