@@ -31,11 +31,11 @@ class RecommendService:
             # 1. 사용자 벡터 가져오기 (Pinecone에서)
             user_result = self.index.fetch(ids=[user_vector_id])
             
-            if not user_result or 'vectors' not in user_result or user_vector_id not in user_result['vectors']:
+            if not user_result or not user_result.vectors or user_vector_id not in user_result.vectors:
                 print(f"User vector not found in Pinecone: {user_vector_id}")
                 return []
             
-            user_vector = user_result['vectors'][user_vector_id]['values']
+            user_vector = user_result.vectors[user_vector_id].values
 
             # 2. Pinecone 유사도 검색 (type=job 필터 추가)
             fetch_k = min(top_k * 20, 1000)  # 중복 제거를 위해 큰 수로 요청
@@ -46,68 +46,45 @@ class RecommendService:
                 filter={"type": "job"}
             )
 
-            # 3. CareerNet API에서 직업 정보 가져오기
-            careernet_data = {}
-            if result.matches:
-                try:
-                    from services.ingest.careernet_client import CareerNetClient
-                    client = CareerNetClient()
-                    
-                    all_jobs = []
-                    page = 1
-                    while True:
-                        page_data = client.get_job_list(page_index=page, page_size=100)
-                        if not page_data:
-                            break
-                        all_jobs.extend(page_data)
-                        if len(page_data) < 100:
-                            break
-                        page += 1
-                        if page > 10:
-                            break
-                    
-                    careernet_data = {item.get('job_code'): item for item in all_jobs if item.get('job_code')}
-                    print(f"[DEBUG] Fetched {len(careernet_data)} JOB records from CareerNet API ({len(all_jobs)} total)")
-                except Exception as e:
-                    print(f"[ERROR] Error fetching CareerNet JOB data: {e}")
-
-            # 4. 결과 정리 (중복 제거)
+            # 3. 결과 정리
             jobs = []
             seen_titles = set()
             
             for match in result.matches:
-                job_code = match.metadata.get("original_id") or match.metadata.get("job_code")
-                title = match.metadata.get("jobName", match.metadata.get("title", ""))
-                metadata = match.metadata
+                # 메타데이터에서 정보 추출
+                metadata = match.metadata or {}
                 
-                # CareerNet enrich
-                if job_code and job_code in careernet_data:
-                    cn_data = careernet_data[job_code]
-                    title = cn_data.get('job', title)
-                    
-                    metadata.update({
-                        "jobName": cn_data.get('job', ''),
-                        "summary": cn_data.get('summary', ''),
-                        "work_env": cn_data.get('work_env', ''),
-                        "job_ability": cn_data.get('job_ability', ''),
-                        "job_values": cn_data.get('job_values', ''),
-                        "major": cn_data.get('major', ''),
-                        "job_path": cn_data.get('job_path', ''),
-                        "aptitude": cn_data.get('aptitude', '')
-                    })
+                # job_code와 original_id 처리
+                job_code = metadata.get("original_id") or metadata.get("job_code")
                 
-                final_title = title or "제목 미확인"
+                # 제목 추출 (jobName 우선)
+                title = metadata.get("jobName") or metadata.get("title") or "제목 미확인"
                 
-                if final_title in seen_titles:
+                # 중복 제거
+                if title in seen_titles:
                     continue
+                seen_titles.add(title)
                 
-                seen_titles.add(final_title)
+                # 메타데이터 정리
+                # 인덱싱 시 'summary'에 'jobDesc'(하는 일)를 저장했으므로 그대로 사용
+                # 'relatedJob'도 그대로 사용
                 
                 jobs.append({
                     "job_id": match.id,
-                    "title": final_title,
+                    "title": title,
                     "score": float(match.score),
-                    "metadata": metadata
+                    "metadata": {
+                        "jobName": title,
+                        "job_code": job_code,
+                        "summary": metadata.get("summary", ""),
+                        "wage": metadata.get("wage", ""),
+                        "wlb": metadata.get("wlb", ""),
+                        "aptitude": metadata.get("aptitude", ""),
+                        "relatedJob": metadata.get("relatedJob", ""),
+                        "ability": metadata.get("ability", "")  # 상세 API를 안 쓰면 비어있을 수 있음
+                    },
+                    # 프론트엔드 호환성을 위해 최상위에도 reason/summary 노출
+                    "reason": metadata.get("summary", "")
                 })
                 
                 if len(jobs) >= top_k:
@@ -130,6 +107,8 @@ class RecommendService:
     def recommend_school(self, vector_id: str, top_k: int = 10):
         return self._recommend_by_namespace(vector_id, "school_vector", top_k)
 
+    def recommend_counsel(self, vector_id: str, top_k: int = 10):
+        return self._recommend_by_namespace(vector_id, "case_vector", top_k)
 
     def _recommend_by_namespace(self, vector_id: str, namespace: str, top_k: int):
         """
@@ -142,17 +121,18 @@ class RecommendService:
             # Fetch user vector
             user_result = self.index.fetch(ids=[vector_id])
             
-            if not user_result or 'vectors' not in user_result or vector_id not in user_result['vectors']:
+            if not user_result or not user_result.vectors or vector_id not in user_result.vectors:
                 print(f"User vector not found in Pinecone: {vector_id}")
                 return []
             
-            user_vector = user_result['vectors'][vector_id]['values']
+            user_vector = user_result.vectors[vector_id].values
             
             # type filter mapping
             type_mapping = {
                 "major_vector": ("department", "univ_list"),
                 "school_vector": ("school", "high_list"), 
-                "worknet_vector": ("worknet", None)
+                "worknet_vector": ("worknet", None),
+                "case_vector": ("counsel", None)
             }
             metadata_type, gubun = type_mapping.get(namespace, (namespace.replace("_vector", ""), None))
             
@@ -216,7 +196,13 @@ class RecommendService:
                     }
                 
                 final_title = item["title"]
+                if final_title:
+                    final_title = final_title.strip()
+                
+                print(f"[DEBUG] Processing item: id={item['id']}, title='{final_title}'")
+                
                 if final_title and final_title in seen_titles:
+                    print(f"[DEBUG] Duplicate found: {final_title}")
                     continue
                 
                 if final_title:

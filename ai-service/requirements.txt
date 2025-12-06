@@ -8,12 +8,6 @@ pydantic>=2.5.0
 langchain>=0.1.0
 langchain-openai>=0.0.5
 langchain-core>=0.1.0
-beautifulsoup4>=4.12.0
-lxml>=4.9.0
-pymysql>=1.1.0
-psycopg2-binary>=2.9.9
-sqlalchemy>=2.0.0
-pinecone>=8.0.0
 
 # Common
 python-dotenv>=1.0.0
@@ -27,10 +21,11 @@ lxml>=4.9.0
 selenium>=4.15.0
 webdriver-manager>=4.0.0
 
-# DB (MySQL + PostgreSQL + SQLAlchemy)
+# DB
 pymysql>=1.1.0
 psycopg2-binary>=2.9.9
 sqlalchemy>=2.0.0
+<<<<<<< HEAD
 
 # Pinecone (최신 버전 기준)
 pinecone>=5.0.0

@@ -3,6 +3,7 @@
 MySQL/PostgreSQL 데이터베이스 연결 및 채용 공고 저장/조회 기능
 """
 import os
+import threading
 from typing import List, Dict, Optional
 from datetime import datetime
 from contextlib import contextmanager
@@ -18,7 +19,6 @@ else:
     import pymysql
     from pymysql.cursors import DictCursor
     USE_POSTGRES = False
-
 
 class DatabaseService:
     """데이터베이스 서비스"""
@@ -46,26 +46,65 @@ class DatabaseService:
                 'cursorclass': DictCursor,
                 'autocommit': False
             }
-        self._ensure_table_exists()
+
+        # Supabase에서는 테이블 자동 생성이 필요 없어 연결만 소모하므로 비활성화
+        # self._ensure_table_exists()
+        self._local = threading.local()
+        self._connection_lock = threading.Lock()
+
+    def cleanup(self):
+        """연결 정리용 스텁"""
+        conn = getattr(self._local, "connection", None)
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+            finally:
+                self._local.connection = None
     
+    def _create_connection(self):
+        """새로운 데이터베이스 연결 생성"""
+        if USE_POSTGRES:
+            return psycopg2.connect(**self.db_config)
+        return pymysql.connect(**self.db_config)
+
+    def _is_connection_alive(self, conn) -> bool:
+        """현재 연결이 유효한지 확인"""
+        if not conn:
+            return False
+        try:
+            if USE_POSTGRES:
+                return conn.closed == 0
+            # pymysql은 ping으로 상태 확인 (자동 재연결)
+            conn.ping(reconnect=True)
+            return True
+        except Exception:
+            return False
+
+    def _get_or_create_connection(self):
+        """스레드별 연결 재사용"""
+        conn = getattr(self._local, "connection", None)
+        if self._is_connection_alive(conn):
+            return conn
+
+        with self._connection_lock:
+            conn = getattr(self._local, "connection", None)
+            if not self._is_connection_alive(conn):
+                conn = self._create_connection()
+                self._local.connection = conn
+        return conn
+
     @contextmanager
     def get_connection(self):
         """데이터베이스 연결 컨텍스트 매니저"""
-        conn = None
+        conn = self._get_or_create_connection()
         try:
-            if USE_POSTGRES:
-                conn = psycopg2.connect(**self.db_config)
-            else:
-                conn = pymysql.connect(**self.db_config)
             yield conn
             conn.commit()
         except Exception as e:
-            if conn:
-                conn.rollback()
+            conn.rollback()
             raise e
-        finally:
-            if conn:
-                conn.close()
     
     def _ensure_table_exists(self):
         """테이블이 존재하는지 확인하고 없으면 생성"""
@@ -790,4 +829,3 @@ class DatabaseService:
         except Exception as e:
             print(f"대화 기록 조회 실패: {str(e)}")
             return ""
-

@@ -12,15 +12,12 @@ from services.chatbot import (
     RagEmbeddingService,
 )
 from services.database_service import DatabaseService
+from dependencies import get_db
 
 router = APIRouter(prefix="/api/faq", tags=["faq"])
 
 # 서비스 인스턴스
 embedding_service = RagEmbeddingService()
-
-def get_db():
-    """데이터베이스 서비스 의존성"""
-    return DatabaseService()
 
 
 # ============ FAQ API ============

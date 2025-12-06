@@ -44,3 +44,20 @@ class SupabaseVectorRepository:
         if response.data:
             return response.data[0].get('vector_data')
         return None
+
+    def get_user_interests(self, user_id: int):
+        """
+        user_profiles 테이블에서 사용자의 관심사(interests) 조회
+        """
+        try:
+            response = (
+                self.supabase.table('user_profiles')
+                .select('interests')
+                .eq('user_id', user_id)
+                .execute()
+            )
+            if response.data:
+                return response.data[0].get('interests')
+        except Exception as e:
+            print(f"Error fetching user interests: {e}")
+        return None

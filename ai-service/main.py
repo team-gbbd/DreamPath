@@ -122,7 +122,6 @@ question_generator = QuestionGeneratorService() if api_key else None
 answer_evaluator = AnswerEvaluatorService() if api_key else None
 code_executor = CodeExecutorService()
 
-# Supabase 환경변수가 있을 때만 초기화
 try:
     recommend_service = RecommendService()
     hybrid_recommender = HybridRecommendService()
@@ -130,7 +129,6 @@ except Exception as e:
     print(f"RecommendService 초기화 실패 (SUPABASE 환경변수 확인): {e}")
     recommend_service = None
     hybrid_recommender = None
-
 
 # =========================================
 # Basic Endpoints
@@ -425,6 +423,22 @@ async def recommend_schools(payload: dict):
     try:
         svc = RecommendService()
         return {"items": svc.recommend_school(vector_id)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/recommend/counsel")
+async def recommend_counsel(payload: dict):
+
+    vector_id = payload.get("vectorId")
+    if not vector_id:
+        raise HTTPException(status_code=400, detail="vectorId 필요")
+
+    top_k = payload.get("topK", 10)
+
+    try:
+        svc = RecommendService()
+        return {"items": svc.recommend_counsel(vector_id, top_k)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -1,0 +1,149 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "com.fasterxml.jackson.module",
+    "module": "jackson-module-parameter-names",
+    "version": "2.19.2",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api"
+      },
+      "dependencies": [
+        {
+          "group": "com.fasterxml.jackson.core",
+          "module": "jackson-core",
+          "version": {
+            "requires": "2.19.2"
+          }
+        },
+        {
+          "group": "com.fasterxml.jackson.core",
+          "module": "jackson-databind",
+          "version": {
+            "requires": "2.19.2"
+          }
+        },
+        {
+          "group": "com.fasterxml.jackson",
+          "module": "jackson-bom",
+          "version": {
+            "requires": "2.19.2"
+          },
+          "attributes": {
+            "org.gradle.category": "platform"
+          },
+          "endorseStrictVersions": true
+        }
+      ],
+      "files": [
+        {
+          "name": "jackson-module-parameter-names-2.19.2.jar",
+          "url": "jackson-module-parameter-names-2.19.2.jar",
+          "size": 10394,
+          "sha512": "54735755f50981f54b35143a232c8860d16926e4ca698a8a46f93a9b5336a02ce71056839d08f3c984c4aabf43c2e731a72ea6300d1cff37897d23fe38c78ee7",
+          "sha256": "5cafef98759b40a418631e91257930a5e30abc162d9a690c1e365dbbdacdfecb",
+          "sha1": "3c4ce467c11364c72ec4967c570fd5a2d1be1d0b",
+          "md5": "001bf7f1db8b0d32fcf74a358e054f7b"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "com.fasterxml.jackson.core",
+          "module": "jackson-core",
+          "version": {
+            "requires": "2.19.2"
+          }
+        },
+        {
+          "group": "com.fasterxml.jackson.core",
+          "module": "jackson-databind",
+          "version": {
+            "requires": "2.19.2"
+          }
+        },
+        {
+          "group": "com.fasterxml.jackson",
+          "module": "jackson-bom",
+          "version": {
+            "requires": "2.19.2"
+          },
+          "attributes": {
+            "org.gradle.category": "platform"
+          },
+          "endorseStrictVersions": true
+        }
+      ],
+      "files": [
+        {
+          "name": "jackson-module-parameter-names-2.19.2.jar",
+          "url": "jackson-module-parameter-names-2.19.2.jar",
+          "size": 10394,
+          "sha512": "54735755f50981f54b35143a232c8860d16926e4ca698a8a46f93a9b5336a02ce71056839d08f3c984c4aabf43c2e731a72ea6300d1cff37897d23fe38c78ee7",
+          "sha256": "5cafef98759b40a418631e91257930a5e30abc162d9a690c1e365dbbdacdfecb",
+          "sha1": "3c4ce467c11364c72ec4967c570fd5a2d1be1d0b",
+          "md5": "001bf7f1db8b0d32fcf74a358e054f7b"
+        }
+      ]
+    },
+    {
+      "name": "javadocElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "javadoc",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [],
+      "files": [
+        {
+          "name": "jackson-module-parameter-names-2.19.2-javadoc.jar",
+          "url": "jackson-module-parameter-names-2.19.2-javadoc.jar",
+          "size": 38765,
+          "sha512": "ba31a6d6ae8182bc5ed335d38477b36e5ef8d5dc91e4b7cef2d2e8c9c358568dcfa7099f784a53f7c0a35a6cce2a22d137a385b64c420e2a44329b039acf813e",
+          "sha256": "ebae9e1c6eed1c0407b88bfd32f0790a6456132d78e6e341fb31658ec6430f5b",
+          "sha1": "395e283739e47c0eeb5685f7695dc7332c8c8414",
+          "md5": "3138fe464d10cf94d87bd9ceefe64a26"
+        }
+      ]
+    },
+    {
+      "name": "sourcesElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [],
+      "files": [
+        {
+          "name": "jackson-module-parameter-names-2.19.2-sources.jar",
+          "url": "jackson-module-parameter-names-2.19.2-sources.jar",
+          "size": 7881,
+          "sha512": "f472a47632ea3e8ef95f52c2f837eac51da315ca1b713ef3e18b4e8839ae10cd2d8c70f14818d67af719709cedc487babda92db5139a66b6ab6da7ddecd185c4",
+          "sha256": "8d4ef6edc0a5737908917e1bcb0ca89734ed24b8a5b1dfadd44c964168fadc5b",
+          "sha1": "ddfc3d0aa2e558d08a94293e1047d799a3e2f8f2",
+          "md5": "436fe4a7ad617ddb1c3dcf500017ee60"
+        }
+      ]
+    }
+  ]
+}
