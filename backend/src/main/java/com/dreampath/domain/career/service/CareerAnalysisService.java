@@ -91,6 +91,16 @@ public class CareerAnalysisService {
         analysisRepository.save(analysis);
         sessionRepository.save(session);
 
+        // 커리어 분석 완료 후 채용공고 추천 계산 트리거 (비동기)
+        try {
+            Long userId = session.getUser().getUserId();
+            log.info("커리어 분석 완료, 채용공고 추천 계산 트리거: userId={}", userId);
+            pythonAIService.triggerJobRecommendationCalculation(userId);
+        } catch (Exception e) {
+            // 추천 계산 실패해도 분석 결과는 정상 반환
+            log.error("채용공고 추천 계산 트리거 실패 (무시됨)", e);
+        }
+
         return analysisResponse;
     }
 

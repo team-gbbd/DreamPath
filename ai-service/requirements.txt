@@ -28,5 +28,6 @@ sqlalchemy>=2.0.0
 pinecone>=3.0.0
 supabase>=2.0.0
 
-# Scheduler
+# Scheduler & Lock
 apscheduler>=3.10.0
+redis>=5.0.0
