@@ -45,14 +45,18 @@ def get_engine():
             )
 
         # Connection pool 설정
+        # Supabase Session Mode 환경에서 안정성을 위해 Pool Size 제한
+        pool_size = int(os.getenv('DB_POOL_SIZE', 5))
+        max_overflow = int(os.getenv('DB_MAX_OVERFLOW', 5))
+
         _engine = create_engine(
             db_url,
             poolclass=QueuePool,
-            pool_size=5,              # 최대 5개 연결 유지
-            max_overflow=10,          # 초과 시 최대 10개 추가 연결
-            pool_timeout=30,          # 연결 대기 시간 30초
-            pool_recycle=3600,        # 1시간마다 연결 재생성
-            pool_pre_ping=True,       # 연결 재사용 전 ping 체크
+            pool_size=pool_size,       # 기본 5개 연결 유지
+            max_overflow=max_overflow, # 초과 시 최대 5개 추가 연결 (기본값 하향 조정)
+            pool_timeout=30,           # 연결 대기 시간 30초
+            pool_recycle=3600,         # 1시간마다 연결 재생성
+            pool_pre_ping=True,        # 연결 재사용 전 ping 체크
             echo=False
         )
     return _engine

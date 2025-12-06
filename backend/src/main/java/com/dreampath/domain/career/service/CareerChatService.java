@@ -126,10 +126,17 @@ public class CareerChatService {
 
     @Transactional
     public CareerSession getOrCreateSession(String sessionId, String userId) {
-        if (sessionId != null) {
+        if (sessionId != null && !sessionId.isBlank()) {
             return sessionRepository.findBySessionId(sessionId)
                     .orElseGet(() -> createNewSession(userId));
         }
+
+        if (userId != null && !userId.isBlank()) {
+            return sessionRepository
+                    .findFirstByUserIdAndStatusOrderByUpdatedAtDesc(userId, CareerSession.SessionStatus.ACTIVE)
+                    .orElseGet(() -> createNewSession(userId));
+        }
+
         return createNewSession(userId);
     }
 
@@ -340,4 +347,3 @@ public class CareerChatService {
         }
     }
 }
-

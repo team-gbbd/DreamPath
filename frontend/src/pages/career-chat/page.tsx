@@ -75,6 +75,57 @@ export default function CareerChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const restoreSessionState = async (existingSessionId: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/chat/history/${existingSessionId}`);
+      if (response.ok) {
+        const history = await response.json();
+        if (history && history.length > 0) {
+          setSessionId(existingSessionId);
+          setMessages(history.map((msg: any) => ({
+            role: msg.role as 'user' | 'assistant',
+            content: msg.message,
+            timestamp: new Date(msg.timestamp),
+          })));
+          console.log('기존 세션 복원:', existingSessionId, '메시지 수:', history.length);
+
+          try {
+            const savedIdentity = localStorage.getItem('career_chat_identity');
+            if (savedIdentity) {
+              const identityData = JSON.parse(savedIdentity);
+              console.log('localStorage에서 정체성 복원:', identityData);
+              setIdentityStatus(identityData);
+            }
+          } catch (err) {
+            console.warn('localStorage 정체성 복원 실패');
+          }
+
+          try {
+            console.log('백엔드에서 정체성 상태 조회 시도:', existingSessionId);
+            const identityResponse = await fetch(`${API_BASE_URL}/identity/${existingSessionId}`);
+            console.log('정체성 응답 상태:', identityResponse.status);
+            if (identityResponse.ok) {
+              const identityData = await identityResponse.json();
+              console.log('백엔드 정체성 데이터:', identityData);
+              setIdentityStatus(identityData);
+              localStorage.setItem('career_chat_identity', JSON.stringify(identityData));
+            } else {
+              console.warn('정체성 상태 조회 실패, 상태 코드:', identityResponse.status);
+            }
+          } catch (err) {
+            console.error('정체성 상태 복원 에러:', err);
+          }
+
+          return true;
+        }
+      }
+    } catch (error) {
+      console.log('세션 복원 실패:', error);
+    }
+
+    return false;
+  };
+
   const initializeSession = async () => {
     // localStorage에서 userId 가져오기
     const getCurrentUserId = (): number | null => {
@@ -119,50 +170,9 @@ export default function CareerChatPage() {
           return;
         }
 
-        // 기존 세션이 있으면 대화 이력 불러오기
-        const response = await fetch(`${API_BASE_URL}/chat/history/${savedSessionId}`);
-        if (response.ok) {
-          const history = await response.json();
-          if (history && history.length > 0) {
-            setSessionId(savedSessionId);
-            setMessages(history.map((msg: any) => ({
-              role: msg.role as 'user' | 'assistant',
-              content: msg.message,
-              timestamp: new Date(msg.timestamp),
-            })));
-            console.log('기존 세션 복원:', savedSessionId, '메시지 수:', history.length);
-
-            // 마지막 정체성 상태 복원
-            // 1. 먼저 localStorage에서 시도
-            try {
-              const savedIdentity = localStorage.getItem('career_chat_identity');
-              if (savedIdentity) {
-                const identityData = JSON.parse(savedIdentity);
-                console.log('localStorage에서 정체성 복원:', identityData);
-                setIdentityStatus(identityData);
-              }
-            } catch (err) {
-              console.warn('localStorage 정체성 복원 실패');
-            }
-
-            // 2. 백엔드에서 다시 계산해서 가져오기
-            try {
-              console.log('백엔드에서 정체성 상태 조회 시도:', savedSessionId);
-              const identityResponse = await fetch(`${API_BASE_URL}/identity/${savedSessionId}`);
-              console.log('정체성 응답 상태:', identityResponse.status);
-              if (identityResponse.ok) {
-                const identityData = await identityResponse.json();
-                console.log('백엔드 정체성 데이터:', identityData);
-                setIdentityStatus(identityData);
-                localStorage.setItem('career_chat_identity', JSON.stringify(identityData));
-              } else {
-                console.warn('정체성 상태 조회 실패, 상태 코드:', identityResponse.status);
-              }
-            } catch (err) {
-              console.error('정체성 상태 복원 에러:', err);
-            }
-            return;
-          }
+        const restored = await restoreSessionState(savedSessionId);
+        if (restored) {
+          return;
         }
       } catch (error) {
         console.log('세션 복원 실패, 새 세션 시작:', error);
@@ -209,18 +219,22 @@ export default function CareerChatPage() {
         userId: userId
       }));
 
+      const hasHistory = await restoreSessionState(data.sessionId);
+
       // 설문조사 필요 여부 확인
       if (data.needsSurvey && data.surveyQuestions) {
         setSurveyQuestions(data.surveyQuestions);
         setShowSurvey(true);
       }
 
-      // 초기 메시지 추가
-      setMessages([{
-        role: 'assistant',
-        content: data.message,
-        timestamp: new Date(),
-      }]);
+      if (!hasHistory) {
+        setIdentityStatus(null);
+        setMessages([{
+          role: 'assistant',
+          content: data.message,
+          timestamp: new Date(),
+        }]);
+      }
 
       console.log('새 세션 시작:', data.sessionId, 'userId:', userId);
     } catch (error) {
