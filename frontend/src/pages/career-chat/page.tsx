@@ -33,7 +33,7 @@ import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import SurveyModal from '../../components/profile/SurveyModal';
-import AgentCard, { AgentAction } from '../../components/career/AgentCard';
+import AgentCard, { type AgentAction } from '../../components/career/AgentCard';
 import { API_BASE_URL } from '@/lib/api';
 
 interface Message {
@@ -91,7 +91,6 @@ interface ResearchPanel {
   summary: string;
   sources?: ResearchSource[];
   timestamp: Date;
-  // 멘토링/학습경로 전용 데이터
   mentoringData?: {
     sessions: MentoringSession[];
     total?: number;
@@ -119,14 +118,12 @@ interface IdentityStatus {
   recentInsight: RecentInsight;
 }
 
-// 검색 단계 타입
 interface SearchStep {
   id: string;
   label: string;
   status: 'pending' | 'loading' | 'done';
 }
 
-// AI 검색 중 상태 컴포넌트
 function AISearchingState() {
   const [steps, setSteps] = useState<SearchStep[]>([
     { id: '1', label: '질문 분석', status: 'done' },
@@ -180,7 +177,6 @@ function AISearchingState() {
   );
 }
 
-// 채팅 타이핑 인디케이터
 function TypingIndicator() {
   return (
     <div className="flex justify-start">
@@ -204,24 +200,23 @@ export default function CareerChatPage() {
   const [identityStatus, setIdentityStatus] = useState<IdentityStatus | null>(null);
   const [showSurvey, setShowSurvey] = useState(false);
   const [surveyQuestions, setSurveyQuestions] = useState<any[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const hasCheckedAuth = useRef(false);
   const [rightPanelTab, setRightPanelTab] = useState<RightPanelTab>('identity');
   const [researchPanels, setResearchPanels] = useState<ResearchPanel[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
   const [similarMentorLoading, setSimilarMentorLoading] = useState<string | null>(null);
 
-  // 비슷한 멘토 찾기
   const findSimilarMentors = async (panelId: string, currentSession: MentoringSession) => {
     setSimilarMentorLoading(panelId);
     try {
-      // 현재 멘토의 직무로 비슷한 멘토 검색
       const response = await fetch(`${API_BASE_URL}/mentoring-sessions/available`);
       if (!response.ok) throw new Error('Failed to fetch');
 
       const allSessions: MentoringSession[] = await response.json();
 
-      // 현재 세션 제외하고 비슷한 직무의 멘토 찾기
       const similarSessions = allSessions.filter(s =>
         s.sessionId !== currentSession.sessionId &&
         (s.mentorTitle?.toLowerCase().includes(currentSession.mentorTitle?.toLowerCase().split(' ')[0] || '') ||
@@ -229,14 +224,12 @@ export default function CareerChatPage() {
       ).slice(0, 2);
 
       if (similarSessions.length > 0) {
-        // 해당 패널의 멘토링 세션 교체
         setResearchPanels(prev => prev.map(p =>
           p.id === panelId
             ? { ...p, mentoringData: { sessions: similarSessions, total: similarSessions.length } }
             : p
         ));
       } else {
-        // 비슷한 멘토 없음 알림
         alert('비슷한 멘토가 없어요');
       }
     } catch (error) {
@@ -260,6 +253,17 @@ export default function CareerChatPage() {
   };
 
   useEffect(() => {
+    if (hasCheckedAuth.current) return;
+    hasCheckedAuth.current = true;
+
+    const userStr = localStorage.getItem('dreampath:user');
+
+    if (!userStr) {
+      alert('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
+
     initializeSession();
   }, []);
 
@@ -271,55 +275,125 @@ export default function CareerChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const initializeSession = async () => {
-    const savedSessionId = localStorage.getItem('career_chat_session_id');
+  const restoreSessionState = async (existingSessionId: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/chat/history/${existingSessionId}`);
+      if (response.ok) {
+        const history = await response.json();
+        if (history && history.length > 0) {
+          setSessionId(existingSessionId);
+          setMessages(history.map((msg: any) => ({
+            role: msg.role as 'user' | 'assistant',
+            content: msg.message,
+            timestamp: new Date(msg.timestamp),
+          })));
+          console.log('기존 세션 복원:', existingSessionId, '메시지 수:', history.length);
 
-    if (savedSessionId) {
-      try {
-        const response = await fetch(`${API_BASE_URL}/chat/history/${savedSessionId}`);
-        if (response.ok) {
-          const history = await response.json();
-          if (history && history.length > 0) {
-            setSessionId(savedSessionId);
-            setMessages(history.map((msg: any) => ({
-              role: msg.role as 'user' | 'assistant',
-              content: msg.message,
-              timestamp: new Date(msg.timestamp),
-            })));
-            try {
-              const savedIdentity = localStorage.getItem('career_chat_identity');
-              if (savedIdentity) {
-                setIdentityStatus(JSON.parse(savedIdentity));
-              }
-            } catch (err) {
-              console.warn('Failed to restore identity from localStorage');
+          try {
+            const savedIdentity = localStorage.getItem('career_chat_identity');
+            if (savedIdentity) {
+              const identityData = JSON.parse(savedIdentity);
+              console.log('localStorage에서 정체성 복원:', identityData);
+              setIdentityStatus(identityData);
             }
-
-            try {
-              const identityResponse = await fetch(`${API_BASE_URL}/identity/${savedSessionId}`);
-              if (identityResponse.ok) {
-                const identityData = await identityResponse.json();
-                setIdentityStatus(identityData);
-                localStorage.setItem('career_chat_identity', JSON.stringify(identityData));
-              }
-            } catch (err) {
-              console.error('Failed to fetch identity:', err);
-            }
-            return;
+          } catch (err) {
+            console.warn('localStorage 정체성 복원 실패');
           }
+
+          try {
+            console.log('백엔드에서 정체성 상태 조회 시도:', existingSessionId);
+            const identityResponse = await fetch(`${API_BASE_URL}/identity/${existingSessionId}`);
+            console.log('정체성 응답 상태:', identityResponse.status);
+            if (identityResponse.ok) {
+              const identityData = await identityResponse.json();
+              console.log('백엔드 정체성 데이터:', identityData);
+              setIdentityStatus(identityData);
+              localStorage.setItem('career_chat_identity', JSON.stringify(identityData));
+            } else {
+              console.warn('정체성 상태 조회 실패, 상태 코드:', identityResponse.status);
+            }
+          } catch (err) {
+            console.error('정체성 상태 복원 에러:', err);
+          }
+
+          return true;
+        }
+      }
+    } catch (error) {
+      console.log('세션 복원 실패:', error);
+    }
+
+    return false;
+  };
+
+  const initializeSession = async () => {
+    const getCurrentUserId = (): number | null => {
+      try {
+        const userStr = localStorage.getItem('dreampath:user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          return user.userId || null;
+        }
+      } catch (e) {
+        console.warn('userId 가져오기 실패:', e);
+      }
+      return null;
+    };
+
+    const currentUserId = getCurrentUserId();
+
+    const savedSessionData = localStorage.getItem('career_chat_session');
+
+    if (savedSessionData) {
+      try {
+        const sessionData = JSON.parse(savedSessionData);
+
+        if (typeof sessionData === 'string' || !sessionData.userId) {
+          console.warn('이전 형식의 세션 데이터 감지, 삭제 후 새 세션 시작');
+          localStorage.removeItem('career_chat_session');
+          localStorage.removeItem('career_chat_identity');
+          await startNewSession(currentUserId);
+          return;
+        }
+
+        const { sessionId: savedSessionId, userId: savedUserId } = sessionData;
+
+        if (currentUserId && savedUserId && currentUserId !== savedUserId) {
+          console.warn('다른 사용자의 세션 감지, 세션 초기화');
+          localStorage.removeItem('career_chat_session');
+          localStorage.removeItem('career_chat_identity');
+          await startNewSession(currentUserId);
+          return;
+        }
+
+        const restored = await restoreSessionState(savedSessionId);
+        if (restored) {
+          return;
         }
       } catch (error) {
-        console.log('Session restore failed, starting new session:', error);
+        console.log('세션 복원 실패, 새 세션 시작:', error);
+        localStorage.removeItem('career_chat_session');
+        localStorage.removeItem('career_chat_identity');
       }
     }
 
-    await startNewSession();
+    await startNewSession(currentUserId);
   };
 
-  const startNewSession = async () => {
+  const startNewSession = async (currentUserId: number | null = null) => {
     try {
-      const userStr = localStorage.getItem("dreampath:user");
-      const userId = userStr ? JSON.parse(userStr).userId : null;
+      let userIdFromStorage: number | null = null;
+      try {
+        const userStr = localStorage.getItem('dreampath:user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          userIdFromStorage = user.userId || null;
+        }
+      } catch (e) {
+        console.warn('localStorage에서 userId 가져오기 실패:', e);
+      }
+
+      const userIdToUse = currentUserId || userIdFromStorage;
 
       const response = await fetch(`${API_BASE_URL}/chat/start`, {
         method: 'POST',
@@ -327,30 +401,35 @@ export default function CareerChatPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          userId: userId ? String(userId) : null
+          userId: userIdToUse ? String(userIdToUse) : null
         }),
       });
 
       const data = await response.json();
       setSessionId(data.sessionId);
 
-      // localStorage에 세션 ID 저장
-      localStorage.setItem('career_chat_session_id', data.sessionId);
+      localStorage.setItem('career_chat_session', JSON.stringify({
+        sessionId: data.sessionId,
+        userId: userIdToUse
+      }));
 
-      // 설문조사 필요 여부 확인
+      const hasHistory = await restoreSessionState(data.sessionId);
+
       if (data.needsSurvey && data.surveyQuestions) {
         setSurveyQuestions(data.surveyQuestions);
         setShowSurvey(true);
       }
 
-      // 초기 메시지 추가
-      setMessages([{
-        role: 'assistant',
-        content: data.message,
-        timestamp: new Date(),
-      }]);
+      if (!hasHistory) {
+        setIdentityStatus(null);
+        setMessages([{
+          role: 'assistant',
+          content: data.message,
+          timestamp: new Date(),
+        }]);
+      }
 
-      console.log('새 세션 시작:', data.sessionId);
+      console.log('새 세션 시작:', data.sessionId, 'userId:', userIdToUse);
     } catch (error) {
       console.error('Failed to start session:', error);
       setMessages([{
@@ -364,6 +443,13 @@ export default function CareerChatPage() {
   const sendMessage = async () => {
     if (!inputMessage.trim() || !sessionId || isLoading) return;
 
+    const userStr = localStorage.getItem('dreampath:user');
+    if (!userStr) {
+      alert('로그인이 필요합니다.');
+      navigate('/login');
+      return;
+    }
+
     const userMessage: Message = {
       role: 'user',
       content: inputMessage,
@@ -373,25 +459,19 @@ export default function CareerChatPage() {
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
     setIsLoading(true);
-    setIsSearching(true); // 낙관적 표시: 도구 안 쓰면 빨리 사라짐, 쓰면 자연스럽게 결과로 대체
+    setIsSearching(true);
 
     try {
+      const user = JSON.parse(userStr);
+      const userId = user.userId;
+
       const response = await fetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId,
           message: inputMessage,
-          userId: (() => {
-            const userStr = localStorage.getItem("dreampath:user");
-            if (userStr) {
-              try {
-                const user = JSON.parse(userStr);
-                return user.userId ? String(user.userId) : null;
-              } catch { return null; }
-            }
-            return null;
-          })(),
+          userId: String(userId),
           identityStatus,
         }),
       });
@@ -402,7 +482,7 @@ export default function CareerChatPage() {
       console.log('정체성 상태:', data.identityStatus);
 
       if (data.agentAction) {
-        setIsSearching(false); // 검색 완료
+        setIsSearching(false);
         const actionType = data.agentAction.type as string;
         const results = data.agentAction.data?.results || [];
 
@@ -431,12 +511,10 @@ export default function CareerChatPage() {
             snippet: r.snippet,
           })),
           timestamp: new Date(),
-          // 멘토링 세션 데이터 추가
           mentoringData: panelType === 'mentoring' && data.agentAction.data?.sessions ? {
             sessions: data.agentAction.data.sessions,
             total: data.agentAction.data.sessions.length,
           } : undefined,
-          // 학습 경로 데이터 추가
           learningPathData: panelType === 'learning_path' && data.agentAction.data?.path ? {
             path: data.agentAction.data.path,
             exists: data.agentAction.data.exists,
@@ -458,11 +536,9 @@ export default function CareerChatPage() {
 
       setMessages(prev => [...prev, assistantMessage]);
 
-      // 정체성 상태 업데이트
       if (data.identityStatus) {
         setIdentityStatus(data.identityStatus);
 
-        // localStorage에도 마지막 정체성 상태 저장
         try {
           localStorage.setItem('career_chat_identity', JSON.stringify(data.identityStatus));
         } catch (e) {
@@ -478,7 +554,7 @@ export default function CareerChatPage() {
       }]);
     } finally {
       setIsLoading(false);
-      setIsSearching(false); // 혹시 남아있으면 정리
+      setIsSearching(false);
     }
   };
 
@@ -508,10 +584,36 @@ export default function CareerChatPage() {
     try {
       setIsLoading(true);
 
-      console.log('🔍 분석 API 호출 시작:', sessionId);
+      const userId = JSON.parse(localStorage.getItem('dreampath:user') || '{}').userId;
 
-      // 분석 API 호출
-      const response = await fetch(`http://localhost:8080/api/analysis/${sessionId}`, {
+      if (userId) {
+        try {
+          const analysisCheckResponse = await fetch(`${API_BASE_URL}/profiles/${userId}/analysis`);
+
+          if (analysisCheckResponse.ok) {
+            console.log('기존 분석 결과 발견, 대시보드로 이동');
+
+            setMessages(prev => [...prev, {
+              role: 'assistant',
+              content: '이미 분석이 완료되어 있습니다! 대시보드로 이동합니다.',
+              timestamp: new Date(),
+            }]);
+
+            setTimeout(() => {
+              navigate('/profile/dashboard');
+            }, 800);
+
+            setIsLoading(false);
+            return;
+          }
+        } catch (error) {
+          console.log('프로파일 없음, 새로 분석 시작');
+        }
+      }
+
+      console.log('분석 API 호출 시작:', sessionId);
+
+      const response = await fetch(`${API_BASE_URL}/analysis/${sessionId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -524,22 +626,20 @@ export default function CareerChatPage() {
       }
 
       const analysisResult = await response.json();
-      console.log('✅ 분석 완료:', analysisResult);
+      console.log('분석 완료:', analysisResult);
 
-      // 성공 메시지 추가
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: '✨ 분석이 완료되었습니다! 이제 대시보드에서 상세한 결과를 확인할 수 있어요.',
+        content: '분석이 완료되었습니다! 이제 대시보드에서 상세한 결과를 확인할 수 있어요.',
         timestamp: new Date(),
       }]);
 
-      // 잠시 후 대시보드로 이동
       setTimeout(() => {
         navigate('/profile/dashboard');
       }, 1000);
 
     } catch (error) {
-      console.error('❌ 분석 실패:', error);
+      console.error('분석 실패:', error);
       const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
 
       setMessages(prev => [...prev, {
@@ -553,7 +653,7 @@ export default function CareerChatPage() {
   };
 
   const handleNewChat = () => {
-    localStorage.removeItem('career_chat_session_id');
+    localStorage.removeItem('career_chat_session');
     localStorage.removeItem('career_chat_identity');
     setMessages([]);
     setSessionId(null);
@@ -719,14 +819,11 @@ export default function CareerChatPage() {
         </div>
       </header>
 
-      {/* 메인 콘텐츠 */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-          {/* 채팅 영역 - 밝고 따뜻한 테마 */}
           <div className="lg:col-span-2">
             <Card className="h-[calc(100vh-160px)] flex flex-col bg-white shadow-sm border-gray-200">
-              {/* 메시지 영역 */}
               <ScrollArea className="flex-1 p-6">
                 <div className="space-y-4 max-w-2xl mx-auto">
                   {messages.map((message, index) => (
@@ -926,7 +1023,6 @@ export default function CareerChatPage() {
                             </div>
                           )}
 
-                          {/* 다음 탐색 */}
                           {identityStatus.nextFocus && (
                             <div className="bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/10 rounded-xl p-4">
                               <div className="flex items-start gap-3">
@@ -955,22 +1051,17 @@ export default function CareerChatPage() {
                   </ScrollArea>
                 </TabsContent>
 
-                {/* AI Research 탭 */}
                 <TabsContent value="research" className="flex-1 overflow-hidden m-0 ai-panel-dark">
                   <ScrollArea className="h-full">
                     <div className="p-4">
-                    {/* 검색 중 상태 */}
                     {isSearching && <AISearchingState />}
 
-                    {/* 최신 리서치 결과 1개만 표시 */}
                     {!isSearching && researchPanels.length > 0 && (() => {
-                      const panel = researchPanels[0]; // 최신 1개만
+                      const panel = researchPanels[0];
                       return (
                         <div className="relative group">
-                          {/* 글로우 테두리 */}
                           <div className="absolute -inset-0.5 bg-gradient-to-r from-violet-500 to-cyan-500 rounded-xl opacity-30 group-hover:opacity-50 blur transition" />
 
-                          {/* 카드 본체 */}
                           <div className="relative bg-slate-800 rounded-xl p-4">
                             <div className="flex items-start justify-between mb-3">
                               <div className="flex items-center gap-2">
@@ -991,21 +1082,18 @@ export default function CareerChatPage() {
                               </div>
                             </div>
 
-                                {/* 웹 검색일 때만 summary 표시 (멘토링/학습경로는 카드로 대체) */}
                                 {panel.type === 'web_search' && (
                                   <p className="text-slate-300 text-sm leading-relaxed mb-4 whitespace-pre-line">
                                     {panel.summary}
                                   </p>
                                 )}
 
-                                {/* ========== 멘토링 세션 카드 ========== */}
                                 {panel.type === 'mentoring' && panel.mentoringData?.sessions && panel.mentoringData.sessions.length > 0 && (
                                   <div className="pt-3 border-t border-slate-700">
                                     <p className="text-xs text-slate-400 mb-3">이런 멘토링도 있어요</p>
                                     <div className="space-y-3">
                                       {panel.mentoringData.sessions.slice(0, 2).map((session, idx) => (
                                         <div key={idx} className="bg-slate-700/50 rounded-lg p-4">
-                                          {/* 멘토 정보 */}
                                           <div className="flex items-start gap-3 mb-3">
                                             <div className="h-10 w-10 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-white font-medium text-sm">
                                               {session.mentorName?.charAt(0) || 'M'}
@@ -1016,7 +1104,6 @@ export default function CareerChatPage() {
                                             </div>
                                           </div>
 
-                                          {/* 세션 정보 */}
                                           <div className="mb-3">
                                             <p className="text-cyan-400 text-sm font-medium mb-1">{session.topic}</p>
                                             {session.description && (
@@ -1024,7 +1111,6 @@ export default function CareerChatPage() {
                                             )}
                                           </div>
 
-                                          {/* 일정 & 가격 */}
                                           <div className="flex items-center gap-3 mb-4 text-xs text-slate-400">
                                             <div className="flex items-center gap-1">
                                               <Calendar className="h-3 w-3" />
@@ -1035,7 +1121,6 @@ export default function CareerChatPage() {
                                             )}
                                           </div>
 
-                                          {/* 액션 버튼 3개 가로 배치 */}
                                           <div className="flex gap-2">
                                             <Button
                                               size="sm"
@@ -1074,7 +1159,6 @@ export default function CareerChatPage() {
                                   </div>
                                 )}
 
-                                {/* ========== 학습 경로 카드 ========== */}
                                 {panel.type === 'learning_path' && panel.learningPathData?.path && (
                                   <div className="pt-3 border-t border-slate-700">
                                     <p className="text-xs text-slate-400 mb-3">이런 학습으로 시작해보는건 어때요?</p>
@@ -1136,7 +1220,6 @@ export default function CareerChatPage() {
                                   </div>
                                 )}
 
-                                {/* 출처 - 웹 검색용 (접힘/펼침) */}
                                 {panel.sources && panel.sources.length > 0 && panel.type !== 'mentoring' && panel.type !== 'learning_path' && (
                                   <div className="pt-3 border-t border-slate-700">
                                     <button
@@ -1181,7 +1264,6 @@ export default function CareerChatPage() {
                           );
                         })()}
 
-                        {/* 리서치 결과 없을 때 */}
                         {!isSearching && researchPanels.length === 0 && (
                           <div className="flex flex-col items-center justify-center py-16 text-center">
                             <div className="h-16 w-16 rounded-2xl bg-slate-800 flex items-center justify-center mb-4">

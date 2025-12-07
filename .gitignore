@@ -8,12 +8,19 @@ backend/.env
 ai-service/.env
 frontend/.env
 
-# Java
+# Java / Gradle
 target/
 *.jar
 *.war
 *.class
 backend/build/
+.gradle/
+
+# AWS (contains deployment secrets)
+.aws/
+
+# Docs (개발 문서)
+docs/
 
 # Frontend build output
 frontend/out/

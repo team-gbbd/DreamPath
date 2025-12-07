@@ -74,6 +74,16 @@ function ProfessionalMeetingUI({
     onlySubscribed: true,
   });
 
+  // 화면 공유 트랙 가져오기
+  const screenShareTracks = useTracks([Track.Source.ScreenShare], {
+    onlySubscribed: true,
+  });
+
+  // 상대방의 화면 공유 트랙
+  const remoteScreenShare = screenShareTracks.find(
+    track => track.participant.identity !== localParticipant.identity
+  );
+
   const localCameraTrack = useTracks([Track.Source.Camera], {
     onlySubscribed: false,
   }).find(track => track.participant.identity === localParticipant.identity);
@@ -215,9 +225,25 @@ function ProfessionalMeetingUI({
               <span className="text-gray-700 text-sm font-medium">{formatTime(elapsedTime)}</span>
             </div>
 
-            {/* 메인 원격 참가자 비디오 */}
+            {/* 메인 원격 참가자 비디오 (화면공유 우선) */}
             <div className="w-full h-full bg-white/60 backdrop-blur-sm rounded-2xl shadow-xl overflow-hidden relative">
-              {remoteCameraTracks.length > 0 ? (
+              {remoteScreenShare ? (
+                /* 상대방 화면 공유가 있으면 우선 표시 */
+                <div className="w-full h-full relative">
+                  <VideoTrack
+                    trackRef={remoteScreenShare}
+                    className="w-full h-full object-contain bg-gray-900"
+                  />
+                  <div className="absolute top-4 right-4 bg-blue-500 px-3 py-1.5 rounded-lg flex items-center space-x-2">
+                    <i className="ri-computer-line text-white"></i>
+                    <span className="text-white text-sm font-medium">화면 공유 중</span>
+                  </div>
+                  <div className="absolute bottom-4 left-4 bg-black/70 px-3 py-1.5 rounded-lg flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="text-white text-sm font-medium">{remoteScreenShare.participant.name || remoteScreenShare.participant.identity}</span>
+                  </div>
+                </div>
+              ) : remoteCameraTracks.length > 0 ? (
                 remoteCameraTracks
                   .filter(track => track.participant.identity !== localParticipant.identity)
                   .slice(0, 1)

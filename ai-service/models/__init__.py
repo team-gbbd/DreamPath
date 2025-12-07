@@ -32,7 +32,9 @@ from .identity import (
 # 채팅 모델
 from .chat import (
     ChatRequest,
-    ChatResponse
+    ChatResponse,
+    AgentAction,
+    ActionButton,
 )
 
 # 취업 사이트 모델
@@ -175,6 +177,8 @@ __all__ = [
     # 채팅
     "ChatRequest",
     "ChatResponse",
+    "AgentAction",
+    "ActionButton",
     
     # 취업 사이트
     "JobSiteRecommendationRequest",

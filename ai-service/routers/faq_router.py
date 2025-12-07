@@ -12,28 +12,31 @@ from services.chatbot import (
     RagEmbeddingService,
 )
 from services.database_service import DatabaseService
+from dependencies import get_db
 
 router = APIRouter(prefix="/api/faq", tags=["faq"])
 
-# 서비스 인스턴스
+# 서비스 인스턴스 (싱글톤)
 embedding_service = RagEmbeddingService()
+db_service = DatabaseService()
 
 def get_db():
-    """데이터베이스 서비스 의존성"""
-    return DatabaseService()
+    """데이터베이스 서비스 의존성 (싱글톤 인스턴스 재사용)"""
+    return db_service
 
 
 # ============ FAQ API ============
 
 @router.get("/all")
 async def get_all_faq(
-    user_type: str = "guest",  # 'guest' 또는 'member'
+    user_type: str = "all",  # 'guest', 'member', 'all'
     db: DatabaseService = Depends(get_db)
 ):
     """
     사용자 타입별 FAQ 조회
     - guest: guest + both FAQ만 조회
     - member: member + both FAQ 조회
+    - all: 모든 FAQ 조회 (관리자용)
     """
     try:
         if user_type == "guest":
@@ -43,11 +46,17 @@ async def get_all_faq(
                   AND is_active = true
                 ORDER BY priority DESC, id ASC
             """
-        else:  # member
+        elif user_type == "member":
             query = """
                 SELECT * FROM faq
                 WHERE user_type IN ('member', 'both')
                   AND is_active = true
+                ORDER BY priority DESC, id ASC
+            """
+        else:  # all
+            query = """
+                SELECT * FROM faq
+                WHERE is_active = true
                 ORDER BY priority DESC, id ASC
             """
 
@@ -56,6 +65,25 @@ async def get_all_faq(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"FAQ 조회 실패: {str(e)}")
+
+
+@router.get("/categories")
+async def get_faq_categories(db: DatabaseService = Depends(get_db)):
+    """존재하는 모든 카테고리 목록 조회"""
+    try:
+        query = """
+            SELECT DISTINCT category 
+            FROM faq 
+            WHERE is_active = true 
+            ORDER BY category
+        """
+        results = db.execute_query(query)
+        # 결과가 [{'category': 'A'}, {'category': 'B'}] 형태이므로 리스트로 변환
+        categories = [row['category'] for row in results if row.get('category')]
+        return categories
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"카테고리 조회 실패: {str(e)}")
 
 
 @router.get("/category")

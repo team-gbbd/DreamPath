@@ -79,11 +79,11 @@ export default function MentorApplyPage() {
       });
 
       alert('멘토 신청이 완료되었습니다! 관리자 승인 후 멘토 활동을 시작하실 수 있습니다.');
-      navigate('/mypage');
+      navigate('/profile/dashboard');
     } catch (err: any) {
       console.error('멘토 신청 실패:', err);
       if (err.response?.status === 400 && err.response?.data?.includes('이미 신청')) {
-        setError('이미 멘토 신청을 하셨습니다. 마이페이지에서 신청 현황을 확인해주세요.');
+        setError('이미 멘토 신청을 하셨습니다. 프로파일링 대시보드에서 신청 현황을 확인해주세요.');
       } else {
         setError(err.response?.data || '멘토 신청 중 오류가 발생했습니다.');
       }
@@ -102,11 +102,11 @@ export default function MentorApplyPage() {
         <div className="max-w-4xl mx-auto px-6 py-8">
           {/* Back Button */}
           <button
-            onClick={() => navigate('/mypage')}
+            onClick={() => navigate('/profile/dashboard')}
             className="mb-6 text-gray-600 hover:text-gray-800 transition-colors flex items-center"
           >
             <i className="ri-arrow-left-line text-xl mr-1"></i>
-            <span className="text-sm">마이페이지로</span>
+            <span className="text-sm">프로파일링으로</span>
           </button>
 
           {/* Main Container */}
@@ -260,7 +260,7 @@ export default function MentorApplyPage() {
               <div className="flex gap-4 pt-2">
                 <button
                   type="button"
-                  onClick={() => navigate('/mypage')}
+                  onClick={() => navigate('/profile/dashboard')}
                   className="flex-1 bg-gray-200 text-gray-700 py-4 rounded-lg font-bold hover:bg-gray-300 transition-colors"
                 >
                   취소

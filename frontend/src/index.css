@@ -1,22 +1,184 @@
-@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* DreamPath - 따뜻하고 신뢰감 있는 색상 시스템 */
+    --background: 220 20% 97%;  /* 살짝 블루그레이 톤 배경 */
+    --foreground: 224 71% 4%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71% 4%;
+
+    /* 메인 컬러 - 보라+파랑 그라데이션 느낌의 보라 */
+    --primary: 262 83% 58%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 224 71% 4%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 220 14% 96%;
+    --accent-foreground: 224 71% 4%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    /* AI 리서치 전용 색상 */
+    --ai-cyan: 187 92% 50%;
+    --ai-violet: 262 83% 58%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 262 83% 58%;
+
+    /* 적당한 라운드 - 너무 날카롭지도 둥글지도 않게 */
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
   body {
-    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+    @apply bg-background text-foreground;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    letter-spacing: -0.01em;
   }
 
-  @font-face {
-    font-family: 'GmarketSans';
-    src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSansMedium.woff') format('woff');
-    font-weight: 500;
+  /* 타이포그래피 - 따뜻하지만 명확한 위계 */
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.02em;
+    font-weight: 600;
+  }
+}
+
+/* Custom scrollbar - Linear thin style */
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
   }
 
-  .font-rounded {
-    font-family: 'GmarketSans', 'Pretendard', sans-serif;
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.4);
+  }
+}
+
+/* DreamPath 애니메이션 */
+@layer utilities {
+  .animate-in {
+    animation: animate-in 0.2s ease-out;
+  }
+
+  @keyframes animate-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade {
+    animation: fade-in 0.25s ease-out;
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* AI 글로우 효과 */
+  .ai-glow {
+    position: relative;
+  }
+
+  .ai-glow::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: calc(var(--radius) + 1px);
+    background: linear-gradient(
+      135deg,
+      hsl(var(--ai-violet)) 0%,
+      hsl(var(--ai-cyan)) 50%,
+      hsl(var(--ai-violet)) 100%
+    );
+    z-index: -1;
+    opacity: 0.5;
+    animation: glow-pulse 3s ease-in-out infinite;
+  }
+
+  @keyframes glow-pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.7; }
+  }
+
+  /* AI 리서치 패널 다크 배경 */
+  .ai-panel-dark {
+    background: linear-gradient(180deg, #0f172a 0%, #020617 100%);
+  }
+
+  /* 스트리밍 커서 */
+  .streaming-cursor::after {
+    content: '|';
+    animation: blink 1s infinite;
+    color: hsl(var(--ai-cyan));
+  }
+
+  @keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+
+  /* 로딩 스피너 - AI 색상 */
+  .ai-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid hsl(var(--ai-cyan) / 0.3);
+    border-top-color: hsl(var(--ai-cyan));
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
   }
 }
 
@@ -25,42 +187,42 @@
   transform: scaleX(-1);
 }
 
-/* React Calendar 스타일 커스터마이징 */
+/* React Calendar - Linear style */
 .react-calendar {
   width: 100% !important;
-  border: 1px solid #e5e7eb !important;
-  border-radius: 0.5rem !important;
-  font-family: 'Pretendard', sans-serif !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: var(--radius) !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 13px !important;
+  background: hsl(var(--card)) !important;
 }
 
 .react-calendar__navigation {
-  margin-bottom: 0.5rem !important;
+  margin-bottom: 0.25rem !important;
 }
 
 .react-calendar__navigation button {
-  min-width: 44px !important;
+  min-width: 32px !important;
   background: none !important;
-  font-size: 1rem !important;
-  font-weight: 600 !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: hsl(var(--foreground)) !important;
 }
 
 .react-calendar__navigation button:enabled:hover,
 .react-calendar__navigation button:enabled:focus {
-  background-color: #f3f4f6 !important;
-  border-radius: 0.5rem !important;
+  background-color: hsl(var(--muted)) !important;
+  border-radius: var(--radius) !important;
 }
 
 .react-calendar__month-view__weekdays {
   text-align: center !important;
-  font-size: 0.75rem !important;
-  font-weight: 600 !important;
-  color: #6b7280 !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: hsl(var(--muted-foreground)) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
   padding: 0.5rem 0 !important;
-  border-bottom: 1px solid #e5e7eb !important;
-}
-
-.react-calendar__month-view__weekdays__weekday {
-  padding: 0.5rem !important;
 }
 
 .react-calendar__month-view__weekdays__weekday abbr {
@@ -68,42 +230,39 @@
 }
 
 .react-calendar__month-view__days__day {
-  border-radius: 0.5rem !important;
-  font-size: 0.875rem !important;
+  border-radius: var(--radius) !important;
+  font-size: 13px !important;
 }
 
 .react-calendar__tile {
-  padding: 0.75rem 0.5rem !important;
+  padding: 0.5rem !important;
 }
 
 .react-calendar__tile:enabled:hover,
 .react-calendar__tile:enabled:focus {
-  background-color: #f3f4f6 !important;
-  border-radius: 0.5rem !important;
+  background-color: hsl(var(--muted)) !important;
 }
 
 .react-calendar__tile--now {
-  background: #dbeafe !important;
-  border-radius: 0.5rem !important;
-  font-weight: 600 !important;
+  background: hsl(var(--primary) / 0.1) !important;
+  font-weight: 500 !important;
 }
 
 .react-calendar__tile--active {
-  background: #22c55e !important;
-  color: white !important;
-  border-radius: 0.5rem !important;
-  font-weight: 600 !important;
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  font-weight: 500 !important;
 }
 
 .react-calendar__tile--active:enabled:hover,
 .react-calendar__tile--active:enabled:focus {
-  background: #16a34a !important;
+  background: hsl(var(--primary) / 0.9) !important;
 }
 
 .react-calendar__month-view__days__day--weekend {
-  color: #ef4444 !important;
+  color: hsl(var(--destructive)) !important;
 }
 
 .react-calendar__month-view__days__day--neighboringMonth {
-  color: #d1d5db !important;
+  color: hsl(var(--muted-foreground)) !important;
 }

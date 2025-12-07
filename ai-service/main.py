@@ -4,10 +4,20 @@ Python FastAPI Microservice
 """
 
 import os
+import logging
 from dotenv import load_dotenv
 
 # 환경변수를 먼저 로드 (다른 모듈 import 전에 반드시 실행)
 load_dotenv()
+
+# 로깅 설정 (에이전트 로그 표시용)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+# 에이전트 관련 로거만 DEBUG 레벨로
+logging.getLogger("services.agents").setLevel(logging.DEBUG)
+logging.getLogger("services.chat_service").setLevel(logging.DEBUG)
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
@@ -31,6 +41,7 @@ from routers.bigfive_router import router as bigfive_router
 from routers.mbti_router import router as mbti_router
 from routers.personality_profile_router import router as personality_profile_router
 from routers.chatbot_router import router as chatbot_router
+from routers.chatbotassistant_router import router as chatbotassistant_router
 from routers.faq_router import router as faq_router
 from routers.inquiry_router import router as inquiry_router
 from routers.chatbotassistant_router import router as chatbotassistant_router
@@ -130,7 +141,6 @@ question_generator = QuestionGeneratorService() if api_key else None
 answer_evaluator = AnswerEvaluatorService() if api_key else None
 code_executor = CodeExecutorService()
 
-# Supabase 환경변수가 있을 때만 초기화
 try:
     recommend_service = RecommendService()
     hybrid_recommender = HybridRecommendService()
@@ -138,7 +148,6 @@ except Exception as e:
     print(f"RecommendService 초기화 실패 (SUPABASE 환경변수 확인): {e}")
     recommend_service = None
     hybrid_recommender = None
-
 
 # =========================================
 # Basic Endpoints
