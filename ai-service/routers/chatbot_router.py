@@ -9,7 +9,7 @@ from models.chatbot import (
     ChatRequestDto,
     ChatResponse,
 )
-from services.chatbot import (
+from services.chatbot.rag import (
     RagEmbeddingService,
     RagSearchService,
     RagAnswerService,
@@ -17,7 +17,7 @@ from services.chatbot import (
 from services.database_service import DatabaseService
 from dependencies import get_db
 
-router = APIRouter(prefix="/api/chat-rag", tags=["chatbot"])
+router = APIRouter(prefix="/api/rag", tags=["rag-chatbot"])
 
 # 서비스 인스턴스 (싱글톤)
 embedding_service = RagEmbeddingService()
@@ -33,9 +33,9 @@ def get_db():
 
 # ============ Chat RAG API ============
 
-@router.post("/message", response_model=ChatResponse)
+@router.post("/chat", response_model=ChatResponse)
 async def chat(dto: ChatRequestDto, db: DatabaseService = Depends(get_db)):
-    """챗봇 메시지 처리"""
+    """RAG 챗봇 (메인페이지 - 비회원 + 회원)"""
     try:
         # 1. User 조회 (비회원이면 None)
         user = None
@@ -76,10 +76,11 @@ async def chat(dto: ChatRequestDto, db: DatabaseService = Depends(get_db)):
             (str(session_id), dto.userId, dto.guestId, "user", dto.message, datetime.now())
         )
 
-        # 4. RAG 답변 생성 (비회원이므로 user_type='guest')
-        print(f"[ROUTER DEBUG] 비회원 질문: {dto.message}")
+        # 4. RAG 답변 생성 (user_type: 회원이면 'member', 비회원이면 'guest')
+        user_type = "member" if dto.userId else "guest"
+        print(f"[ROUTER DEBUG] user_type={user_type}, 질문: {dto.message}")
         vector = embedding_service.embed(dto.message)
-        matches = search_service.search(vector, user_type="guest")
+        matches = search_service.search(vector, user_type=user_type)
         print(f"[ROUTER DEBUG] Pinecone matches 개수: {len(matches)}")
         answer = answer_service.generate_answer(dto.message, matches)
         print(f"[ROUTER DEBUG] 최종 답변: {answer[:50]}...")

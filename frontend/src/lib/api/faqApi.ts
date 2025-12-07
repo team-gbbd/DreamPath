@@ -1,6 +1,6 @@
 // src/lib/getFaq.ts
 
-import { PYTHON_AI_SERVICE_URL } from "./api";
+import { PYTHON_AI_SERVICE_URL } from "../api";
 
 // Python 백엔드 API URL
 const API_BASE_URL = `${PYTHON_AI_SERVICE_URL}/api`;
@@ -47,7 +47,29 @@ export async function fetchAllFaq() {
 }
 
 /* ==========================================================
-   📌 2) 특정 카테고리의 FAQ 불러오기
+   📌 2) FAQ 카테고리 목록 불러오기
+   ========================================================== */
+export async function fetchFaqCategories() {
+  try {
+    const userType = getUserType();
+    const response = await fetch(`${API_BASE_URL}/faq/categories?user_type=${userType}`);
+
+    if (!response.ok) {
+      console.error("❌ FAQ 카테고리 목록 조회 실패:", response.status);
+      return [];
+    }
+
+    const data = await response.json();
+    console.log(`📌 FAQ 카테고리 목록 (user_type: ${userType}):`, data);
+    return data || [];
+  } catch (error) {
+    console.error("❌ FAQ 카테고리 목록 조회 에러:", error);
+    return [];
+  }
+}
+
+/* ==========================================================
+   📌 3) 특정 카테고리의 FAQ 불러오기
    ========================================================== */
 export async function fetchFaqByCategory(category: string) {
   try {

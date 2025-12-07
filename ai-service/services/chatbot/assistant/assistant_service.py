@@ -1,5 +1,5 @@
 """
-회원용 AI 챗봇 비서 서비스 (Function Calling)
+회원용 AI 챗봇 비서 서비스 (Function Calling + FAQ 유사도 매칭)
 """
 import os
 import json
@@ -8,10 +8,7 @@ from openai import OpenAI
 from services.database_service import DatabaseService
 
 # 프롬프트 import
-from .prompts import get_member_system_prompt, get_question_classifier_prompt
-
-# FAQ 서비스 import
-from ..shared.faq_service import FaqService
+from .prompts import get_member_system_prompt
 
 # Tools import
 from .tools import (
@@ -24,16 +21,23 @@ from .tools import (
     job_recommendation_tool
 )
 
+# RAG 서비스 import (FAQ 유사도 검색용)
+from services.chatbot.rag import RagEmbeddingService, RagSearchService
 
-class MemberChatbotService:
-    """회원용 챗봇 비서 - OpenAI Function Calling 사용"""
+
+class AssistantService:
+    """회원용 챗봇 비서 - Function Calling + FAQ 유사도 매칭"""
 
     def __init__(self):
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
-        # FAQ 서비스 초기화
-        self.faq_service = FaqService()
+        # RAG 서비스 (FAQ 질문 유사도 검색용)
+        self.embedding_service = RagEmbeddingService()
+        self.search_service = RagSearchService()
+
+        # FAQ 유사도 임계값 (0.85 이상이면 FAQ 질문으로 치환)
+        self.FAQ_THRESHOLD = 0.85
 
         # Tool 레지스트리 (함수명 -> tool 매핑)
         self.tool_registry = {
@@ -66,76 +70,39 @@ class MemberChatbotService:
 
         return json.dumps({"error": f"Unknown function: {function_name}"}, ensure_ascii=False)
 
-    def _classify_question(self, message: str) -> str:
-        """
-        LLM으로 질문 분류
-
-        Returns:
-            "PERSONAL_DATA" | "SERVICE_QUESTION" | "UNRELATED"
-        """
-        try:
-            classifier_messages = [
-                {
-                    "role": "system",
-                    "content": get_question_classifier_prompt()
-                },
-                {
-                    "role": "user",
-                    "content": message
-                }
-            ]
-
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=classifier_messages,
-                temperature=0,
-                max_tokens=15
-            )
-
-            classification = response.choices[0].message.content.strip().upper()
-
-            # 분류 결과 반환
-            if "PERSONAL_DATA" in classification:
-                return "PERSONAL_DATA"
-            elif "UNRELATED" in classification:
-                return "UNRELATED"
-            else:
-                return "SERVICE_QUESTION"
-
-        except Exception as e:
-            print(f"질문 분류 오류: {str(e)}")
-            # 오류 시 안전하게 SERVICE_QUESTION 반환
-            return "SERVICE_QUESTION"
-
     def chat(self, user_id: int, message: str, conversation_history: List[Dict[str, str]] = None, db: DatabaseService = None) -> str:
+        """
+        회원용 챗봇 비서 - Function Calling + FAQ 유사도 매칭
+        """
         try:
-            # ========== 1단계: LLM 질문 분류 먼저 ==========
-            question_type = self._classify_question(message)
+            # ========== FAQ 유사도 검색 ==========
+            actual_message = message  # 실제로 사용할 메시지
 
-            # ========== 2단계: 서비스 외 질문 차단 ==========
-            if question_type == "UNRELATED":
-                return "죄송하지만, DreamPath 서비스 관련 질문만 답변할 수 있습니다. 진로, 학습, 멘토링 등에 대해 궁금한 점이 있으시면 언제든지 물어보세요!"
+            try:
+                # 1. 사용자 질문 임베딩
+                vector = self.embedding_service.embed(message)
 
-            # ========== 3단계: 개인 데이터 요청이면 FAQ 건너뛰고 바로 Function Calling ==========
-            if question_type == "PERSONAL_DATA":
-                # "내 진로 분석", "나 멘토링 예약" 등 → FAQ 검색하지 않고 바로 Function Calling
-                pass
-            else:
-                # ========== 4단계: 서비스 질문이면 FAQ 검색 ==========
-                # "이름 수정", "비밀번호 변경", "DreamPath란?" 등
-                matched_faq = self.faq_service.search_faq(message, user_type="member", db=db)
+                # 2. Pinecone에서 assistant FAQ 검색 (user_type="assistant")
+                matches = self.search_service.search(vector, user_type="assistant", top_k=1)
 
-                if matched_faq:
-                    answer_type = matched_faq.get("answer_type")
+                # 3. 유사도 체크
+                if matches and len(matches) > 0:
+                    top_match = matches[0]
+                    score = top_match.get("score", 0)
 
-                    # answer_type='static' → 즉시 FAQ 답변 반환
-                    if answer_type == "static":
-                        return matched_faq.get("answer", "답변을 찾을 수 없습니다.")
+                    # 유사도가 임계값 이상이면 FAQ 질문으로 치환
+                    if score >= self.FAQ_THRESHOLD:
+                        metadata = top_match.get("metadata", {})
+                        faq_question = metadata.get("question", "")
 
-                    # answer_type='function' → Function Calling으로 넘어감
+                        if faq_question:
+                            print(f"[FAQ 매칭] 유사도: {score:.3f}, 원본: '{message}' → FAQ: '{faq_question}'")
+                            actual_message = faq_question
+            except Exception as e:
+                # FAQ 검색 실패해도 원래 메시지로 계속 진행
+                print(f"[FAQ 검색 실패] {str(e)}")
 
-            # ========== 5단계: OpenAI Function Calling ==========
-            # PERSONAL_DATA 또는 SERVICE_QUESTION (FAQ 없거나 answer_type='function') → Function Calling
+            # ========== OpenAI Function Calling ==========
             messages = []
 
             # 시스템 메시지 항상 추가 (매번 강력한 지시 전달)
@@ -151,8 +118,8 @@ class MemberChatbotService:
                     if msg.get("role") != "system":
                         messages.append(msg)
 
-            # 사용자 메시지 추가
-            messages.append({"role": "user", "content": message})
+            # 사용자 메시지 추가 (FAQ 매칭된 경우 치환된 메시지 사용)
+            messages.append({"role": "user", "content": actual_message})
 
             # OpenAI API 호출 (Function Calling)
             response = self.client.chat.completions.create(

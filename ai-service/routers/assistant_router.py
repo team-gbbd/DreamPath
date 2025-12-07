@@ -1,19 +1,19 @@
 """
-회원용 AI 챗봇 비서 라우터
+회원용 AI 챗봇 비서 라우터 (Function Calling 전용)
 """
 from fastapi import APIRouter, HTTPException, Depends
 from uuid import UUID, uuid4
 from datetime import datetime
 
 from models.chatbotassistant import AssistantChatRequest, AssistantChatResponse
-from services.chatbot import MemberChatbotService
+from services.chatbot.assistant import AssistantService
 from services.database_service import DatabaseService
 from dependencies import get_db
 
-router = APIRouter(prefix="/api/chatbot-assistant", tags=["chatbot-assistant"])
+router = APIRouter(prefix="/api/assistant", tags=["assistant"])
 
 # 서비스 인스턴스 (싱글톤)
-assistant_service = MemberChatbotService()
+assistant_service = AssistantService()
 db_service = DatabaseService()
 
 

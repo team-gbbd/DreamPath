@@ -8,7 +8,7 @@ from models.chatbot import (
     FaqRequest,
     FaqUpdateRequest,
 )
-from services.chatbot import (
+from services.chatbot.rag import (
     RagEmbeddingService,
 )
 from services.database_service import DatabaseService
@@ -25,7 +25,7 @@ def get_db():
     return db_service
 
 
-# ============ FAQ API ============
+# ============ FAQ 관리 API ============
 
 @router.get("/all")
 async def get_all_faq(
@@ -68,15 +68,44 @@ async def get_all_faq(
 
 
 @router.get("/categories")
-async def get_faq_categories(db: DatabaseService = Depends(get_db)):
-    """존재하는 모든 카테고리 목록 조회"""
+async def get_faq_categories(
+    user_type: str = "guest",  # 'guest', 'member', 'assistant'
+    db: DatabaseService = Depends(get_db)
+):
+    """사용자 타입별 카테고리 목록 조회"""
     try:
-        query = """
-            SELECT DISTINCT category 
-            FROM faq 
-            WHERE is_active = true 
-            ORDER BY category
-        """
+        if user_type == "guest":
+            query = """
+                SELECT DISTINCT category
+                FROM faq
+                WHERE user_type IN ('guest', 'both')
+                  AND is_active = true
+                ORDER BY category
+            """
+        elif user_type == "member":
+            query = """
+                SELECT DISTINCT category
+                FROM faq
+                WHERE user_type IN ('member', 'both')
+                  AND is_active = true
+                ORDER BY category
+            """
+        elif user_type == "assistant":
+            query = """
+                SELECT DISTINCT category
+                FROM faq
+                WHERE user_type = 'assistant'
+                  AND is_active = true
+                ORDER BY category
+            """
+        else:  # all (관리자용)
+            query = """
+                SELECT DISTINCT category
+                FROM faq
+                WHERE is_active = true
+                ORDER BY category
+            """
+
         results = db.execute_query(query)
         # 결과가 [{'category': 'A'}, {'category': 'B'}] 형태이므로 리스트로 변환
         categories = [row['category'] for row in results if row.get('category')]
@@ -102,11 +131,26 @@ async def get_faq_by_category(
                   AND is_active = true
                 ORDER BY priority DESC, id ASC
             """
-        else:  # member
+        elif user_type == "member":
             query = """
                 SELECT * FROM faq
                 WHERE category = %s
                   AND user_type IN ('member', 'both')
+                  AND is_active = true
+                ORDER BY priority DESC, id ASC
+            """
+        elif user_type == "assistant":
+            query = """
+                SELECT * FROM faq
+                WHERE category = %s
+                  AND user_type = 'assistant'
+                  AND is_active = true
+                ORDER BY priority DESC, id ASC
+            """
+        else:  # all (관리자용)
+            query = """
+                SELECT * FROM faq
+                WHERE category = %s
                   AND is_active = true
                 ORDER BY priority DESC, id ASC
             """

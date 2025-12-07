@@ -1,7 +1,7 @@
 /**
  * 회원용 AI 챗봇 비서 API
  */
-import { PYTHON_AI_SERVICE_URL } from "./api";
+import { PYTHON_AI_SERVICE_URL } from "../api";
 
 export interface AssistantChatRequest {
   userId: number;
@@ -21,7 +21,7 @@ export interface AssistantChatResponse {
 export async function sendAssistantMessage(
   body: AssistantChatRequest
 ): Promise<AssistantChatResponse> {
-  const res = await fetch(`${PYTHON_AI_SERVICE_URL}/api/chatbot-assistant/chat`, {
+  const res = await fetch(`${PYTHON_AI_SERVICE_URL}/api/assistant/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -38,30 +38,13 @@ export async function sendAssistantMessage(
 /**
  * 회원용 챗봇 비서 대화 히스토리 조회
  */
-export async function getAssistantHistory(
-  sessionId: string,
-  userId: number
-): Promise<any[]> {
+export async function getAssistantHistory(sessionId: string, userId: number): Promise<any[]> {
   const res = await fetch(
-    `${PYTHON_AI_SERVICE_URL}/api/chatbot-assistant/history/${sessionId}?user_id=${userId}`
+    `${PYTHON_AI_SERVICE_URL}/api/assistant/history/${sessionId}?user_id=${userId}`
   );
 
   if (!res.ok) throw new Error("대화 내역 조회 오류");
 
   const data = await res.json();
   return data.history || [];
-}
-
-/**
- * 사용자의 챗봇 비서 세션 목록 조회
- */
-export async function getAssistantSessions(userId: number) {
-  const res = await fetch(
-    `${PYTHON_AI_SERVICE_URL}/api/chatbot-assistant/sessions?user_id=${userId}`
-  );
-
-  if (!res.ok) throw new Error("세션 목록 조회 오류");
-
-  const data = await res.json();
-  return data.sessions || [];
 }
