@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import api from "@/lib/api";
+import { backendApi, pythonApi } from "@/lib/api";
 
 interface RecommendItem {
   id?: string;
@@ -24,7 +24,7 @@ const SchoolRecommendPanel = ({ embedded = false, profileId }: Props) => {
 
     const checkVector = async () => {
       try {
-        const res = await api.get(`/vector/status/${profileId}`);
+        const res = await backendApi.get(`/vector/status/${profileId}`);
         if (res.data?.ready && res.data?.vectorId) {
           fetchRecommendations(res.data.vectorId);
         } else {
@@ -42,7 +42,7 @@ const SchoolRecommendPanel = ({ embedded = false, profileId }: Props) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.post("/recommend/schools", { vectorId: vid });
+      const res = await pythonApi.post("/recommend/schools", { vectorId: vid });
       // Backend returns a List directly, or an object with items
       const data = res.data;
       if (Array.isArray(data)) {

@@ -7,11 +7,12 @@ import asyncio
 from typing import Dict, Optional
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
+from services.database_service import DatabaseService
 
 
 class IdentityAnalysisService:
     """LangChain을 사용한 정체성 분석 서비스"""
-    
+
     def __init__(self, api_key: str, model: str = "gpt-4o-mini"):
         self.llm = ChatOpenAI(
             api_key=api_key,
@@ -19,17 +20,45 @@ class IdentityAnalysisService:
             temperature=0.7,
             max_tokens=2000
         )
+        self._db_service = None
+
+    def _get_db_service(self) -> DatabaseService:
+        """DatabaseService 싱글톤"""
+        if self._db_service is None:
+            self._db_service = DatabaseService()
+        return self._db_service
+
+    def _get_full_conversation(self, conversation_history: str, user_id: Optional[str] = None) -> str:
+        """
+        userId가 있으면 이전 대화 기록을 가져와서 현재 대화와 합칩니다.
+        """
+        if not user_id:
+            return conversation_history
+
+        try:
+            db = self._get_db_service()
+            previous_history = db.get_conversation_history_by_user_id(user_id)
+
+            if previous_history:
+                return f"[이전 대화 기록]\n{previous_history}\n\n[현재 대화]\n{conversation_history}"
+            return conversation_history
+        except Exception as e:
+            print(f"이전 대화 조회 실패: {e}")
+            return conversation_history
     
-    async def assess_clarity(self, conversation_history: str) -> Dict:
+    async def assess_clarity(self, conversation_history: str, user_id: Optional[str] = None) -> Dict:
         """
         정체성 명확도를 평가합니다.
-        
+        user_id가 있으면 이전 대화 기록도 포함하여 분석합니다.
+
         Returns:
             {
                 "clarity": 0-100,
                 "reason": "평가 이유"
             }
         """
+        # userId가 있으면 이전 대화 기록 포함
+        full_history = self._get_full_conversation(conversation_history, user_id)
         system_prompt = """
 대화 내용을 분석하여 학생의 진로 정체성이 얼마나 명확해졌는지 평가하세요.
 
@@ -49,21 +78,22 @@ JSON 형식으로만 응답하세요:
         
         messages = [
             SystemMessage(content=system_prompt),
-            HumanMessage(content=f"대화 내용:\n{conversation_history}")
+            HumanMessage(content=f"대화 내용:\n{full_history}")
         ]
-        
+
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
             None,
             lambda: self.llm.invoke(messages).content
         )
-        
+
         return self._parse_clarity_response(response)
-    
-    async def extract_identity(self, conversation_history: str) -> Dict:
+
+    async def extract_identity(self, conversation_history: str, user_id: Optional[str] = None) -> Dict:
         """
         정체성 특징을 추출합니다.
-        
+        user_id가 있으면 이전 대화 기록도 포함하여 분석합니다.
+
         Returns:
             {
                 "identityCore": "핵심 정체성",
@@ -73,6 +103,9 @@ JSON 형식으로만 응답하세요:
                 "nextFocus": "..."
             }
         """
+        # userId가 있으면 이전 대화 기록 포함
+        full_history = self._get_full_conversation(conversation_history, user_id)
+
         system_prompt = """
 대화에서 드러난 학생의 정체성 특징을 추출하세요.
 
@@ -96,18 +129,18 @@ JSON 형식으로만 응답하세요:
 
 중요: 아직 명확하지 않으면 identityCore를 "탐색 중..."으로 설정하세요.
 """
-        
+
         messages = [
             SystemMessage(content=system_prompt),
-            HumanMessage(content=f"대화 내용:\n{conversation_history}")
+            HumanMessage(content=f"대화 내용:\n{full_history}")
         ]
-        
+
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
             None,
             lambda: self.llm.invoke(messages).content
         )
-        
+
         return self._parse_identity_response(response)
     
     async def generate_insight(
@@ -164,13 +197,15 @@ JSON 형식으로만 응답하세요:
         return self._parse_insight_response(response)
     
     async def assess_stage_progress(
-        self, 
-        conversation_history: str, 
-        current_stage: str
+        self,
+        conversation_history: str,
+        current_stage: str,
+        user_id: Optional[str] = None
     ) -> Dict:
         """
         현재 단계에서 다음 단계로 넘어갈 준비가 되었는지 평가합니다.
-        
+        user_id가 있으면 이전 대화 기록도 포함하여 분석합니다.
+
         Returns:
             {
                 "readyToProgress": true/false,
@@ -178,6 +213,9 @@ JSON 형식으로만 응답하세요:
                 "recommendation": "추천사항"
             }
         """
+        # userId가 있으면 이전 대화 기록 포함
+        full_history = self._get_full_conversation(conversation_history, user_id)
+
         system_prompt = f"""
 현재 대화 단계: {current_stage}
 
@@ -196,12 +234,12 @@ JSON 형식으로만 응답하세요:
 - VALUES: 핵심 가치관이 드러났는가?
 - FUTURE: 지향하는 미래 모습이 그려졌는가?
 """
-        
+
         messages = [
             SystemMessage(content=system_prompt),
-            HumanMessage(content=f"대화 내용:\n{conversation_history}")
+            HumanMessage(content=f"대화 내용:\n{full_history}")
         ]
-        
+
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
             None,

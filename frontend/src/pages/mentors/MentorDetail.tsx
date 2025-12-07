@@ -249,11 +249,11 @@ export default function MentorDetailPage() {
             <p className="text-gray-600 mb-4 text-sm">멘티들의 예약을 확인하고 멘토링 일정을 관리할 수 있습니다.</p>
             <div className="flex gap-3">
               <button
-                onClick={() => navigate('/mypage')}
+                onClick={() => navigate('/profile/dashboard')}
                 className="flex-1 bg-pink-500 text-white py-3 rounded-lg font-medium hover:bg-pink-600 transition-colors"
               >
                 <i className="ri-calendar-event-line mr-2"></i>
-                마이페이지에서 세션 관리
+                프로파일링 대시보드에서 세션 관리
               </button>
               <button
                 onClick={() => navigate('/mypage/mentor/edit')}

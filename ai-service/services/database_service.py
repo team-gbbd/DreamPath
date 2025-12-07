@@ -3,6 +3,7 @@
 MySQL/PostgreSQL 데이터베이스 연결 및 채용 공고 저장/조회 기능
 """
 import os
+import threading
 from typing import List, Dict, Optional
 from datetime import datetime
 from contextlib import contextmanager
@@ -18,7 +19,6 @@ else:
     import pymysql
     from pymysql.cursors import DictCursor
     USE_POSTGRES = False
-
 
 class DatabaseService:
     """데이터베이스 서비스"""
@@ -46,26 +46,65 @@ class DatabaseService:
                 'cursorclass': DictCursor,
                 'autocommit': False
             }
-        self._ensure_table_exists()
+
+        # Supabase에서는 테이블 자동 생성이 필요 없어 연결만 소모하므로 비활성화
+        # self._ensure_table_exists()
+        self._local = threading.local()
+        self._connection_lock = threading.Lock()
+
+    def cleanup(self):
+        """연결 정리용 스텁"""
+        conn = getattr(self._local, "connection", None)
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+            finally:
+                self._local.connection = None
     
+    def _create_connection(self):
+        """새로운 데이터베이스 연결 생성"""
+        if USE_POSTGRES:
+            return psycopg2.connect(**self.db_config)
+        return pymysql.connect(**self.db_config)
+
+    def _is_connection_alive(self, conn) -> bool:
+        """현재 연결이 유효한지 확인"""
+        if not conn:
+            return False
+        try:
+            if USE_POSTGRES:
+                return conn.closed == 0
+            # pymysql은 ping으로 상태 확인 (자동 재연결)
+            conn.ping(reconnect=True)
+            return True
+        except Exception:
+            return False
+
+    def _get_or_create_connection(self):
+        """스레드별 연결 재사용"""
+        conn = getattr(self._local, "connection", None)
+        if self._is_connection_alive(conn):
+            return conn
+
+        with self._connection_lock:
+            conn = getattr(self._local, "connection", None)
+            if not self._is_connection_alive(conn):
+                conn = self._create_connection()
+                self._local.connection = conn
+        return conn
+
     @contextmanager
     def get_connection(self):
         """데이터베이스 연결 컨텍스트 매니저"""
-        conn = None
+        conn = self._get_or_create_connection()
         try:
-            if USE_POSTGRES:
-                conn = psycopg2.connect(**self.db_config)
-            else:
-                conn = pymysql.connect(**self.db_config)
             yield conn
             conn.commit()
         except Exception as e:
-            if conn:
-                conn.rollback()
+            conn.rollback()
             raise e
-        finally:
-            if conn:
-                conn.close()
     
     def _ensure_table_exists(self):
         """테이블이 존재하는지 확인하고 없으면 생성"""
@@ -697,7 +736,7 @@ class DatabaseService:
             params: 쿼리 파라미터
 
         Returns:
-            쿼리 결과 (튜플 리스트)
+            쿼리 결과 (딕셔너리 리스트)
         """
         try:
             with self.get_connection() as conn:
@@ -710,10 +749,10 @@ class DatabaseService:
 
                 results = cursor.fetchall()
 
-                # DictCursor/RealDictCursor 결과를 튜플 리스트로 변환
+                # DictCursor/RealDictCursor 결과를 딕셔너리로 반환
                 if results and isinstance(results[0], dict):
-                    # 딕셔너리 결과를 튜플로 변환
-                    return [tuple(row.values()) for row in results]
+                    # 딕셔너리 그대로 반환
+                    return [dict(row) for row in results]
 
                 return results
 
@@ -721,3 +760,72 @@ class DatabaseService:
             print(f"쿼리 실행 실패: {str(e)}")
             raise e
 
+    def execute_update(self, query: str, params: tuple = None):
+        """
+        SQL 쿼리 실행 (INSERT, UPDATE, DELETE 전용)
+
+        Args:
+            query: SQL 쿼리
+            params: 쿼리 파라미터
+
+        Returns:
+            영향받은 행 수
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                if params:
+                    cursor.execute(query, params)
+                else:
+                    cursor.execute(query)
+
+                conn.commit()
+                return cursor.rowcount
+
+        except Exception as e:
+            print(f"쿼리 실행 실패: {str(e)}")
+            raise e
+
+    def get_conversation_history_by_user_id(self, user_id: str, limit: int = 100) -> str:
+        """
+        userId로 사용자의 모든 대화 기록을 조회합니다.
+
+        Args:
+            user_id: 사용자 ID
+            limit: 최대 메시지 수
+
+        Returns:
+            대화 기록 문자열 (role: content 형식)
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                # career_sessions와 chat_messages 조인하여 조회
+                query = """
+                    SELECT cm.role, cm.content, cm.timestamp
+                    FROM chat_messages cm
+                    INNER JOIN career_sessions cs ON cm.session_id = cs.id
+                    WHERE cs.user_id = %s
+                    ORDER BY cm.timestamp ASC
+                    LIMIT %s
+                """
+                cursor.execute(query, (user_id, limit))
+                results = cursor.fetchall()
+
+                if not results:
+                    return ""
+
+                # 대화 형식으로 변환
+                conversation_lines = []
+                for row in results:
+                    role = row.get('role', row[0]) if isinstance(row, dict) else row[0]
+                    content = row.get('content', row[1]) if isinstance(row, dict) else row[1]
+                    conversation_lines.append(f"{role}: {content}")
+
+                return "\n".join(conversation_lines)
+
+        except Exception as e:
+            print(f"대화 기록 조회 실패: {str(e)}")
+            return ""

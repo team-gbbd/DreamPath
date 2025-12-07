@@ -34,16 +34,17 @@ public class IdentityService {
     @Transactional(readOnly = true)
     public IdentityStatus getIdentityStatus(String sessionId) {
         log.info("정체성 상태 조회 - 세션: {}", sessionId);
-        
+
         CareerSession session = sessionRepository.findBySessionId(sessionId)
                 .orElseThrow(() -> new RuntimeException("세션을 찾을 수 없습니다."));
-        
+
         String conversationHistory = chatService.getConversationHistory(sessionId);
-        
-        // Python AI 서비스를 통한 분석
-        Map<String, Object> clarityResult = pythonIdentityService.assessClarity(conversationHistory);
-        Map<String, Object> identityResult = pythonIdentityService.extractIdentity(conversationHistory);
-        
+        String userId = session.getUserId();  // userId 가져오기
+
+        // Python AI 서비스를 통한 분석 (userId 포함)
+        Map<String, Object> clarityResult = pythonIdentityService.assessClarity(conversationHistory, userId);
+        Map<String, Object> identityResult = pythonIdentityService.extractIdentity(conversationHistory, userId);
+
         return buildIdentityStatus(session, clarityResult, identityResult, null);
     }
 
@@ -53,19 +54,20 @@ public class IdentityService {
     @Transactional(readOnly = true)
     public IdentityStatus updateIdentityStatus(String sessionId, String recentMessages) {
         log.info("정체성 상태 업데이트 - 세션: {}", sessionId);
-        
+
         CareerSession session = sessionRepository.findBySessionId(sessionId)
                 .orElseThrow(() -> new RuntimeException("세션을 찾을 수 없습니다."));
-        
+
         String conversationHistory = chatService.getConversationHistory(sessionId);
-        
-        // Python AI 서비스를 통한 분석
-        Map<String, Object> clarityResult = pythonIdentityService.assessClarity(conversationHistory);
-        Map<String, Object> identityResult = pythonIdentityService.extractIdentity(conversationHistory);
-        
+        String userId = session.getUserId();  // userId 가져오기
+
+        // Python AI 서비스를 통한 분석 (userId 포함)
+        Map<String, Object> clarityResult = pythonIdentityService.assessClarity(conversationHistory, userId);
+        Map<String, Object> identityResult = pythonIdentityService.extractIdentity(conversationHistory, userId);
+
         // 최근 인사이트 생성
         Map<String, Object> insightResult = pythonIdentityService.generateInsight(recentMessages, conversationHistory);
-        
+
         return buildIdentityStatus(session, clarityResult, identityResult, insightResult);
     }
 
@@ -104,17 +106,19 @@ public class IdentityService {
     public boolean shouldProgressToNextStage(String sessionId) {
         CareerSession session = sessionRepository.findBySessionId(sessionId)
                 .orElseThrow(() -> new RuntimeException("세션을 찾을 수 없습니다."));
-        
+
         // 최소 메시지 수 체크
         if (session.getStageMessageCount() < session.getCurrentStage().getMinMessages()) {
             return false;
         }
-        
-        // Python AI 서비스의 판단 요청
+
+        // Python AI 서비스의 판단 요청 (userId 포함)
         String conversationHistory = chatService.getConversationHistory(sessionId);
+        String userId = session.getUserId();
         Map<String, Object> progressResult = pythonIdentityService.assessStageProgress(
             conversationHistory,
-            session.getCurrentStage().name()
+            session.getCurrentStage().name(),
+            userId
         );
         
         try {

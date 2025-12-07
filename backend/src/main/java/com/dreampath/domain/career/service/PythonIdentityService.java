@@ -33,18 +33,21 @@ public class PythonIdentityService {
     /**
      * 정체성 명확도 평가
      */
-    public Map<String, Object> assessClarity(String conversationHistory) {
+    public Map<String, Object> assessClarity(String conversationHistory, String userId) {
         try {
             String url = pythonAiServiceUrl + "/api/identity/clarity";
-            
+
             Map<String, String> requestBody = new HashMap<>();
             requestBody.put("conversationHistory", conversationHistory);
+            if (userId != null) {
+                requestBody.put("userId", userId);
+            }
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<Map<String, String>> request = new HttpEntity<>(requestBody, headers);
 
-            log.debug("정체성 명확도 평가 요청: {}", url);
+            log.debug("정체성 명확도 평가 요청: {} (userId: {})", url, userId);
             @SuppressWarnings("unchecked")
             ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
 
@@ -64,18 +67,21 @@ public class PythonIdentityService {
     /**
      * 정체성 특징 추출
      */
-    public Map<String, Object> extractIdentity(String conversationHistory) {
+    public Map<String, Object> extractIdentity(String conversationHistory, String userId) {
         try {
             String url = pythonAiServiceUrl + "/api/identity/extract";
-            
+
             Map<String, String> requestBody = new HashMap<>();
             requestBody.put("conversationHistory", conversationHistory);
+            if (userId != null) {
+                requestBody.put("userId", userId);
+            }
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<Map<String, String>> request = new HttpEntity<>(requestBody, headers);
 
-            log.debug("정체성 특징 추출 요청: {}", url);
+            log.debug("정체성 특징 추출 요청: {} (userId: {})", url, userId);
             @SuppressWarnings("unchecked")
             ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
 
@@ -127,19 +133,22 @@ public class PythonIdentityService {
     /**
      * 단계 진행 평가
      */
-    public Map<String, Object> assessStageProgress(String conversationHistory, String currentStage) {
+    public Map<String, Object> assessStageProgress(String conversationHistory, String currentStage, String userId) {
         try {
             String url = pythonAiServiceUrl + "/api/identity/progress";
-            
+
             Map<String, String> requestBody = new HashMap<>();
             requestBody.put("conversationHistory", conversationHistory);
             requestBody.put("currentStage", currentStage);
+            if (userId != null) {
+                requestBody.put("userId", userId);
+            }
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<Map<String, String>> request = new HttpEntity<>(requestBody, headers);
 
-            log.debug("단계 진행 평가 요청: {}", url);
+            log.debug("단계 진행 평가 요청: {} (userId: {})", url, userId);
             @SuppressWarnings("unchecked")
             ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
 

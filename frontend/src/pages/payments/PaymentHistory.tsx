@@ -125,7 +125,7 @@ export default function PaymentHistoryPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <button
-                onClick={() => navigate('/mypage')}
+                onClick={() => navigate('/profile/dashboard')}
                 className="text-gray-600 hover:text-gray-800 transition-colors"
               >
                 <i className="ri-arrow-left-line text-xl mr-2"></i>
