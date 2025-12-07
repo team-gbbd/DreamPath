@@ -41,6 +41,9 @@ from routers.bigfive_router import router as bigfive_router
 from routers.mbti_router import router as mbti_router
 from routers.personality_profile_router import router as personality_profile_router
 from routers.chatbot_router import router as chatbot_router
+from routers.chatbotassistant_router import router as chatbotassistant_router
+from routers.faq_router import router as faq_router
+from routers.inquiry_router import router as inquiry_router
 
 # ====== Services ======
 from services.common.openai_client import OpenAIService as OpenAIServiceDev
@@ -112,7 +115,10 @@ app.include_router(user_embedding_router, prefix="/embedding", tags=["embedding"
 app.include_router(bigfive_router, prefix="/api")
 app.include_router(personality_profile_router, prefix="/api")
 app.include_router(mbti_router, prefix='/api')
-app.include_router(chatbot_router)            # 챗봇/FAQ/문의 API
+app.include_router(chatbot_router)            # 챗봇 API (비회원용)
+app.include_router(chatbotassistant_router)   # 챗봇 비서 API (회원용)
+app.include_router(faq_router)                # FAQ API
+app.include_router(inquiry_router)            # 문의 API
 
 
 # =========================================
