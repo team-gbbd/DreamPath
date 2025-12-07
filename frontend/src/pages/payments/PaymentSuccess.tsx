@@ -171,11 +171,11 @@ export default function PaymentSuccessPage() {
             {/* Action Buttons */}
             <div className="space-y-3">
               <button
-                onClick={() => navigate('/mypage')}
+                onClick={() => navigate('/profile/dashboard')}
                 className="w-full bg-pink-500 text-white py-3 rounded-lg font-bold hover:bg-pink-600 transition-colors"
               >
                 <i className="ri-user-line mr-2"></i>
-                마이페이지로 이동
+                프로파일링 대시보드로 이동
               </button>
 
               <button

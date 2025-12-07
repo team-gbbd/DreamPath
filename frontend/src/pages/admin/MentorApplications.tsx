@@ -198,11 +198,11 @@ export default function MentorApplicationsPage() {
           {/* Back Button & Title */}
           <div className="mb-6">
             <button
-              onClick={() => navigate('/mypage')}
+              onClick={() => navigate('/profile/dashboard')}
               className="mb-4 text-gray-600 hover:text-gray-900 transition-colors flex items-center"
             >
               <i className="ri-arrow-left-line text-xl mr-1"></i>
-              <span className="text-sm font-medium">관리자 마이페이지로</span>
+              <span className="text-sm font-medium">프로파일링 대시보드로</span>
             </button>
 
             <div className="flex items-center gap-3">

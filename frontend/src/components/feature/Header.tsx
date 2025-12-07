@@ -34,99 +34,99 @@ export default function Header() {
 
   const navItems = [
     { name: '진로 상담', href: '/career-chat', isRoute: true },
-    { name: '채용 추천', href: '/job-recommendations', isRoute: true, isDev: true },
+    { name: '채용 추천', href: '/job-recommendations', isRoute: true },
     { name: '멘토링', href: '/mentoring', isRoute: true, requiresAuth: true }
   ];
 
   return (
     <>
-    <ToastContainer />
-    <header className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-b border-gray-100 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center space-x-3 cursor-pointer">
-            <img
-              src="https://static.readdy.ai/image/b6e15883c9875312b01889a8e71bf8cf/ccfcaec324d8c4883819f9f330e8ceab.png"
-              alt="DreamPath Logo"
-              className="h-10 w-10"
-            />
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] bg-clip-text text-transparent">
-              DreamPath
-            </h1>
-          </Link>
+      <ToastContainer />
+      <header className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-b border-gray-100 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo */}
+            <Link to="/" className="flex items-center space-x-3 cursor-pointer">
+              <img
+                src="https://static.readdy.ai/image/b6e15883c9875312b01889a8e71bf8cf/ccfcaec324d8c4883819f9f330e8ceab.png"
+                alt="DreamPath Logo"
+                className="h-10 w-10"
+              />
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] bg-clip-text text-transparent">
+                DreamPath
+              </h1>
+            </Link>
 
-          {/* Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
-            {navItems.map((item) => (
-              item.isRoute ? (
-                item.requiresAuth && !currentUser ? (
-                  <button
+            {/* Navigation */}
+            <nav className="hidden md:flex items-center space-x-8">
+              {navItems.map((item) => (
+                item.isRoute ? (
+                  item.requiresAuth && !currentUser ? (
+                    <button
+                      key={item.name}
+                      onClick={() => {
+                        showToast('로그인이 필요합니다.', 'warning');
+                        navigate('/login');
+                      }}
+                      className="text-gray-700 hover:text-[#5A7BFF] transition-colors duration-200 font-medium"
+                    >
+                      {item.name}
+                    </button>
+                  ) : (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      className={item.isDev
+                        ? "text-blue-600 hover:text-blue-700 transition-colors duration-200 font-semibold"
+                        : "text-gray-700 hover:text-[#5A7BFF] transition-colors duration-200 font-medium"
+                      }
+                    >
+                      {item.name}
+                    </Link>
+                  )
+                ) : (
+                  <a
                     key={item.name}
-                    onClick={() => {
-                      showToast('로그인이 필요합니다.', 'warning');
-                      navigate('/login');
-                    }}
+                    href={item.href}
                     className="text-gray-700 hover:text-[#5A7BFF] transition-colors duration-200 font-medium"
                   >
                     {item.name}
-                  </button>
-                ) : (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    className={item.isDev
-                      ? "text-blue-600 hover:text-blue-700 transition-colors duration-200 font-semibold"
-                      : "text-gray-700 hover:text-[#5A7BFF] transition-colors duration-200 font-medium"
-                    }
-                  >
-                    {item.name}
-                  </Link>
+                  </a>
                 )
-              ) : (
-                <a
-                  key={item.name}
-                  href={item.href}
-                  className="text-gray-700 hover:text-[#5A7BFF] transition-colors duration-200 font-medium"
-                >
-                  {item.name}
-                </a>
-              )
-            ))}
-          </nav>
+              ))}
+            </nav>
 
-          {/* User Actions */}
-          <div className="flex items-center space-x-4">
-            {currentUser ? (
-              <>
-                <Link to="/profile/dashboard">
-                  <Button variant="secondary" size="sm">
-                    <i className="ri-user-line mr-1"></i>
-                    마이페이지
+            {/* User Actions */}
+            <div className="flex items-center space-x-4">
+              {currentUser ? (
+                <>
+                  <Link to="/profile/dashboard">
+                    <Button variant="secondary" size="sm">
+                      <i className="ri-user-line mr-1"></i>
+                      프로파일링
+                    </Button>
+                  </Link>
+                  <Button size="sm" onClick={handleLogout}>
+                    로그아웃
+                  </Button>
+                </>
+              ) : (
+                <Link to="/login">
+                  <Button size="sm">
+                    로그인하기
                   </Button>
                 </Link>
-                <Button size="sm" onClick={handleLogout}>
-                  로그아웃
-                </Button>
-              </>
-            ) : (
-              <Link to="/login">
-                <Button size="sm">
-                  로그인하기
-                </Button>
-              </Link>
-            )}
-          </div>
+              )}
+            </div>
 
-          {/* Mobile menu button */}
-          <div className="md:hidden">
-            <button className="text-gray-700 hover:text-[#5A7BFF] p-2">
-              <i className="ri-menu-line text-xl"></i>
-            </button>
+            {/* Mobile menu button */}
+            <div className="md:hidden">
+              <button className="text-gray-700 hover:text-[#5A7BFF] p-2">
+                <i className="ri-menu-line text-xl"></i>
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    </header>
+      </header>
     </>
   );
 }

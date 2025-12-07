@@ -152,21 +152,17 @@ public class CareerChatService {
 
     @Transactional
     public CareerSession getOrCreateSession(String sessionId, String userId) {
-        if (sessionId != null) {
-            CareerSession existingSession = sessionRepository.findBySessionId(sessionId)
-                    .orElse(null);
-
-            if (existingSession != null) {
-                // 기존 세션이 userId가 없고, 새로 받은 userId가 있다면 업데이트
-                if (existingSession.getUserId() == null && userId != null && !userId.isEmpty()) {
-                    log.info("기존 세션에 userId 업데이트 - 세션: {}, userId: {}", sessionId, userId);
-                    existingSession.setUserId(userId);
-                    return sessionRepository.save(existingSession);
-                }
-                return existingSession;
-            }
-            return createNewSession(userId);
+        if (sessionId != null && !sessionId.isBlank()) {
+            return sessionRepository.findBySessionId(sessionId)
+                    .orElseGet(() -> createNewSession(userId));
         }
+
+        if (userId != null && !userId.isBlank()) {
+            return sessionRepository
+                    .findFirstByUserIdAndStatusOrderByUpdatedAtDesc(userId, CareerSession.SessionStatus.ACTIVE)
+                    .orElseGet(() -> createNewSession(userId));
+        }
+
         return createNewSession(userId);
     }
 
@@ -419,4 +415,3 @@ public class CareerChatService {
         }
     }
 }
-

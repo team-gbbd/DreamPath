@@ -26,7 +26,6 @@ const AIAgentDashboardPage = lazy(() => import("../pages/ai-agent/Dashboard"));
 const CompanyListPage = lazy(() => import("../pages/company/CompanyListPage"));
 const CompanyDetailPage = lazy(() => import("../pages/company/CompanyDetailPage"));
 const CrawlerPage = lazy(() => import("../pages/admin/CrawlerPage"));
-const MyPage = lazy(() => import("../pages/mypage/page"));
 const MentorApplyPage = lazy(() => import("../pages/mentors/MentorApply"));
 const AdminDashboardPage = lazy(() => import("../pages/admin/AdminDashboard"));
 const MentorApplicationsPage = lazy(() => import("../pages/admin/MentorApplications"));
@@ -181,10 +180,6 @@ const routes: RouteObject[] = [
   /* ----------------------
      MYPAGE
      ---------------------- */
-  {
-    path: "/mypage",
-    element: <MyPage />,
-  },
   {
     path: "/mypage/bookings",
     element: <MyBookingsPage />,

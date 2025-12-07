@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   LayoutGrid, MessageSquare, Bell, User, Settings, LogOut,
   Sun, Moon, Search, BookOpen, GraduationCap, Briefcase, Map, FileText,
-  PieChart, Heart, Target, ChevronRight, Menu
+  PieChart, Heart, Target, ChevronRight, Menu, X, Send, Check, AlertCircle
 } from 'lucide-react';
 import Button from '../../components/base/Button';
 import { useToast } from '../../components/common/Toast';
@@ -193,13 +193,38 @@ const ProgressBar = ({ label, value, color = 'bg-indigo-500' }: ProgressBarProps
   );
 };
 
+// 날짜 포맷 함수
+const formatDate = (dateStr: string | undefined): string => {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '-';
+  return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`;
+};
+
 export default function NewDashboard() {
   const navigate = useNavigate();
   const { showToast, ToastContainer } = useToast();
   const [darkMode, setDarkMode] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [currentUser, setCurrentUser] = useState<{ name: string } | null>(null);
+  const [showMentorModal, setShowMentorModal] = useState(false);
+
+  // Mentor application form state
+  const [company, setCompany] = useState('');
+  const [job, setJob] = useState('');
+  const [yearsOfExperience, setYearsOfExperience] = useState('');
+  const [mentorBio, setMentorBio] = useState('');
+  const [mentorCareer, setMentorCareer] = useState('');
+  const [currentUser, setCurrentUser] = useState<{
+    userId?: number;
+    username?: string;
+    name?: string;
+    email?: string;
+    phone?: string;
+    birth?: string;
+    createdAt?: string;
+    role?: string;
+  } | null>(null);
 
   // --- Dashboard Logic State ---
   const [userId, setUserId] = useState<number | null>(null);
@@ -361,7 +386,7 @@ export default function NewDashboard() {
     if (!personalityJson) return null;
     const traitSource =
       (personalityJson as Record<string, unknown>).traits &&
-      typeof (personalityJson as Record<string, unknown>).traits === 'object'
+        typeof (personalityJson as Record<string, unknown>).traits === 'object'
         ? ((personalityJson as Record<string, unknown>).traits as Record<string, unknown>)
         : personalityJson;
 
@@ -748,6 +773,227 @@ export default function NewDashboard() {
     </div>
   );
 
+  const renderLearningSection = () => (
+    <div className="space-y-6">
+      {/* Learning Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* 학습 진행률 */}
+        <div className={styles['glass-card']}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl flex items-center justify-center">
+              <PieChart size={20} className="text-blue-600" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-700">학습 진행률</h3>
+          </div>
+          <p className="text-3xl font-bold text-blue-600 mb-1">0%</p>
+        </div>
+
+        {/* 완료한 주차 */}
+        <div className={styles['glass-card']}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-green-200 rounded-xl flex items-center justify-center">
+              <BookOpen size={20} className="text-green-600" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-700">완료한 주차</h3>
+          </div>
+          <p className="text-3xl font-bold text-green-600 mb-1">0주</p>
+        </div>
+
+        {/* 멘토링 잔여 */}
+        <div className={styles['glass-card']}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl flex items-center justify-center">
+              <MessageSquare size={20} className="text-purple-600" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-700">멘토링 잔여</h3>
+          </div>
+          <p className="text-3xl font-bold text-purple-600 mb-1">0회</p>
+        </div>
+      </div>
+
+      {/* Learning Roadmap */}
+      <div className={styles['glass-card']}>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-pink-500 rounded-xl flex items-center justify-center">
+            <BookOpen size={24} className="text-white" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-slate-800">학습 로드맵</h3>
+            <p className="text-sm text-slate-500">주차별 학습 현황</p>
+          </div>
+        </div>
+
+        <div className="flex flex-col items-center justify-center py-12">
+          <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
+            <FileText size={32} className="text-slate-400" />
+          </div>
+          <p className="text-slate-600 text-sm mb-6">아직 시작한 학습 경로가 없습니다</p>
+          <button onClick={() => setActiveTab('roadmap')} className="px-6 py-3 bg-gradient-to-r from-pink-400 to-pink-500 text-white rounded-xl text-sm font-bold hover:opacity-90 transition-opacity shadow-lg">
+            학습 시작하기
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderMentoringSection = () => (
+    <div className="space-y-6">
+      {/* Mentoring Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* 진여 횟수 */}
+        <div className={styles['glass-card']}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-yellow-100 to-yellow-200 rounded-xl flex items-center justify-center">
+              <MessageSquare size={20} className="text-yellow-600" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-700">진여 횟수</h3>
+          </div>
+          <p className="text-3xl font-bold text-yellow-600 mb-1">0회</p>
+        </div>
+
+        {/* 멘토 찾기 */}
+        <div className={styles['glass-card']}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl flex items-center justify-center">
+              <Search size={20} className="text-purple-600" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-700">멘토 찾기</h3>
+          </div>
+          <button onClick={() => navigate('/mentoring')} className="text-sm text-purple-600 font-semibold hover:underline">
+            세션 둘러보기
+          </button>
+        </div>
+
+        {/* 내 예약 */}
+        <div className={styles['glass-card']}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-pink-100 to-pink-200 rounded-xl flex items-center justify-center">
+              <Heart size={20} className="text-pink-600" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-700">내 예약</h3>
+          </div>
+          <p className="text-3xl font-bold text-pink-600 mb-1">0건</p>
+        </div>
+      </div>
+
+      {/* My Reservations */}
+      <div className={styles['glass-card']}>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-pink-500 rounded-xl flex items-center justify-center">
+            <Heart size={24} className="text-white" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-slate-800">나의 예약</h3>
+            <p className="text-sm text-slate-500">예약한 멘토링 세션</p>
+          </div>
+        </div>
+
+        <div className="flex flex-col items-center justify-center py-12">
+          <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
+            <Heart size={32} className="text-slate-400" />
+          </div>
+          <p className="text-slate-600 text-sm mb-6">예약한 세션이 없습니다</p>
+          <button onClick={() => navigate('/mentoring')} className="px-6 py-3 bg-gradient-to-r from-pink-400 to-pink-500 text-white rounded-xl text-sm font-bold hover:opacity-90 transition-opacity shadow-lg">
+            세션 찾아보기
+          </button>
+        </div>
+      </div>
+
+      {/* Become a Mentor CTA */}
+      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+        <div className="relative z-10 flex flex-col items-center text-center">
+          <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4">
+            <User size={32} className="text-white" />
+          </div>
+          <h3 className="text-2xl font-bold mb-2">멘토가 되어보세요!</h3>
+          <p className="text-purple-100 mb-6 max-w-md">
+            후배들의 성장을 도와주실 멘토를 모집합니다.
+          </p>
+          <button onClick={() => setShowMentorModal(true)} className="px-6 py-3 bg-white text-purple-600 rounded-xl text-sm font-bold hover:bg-purple-50 transition-colors shadow-lg">
+            멘토 신청하기
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderSettingsSection = () => (
+    <div className="space-y-6">
+      <div className={styles['glass-card']}>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-pink-500 rounded-xl flex items-center justify-center">
+              <Settings size={24} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-800">계정 정보</h2>
+              <p className="text-sm text-slate-500">개인정보 확인 및 관리</p>
+            </div>
+          </div>
+          <button disabled className="px-4 py-2 text-sm text-pink-600 hover:text-pink-700 disabled:text-gray-400 disabled:cursor-not-allowed flex items-center gap-1">
+            <FileText size={16} />
+            수정하기
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* 이름 */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <p className="text-xs text-gray-500 mb-1">이름</p>
+            <p className="text-sm font-medium text-gray-900">{currentUser?.name || '-'}</p>
+          </div>
+
+          {/* 아이디 */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <p className="text-xs text-gray-500 mb-1">아이디</p>
+            <p className="text-sm font-medium text-gray-900">{currentUser?.username || '-'}</p>
+          </div>
+
+          {/* 이메일 */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <p className="text-xs text-gray-500 mb-1">이메일</p>
+            <p className="text-sm font-medium text-gray-900">{currentUser?.email || '-'}</p>
+          </div>
+
+          {/* 전화번호 */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <p className="text-xs text-gray-500 mb-1">전화번호</p>
+            <p className="text-sm font-medium text-gray-900">{currentUser?.phone || '-'}</p>
+          </div>
+
+          {/* 생년월일 */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <p className="text-xs text-gray-500 mb-1">생년월일</p>
+            <p className="text-sm font-medium text-gray-900">{formatDate(currentUser?.birth)}</p>
+          </div>
+
+          {/* 가입일 */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <p className="text-xs text-gray-500 mb-1">가입일</p>
+            <p className="text-sm font-medium text-gray-900">{formatDate(currentUser?.createdAt)}</p>
+          </div>
+
+          {/* 계정 상태 */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <p className="text-xs text-gray-500 mb-1">계정 상태</p>
+            <span className="text-xs px-2 py-1 rounded bg-emerald-50 text-emerald-600">
+              활성
+            </span>
+          </div>
+
+          {/* 역할 */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <p className="text-xs text-gray-500 mb-1">역할</p>
+            <span className="text-xs px-2 py-1 rounded bg-pink-50 text-pink-600">
+              {currentUser?.role === 'MENTOR' ? '멘토' : currentUser?.role === 'ADMIN' ? '관리자' : '학생'}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const navItems = [
     { name: '진로 상담', href: '/career-chat', isRoute: true },
     { name: '채용 추천', href: '/job-recommendations', isRoute: true, isDev: true },
@@ -817,10 +1063,10 @@ export default function NewDashboard() {
             <div className="flex items-center space-x-4">
               {currentUser ? (
                 <>
-                  <Link to="/mypage">
+                  <Link to="/profile/dashboard">
                     <Button variant="secondary" size="sm">
                       <i className="ri-user-line mr-1"></i>
-                      마이페이지
+                      프로파일링
                     </Button>
                   </Link>
                   <Button size="sm" onClick={handleLogout}>
@@ -1013,6 +1259,9 @@ export default function NewDashboard() {
                         <p className="text-gray-600">로드맵 생성 기능은 준비 중입니다.</p>
                       </div>
                     )}
+                    {activeTab === 'learning' && renderLearningSection()}
+                    {activeTab === 'mentoring' && renderMentoringSection()}
+                    {activeTab === 'settings' && renderSettingsSection()}
                   </>
                 )}
               </div>
@@ -1020,6 +1269,170 @@ export default function NewDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Mentor Application Modal */}
+      {showMentorModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowMentorModal(false)}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+          <div className="relative bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-8 py-6 rounded-t-3xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-800">멘토 신청하기</h2>
+                  <p className="text-sm text-slate-500 mt-1">후배들의 성장을 도와주세요</p>
+                </div>
+                <button onClick={() => setShowMentorModal(false)} className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
+                  <X size={20} className="text-slate-600" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="px-8 py-6 space-y-6">
+              {/* Company Info Section */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <div className="flex items-center mb-4">
+                  <Briefcase size={24} className="text-pink-500 mr-2" />
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800">회사 정보</h3>
+                    <p className="text-sm text-gray-600">현재 재직 중인 회사와 직업을 입력해주세요</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {/* 회사명 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      회사명 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={company}
+                      onChange={(e) => setCompany(e.target.value)}
+                      className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-pink-500 focus:outline-none transition-colors"
+                      placeholder="예) 카카오"
+                    />
+                  </div>
+
+                  {/* 직업 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      직업 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={job}
+                      onChange={(e) => setJob(e.target.value)}
+                      className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-pink-500 focus:outline-none transition-colors"
+                      placeholder="예) 백엔드 개발자"
+                    />
+                  </div>
+
+                  {/* 경력 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      경력 <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={yearsOfExperience}
+                        onChange={(e) => setYearsOfExperience(e.target.value)}
+                        className="flex-1 p-3 border-2 border-gray-200 rounded-lg focus:border-pink-500 focus:outline-none transition-colors"
+                        placeholder="예) 3"
+                        min="1"
+                        max="50"
+                      />
+                      <span className="text-gray-700 font-medium">년</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bio Section */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <div className="flex items-center mb-4">
+                  <FileText size={24} className="text-pink-500 mr-2" />
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800">자기소개</h3>
+                    <p className="text-sm text-gray-600">전문 분야와 멘토링 철학을 소개해주세요 (최소 50자)</p>
+                  </div>
+                </div>
+                <textarea
+                  value={mentorBio}
+                  onChange={(e) => setMentorBio(e.target.value)}
+                  className="w-full h-40 p-4 border-2 border-gray-200 rounded-lg focus:border-pink-500 focus:outline-none resize-none transition-colors"
+                  placeholder="예시) 저는 10년 경력의 백엔드 개발자로, Spring Boot와 MSA 아키텍처에 전문성을 갖추고 있습니다. 실무 경험을 바탕으로 후배 개발자들이 올바른 방향으로 성장할 수 있도록 돕고 싶습니다."
+                />
+                <div className="flex justify-between items-center mt-2">
+                  <p className={`text-sm ${mentorBio.length >= 50 ? 'text-green-600' : 'text-gray-500'}`}>
+                    {mentorBio.length} / 50자 이상
+                  </p>
+                  {mentorBio.length >= 50 && (
+                    <Check size={20} className="text-green-500" />
+                  )}
+                </div>
+              </div>
+
+              {/* Career Section */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <div className="flex items-center mb-4">
+                  <Briefcase size={24} className="text-pink-500 mr-2" />
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800">경력 사항</h3>
+                    <p className="text-sm text-gray-600">주요 경력과 프로젝트 경험을 작성해주세요 (최소 20자)</p>
+                  </div>
+                </div>
+                <textarea
+                  value={mentorCareer}
+                  onChange={(e) => setMentorCareer(e.target.value)}
+                  className="w-full h-40 p-4 border-2 border-gray-200 rounded-lg focus:border-pink-500 focus:outline-none resize-none transition-colors"
+                  placeholder="예시) • 삼성전자 SW 센터 (2015-2020): 대규모 분산 시스템 설계 및 개발&#10;• 네이버 검색 개발팀 (2020-현재): 검색 엔진 최적화 및 성능 개선&#10;• 주요 기술: Java, Spring Boot, Kubernetes, Redis, Kafka"
+                />
+                <div className="flex justify-between items-center mt-2">
+                  <p className={`text-sm ${mentorCareer.length >= 20 ? 'text-green-600' : 'text-gray-500'}`}>
+                    {mentorCareer.length} / 20자 이상
+                  </p>
+                  {mentorCareer.length >= 20 && (
+                    <Check size={20} className="text-green-500" />
+                  )}
+                </div>
+              </div>
+
+              {/* Info Notice */}
+              <div className="bg-blue-50 rounded-lg p-5 border-2 border-blue-200">
+                <div className="flex items-start">
+                  <AlertCircle size={24} className="text-blue-500 mr-3 mt-0.5" />
+                  <div>
+                    <h3 className="font-bold text-gray-800 mb-1">멘토링 일정 등록 안내</h3>
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      멘토 신청이 승인되면, <span className="font-bold text-pink-600">/mentoring 페이지</span>에서
+                      멘토링 가능 시간을 등록하실 수 있습니다.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="sticky bottom-0 bg-white border-t-2 border-pink-300 px-8 py-6 rounded-b-3xl">
+              <div className="flex gap-4">
+                <button onClick={() => setShowMentorModal(false)} className="flex-1 bg-gray-200 text-gray-700 py-4 rounded-lg font-bold hover:bg-gray-300 transition-colors">
+                  취소
+                </button>
+                <button
+                  disabled={!company || !job || !yearsOfExperience || mentorBio.length < 50 || mentorCareer.length < 20}
+                  className="flex-1 bg-pink-500 text-white py-4 rounded-lg font-bold hover:bg-pink-600 transition-colors disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed shadow-lg flex items-center justify-center gap-2"
+                >
+                  <Send size={20} />
+                  멘토 신청하기
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </>
   );

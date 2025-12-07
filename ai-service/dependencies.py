@@ -20,6 +20,13 @@ _job_site_service = None
 _web_crawler_service = None
 _database_service = None
 
+def get_db() -> DatabaseService:
+    """요청 단위 DB 세션 제공"""
+    db = DatabaseService()
+    try:
+        yield db
+    finally:
+        db.cleanup()
 
 def get_openai_service() -> OpenAIService:
     """OpenAI 서비스 인스턴스 반환"""
@@ -91,4 +98,3 @@ def get_database_service() -> DatabaseService:
     if _database_service is None:
         _database_service = DatabaseService()
     return _database_service
-

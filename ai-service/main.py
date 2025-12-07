@@ -1,20 +1,14 @@
 """
 DreamPath Career Analysis AI Service
-Python FastAPI Microservice v1.2
+Python FastAPI Microservice
 """
 
 import os
 import logging
-from pathlib import Path
 from dotenv import load_dotenv
 
 # 환경변수를 먼저 로드 (다른 모듈 import 전에 반드시 실행)
-# 1. 루트 .env 로드 (메일 설정 등)
-root_env = Path(__file__).parent.parent / ".env"
-load_dotenv(root_env)
-
-# 2. ai-service/.env 로드 (AI 서비스 전용 설정, 덮어쓰기 방지)
-load_dotenv(override=False)
+load_dotenv()
 
 # 로깅 설정 (에이전트 로그 표시용)
 logging.basicConfig(
@@ -39,15 +33,14 @@ from scheduler import start_scheduler, stop_scheduler
 from routers.vector_router import router as vector_router
 from routers.rag_router import router as rag_router
 from routers.profile_match_router import router as profile_match_router
+from routers.qnet import router as qnet_router
+from routers.job_agent import router as job_agent_router
 from routers.user_document import router as user_document_router
 from routers.user_embedding import router as user_embedding_router
 from routers.bigfive_router import router as bigfive_router
 from routers.mbti_router import router as mbti_router
 from routers.personality_profile_router import router as personality_profile_router
 from routers.chatbot_router import router as chatbot_router
-from routers.faq_router import router as faq_router
-from routers.inquiry_router import router as inquiry_router
-from routers.chatbotassistant_router import router as chatbotassistant_router
 
 # ====== Services ======
 from services.common.openai_client import OpenAIService as OpenAIServiceDev
@@ -112,15 +105,14 @@ app.include_router(api_router)              # 기존 chat, analysis, identity, j
 app.include_router(vector_router, prefix="/api")
 app.include_router(rag_router)
 app.include_router(profile_match_router, prefix="/api")
+app.include_router(qnet_router)             # Q-net 자격증 API
+app.include_router(job_agent_router)        # 채용공고 AI 에이전트 API
 app.include_router(user_document_router, prefix="/analysis", tags=["analysis"])
 app.include_router(user_embedding_router, prefix="/embedding", tags=["embedding"])
 app.include_router(bigfive_router, prefix="/api")
 app.include_router(personality_profile_router, prefix="/api")
 app.include_router(mbti_router, prefix='/api')
-app.include_router(chatbot_router)
-app.include_router(faq_router)
-app.include_router(inquiry_router)
-app.include_router(chatbotassistant_router)
+app.include_router(chatbot_router)            # 챗봇/FAQ/문의 API
 
 
 # =========================================
@@ -140,7 +132,6 @@ question_generator = QuestionGeneratorService() if api_key else None
 answer_evaluator = AnswerEvaluatorService() if api_key else None
 code_executor = CodeExecutorService()
 
-# Supabase 환경변수가 있을 때만 초기화
 try:
     recommend_service = RecommendService()
     hybrid_recommender = HybridRecommendService()
@@ -148,7 +139,6 @@ except Exception as e:
     print(f"RecommendService 초기화 실패 (SUPABASE 환경변수 확인): {e}")
     recommend_service = None
     hybrid_recommender = None
-
 
 # =========================================
 # Basic Endpoints
@@ -471,7 +461,7 @@ async def recommend_hybrid_jobs(payload: dict):
     """
     vector_id = payload.get("vectorId")
     top_k = payload.get("topK", 20)
-
+    
     if not vector_id:
         raise HTTPException(status_code=400, detail="vectorId 필요")
 

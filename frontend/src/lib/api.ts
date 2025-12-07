@@ -84,7 +84,7 @@ export const analysisService = {
 
 // Python AI Service URL (채용 정보 크롤링용)
 export const PYTHON_AI_SERVICE_URL =
-  import.meta.env.VITE_PYTHON_AI_SERVICE_URL || "http://localhost:8000";
+  import.meta.env.VITE_AI_SERVICE_URL || "http://localhost:8000";
 
 export const pythonApi = axios.create({
   baseURL: PYTHON_AI_SERVICE_URL,
@@ -317,6 +317,24 @@ export const jobRecommendationService = {
     const response = await pythonApi.post("/api/agent/job-recommendations/realtime", {
       userId,
       careerKeywords,
+      limit,
+    });
+    return response.data;
+  },
+
+  // 기술/자격증 포함 추천
+  getRecommendationsWithRequirements: async (
+    userId: number,
+    careerAnalysis: any,
+    userProfile?: any,
+    userSkills?: string[],
+    limit: number = 15
+  ) => {
+    const response = await pythonApi.post("/api/agent/job-recommendations/with-requirements", {
+      userId,
+      careerAnalysis,
+      userProfile,
+      userSkills,
       limit,
     });
     return response.data;
