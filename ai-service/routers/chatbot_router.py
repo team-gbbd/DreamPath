@@ -19,10 +19,16 @@ from dependencies import get_db
 
 router = APIRouter(prefix="/api/chat-rag", tags=["chatbot"])
 
-# 서비스 인스턴스
+# 서비스 인스턴스 (싱글톤)
 embedding_service = RagEmbeddingService()
 search_service = RagSearchService()
 answer_service = RagAnswerService()
+db_service = DatabaseService()
+
+
+def get_db():
+    """데이터베이스 서비스 의존성 (싱글톤 인스턴스 재사용)"""
+    return db_service
 
 
 # ============ Chat RAG API ============

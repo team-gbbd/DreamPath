@@ -16,8 +16,14 @@ from dependencies import get_db
 
 router = APIRouter(prefix="/api/inquiry", tags=["inquiry"])
 
-# 서비스 인스턴스
+# 서비스 인스턴스 (싱글톤)
 email_service = EmailService()
+db_service = DatabaseService()
+
+def get_db():
+    """데이터베이스 서비스 의존성 (싱글톤 인스턴스 재사용)"""
+    return db_service
+
 
 # ============ Inquiry API ============
 
