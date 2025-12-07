@@ -64,21 +64,25 @@ AI 정체성 인사이트:
         return f"""
 [직업백과 직업 정보]
 
-직업명: {job.get("jobNm", "")}
+직업명: {job.get("jobName", "")}
+
 하는 일:
 {job.get("jobDesc", "")}
 
-작업 환경:
-{job.get("workEnv", "")}
+적성 및 흥미:
+{job.get("aptitude", "")}
 
-필요 능력:
-{job.get("abilities", "")}
+핵심 능력:
+{job.get("ability", "")}
 
-관련 전공:
-{job.get("relatedMajors", "")}
+일-생활 균형(워라밸):
+{job.get("wlb", "")}
 
-관련 자격증:
-{job.get("licenses", "")}
+평균 연봉:
+{job.get("wage", "")}
+
+관련 직업:
+{job.get("relatedJob", "")}
         """.strip()
 
     @staticmethod
@@ -89,16 +93,22 @@ AI 정체성 인사이트:
         return f"""
 [학과 정보]
 
-학과명: {dep.get("deptNm", "")}
+학과명: {dep.get("deptName", "")}
 
 전공 설명:
-{dep.get("desc", "")}
+{dep.get("intro", "")}
 
 배우는 과목:
-{dep.get("subjects", "")}
+{dep.get("curriculum", "")}
 
 관련 직업:
 {dep.get("relatedJobs", "")}
+
+취업률:
+{dep.get("employment", "")}
+
+졸업 후 진출 분야:
+{dep.get("enter_field", "")}
         """.strip()
 
     @staticmethod
@@ -168,3 +178,28 @@ AI 정체성 인사이트:
     @staticmethod
     def build_case(data):
         return DocumentTemplate.case_template(data)
+
+    @staticmethod
+    def ncs_ability_template(ncs):
+        """
+        NCS 능력단위 Document Template (Official API)
+        """
+        return f"""
+[NCS 능력단위 정보]
+
+능력단위명: {ncs.get("compeUnitName", "")}
+능력단위수준: {ncs.get("compeUnitLevel", "")}
+
+분류체계:
+대분류: {ncs.get("ncsLclasCdnm", "")}
+중분류: {ncs.get("ncsMclasCdnm", "")}
+소분류: {ncs.get("ncsSclasCdnm", "")}
+세분류: {ncs.get("ncsSubdCdnm", "")}
+
+능력단위정의:
+{ncs.get("compeUnitDef", "")}
+        """.strip()
+
+    @staticmethod
+    def build_ncs_ability(data):
+        return DocumentTemplate.ncs_ability_template(data)

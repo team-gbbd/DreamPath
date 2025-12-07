@@ -8,6 +8,7 @@ from datetime import datetime
 from models.chatbotassistant import AssistantChatRequest, AssistantChatResponse
 from services.chatbot import MemberChatbotService
 from services.database_service import DatabaseService
+from dependencies import get_db
 
 router = APIRouter(prefix="/api/chatbot-assistant", tags=["chatbot-assistant"])
 

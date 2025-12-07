@@ -63,7 +63,7 @@ export default function MentorEditPage() {
 
       if (data.status !== 'APPROVED') {
         alert('승인된 멘토만 프로필을 수정할 수 있습니다.');
-        navigate('/mypage');
+        navigate('/profile/dashboard');
         return;
       }
 
@@ -77,7 +77,7 @@ export default function MentorEditPage() {
       console.error('멘토 정보 로딩 실패:', err);
       if (err.response?.status === 404) {
         alert('멘토 정보를 찾을 수 없습니다.');
-        navigate('/mypage');
+        navigate('/profile/dashboard');
         return;
       }
       setError(err.response?.data || '멘토 정보를 불러오는 중 오류가 발생했습니다.');
@@ -129,7 +129,7 @@ export default function MentorEditPage() {
       });
 
       alert('프로필이 수정되었습니다!');
-      navigate('/mypage');
+      navigate('/profile/dashboard');
     } catch (err: any) {
       console.error('프로필 수정 실패:', err);
       setError(err.response?.data || '프로필 수정 중 오류가 발생했습니다.');
@@ -165,7 +165,7 @@ export default function MentorEditPage() {
               </div>
             </div>
             <button
-              onClick={() => navigate('/mypage')}
+              onClick={() => navigate('/profile/dashboard')}
               className="text-gray-500 hover:text-gray-700 transition-colors"
             >
               <i className="ri-close-line text-2xl"></i>
@@ -287,7 +287,7 @@ export default function MentorEditPage() {
           <div className="flex gap-3">
             <button
               type="button"
-              onClick={() => navigate('/mypage')}
+              onClick={() => navigate('/profile/dashboard')}
               className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-200 transition-colors"
             >
               취소

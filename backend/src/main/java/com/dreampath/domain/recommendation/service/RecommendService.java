@@ -18,6 +18,10 @@ public class RecommendService {
     @Value("${python.recommend.base-url:http://ai-service:8000}")
     private String recommendBaseUrl;
 
+    public List<?> recommendCounsel(String vectorId) {
+        return postForItems("/recommend/counsel", vectorId);
+    }
+
     public List<?> recommendWorknet(String vectorId) {
         return postForItems("/recommend/worknet", vectorId);
     }

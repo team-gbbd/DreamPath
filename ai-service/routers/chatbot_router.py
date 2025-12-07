@@ -15,6 +15,7 @@ from services.chatbot import (
     RagAnswerService,
 )
 from services.database_service import DatabaseService
+from dependencies import get_db
 
 router = APIRouter(prefix="/api/chat-rag", tags=["chatbot"])
 

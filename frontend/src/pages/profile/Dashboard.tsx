@@ -1,39 +1,40 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import DeleteProfileModal from '@/components/profile/DeleteProfileModal';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  LayoutGrid, MessageSquare, Bell, User, Settings, LogOut,
+  Sun, Moon, Search, BookOpen, GraduationCap, Briefcase, Map, FileText,
+  PieChart, Heart, Target, ChevronRight, Menu, X, Send, Check, AlertCircle
+} from 'lucide-react';
+import Button from '../../components/base/Button';
+import { useToast } from '../../components/common/Toast';
+import styles from './dashboard.module.css';
+
+// Dashboard Logic Imports
 import ValuesSummaryCard from '@/components/profile/ValuesSummaryCard';
 import ValueDetailCard from '@/components/profile/ValueDetailCard';
 import HybridJobRecommendPanel from '@/components/profile/HybridJobRecommendPanel';
-import WorknetRecommendPanel from '@/components/profile/WorknetRecommendPanel';
 import MajorRecommendPanel from '@/components/profile/MajorRecommendPanel';
-import SchoolRecommendPanel from '@/components/profile/SchoolRecommendPanel';
-import { API_BASE_URL } from '@/lib/api';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  PolarAngleAxis,
-  PolarGrid,
-  Radar,
-  RadarChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import CounselRecommendPanel from '@/components/profile/CounselRecommendPanel';
+import { BACKEND_BASE_URL, backendApi } from '@/lib/api';
+import { fetchHybridJobs, fetchMajors } from '@/pages/profile/recommendApi';
+import { Bar, BarChart, CartesianGrid, Cell, PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer, Tooltip, XAxis, YAxis, } from 'recharts';
 
+// --- Types & Constants from Dashboard.tsx ---
 const PROFILE_CACHE_KEY = 'dreampath:profile-cache';
 const PROFILE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 type TabKey =
-  | 'overview'
+  | 'dashboard' // mapped from 'overview'
+  | 'profile'   // new
   | 'personality'
   | 'values'
-  | 'jobRecommend'
-  | 'jobHiring'
-  | 'departmentRecommend'
-  | 'schoolRecommend';
+  | 'jobs'      // mapped from 'jobRecommend'
+  | 'majors'    // mapped from 'departmentRecommend'
+  | 'roadmap'   // new
+  | 'counsel'   // mapped from 'counselCase'
+  | 'learning'
+  | 'mentoring'
+  | 'settings';
 
 interface ProfileData {
   profileId?: number;
@@ -57,6 +58,40 @@ interface FetchOptions {
   signal?: AbortSignal;
 }
 
+const traitLabels: Record<string, string> = {
+  openness: '개방성',
+  conscientiousness: '성실성',
+  stability: '정서 안정성',
+  agreeableness: '우호성',
+  extraversion: '외향성',
+};
+
+const valueLabels: Record<string, string> = {
+  creativity: '창의성',
+  growth: '성장 지향',
+  security: '안정성',
+};
+
+const MBTI_DETAILS: Record<string, { title: string; description: string; }> = {
+  ESTJ: { title: '체계적인 리더', description: '명확한 목표와 조직적인 실행을 중시하는 유형입니다.' },
+  ENTJ: { title: '전략가 리더', description: '비전을 세우고 팀을 이끄는 데 강한 능력을 보입니다.' },
+  ENFJ: { title: '공감형 리더', description: '타인의 감정을 이해하고 협업을 이끄는 힘이 있습니다.' },
+  ENFP: { title: '아이디어 메이커', description: '새로운 가능성을 발견하고 사람들에게 영감을 줍니다.' },
+  ESTP: { title: '실행형 모험가', description: '빠르게 상황을 파악하고 과감히 행동합니다.' },
+  ESFP: { title: '에너지 메이커', description: '주변에 활력을 전하며 실용적인 해결책을 찾습니다.' },
+  ESFJ: { title: '협력형 서포터', description: '타인을 돕고 팀워크를 중시합니다.' },
+  ENTP: { title: '창의적 토론가', description: '새로운 관점을 제시하고 논리로 설득합니다.' },
+  ISTJ: { title: '신중한 관리자', description: '책임감 있게 일을 완수하고 안정성을 제공합니다.' },
+  ISFJ: { title: '세심한 보조자', description: '섬세한 관찰력과 헌신으로 신뢰를 줍니다.' },
+  INFJ: { title: '통찰형 조언자', description: '깊은 통찰력으로 의미 있는 방향을 제시합니다.' },
+  INTJ: { title: '전략적 설계자', description: '장기 계획을 세우고 독창적인 방식으로 실행합니다.' },
+  ISTP: { title: '문제 해결사', description: '실용적인 분석과 손재주로 난제를 해결합니다.' },
+  INTP: { title: '이론가', description: '논리적 사고와 분석을 통해 새로운 개념을 탐구합니다.' },
+  INFP: { title: '이상주의자', description: '가치를 중시하며 사람들에게 긍정적인 변화를 촉진합니다.' },
+  ISFP: { title: '감성형 크리에이터', description: '자유롭고 따뜻한 태도로 조화를 추구합니다.' },
+};
+
+// --- Helper Functions ---
 const getStoredUserId = (): number | null => {
   if (typeof window === 'undefined') return null;
   try {
@@ -120,65 +155,6 @@ const removeCachedProfile = (userId: number | null): void => {
   }
 };
 
-const TAB_LIST: Array<{ key: TabKey; label: string }> = [
-  { key: 'overview', label: '전체 개요' },
-  { key: 'personality', label: '성향 분석' },
-  { key: 'values', label: '가치관' },
-  { key: 'jobRecommend', label: '직업 추천' },
-  { key: 'jobHiring', label: '채용 추천' },
-  { key: 'departmentRecommend', label: '학과 추천' },
-  { key: 'schoolRecommend', label: '학교 추천' },
-];
-
-const TAB_DESCRIPTIONS: Record<TabKey, string> = {
-  overview: '핵심 지표와 요약 정보를 통해 현재 분석 상태를 빠르게 확인하세요.',
-  personality: '성격 및 감정 지표를 시각화하여 나의 성향을 파악해보세요.',
-  values: '중요하게 생각하는 가치가 어떤 양상을 보이는지 비교해보세요.',
-  jobRecommend: 'AI 벡터 기반으로 유사도가 높은 직업을 추천받을 수 있습니다.',
-  jobHiring: '현재 채용 중인 공고 데이터를 연동하여 맞춤 채용 정보를 확인할 수 있습니다.',
-  departmentRecommend: '성향과 가치관에 맞는 학과를 탐색하고 진학 전략을 세워보세요.',
-  schoolRecommend: '맞춤형 학교 정보를 확인하고 비교해볼 수 있습니다.',
-};
-
-const traitLabels: Record<string, string> = {
-  openness: '개방성',
-  conscientiousness: '성실성',
-  stability: '정서 안정성',
-  agreeableness: '우호성',
-  extraversion: '외향성',
-};
-
-const valueLabels: Record<string, string> = {
-  creativity: '창의성',
-  growth: '성장 지향',
-  security: '안정성',
-};
-
-const MBTI_DETAILS: Record<
-  string,
-  {
-    title: string;
-    description: string;
-  }
-> = {
-  ESTJ: { title: '체계적인 리더', description: '명확한 목표와 조직적인 실행을 중시하는 유형입니다.' },
-  ENTJ: { title: '전략가 리더', description: '비전을 세우고 팀을 이끄는 데 강한 능력을 보입니다.' },
-  ENFJ: { title: '공감형 리더', description: '타인의 감정을 이해하고 협업을 이끄는 힘이 있습니다.' },
-  ENFP: { title: '아이디어 메이커', description: '새로운 가능성을 발견하고 사람들에게 영감을 줍니다.' },
-  ESTP: { title: '실행형 모험가', description: '빠르게 상황을 파악하고 과감히 행동합니다.' },
-  ESFP: { title: '에너지 메이커', description: '주변에 활력을 전하며 실용적인 해결책을 찾습니다.' },
-  ESFJ: { title: '협력형 서포터', description: '타인을 돕고 팀워크를 중시합니다.' },
-  ENTP: { title: '창의적 토론가', description: '새로운 관점을 제시하고 논리로 설득합니다.' },
-  ISTJ: { title: '신중한 관리자', description: '책임감 있게 일을 완수하고 안정성을 제공합니다.' },
-  ISFJ: { title: '세심한 보조자', description: '섬세한 관찰력과 헌신으로 신뢰를 줍니다.' },
-  INFJ: { title: '통찰형 조언자', description: '깊은 통찰력으로 의미 있는 방향을 제시합니다.' },
-  INTJ: { title: '전략적 설계자', description: '장기 계획을 세우고 독창적인 방식으로 실행합니다.' },
-  ISTP: { title: '문제 해결사', description: '실용적인 분석과 손재주로 난제를 해결합니다.' },
-  INTP: { title: '이론가', description: '논리적 사고와 분석을 통해 새로운 개념을 탐구합니다.' },
-  INFP: { title: '이상주의자', description: '가치를 중시하며 사람들에게 긍정적인 변화를 촉진합니다.' },
-  ISFP: { title: '감성형 크리에이터', description: '자유롭고 따뜻한 태도로 조화를 추구합니다.' },
-};
-
 const getMbtiDetails = (mbti?: string | null) => {
   if (!mbti) return null;
   return MBTI_DETAILS[mbti as keyof typeof MBTI_DETAILS] ?? null;
@@ -217,20 +193,55 @@ const ProgressBar = ({ label, value, color = 'bg-indigo-500' }: ProgressBarProps
   );
 };
 
-const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState<TabKey>(TAB_LIST[0].key);
+// 날짜 포맷 함수
+const formatDate = (dateStr: string | undefined): string => {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '-';
+  return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`;
+};
+
+export default function NewDashboard() {
+  const navigate = useNavigate();
+  const { showToast, ToastContainer } = useToast();
+  const [darkMode, setDarkMode] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [showMentorModal, setShowMentorModal] = useState(false);
+
+  // Mentor application form state
+  const [company, setCompany] = useState('');
+  const [job, setJob] = useState('');
+  const [yearsOfExperience, setYearsOfExperience] = useState('');
+  const [mentorBio, setMentorBio] = useState('');
+  const [mentorCareer, setMentorCareer] = useState('');
+  const [currentUser, setCurrentUser] = useState<{
+    userId?: number;
+    username?: string;
+    name?: string;
+    email?: string;
+    phone?: string;
+    birth?: string;
+    createdAt?: string;
+    role?: string;
+  } | null>(null);
+
+  // --- Dashboard Logic State ---
   const [userId, setUserId] = useState<number | null>(null);
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const navigate = useNavigate();
 
+  // Top Recommendations State for Overview
+  const [topJobs, setTopJobs] = useState<any[]>([]);
+  const [topMajors, setTopMajors] = useState<any[]>([]);
+
+  // --- Data Fetching Logic ---
   const fetchProfileData = useCallback(
     async (targetUserId: number, options: FetchOptions = {}) => {
       const { signal } = options;
-      const response = await fetch(`${API_BASE_URL}/profiles/${targetUserId}`, { signal });
+      const response = await fetch(`${BACKEND_BASE_URL}/api/profiles/${targetUserId}`, { signal });
       if (!response.ok) throw new Error('프로필 정보를 불러오지 못했습니다.');
       return (await response.json()) as ProfileData;
     },
@@ -240,12 +251,55 @@ const Dashboard = () => {
   const fetchAnalysisData = useCallback(
     async (targetUserId: number, options: FetchOptions = {}) => {
       const { signal } = options;
-      const response = await fetch(`${API_BASE_URL}/profiles/${targetUserId}/analysis`, { signal });
+      const response = await fetch(`${BACKEND_BASE_URL}/api/profiles/${targetUserId}/analysis`, { signal });
       if (!response.ok) throw new Error('분석 데이터를 불러오지 못했습니다.');
       return (await response.json()) as AnalysisData;
     },
     [],
   );
+
+  const fetchTopRecommendations = useCallback(async (profileId: number) => {
+    try {
+      // 1. Get Vector ID
+      const statusRes = await backendApi.get(`/vector/status/${profileId}`);
+      if (statusRes.data?.ready && statusRes.data?.vectorId) {
+        const vectorId = statusRes.data.vectorId;
+
+        // 2. Fetch Jobs
+        const jobs = await fetchHybridJobs(vectorId, 3);
+        if (Array.isArray(jobs)) {
+          setTopJobs(jobs.slice(0, 3).map((job: any, index: number) => ({
+            rank: index + 1,
+            title: job.title || job.metadata?.jobName || '직업',
+            match: Math.round((job.score || 0) * 100),
+            tag: job.metadata?.job_category || '직업',
+            color: index === 0 ? 'from-indigo-500 to-indigo-600' : index === 1 ? 'from-purple-500 to-purple-600' : 'from-blue-500 to-blue-600'
+          })));
+        }
+
+        // 3. Fetch Majors
+        const majors = await fetchMajors(vectorId);
+        const majorsList = Array.isArray(majors) ? majors : (majors?.items || []);
+
+        if (Array.isArray(majorsList)) {
+          setTopMajors(majorsList.slice(0, 3).map((major: any, index: number) => ({
+            rank: index + 1,
+            title: major.title
+              || major.metadata?.deptName
+              || major.metadata?.mClass
+              || major.metadata?.majorName
+              || major.metadata?.department
+              || '학과',
+            match: Math.round((major.score || 0) * 100),
+            tag: major.metadata?.lClass || major.metadata?.field || major.metadata?.category || '학과',
+            color: index === 0 ? 'from-green-500 to-green-600' : index === 1 ? 'from-emerald-500 to-emerald-600' : 'from-teal-500 to-teal-600'
+          })));
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch top recommendations", e);
+    }
+  }, []);
 
   const fetchInitialData = useCallback(
     async (targetUserId: number, options: FetchOptions = {}) => {
@@ -256,13 +310,25 @@ const Dashboard = () => {
       setProfileData(profile);
       setCachedProfile(targetUserId, profile);
       setAnalysisData(analysis);
+
+      if (profile.profileId) {
+        fetchTopRecommendations(profile.profileId);
+      }
     },
-    [fetchProfileData, fetchAnalysisData],
+    [fetchProfileData, fetchAnalysisData, fetchTopRecommendations],
   );
 
   useEffect(() => {
     const storedId = getStoredUserId();
     setUserId(storedId);
+
+    // Sync user for header
+    const syncUser = () => {
+      const stored = localStorage.getItem("dreampath:user");
+      setCurrentUser(stored ? JSON.parse(stored) : null);
+    };
+    syncUser();
+
     if (!storedId) {
       setError('유저 정보를 찾을 수 없습니다. 다시 로그인해주세요.');
       setIsLoading(false);
@@ -291,25 +357,81 @@ const Dashboard = () => {
 
     load();
 
-    return () => controller.abort();
+    const authHandler = () => syncUser();
+    const storageHandler = () => syncUser();
+    window.addEventListener("dreampath-auth-change", authHandler as EventListener);
+    window.addEventListener("storage", storageHandler as EventListener);
+
+    return () => {
+      controller.abort();
+      window.removeEventListener("dreampath-auth-change", authHandler as EventListener);
+      window.removeEventListener("storage", storageHandler as EventListener);
+    };
   }, [fetchInitialData]);
 
-  const currentTabLabel = useMemo(() => TAB_LIST.find((tab) => tab.key === activeTab)?.label, [activeTab]);
+  const handleLogout = () => {
+    localStorage.removeItem("dreampath:user");
+    window.dispatchEvent(new Event("dreampath-auth-change"));
+    showToast("로그아웃되었습니다.", "success");
+    navigate("/", { replace: true });
+  };
+
+  // --- Memos for Charts ---
+  const personalityJson = useMemo(
+    () => safeParseJson<Record<string, unknown>>(analysisData?.personality),
+    [analysisData],
+  );
 
   const personalityChartData = useMemo(() => {
-    const personality = safeParseJson<Record<string, number>>(analysisData?.personality);
-    if (!personality) return null;
-    return Object.entries(personality).map(([key, value]) => ({
+    if (!personalityJson) return null;
+    const traitSource =
+      (personalityJson as Record<string, unknown>).traits &&
+        typeof (personalityJson as Record<string, unknown>).traits === 'object'
+        ? ((personalityJson as Record<string, unknown>).traits as Record<string, unknown>)
+        : personalityJson;
+
+    const entries = Object.entries(traitSource).filter(([, value]) => typeof value === 'number');
+    if (!entries.length) return null;
+
+    return entries.map(([key, value]) => ({
       key,
       trait: traitLabels[key] || key,
       score: Number(value) || 0,
     }));
-  }, [analysisData]);
+  }, [personalityJson]);
+
+  const personalityNarrative = useMemo(() => {
+    if (!personalityJson || typeof personalityJson !== 'object') {
+      return null;
+    }
+    const data = personalityJson as Record<string, unknown>;
+    const toStringArray = (input: unknown): string[] =>
+      Array.isArray(input) ? input.filter((item): item is string => typeof item === 'string') : [];
+
+    return {
+      type: typeof data.type === 'string' ? data.type : null,
+      description: typeof data.description === 'string' ? data.description : null,
+      strengths: toStringArray(data.strengths),
+      growthAreas: toStringArray(data.growthAreas),
+    };
+  }, [personalityJson]);
+
+  const valuesJson = useMemo(
+    () => safeParseJson<Record<string, unknown>>(analysisData?.values ?? profileData?.values),
+    [analysisData, profileData],
+  );
 
   const valuesChartData = useMemo(() => {
-    const values = safeParseJson<Record<string, number>>(analysisData?.values ?? profileData?.values);
-    if (!values) return null;
-    return Object.entries(values).map(([key, value]) => ({
+    if (!valuesJson) return null;
+    const valueSource =
+      (valuesJson as Record<string, unknown>).scores && typeof (valuesJson as Record<string, unknown>).scores === 'object'
+        ? ((valuesJson as Record<string, unknown>).scores as Record<string, unknown>)
+        : valuesJson;
+
+    const entries = Object.entries(valueSource).filter(([, value]) => typeof value === 'number');
+    if (!entries.length) return null;
+
+    return entries.map(([key, value]) => ({
       key,
       name: valueLabels[key] || key,
       score: Number(value) || 0,
@@ -322,7 +444,7 @@ const Dashboard = () => {
               ? '#9c27b0'
               : '#f97316',
     }));
-  }, [analysisData, profileData]);
+  }, [valuesJson]);
 
   const emotionJson = useMemo(
     () => safeParseJson<Record<string, number | string>>(analysisData?.emotions ?? profileData?.emotions),
@@ -378,42 +500,138 @@ const Dashboard = () => {
     ];
   }, [analysisData]);
 
+  // --- Render Sections ---
   const renderOverviewSection = () => (
-    <div className="mt-6 space-y-6">
-      <div className="rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3 text-indigo-700">
-        <p className="text-sm font-medium">MBTI</p>
-        <span className="mt-1 inline-flex items-center rounded-full bg-white px-3 py-1 text-lg font-semibold text-indigo-700 shadow">
-          {analysisData?.mbti || '미정'}
-        </span>
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl border p-4">
-          <p className="text-sm text-gray-500">신뢰도</p>
-          <p className="mt-1 text-2xl font-semibold text-indigo-600">
-            {analysisData?.confidenceScore ? `${Math.round(analysisData.confidenceScore * 100)}%` : '-'}
+    <div className="space-y-6">
+      {/* Career Summary Card */}
+      <div className={styles['glass-card']}>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 bg-gradient-to-br from-indigo-100 to-indigo-200 rounded-2xl flex items-center justify-center">
+            <Target size={24} className="text-indigo-600" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-800">나의 진로 요약</h2>
+        </div>
+
+        <div className="mb-5">
+          <p className="text-lg font-bold text-indigo-600 mb-3">
+            {analysisData?.mbti ? `"${analysisData.mbti} 유형의 잠재력을 가진 인재"` : '"분석 중..."'}
+          </p>
+          <p className="text-slate-700 leading-relaxed text-sm">
+            {analysisData?.summary || '요약 정보가 아직 준비되지 않았습니다.'}
           </p>
         </div>
-        <div className="rounded-xl border p-4">
-          <p className="text-sm text-gray-500">최종 업데이트</p>
-          <p className="mt-1 text-lg font-medium text-gray-900">
-            {analysisData?.createdAt ? new Date(analysisData.createdAt).toLocaleString() : '-'}
-          </p>
+
+        <div className="flex gap-3">
+          <button onClick={() => setActiveTab('personality')} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-colors shadow-lg">
+            상세 리포트 보기
+          </button>
+          <button onClick={() => setActiveTab('roadmap')} className="px-5 py-2.5 bg-white/80 text-slate-700 rounded-xl text-sm font-bold hover:bg-white transition-colors border border-slate-200 shadow-sm">
+            로드맵 생성하기
+          </button>
         </div>
       </div>
 
-      <div className="rounded-xl border p-4">
-        <h3 className="text-lg font-semibold text-gray-800">요약</h3>
-        <p className="mt-2 text-gray-600">{emotionJson?.summary || '요약 정보가 아직 준비되지 않았습니다.'}</p>
+      {/* Recommendations Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top 3 Jobs */}
+        <div className={styles['glass-card']}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-100 to-indigo-200 rounded-2xl flex items-center justify-center">
+                <Briefcase size={20} className="text-indigo-600" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-800">추천 직업 TOP 3</h3>
+            </div>
+            <button onClick={() => setActiveTab('jobs')} className="text-slate-400 hover:text-indigo-600">
+              <ChevronRight size={20} />
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {topJobs.length > 0 ? topJobs.map((job) => (
+              <div key={job.rank} className="flex items-center justify-between p-3 rounded-2xl bg-white/20 hover:bg-white/40 transition-all cursor-pointer group border border-white/30">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${job.color} flex items-center justify-center text-white font-bold shadow-lg`}>
+                    {job.rank}
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-800 group-hover:text-indigo-700 text-sm">{job.title}</p>
+                    <p className="text-xs text-slate-500">{job.tag}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-base font-bold text-indigo-600">{job.match}%</span>
+                  <p className="text-[10px] text-slate-500">일치</p>
+                </div>
+              </div>
+            )) : <p className="text-sm text-gray-500 text-center py-4">추천 데이터를 불러오는 중...</p>}
+          </div>
+        </div>
+
+        {/* Top 3 Majors */}
+        <div className={styles['glass-card']}>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-green-200 rounded-2xl flex items-center justify-center">
+                <GraduationCap size={20} className="text-green-600" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-800">추천 학과 TOP 3</h3>
+            </div>
+            <button onClick={() => setActiveTab('majors')} className="text-slate-400 hover:text-green-600">
+              <ChevronRight size={20} />
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {topMajors.length > 0 ? topMajors.map((major) => (
+              <div key={major.rank} className="flex items-center justify-between p-3 rounded-2xl bg-white/20 hover:bg-white/40 transition-all cursor-pointer group border border-white/30">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${major.color} flex items-center justify-center text-white font-bold shadow-lg`}>
+                    {major.rank}
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-800 group-hover:text-green-700 text-sm">{major.title}</p>
+                    <p className="text-xs text-slate-500">{major.tag}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-base font-bold text-green-600">{major.match}%</span>
+                  <p className="text-[10px] text-slate-500">일치</p>
+                </div>
+              </div>
+            )) : <p className="text-sm text-gray-500 text-center py-4">추천 데이터를 불러오는 중...</p>}
+          </div>
+        </div>
+      </div>
+
+      {/* Roadmap CTA */}
+      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+        <div className="relative z-10">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-bold mb-2">나만의 진로 로드맵을 만들어보세요</h3>
+              <p className="text-indigo-100 mb-4 max-w-2xl text-sm">
+                AI가 현재 상태를 분석하여 목표 달성을 위한 단계별 가이드를 제공합니다. 지금 바로 시작해보세요.
+              </p>
+              <button onClick={() => setActiveTab('roadmap')} className="px-5 py-2.5 bg-white text-indigo-600 rounded-xl text-sm font-bold hover:bg-indigo-50 transition-colors shadow-lg">
+                로드맵 생성 시작하기
+              </button>
+            </div>
+            <div className="hidden lg:block">
+              <Map size={100} className="opacity-30" strokeWidth={1.5} />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 
   const renderPersonalitySection = () => {
     const selectedMbtiDetail = getMbtiDetails(analysisData?.mbti);
-
     return (
-      <div className="mt-6 space-y-6">
-        <div className="rounded-xl border p-4">
+      <div className="space-y-6">
+        <div className={styles['glass-card']}>
           <h3 className="text-lg font-semibold text-gray-800">성격 특성 분포</h3>
           {personalityChartData ? (
             <div className="mt-4 h-80">
@@ -431,7 +649,47 @@ const Dashboard = () => {
           )}
         </div>
 
-        <div className="rounded-xl border p-4">
+        {personalityNarrative && (
+          <div className={styles['glass-card']}>
+            <h3 className="text-lg font-semibold text-gray-800">AI 성향 리포트</h3>
+            {personalityNarrative.type && (
+              <p className="mt-1 text-sm text-indigo-600 font-semibold">{personalityNarrative.type}</p>
+            )}
+            {personalityNarrative.description && (
+              <p className="mt-3 text-sm text-gray-700 whitespace-pre-line">{personalityNarrative.description}</p>
+            )}
+            {(personalityNarrative.strengths.length > 0 || personalityNarrative.growthAreas.length > 0) && (
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                {personalityNarrative.strengths.length > 0 && (
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 mb-2">강점</p>
+                    <div className="flex flex-wrap gap-2">
+                      {personalityNarrative.strengths.map((item, idx) => (
+                        <span key={`${item}-${idx}`} className="rounded-full bg-white px-3 py-1 text-xs text-emerald-700 shadow-sm">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {personalityNarrative.growthAreas.length > 0 && (
+                  <div className="rounded-xl border border-amber-100 bg-amber-50/60 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-2">성장 포인트</p>
+                    <div className="flex flex-wrap gap-2">
+                      {personalityNarrative.growthAreas.map((item, idx) => (
+                        <span key={`${item}-${idx}`} className="rounded-full bg-white px-3 py-1 text-xs text-amber-700 shadow-sm">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className={styles['glass-card']}>
           <h3 className="text-lg font-semibold text-gray-800">감정 반응 지표</h3>
           {emotionProgressData ? (
             <div className="mt-4 space-y-4">
@@ -449,7 +707,7 @@ const Dashboard = () => {
           )}
         </div>
 
-        <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4">
+        <div className={`${styles['glass-card']} bg-indigo-50/50`}>
           <h3 className="text-lg font-semibold text-indigo-700">MBTI Insights</h3>
           <p className="mt-1 text-sm text-indigo-500">
             {analysisData?.mbti ? `${analysisData.mbti} 유형` : 'MBTI 정보 없음'}
@@ -461,11 +719,11 @@ const Dashboard = () => {
           </p>
         </div>
         {mbtiTraits && (
-          <div className="rounded-xl border p-4">
+          <div className={styles['glass-card']}>
             <h3 className="text-lg font-semibold text-gray-800">MBTI 결정 근거</h3>
             <div className="mt-4 space-y-3">
               {mbtiTraits.map((trait) => (
-                <div key={trait.pair} className="rounded-lg border bg-gray-50 px-4 py-3">
+                <div key={trait.pair} className="rounded-lg border bg-gray-50/50 px-4 py-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-gray-700">{trait.pair}</span>
                     <span className="text-sm text-gray-500">{(trait.score * 100).toFixed(0)}%</span>
@@ -481,9 +739,9 @@ const Dashboard = () => {
   };
 
   const renderValuesSection = () => (
-    <div className="mt-6 space-y-6">
+    <div className="space-y-6">
       <ValuesSummaryCard valuesJSON={analysisData?.values ?? profileData?.values} />
-      <div className="rounded-xl border p-4">
+      <div className={styles['glass-card']}>
         <h3 className="text-lg font-semibold text-gray-800">가치관 집중도 (차트)</h3>
         {valuesChartData ? (
           <div className="mt-4 h-80">
@@ -515,123 +773,703 @@ const Dashboard = () => {
     </div>
   );
 
-  const renderJobRecommendSection = () => (
-    <div className="mt-6">
-      <HybridJobRecommendPanel embedded />
-    </div>
-  );
-
-  const renderHiringSection = () => (
-    <div className="mt-6">
-      <WorknetRecommendPanel embedded />
-    </div>
-  );
-
-  const renderDepartmentSection = () => (
-    <div className="mt-6">
-      <MajorRecommendPanel embedded />
-    </div>
-  );
-
-  const renderSchoolSection = () => (
-    <div className="mt-6">
-      <SchoolRecommendPanel embedded />
-    </div>
-  );
-
-  return (
-    <div className="min-h-screen bg-gray-50 py-10">
-      <div className="mx-auto max-w-5xl rounded-2xl bg-white p-8 shadow">
-        <div className="rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 p-6 text-white shadow-lg">
-          <p className="text-sm uppercase tracking-wide text-white/80">MBTI Profile</p>
-          <p className="mt-2 text-5xl font-black">{analysisData?.mbti ?? '----'}</p>
-          <p className="mt-2 text-white/80">
-            Big Five 기반으로 산출된 MBTI 유형입니다. 계속 데이터를 수집할수록 더 정교해집니다.
-          </p>
+  const renderLearningSection = () => (
+    <div className="space-y-6">
+      {/* Learning Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* 학습 진행률 */}
+        <div className={styles['glass-card']}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl flex items-center justify-center">
+              <PieChart size={20} className="text-blue-600" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-700">학습 진행률</h3>
+          </div>
+          <p className="text-3xl font-bold text-blue-600 mb-1">0%</p>
         </div>
-        <header className="mb-8">
-          <p className="text-sm font-medium text-indigo-600">DreamPath Dashboard</p>
-          <h1 className="mt-2 text-3xl font-bold text-gray-900">맞춤 분석 대시보드</h1>
-          <p className="mt-2 text-gray-600">
-            프로필 기반으로 생성된 분석 데이터를 확인하고, 관심 있는 영역을 더 깊이 살펴보세요.
-          </p>
-        </header>
 
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b pb-3">
-          <nav className="flex flex-wrap gap-3">
-            {TAB_LIST.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${activeTab === tab.key
-                    ? 'bg-indigo-600 text-white shadow'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </nav>
+        {/* 완료한 주차 */}
+        <div className={styles['glass-card']}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-green-200 rounded-xl flex items-center justify-center">
+              <BookOpen size={20} className="text-green-600" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-700">완료한 주차</h3>
+          </div>
+          <p className="text-3xl font-bold text-green-600 mb-1">0주</p>
+        </div>
 
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => navigate('/profile/input')}
-              className="rounded-full border border-indigo-600 px-4 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-50"
-            >
-              프로필 수정
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsDeleteModalOpen(true)}
-              className="rounded-full border border-red-500 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
-            >
-              프로필 삭제
-            </button>
+        {/* 멘토링 잔여 */}
+        <div className={styles['glass-card']}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl flex items-center justify-center">
+              <MessageSquare size={20} className="text-purple-600" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-700">멘토링 잔여</h3>
+          </div>
+          <p className="text-3xl font-bold text-purple-600 mb-1">0회</p>
+        </div>
+      </div>
+
+      {/* Learning Roadmap */}
+      <div className={styles['glass-card']}>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-pink-500 rounded-xl flex items-center justify-center">
+            <BookOpen size={24} className="text-white" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-slate-800">학습 로드맵</h3>
+            <p className="text-sm text-slate-500">주차별 학습 현황</p>
           </div>
         </div>
 
-        <section className="rounded-xl border p-6">
-          {isLoading && <p className="text-gray-500">분석 데이터를 불러오는 중입니다...</p>}
-          {!isLoading && error && <p className="text-red-500">{error}</p>}
-          {!isLoading && !error && (
-            <div>
-              <h2 className="text-2xl font-semibold text-gray-900">{currentTabLabel}</h2>
-              <p className="mt-2 text-gray-600">{TAB_DESCRIPTIONS[activeTab] || '탭을 선택해 상세 정보를 확인하세요.'}</p>
-
-              {activeTab === 'overview' && renderOverviewSection()}
-              {activeTab === 'personality' && renderPersonalitySection()}
-              {activeTab === 'values' && renderValuesSection()}
-              {activeTab === 'jobRecommend' && (
-                <HybridJobRecommendPanel embedded profileId={profileData?.profileId} />
-              )}
-              {activeTab === 'jobHiring' && <WorknetRecommendPanel embedded profileId={profileData?.profileId} />}
-              {activeTab === 'departmentRecommend' && (
-                <MajorRecommendPanel embedded profileId={profileData?.profileId} />
-              )}
-              {activeTab === 'schoolRecommend' && (
-                <SchoolRecommendPanel embedded profileId={profileData?.profileId} />
-              )}</div>
-          )}
-        </section>
+        <div className="flex flex-col items-center justify-center py-12">
+          <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
+            <FileText size={32} className="text-slate-400" />
+          </div>
+          <p className="text-slate-600 text-sm mb-6">아직 시작한 학습 경로가 없습니다</p>
+          <button onClick={() => setActiveTab('roadmap')} className="px-6 py-3 bg-gradient-to-r from-pink-400 to-pink-500 text-white rounded-xl text-sm font-bold hover:opacity-90 transition-opacity shadow-lg">
+            학습 시작하기
+          </button>
+        </div>
       </div>
-      <DeleteProfileModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        profileId={profileData?.profileId}
-        onDeleted={() => {
-          if (userId) {
-            removeCachedProfile(userId);
-          }
-          setProfileData(null);
-          setAnalysisData(null);
-          setIsDeleteModalOpen(false);
-          navigate('/profile-input', { replace: true });
-        }}
-      />
     </div>
   );
-};
 
-export default Dashboard;
+  const renderMentoringSection = () => (
+    <div className="space-y-6">
+      {/* Mentoring Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* 진여 횟수 */}
+        <div className={styles['glass-card']}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-yellow-100 to-yellow-200 rounded-xl flex items-center justify-center">
+              <MessageSquare size={20} className="text-yellow-600" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-700">진여 횟수</h3>
+          </div>
+          <p className="text-3xl font-bold text-yellow-600 mb-1">0회</p>
+        </div>
+
+        {/* 멘토 찾기 */}
+        <div className={styles['glass-card']}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl flex items-center justify-center">
+              <Search size={20} className="text-purple-600" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-700">멘토 찾기</h3>
+          </div>
+          <button onClick={() => navigate('/mentoring')} className="text-sm text-purple-600 font-semibold hover:underline">
+            세션 둘러보기
+          </button>
+        </div>
+
+        {/* 내 예약 */}
+        <div className={styles['glass-card']}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-pink-100 to-pink-200 rounded-xl flex items-center justify-center">
+              <Heart size={20} className="text-pink-600" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-700">내 예약</h3>
+          </div>
+          <p className="text-3xl font-bold text-pink-600 mb-1">0건</p>
+        </div>
+      </div>
+
+      {/* My Reservations */}
+      <div className={styles['glass-card']}>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-pink-500 rounded-xl flex items-center justify-center">
+            <Heart size={24} className="text-white" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-slate-800">나의 예약</h3>
+            <p className="text-sm text-slate-500">예약한 멘토링 세션</p>
+          </div>
+        </div>
+
+        <div className="flex flex-col items-center justify-center py-12">
+          <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
+            <Heart size={32} className="text-slate-400" />
+          </div>
+          <p className="text-slate-600 text-sm mb-6">예약한 세션이 없습니다</p>
+          <button onClick={() => navigate('/mentoring')} className="px-6 py-3 bg-gradient-to-r from-pink-400 to-pink-500 text-white rounded-xl text-sm font-bold hover:opacity-90 transition-opacity shadow-lg">
+            세션 찾아보기
+          </button>
+        </div>
+      </div>
+
+      {/* Become a Mentor CTA */}
+      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+        <div className="relative z-10 flex flex-col items-center text-center">
+          <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4">
+            <User size={32} className="text-white" />
+          </div>
+          <h3 className="text-2xl font-bold mb-2">멘토가 되어보세요!</h3>
+          <p className="text-purple-100 mb-6 max-w-md">
+            후배들의 성장을 도와주실 멘토를 모집합니다.
+          </p>
+          <button onClick={() => setShowMentorModal(true)} className="px-6 py-3 bg-white text-purple-600 rounded-xl text-sm font-bold hover:bg-purple-50 transition-colors shadow-lg">
+            멘토 신청하기
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderSettingsSection = () => (
+    <div className="space-y-6">
+      <div className={styles['glass-card']}>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-pink-500 rounded-xl flex items-center justify-center">
+              <Settings size={24} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-800">계정 정보</h2>
+              <p className="text-sm text-slate-500">개인정보 확인 및 관리</p>
+            </div>
+          </div>
+          <button disabled className="px-4 py-2 text-sm text-pink-600 hover:text-pink-700 disabled:text-gray-400 disabled:cursor-not-allowed flex items-center gap-1">
+            <FileText size={16} />
+            수정하기
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* 이름 */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <p className="text-xs text-gray-500 mb-1">이름</p>
+            <p className="text-sm font-medium text-gray-900">{currentUser?.name || '-'}</p>
+          </div>
+
+          {/* 아이디 */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <p className="text-xs text-gray-500 mb-1">아이디</p>
+            <p className="text-sm font-medium text-gray-900">{currentUser?.username || '-'}</p>
+          </div>
+
+          {/* 이메일 */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <p className="text-xs text-gray-500 mb-1">이메일</p>
+            <p className="text-sm font-medium text-gray-900">{currentUser?.email || '-'}</p>
+          </div>
+
+          {/* 전화번호 */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <p className="text-xs text-gray-500 mb-1">전화번호</p>
+            <p className="text-sm font-medium text-gray-900">{currentUser?.phone || '-'}</p>
+          </div>
+
+          {/* 생년월일 */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <p className="text-xs text-gray-500 mb-1">생년월일</p>
+            <p className="text-sm font-medium text-gray-900">{formatDate(currentUser?.birth)}</p>
+          </div>
+
+          {/* 가입일 */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <p className="text-xs text-gray-500 mb-1">가입일</p>
+            <p className="text-sm font-medium text-gray-900">{formatDate(currentUser?.createdAt)}</p>
+          </div>
+
+          {/* 계정 상태 */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <p className="text-xs text-gray-500 mb-1">계정 상태</p>
+            <span className="text-xs px-2 py-1 rounded bg-emerald-50 text-emerald-600">
+              활성
+            </span>
+          </div>
+
+          {/* 역할 */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <p className="text-xs text-gray-500 mb-1">역할</p>
+            <span className="text-xs px-2 py-1 rounded bg-pink-50 text-pink-600">
+              {currentUser?.role === 'MENTOR' ? '멘토' : currentUser?.role === 'ADMIN' ? '관리자' : '학생'}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const navItems = [
+    { name: '진로 상담', href: '/career-chat', isRoute: true },
+    { name: '채용 정보', href: '/job-listings', isRoute: true },
+    { name: '기업 정보', href: '/company-list', isRoute: true },
+    { name: 'AI 에이전트', href: '/ai-agent', isRoute: true },
+    { name: '채용 추천', href: '/job-recommendations', isRoute: true, isDev: true },
+    { name: '멘토링', href: '/mentoring', isRoute: true, requiresAuth: true }
+  ];
+
+  return (
+    <>
+      <ToastContainer />
+
+      {/* Main Page Header */}
+      <header className={styles['glass-header']}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo */}
+            <div className="flex items-center space-x-3">
+              <img
+                src="https://static.readdy.ai/image/b6e15883c9875312b01889a8e71bf8cf/ccfcaec324d8c4883819f9f330e8ceab.png"
+                alt="DreamPath Logo"
+                className="h-10 w-10"
+              />
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] bg-clip-text text-transparent">
+                DreamPath
+              </h1>
+            </div>
+
+            {/* Navigation */}
+            <nav className="hidden md:flex items-center space-x-8">
+              {navItems.map((item) => (
+                item.isRoute ? (
+                  item.requiresAuth && !currentUser ? (
+                    <button
+                      key={item.name}
+                      onClick={() => {
+                        showToast('로그인이 필요합니다.', 'warning');
+                        navigate('/login');
+                      }}
+                      className="text-gray-700 hover:text-[#5A7BFF] transition-colors duration-200 font-medium"
+                    >
+                      {item.name}
+                    </button>
+                  ) : (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      className={item.isDev
+                        ? "text-blue-600 hover:text-blue-700 transition-colors duration-200 font-semibold"
+                        : "text-gray-700 hover:text-[#5A7BFF] transition-colors duration-200 font-medium"
+                      }
+                    >
+                      {item.name}
+                    </Link>
+                  )
+                ) : (
+                  <a
+                    key={item.name}
+                    href={item.href}
+                    className="text-gray-700 hover:text-[#5A7BFF] transition-colors duration-200 font-medium"
+                  >
+                    {item.name}
+                  </a>
+                )
+              ))}
+            </nav>
+
+            {/* User Actions */}
+            <div className="flex items-center space-x-4">
+              {currentUser ? (
+                <>
+                  <Link to="/profile/dashboard">
+                    <Button variant="secondary" size="sm">
+                      <i className="ri-user-line mr-1"></i>
+                      프로파일링
+                    </Button>
+                  </Link>
+                  <Button size="sm" onClick={handleLogout}>
+                    로그아웃
+                  </Button>
+                </>
+              ) : (
+                <Link to="/login">
+                  <Button size="sm">
+                    로그인하기
+                  </Button>
+                </Link>
+              )}
+            </div>
+
+            {/* Mobile menu button */}
+            <div className="md:hidden">
+              <button className="text-gray-700 hover:text-[#5A7BFF] p-2">
+                <i className="ri-menu-line text-xl"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Dashboard Container */}
+      <div className={styles['glass-container']}>
+        {/* Transparent Container Box wrapping BOTH sidebar and main content */}
+        <div className={styles['glass-box']}>
+
+          {/* Left Sidebar */}
+          <div className={`${styles['glass-sidebar']} ${sidebarOpen ? 'w-64' : 'w-20'}`}>
+            {/* Logo Area */}
+            <div className="h-20 flex items-center justify-between px-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                  D
+                </div>
+                {sidebarOpen && <span className="font-bold text-lg text-slate-800">DreamPath</span>}
+              </div>
+              <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-slate-500 hover:text-slate-700">
+                <Menu size={20} />
+              </button>
+            </div>
+
+            {/* Menu Sections */}
+            <div className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
+              {/* Career & AI Analysis */}
+              <div>
+                {sidebarOpen && (
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-3">
+                    Career & AI Analysis
+                  </h3>
+                )}
+                <nav className="space-y-1">
+                  <SidebarItem icon={<User size={20} />} label="프로필" active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} collapsed={!sidebarOpen} />
+                  <SidebarItem icon={<LayoutGrid size={20} />} label="대시보드" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} collapsed={!sidebarOpen} />
+                  <SidebarItem icon={<PieChart size={20} />} label="성향 분석" active={activeTab === 'personality'} onClick={() => setActiveTab('personality')} collapsed={!sidebarOpen} />
+                  <SidebarItem icon={<Heart size={20} />} label="가치관 분석" active={activeTab === 'values'} onClick={() => setActiveTab('values')} collapsed={!sidebarOpen} />
+                  <SidebarItem icon={<Briefcase size={20} />} label="직업 추천" active={activeTab === 'jobs'} onClick={() => setActiveTab('jobs')} collapsed={!sidebarOpen} />
+                  <SidebarItem icon={<GraduationCap size={20} />} label="학과 추천" active={activeTab === 'majors'} onClick={() => setActiveTab('majors')} collapsed={!sidebarOpen} />
+                  <SidebarItem icon={<Map size={20} />} label="진로 로드맵" active={activeTab === 'roadmap'} onClick={() => setActiveTab('roadmap')} badge="AI" collapsed={!sidebarOpen} />
+                  <SidebarItem icon={<FileText size={20} />} label="상담 사례" active={activeTab === 'counsel'} onClick={() => setActiveTab('counsel')} collapsed={!sidebarOpen} />
+                </nav>
+              </div>
+
+              {/* Learning & Account */}
+              <div>
+                {sidebarOpen && (
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-3">
+                    Learning & Account
+                  </h3>
+                )}
+                <nav className="space-y-1">
+                  <SidebarItem icon={<BookOpen size={20} />} label="학습 현황" active={activeTab === 'learning'} onClick={() => setActiveTab('learning')} collapsed={!sidebarOpen} />
+                  <SidebarItem icon={<MessageSquare size={20} />} label="멘토링" active={activeTab === 'mentoring'} onClick={() => setActiveTab('mentoring')} collapsed={!sidebarOpen} />
+                  <SidebarItem icon={<Settings size={20} />} label="계정 설정" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} collapsed={!sidebarOpen} />
+                </nav>
+              </div>
+            </div>
+
+            {/* User Profile */}
+            <div className="p-4 border-t border-slate-200">
+              <div className={`flex items-center gap-3 ${!sidebarOpen && 'justify-center'}`}>
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-slate-700 font-bold shadow">
+                  {currentUser?.name?.[0] || 'U'}
+                </div>
+                {sidebarOpen && (
+                  <>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-800 truncate">{currentUser?.name || 'Guest'}</p>
+                      <p className="text-xs text-slate-500 truncate">Student</p>
+                    </div>
+                    <button onClick={handleLogout} className="text-slate-400 hover:text-slate-600">
+                      <LogOut size={18} />
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Main Content Area */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+
+            {/* Header - Completely Transparent */}
+            <header className="h-20 flex items-center justify-between px-8 border-b border-white/10">
+              <div>
+                <h1 className="text-2xl font-bold text-slate-800">
+                  {activeTab === 'dashboard' && 'Dashboard'}
+                  {activeTab === 'personality' && '성향 분석'}
+                  {activeTab === 'values' && '가치관 분석'}
+                  {activeTab === 'jobs' && '직업 추천'}
+                  {activeTab === 'majors' && '학과 추천'}
+                  {activeTab === 'counsel' && '상담 사례'}
+                  {activeTab === 'roadmap' && '진로 로드맵'}
+                  {activeTab === 'profile' && '프로필'}
+                </h1>
+                <p className="text-sm text-slate-600">Welcome back! Here is your AI career analysis.</p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Search"
+                    className={styles['glass-input']}
+                  />
+                </div>
+
+                <button className="w-10 h-10 bg-blue-500 text-white rounded-xl flex items-center justify-center hover:bg-blue-600 transition-colors shadow-md">
+                  <Search size={18} />
+                </button>
+
+                <button className={styles['glass-button']}>
+                  <Bell size={18} className="text-slate-600" />
+                </button>
+
+                <button
+                  onClick={() => setDarkMode(!darkMode)}
+                  className={styles['glass-button']}
+                >
+                  {darkMode ? <Sun size={18} className="text-slate-600" /> : <Moon size={18} className="text-slate-600" />}
+                </button>
+
+              </div>
+            </header>
+
+            {/* Scrollable Content */}
+            <main className="flex-1 overflow-y-auto px-8 py-6">
+              <div className="max-w-7xl mx-auto">
+                {isLoading && <p className="text-gray-500">데이터를 불러오는 중입니다...</p>}
+                {!isLoading && error && <p className="text-red-500">{error}</p>}
+                {!isLoading && !error && (
+                  <>
+                    {activeTab === 'dashboard' && renderOverviewSection()}
+                    {activeTab === 'personality' && renderPersonalitySection()}
+                    {activeTab === 'values' && renderValuesSection()}
+                    {activeTab === 'jobs' && (
+                      <div className="space-y-4">
+                        <h2 className="text-xl font-bold text-slate-800">AI 직업 추천</h2>
+                        <HybridJobRecommendPanel embedded profileId={profileData?.profileId} />
+                      </div>
+                    )}
+                    {activeTab === 'majors' && (
+                      <div className="space-y-4">
+                        <h2 className="text-xl font-bold text-slate-800">AI 학과 추천</h2>
+                        <MajorRecommendPanel embedded profileId={profileData?.profileId} />
+                      </div>
+                    )}
+                    {activeTab === 'counsel' && (
+                      <div className="space-y-4">
+                        <h2 className="text-xl font-bold text-slate-800">진로 상담 사례</h2>
+                        <CounselRecommendPanel embedded profileId={profileData?.profileId} />
+                      </div>
+                    )}
+                    {activeTab === 'profile' && (
+                      <div className={styles['glass-card']}>
+                        <h2 className="text-xl font-bold text-slate-800 mb-4">프로필 정보</h2>
+                        <p className="text-gray-600">프로필 수정 기능은 준비 중입니다.</p>
+                        {/* <Button className="mt-4" onClick={() => navigate('/profile/input')}>
+                                                    프로필 다시 입력하기
+                                                </Button> */}
+                      </div>
+                    )}
+                    {activeTab === 'roadmap' && (
+                      <div className={styles['glass-card']}>
+                        <h2 className="text-xl font-bold text-slate-800 mb-4">진로 로드맵</h2>
+                        <p className="text-gray-600">로드맵 생성 기능은 준비 중입니다.</p>
+                      </div>
+                    )}
+                    {activeTab === 'learning' && renderLearningSection()}
+                    {activeTab === 'mentoring' && renderMentoringSection()}
+                    {activeTab === 'settings' && renderSettingsSection()}
+                  </>
+                )}
+              </div>
+            </main>
+          </div>
+        </div>
+      </div>
+
+      {/* Mentor Application Modal */}
+      {showMentorModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowMentorModal(false)}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+          <div className="relative bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-8 py-6 rounded-t-3xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-800">멘토 신청하기</h2>
+                  <p className="text-sm text-slate-500 mt-1">후배들의 성장을 도와주세요</p>
+                </div>
+                <button onClick={() => setShowMentorModal(false)} className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
+                  <X size={20} className="text-slate-600" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="px-8 py-6 space-y-6">
+              {/* Company Info Section */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <div className="flex items-center mb-4">
+                  <Briefcase size={24} className="text-pink-500 mr-2" />
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800">회사 정보</h3>
+                    <p className="text-sm text-gray-600">현재 재직 중인 회사와 직업을 입력해주세요</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {/* 회사명 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      회사명 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={company}
+                      onChange={(e) => setCompany(e.target.value)}
+                      className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-pink-500 focus:outline-none transition-colors"
+                      placeholder="예) 카카오"
+                    />
+                  </div>
+
+                  {/* 직업 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      직업 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={job}
+                      onChange={(e) => setJob(e.target.value)}
+                      className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-pink-500 focus:outline-none transition-colors"
+                      placeholder="예) 백엔드 개발자"
+                    />
+                  </div>
+
+                  {/* 경력 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      경력 <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={yearsOfExperience}
+                        onChange={(e) => setYearsOfExperience(e.target.value)}
+                        className="flex-1 p-3 border-2 border-gray-200 rounded-lg focus:border-pink-500 focus:outline-none transition-colors"
+                        placeholder="예) 3"
+                        min="1"
+                        max="50"
+                      />
+                      <span className="text-gray-700 font-medium">년</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bio Section */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <div className="flex items-center mb-4">
+                  <FileText size={24} className="text-pink-500 mr-2" />
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800">자기소개</h3>
+                    <p className="text-sm text-gray-600">전문 분야와 멘토링 철학을 소개해주세요 (최소 50자)</p>
+                  </div>
+                </div>
+                <textarea
+                  value={mentorBio}
+                  onChange={(e) => setMentorBio(e.target.value)}
+                  className="w-full h-40 p-4 border-2 border-gray-200 rounded-lg focus:border-pink-500 focus:outline-none resize-none transition-colors"
+                  placeholder="예시) 저는 10년 경력의 백엔드 개발자로, Spring Boot와 MSA 아키텍처에 전문성을 갖추고 있습니다. 실무 경험을 바탕으로 후배 개발자들이 올바른 방향으로 성장할 수 있도록 돕고 싶습니다."
+                />
+                <div className="flex justify-between items-center mt-2">
+                  <p className={`text-sm ${mentorBio.length >= 50 ? 'text-green-600' : 'text-gray-500'}`}>
+                    {mentorBio.length} / 50자 이상
+                  </p>
+                  {mentorBio.length >= 50 && (
+                    <Check size={20} className="text-green-500" />
+                  )}
+                </div>
+              </div>
+
+              {/* Career Section */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <div className="flex items-center mb-4">
+                  <Briefcase size={24} className="text-pink-500 mr-2" />
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800">경력 사항</h3>
+                    <p className="text-sm text-gray-600">주요 경력과 프로젝트 경험을 작성해주세요 (최소 20자)</p>
+                  </div>
+                </div>
+                <textarea
+                  value={mentorCareer}
+                  onChange={(e) => setMentorCareer(e.target.value)}
+                  className="w-full h-40 p-4 border-2 border-gray-200 rounded-lg focus:border-pink-500 focus:outline-none resize-none transition-colors"
+                  placeholder="예시) • 삼성전자 SW 센터 (2015-2020): 대규모 분산 시스템 설계 및 개발&#10;• 네이버 검색 개발팀 (2020-현재): 검색 엔진 최적화 및 성능 개선&#10;• 주요 기술: Java, Spring Boot, Kubernetes, Redis, Kafka"
+                />
+                <div className="flex justify-between items-center mt-2">
+                  <p className={`text-sm ${mentorCareer.length >= 20 ? 'text-green-600' : 'text-gray-500'}`}>
+                    {mentorCareer.length} / 20자 이상
+                  </p>
+                  {mentorCareer.length >= 20 && (
+                    <Check size={20} className="text-green-500" />
+                  )}
+                </div>
+              </div>
+
+              {/* Info Notice */}
+              <div className="bg-blue-50 rounded-lg p-5 border-2 border-blue-200">
+                <div className="flex items-start">
+                  <AlertCircle size={24} className="text-blue-500 mr-3 mt-0.5" />
+                  <div>
+                    <h3 className="font-bold text-gray-800 mb-1">멘토링 일정 등록 안내</h3>
+                    <p className="text-sm text-gray-700 leading-relaxed">
+                      멘토 신청이 승인되면, <span className="font-bold text-pink-600">/mentoring 페이지</span>에서
+                      멘토링 가능 시간을 등록하실 수 있습니다.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="sticky bottom-0 bg-white border-t-2 border-pink-300 px-8 py-6 rounded-b-3xl">
+              <div className="flex gap-4">
+                <button onClick={() => setShowMentorModal(false)} className="flex-1 bg-gray-200 text-gray-700 py-4 rounded-lg font-bold hover:bg-gray-300 transition-colors">
+                  취소
+                </button>
+                <button
+                  disabled={!company || !job || !yearsOfExperience || mentorBio.length < 50 || mentorCareer.length < 20}
+                  className="flex-1 bg-pink-500 text-white py-4 rounded-lg font-bold hover:bg-pink-600 transition-colors disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed shadow-lg flex items-center justify-center gap-2"
+                >
+                  <Send size={20} />
+                  멘토 신청하기
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </>
+  );
+}
+
+// Sidebar Item Component
+function SidebarItem({ icon, label, active = false, onClick, badge, collapsed = false }: {
+  icon: React.ReactNode,
+  label: string,
+  active?: boolean,
+  onClick?: () => void,
+  badge?: string,
+  collapsed?: boolean
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center ${collapsed ? 'justify-center' : 'justify-between'} px-3 py-3 rounded-xl transition-all duration-200 group ${active
+        ? 'bg-blue-500 text-white shadow-lg'
+        : 'text-slate-600 hover:bg-slate-100'
+        }`}
+      title={collapsed ? label : undefined}
+    >
+      <div className="flex items-center gap-3">
+        <span className={`${active ? 'text-white' : 'text-slate-500 group-hover:text-slate-700'}`}>
+          {icon}
+        </span>
+        {!collapsed && <span className="font-medium text-sm">{label}</span>}
+      </div>
+      {!collapsed && badge && (
+        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${active ? 'bg-blue-400 text-white' : 'bg-indigo-100 text-indigo-600'}`}>
+          {badge}
+        </span>
+      )}
+    </button>
+  );
+}

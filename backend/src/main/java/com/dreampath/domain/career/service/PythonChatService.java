@@ -33,33 +33,39 @@ public class PythonChatService {
     }
 
     /**
-     * 대화형 진로 상담 응답 생성
+     * 대화형 진로 상담 응답 생성 (에이전트 액션 포함)
+     *
+     * @return Map containing "message" (String) and optionally "agentAction" (Map)
      */
-    public String generateChatResponse(
+    public Map<String, Object> generateChatResponse(
             String sessionId,
             String userMessage,
             String currentStage,
             List<Map<String, String>> conversationHistory,
-            Map<String, Object> surveyData) {
+            Map<String, Object> surveyData,
+            Long userId,
+            Map<String, Object> identityStatus) {
         try {
             String url = pythonAiServiceUrl + "/api/chat";
-            
+
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("sessionId", sessionId);
             requestBody.put("userMessage", userMessage);
             requestBody.put("currentStage", currentStage);
             requestBody.put("conversationHistory", conversationHistory);
             requestBody.put("surveyData", surveyData);
+            requestBody.put("userId", userId);
+            requestBody.put("identityStatus", identityStatus);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
 
-            log.debug("채팅 응답 생성 요청: sessionId={}, stage={}", sessionId, currentStage);
+            log.debug("채팅 응답 생성 요청: sessionId={}, stage={}, userId={}", sessionId, currentStage, userId);
             ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                url, 
-                org.springframework.http.HttpMethod.POST, 
-                request, 
+                url,
+                org.springframework.http.HttpMethod.POST,
+                request,
                 new ParameterizedTypeReference<Map<String, Object>>() {}
             );
 
@@ -72,7 +78,18 @@ public class PythonChatService {
                 if (message == null) {
                     throw new RuntimeException("Python AI 서비스 응답에 message가 없습니다.");
                 }
-                return message;
+
+                // 응답 맵 구성 (message와 agentAction 포함)
+                Map<String, Object> result = new HashMap<>();
+                result.put("message", message);
+
+                // agentAction이 있으면 포함
+                if (responseBody.containsKey("agentAction") && responseBody.get("agentAction") != null) {
+                    result.put("agentAction", responseBody.get("agentAction"));
+                    log.info("에이전트 액션 감지: sessionId={}", sessionId);
+                }
+
+                return result;
             } else {
                 throw new RuntimeException("Python AI 서비스 응답 오류: " + response.getStatusCode());
             }

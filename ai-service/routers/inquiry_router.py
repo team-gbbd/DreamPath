@@ -12,6 +12,7 @@ from services.chatbot import (
     EmailService,
 )
 from services.database_service import DatabaseService
+from dependencies import get_db
 
 router = APIRouter(prefix="/api/inquiry", tags=["inquiry"])
 

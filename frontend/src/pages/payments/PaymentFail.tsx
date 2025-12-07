@@ -89,11 +89,11 @@ export default function PaymentFailPage() {
               </button>
 
               <button
-                onClick={() => navigate('/mypage')}
+                onClick={() => navigate('/profile/dashboard')}
                 className="w-full bg-white border-2 border-gray-300 text-gray-700 py-3 rounded-lg font-bold hover:bg-gray-50 transition-colors"
               >
                 <i className="ri-home-line mr-2"></i>
-                마이페이지로 돌아가기
+                프로파일링 대시보드로 돌아가기
               </button>
             </div>
           </div>

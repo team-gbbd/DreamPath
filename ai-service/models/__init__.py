@@ -32,7 +32,9 @@ from .identity import (
 # 채팅 모델
 from .chat import (
     ChatRequest,
-    ChatResponse
+    ChatResponse,
+    AgentAction,
+    ActionButton,
 )
 
 # 취업 사이트 모델
@@ -66,6 +68,15 @@ from .agent import (
     JobRecommendation,
     JobRecommendationResponse,
     RealTimeRecommendationRequest,
+
+    # 채용 공고 + 기술/자격증 추천
+    RequiredTechnology,
+    ExamSchedule,
+    RequiredCertification,
+    LearningResource,
+    JobWithRequirements,
+    JobWithRequirementsRequest,
+    JobWithRequirementsResponse,
 
     # 지원 현황 추적
     Application,
@@ -166,6 +177,8 @@ __all__ = [
     # 채팅
     "ChatRequest",
     "ChatResponse",
+    "AgentAction",
+    "ActionButton",
     
     # 취업 사이트
     "JobSiteRecommendationRequest",
@@ -192,6 +205,15 @@ __all__ = [
     "JobRecommendation",
     "JobRecommendationResponse",
     "RealTimeRecommendationRequest",
+
+    # AI 에이전트 - 채용 공고 + 기술/자격증 추천
+    "RequiredTechnology",
+    "ExamSchedule",
+    "RequiredCertification",
+    "LearningResource",
+    "JobWithRequirements",
+    "JobWithRequirementsRequest",
+    "JobWithRequirementsResponse",
 
     # AI 에이전트 - 지원 현황 추적
     "Application",

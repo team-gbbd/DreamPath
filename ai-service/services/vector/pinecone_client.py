@@ -28,15 +28,16 @@ if PINECONE_API_KEY and PINECONE_INDEX_NAME:
         if PINECONE_INDEX_NAME not in existing_indexes:
             logger.info(f"[Pinecone] 인덱스 '{PINECONE_INDEX_NAME}'가 없어 새로 생성합니다.")
 
-            pc.create_index(
-                name=PINECONE_INDEX_NAME,
-                dimension=1536,
-                metric="cosine",
-                spec=ServerlessSpec(
-                    cloud="aws",
-                    region="us-east-1"  # dev 기준 유지
-                )
-            )
+            # pc.create_index(
+            #     name=PINECONE_INDEX_NAME,
+            #     dimension=1536,
+            #     metric="cosine",
+            #     spec=ServerlessSpec(
+            #         cloud="aws",
+            #         region="us-east-1"  # dev 기준 유지
+            #     )
+            # )
+            pass
 
         # 인덱스 연결
         index = pc.Index(PINECONE_INDEX_NAME)

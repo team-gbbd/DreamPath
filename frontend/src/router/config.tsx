@@ -1,6 +1,5 @@
 import { lazy } from "react";
 import type { RouteObject } from "react-router-dom";
-import ProfileInputPage from "@/pages/profile/ProfileInputPage";
 import VectorStatusPage from "@/pages/profile/VectorStatusPage";
 import JobRecommend from "@/pages/profile/JobRecommend";
 import RecruitRecommend from "@/pages/profile/RecruitRecommend";
@@ -8,7 +7,6 @@ import MajorRecommend from "@/pages/profile/MajorRecommend";
 import SchoolRecommend from "@/pages/profile/SchoolRecommend";
 
 const ProfileDashboardPage = lazy(() => import("../pages/profile/Dashboard"));
-const ProfileSuccessPage = lazy(() => import("../pages/profile/ProfileSubmitSuccess"));
 const HomePage = lazy(() => import("../pages/home/page"));
 const NotFoundPage = lazy(() => import("../pages/NotFound"));
 const CareerChatPage = lazy(() => import("../pages/career-chat/page"));
@@ -28,7 +26,6 @@ const AIAgentDashboardPage = lazy(() => import("../pages/ai-agent/Dashboard"));
 const CompanyListPage = lazy(() => import("../pages/company/CompanyListPage"));
 const CompanyDetailPage = lazy(() => import("../pages/company/CompanyDetailPage"));
 const CrawlerPage = lazy(() => import("../pages/admin/CrawlerPage"));
-const MyPage = lazy(() => import("../pages/mypage/page"));
 const MentorApplyPage = lazy(() => import("../pages/mentors/MentorApply"));
 const AdminDashboardPage = lazy(() => import("../pages/admin/AdminDashboard"));
 const MentorApplicationsPage = lazy(() => import("../pages/admin/MentorApplications"));
@@ -87,14 +84,6 @@ const routes: RouteObject[] = [
   /* ----------------------
      PROFILE
      ---------------------- */
-  {
-    path: "/profile/input",
-    element: <ProfileInputPage />,
-  },
-  {
-    path: "/profile/success",
-    element: <ProfileSuccessPage />,
-  },
   {
     path: "/profile/dashboard",
     element: <ProfileDashboardPage />,
@@ -191,10 +180,6 @@ const routes: RouteObject[] = [
   /* ----------------------
      MYPAGE
      ---------------------- */
-  {
-    path: "/mypage",
-    element: <MyPage />,
-  },
   {
     path: "/mypage/bookings",
     element: <MyBookingsPage />,

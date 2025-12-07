@@ -8,6 +8,10 @@ from models import (
     JobRecommendationResponse,
     RealTimeRecommendationRequest,
 
+    # 채용 공고 + 기술/자격증 추천
+    JobWithRequirementsRequest,
+    JobWithRequirementsResponse,
+
     # 지원 현황 추적
     ApplicationAnalysisRequest,
     ApplicationAnalysisResponse,
@@ -92,6 +96,29 @@ async def get_realtime_recommendations(request: RealTimeRecommendationRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"실시간 추천 실패: {str(e)}")
+
+
+@router.post("/job-recommendations/with-requirements", response_model=JobWithRequirementsResponse)
+async def get_recommendations_with_requirements(request: JobWithRequirementsRequest):
+    """
+    채용 공고 추천 + 필요 기술/자격증 분석
+
+    사용자의 프로필과 스킬을 기반으로 채용 공고를 추천하고,
+    각 공고에 필요한 기술 스택과 자격증, 학습 자료를 함께 제공합니다.
+    """
+    try:
+        result = await job_recommendation_agent.get_recommendations_with_requirements(
+            user_id=request.userId,
+            career_analysis=request.careerAnalysis,
+            user_profile=request.userProfile,
+            user_skills=request.userSkills or [],
+            limit=request.limit
+        )
+
+        return JobWithRequirementsResponse(**result)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"추천 실패: {str(e)}")
 
 
 # ============== 2. 지원 현황 추적 ==============
