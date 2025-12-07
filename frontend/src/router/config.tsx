@@ -47,6 +47,8 @@ const MentoringMeetingPage = lazy(() => import("../pages/mentoring/MentoringMeet
 const JobAnalysisPage = lazy(() => import("../pages/job-analysis/JobAnalysisPage"));
 const PersonalizedInsightsPage = lazy(() => import("../pages/job-analysis/PersonalizedInsightsPage"));
 const JobRecommendationsPage = lazy(() => import("../pages/job-recommendations/JobWithRequirementsPage"));
+const ComprehensiveJobPage = lazy(() => import("../pages/job-recommendations/ComprehensiveJobPage"));
+const CompanyTalentPage = lazy(() => import("../pages/company-talent/CompanyTalentPage"));
 
 const routes: RouteObject[] = [
   {
@@ -176,6 +178,18 @@ const routes: RouteObject[] = [
   {
     path: "/job-recommendations",
     element: <JobRecommendationsPage />,
+  },
+  {
+    path: "/job-recommendations/comprehensive",
+    element: <ComprehensiveJobPage />,
+  },
+
+  /* ----------------------
+     COMPANY TALENT ANALYSIS
+     ---------------------- */
+  {
+    path: "/company-talent",
+    element: <CompanyTalentPage />,
   },
 
   /* ----------------------

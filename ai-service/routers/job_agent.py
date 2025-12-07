@@ -2,12 +2,16 @@
 채용공고 AI 에이전트 API 라우터
 
 OpenAI Agents SDK 기반 채용공고 에이전트 API 엔드포인트
+
+추가 기능:
+- 6가지 종합 채용 분석 (인재상, 채용 프로세스, 검증 기준 등)
 """
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 import json
 from services.agents.job_agent import run_job_agent
+from services.agents.job_recommendation_agent import JobRecommendationAgent
 from services.database_service import DatabaseService
 from services.job_recommendation_calculator import calculate_user_recommendations_sync
 
@@ -358,3 +362,174 @@ async def trigger_recommendation_calculation(
             status_code=500,
             detail=f"추천 계산 실패: {str(e)}"
         )
+
+
+# ==================== 6가지 종합 채용 분석 API ====================
+
+class ComprehensiveAnalysisRequest(BaseModel):
+    """종합 채용 분석 요청 모델"""
+    career_analysis: Dict = Field(..., description="커리어 분석 결과")
+    user_profile: Optional[Dict] = Field(None, description="사용자 프로필")
+    user_skills: Optional[List[str]] = Field(None, description="보유 스킬 목록")
+    limit: int = Field(10, ge=1, le=20, description="추천 공고 개수")
+
+
+class ComprehensiveAnalysisResponse(BaseModel):
+    """종합 채용 분석 응답 모델"""
+    success: bool
+    data: Optional[Dict] = None
+    error: Optional[str] = None
+
+
+@router.post("/recommendations/comprehensive/{user_id}", response_model=ComprehensiveAnalysisResponse)
+async def get_comprehensive_recommendations(
+    user_id: int,
+    request: ComprehensiveAnalysisRequest
+):
+    """
+    6가지 종합 채용 분석 + 맞춤 추천
+
+    채용 공고 추천과 함께 다음 6가지 분석을 제공합니다:
+
+    1. **인재상 분석** - 기업이 원하는 인재 특성/가치관
+    2. **채용 프로세스** - 공채/수시/인턴 절차 안내
+    3. **검증 기준** - 학점/역량 커트라인
+    4. **채용 현황** - 현재 진행 중인 전형 단계
+    5. **사용자 검증 결과** - 강약점/가치관 분석
+    6. **합격 예측** - 전형별 합격 가능성
+
+    ## 요청 예시
+    ```json
+    {
+        "career_analysis": {
+            "recommendedCareers": [{"careerName": "백엔드 개발자"}],
+            "strengths": ["문제 해결 능력", "논리적 사고"],
+            "values": ["성장", "안정성"]
+        },
+        "user_profile": {
+            "education": "컴퓨터공학과",
+            "gpa": "3.8/4.5",
+            "experience": "인턴 6개월"
+        },
+        "user_skills": ["Python", "Java", "Spring"],
+        "limit": 10
+    }
+    ```
+
+    ## 응답 구조
+    - recommendations: 추천 공고 목록 (각 공고에 comprehensiveAnalysis 포함)
+    - summary: 전체 요약
+    - commonRequiredTechnologies: 공통 요구 기술
+    - overallLearningPath: 학습 경로 제안
+    """
+    try:
+        agent = JobRecommendationAgent()
+
+        result = await agent.get_comprehensive_job_analysis(
+            user_id=user_id,
+            career_analysis=request.career_analysis,
+            user_profile=request.user_profile,
+            user_skills=request.user_skills or [],
+            limit=request.limit
+        )
+
+        return ComprehensiveAnalysisResponse(
+            success=True,
+            data=result
+        )
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return ComprehensiveAnalysisResponse(
+            success=False,
+            error=str(e)
+        )
+
+
+@router.post("/analysis/job/{job_id}")
+async def analyze_single_job(
+    job_id: str,
+    career_analysis: Dict,
+    user_profile: Optional[Dict] = None,
+    user_skills: Optional[List[str]] = None
+):
+    """
+    단일 채용공고 종합 분석
+
+    특정 채용공고에 대해 6가지 분석을 수행합니다.
+
+    - **job_id**: 채용공고 ID
+    - **career_analysis**: 커리어 분석 결과
+    - **user_profile**: 사용자 프로필 (선택)
+    - **user_skills**: 보유 스킬 목록 (선택)
+    """
+    try:
+        db = DatabaseService()
+
+        # 채용공고 조회
+        query = """
+            SELECT id, title, company, location, url, description,
+                   tech_stack, required_skills, site_name
+            FROM job_listings
+            WHERE id = %s
+        """
+        results = db.execute_query(query, (job_id,))
+
+        if not results:
+            raise HTTPException(status_code=404, detail="채용공고를 찾을 수 없습니다.")
+
+        job = results[0]
+
+        # tech_stack, required_skills 파싱
+        tech_stack = job.get("tech_stack")
+        if isinstance(tech_stack, str):
+            try:
+                tech_stack = json.loads(tech_stack)
+            except:
+                tech_stack = []
+
+        required_skills = job.get("required_skills")
+        if isinstance(required_skills, str):
+            try:
+                required_skills = json.loads(required_skills)
+            except:
+                required_skills = []
+
+        job_data = {
+            "jobId": str(job.get("id")),
+            "title": job.get("title"),
+            "company": job.get("company"),
+            "location": job.get("location"),
+            "url": job.get("url"),
+            "description": job.get("description"),
+            "siteName": job.get("site_name"),
+            "techStack": tech_stack or [],
+            "requiredSkills": required_skills or []
+        }
+
+        # 종합 분석 수행
+        agent = JobRecommendationAgent()
+
+        external_data = await agent._fetch_external_company_data(job.get("company", ""))
+
+        analysis = await agent._perform_comprehensive_analysis(
+            job=job_data,
+            external_data=external_data,
+            career_analysis=career_analysis,
+            user_profile=user_profile,
+            user_skills=user_skills or []
+        )
+
+        return {
+            "success": True,
+            "jobInfo": job_data,
+            "comprehensiveAnalysis": analysis
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"분석 실패: {str(e)}")
