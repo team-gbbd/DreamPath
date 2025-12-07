@@ -34,6 +34,7 @@ from routers.chatbot_router import router as chatbot_router
 from routers.faq_router import router as faq_router
 from routers.inquiry_router import router as inquiry_router
 from routers.chatbotassistant_router import router as chatbotassistant_router
+from routers.company_talent_router import router as company_talent_router
 
 # ====== Services ======
 from services.common.openai_client import OpenAIService as OpenAIServiceDev
@@ -109,6 +110,7 @@ app.include_router(chatbot_router)            # 챗봇/FAQ/문의 API
 app.include_router(faq_router)                # FAQ API (dev)
 app.include_router(inquiry_router)            # 문의 API (dev)
 app.include_router(chatbotassistant_router)   # 챗봇 어시스턴트 API (dev)
+app.include_router(company_talent_router)     # 목표 기업 인재상 분석 API
 
 
 # =========================================
