@@ -8,7 +8,7 @@ from openai import OpenAI
 from services.database_service import DatabaseService
 
 # 프롬프트 import
-from .prompts import get_member_system_prompt, get_question_filter_prompt
+from .prompts import get_member_system_prompt, get_question_classifier_prompt
 
 # FAQ 서비스 import
 from ..shared.faq_service import FaqService
@@ -66,11 +66,76 @@ class MemberChatbotService:
 
         return json.dumps({"error": f"Unknown function: {function_name}"}, ensure_ascii=False)
 
+    def _classify_question(self, message: str) -> str:
+        """
+        LLM으로 질문 분류
+
+        Returns:
+            "PERSONAL_DATA" | "SERVICE_QUESTION" | "UNRELATED"
+        """
+        try:
+            classifier_messages = [
+                {
+                    "role": "system",
+                    "content": get_question_classifier_prompt()
+                },
+                {
+                    "role": "user",
+                    "content": message
+                }
+            ]
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=classifier_messages,
+                temperature=0,
+                max_tokens=15
+            )
+
+            classification = response.choices[0].message.content.strip().upper()
+
+            # 분류 결과 반환
+            if "PERSONAL_DATA" in classification:
+                return "PERSONAL_DATA"
+            elif "UNRELATED" in classification:
+                return "UNRELATED"
+            else:
+                return "SERVICE_QUESTION"
+
+        except Exception as e:
+            print(f"질문 분류 오류: {str(e)}")
+            # 오류 시 안전하게 SERVICE_QUESTION 반환
+            return "SERVICE_QUESTION"
+
     def chat(self, user_id: int, message: str, conversation_history: List[Dict[str, str]] = None, db: DatabaseService = None) -> str:
         try:
-            # ========== OpenAI Function Calling ==========
-            # 회원은 FAQ 검색 생략 - Function Calling이 모든 질문을 정확하게 처리
-            # (비회원 챗봇과 달리, 회원은 강력한 도구를 가지고 있음)
+            # ========== 1단계: LLM 질문 분류 먼저 ==========
+            question_type = self._classify_question(message)
+
+            # ========== 2단계: 서비스 외 질문 차단 ==========
+            if question_type == "UNRELATED":
+                return "죄송하지만, DreamPath 서비스 관련 질문만 답변할 수 있습니다. 진로, 학습, 멘토링 등에 대해 궁금한 점이 있으시면 언제든지 물어보세요!"
+
+            # ========== 3단계: 개인 데이터 요청이면 FAQ 건너뛰고 바로 Function Calling ==========
+            if question_type == "PERSONAL_DATA":
+                # "내 진로 분석", "나 멘토링 예약" 등 → FAQ 검색하지 않고 바로 Function Calling
+                pass
+            else:
+                # ========== 4단계: 서비스 질문이면 FAQ 검색 ==========
+                # "이름 수정", "비밀번호 변경", "DreamPath란?" 등
+                matched_faq = self.faq_service.search_faq(message, user_type="member", db=db)
+
+                if matched_faq:
+                    answer_type = matched_faq.get("answer_type")
+
+                    # answer_type='static' → 즉시 FAQ 답변 반환
+                    if answer_type == "static":
+                        return matched_faq.get("answer", "답변을 찾을 수 없습니다.")
+
+                    # answer_type='function' → Function Calling으로 넘어감
+
+            # ========== 5단계: OpenAI Function Calling ==========
+            # PERSONAL_DATA 또는 SERVICE_QUESTION (FAQ 없거나 answer_type='function') → Function Calling
             messages = []
 
             # 시스템 메시지 항상 추가 (매번 강력한 지시 전달)
