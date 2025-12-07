@@ -15,7 +15,7 @@ import ValueDetailCard from '@/components/profile/ValueDetailCard';
 import HybridJobRecommendPanel from '@/components/profile/HybridJobRecommendPanel';
 import MajorRecommendPanel from '@/components/profile/MajorRecommendPanel';
 import CounselRecommendPanel from '@/components/profile/CounselRecommendPanel';
-import { BACKEND_BASE_URL, backendApi } from '@/lib/api';
+import { BACKEND_BASE_URL, backendApi, bookingService, paymentService, mentorService } from '@/lib/api';
 import { fetchHybridJobs, fetchMajors } from '@/pages/profile/recommendApi';
 import { Bar, BarChart, CartesianGrid, Cell, PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer, Tooltip, XAxis, YAxis, } from 'recharts';
 
@@ -237,6 +237,12 @@ export default function NewDashboard() {
   const [topJobs, setTopJobs] = useState<any[]>([]);
   const [topMajors, setTopMajors] = useState<any[]>([]);
 
+  // Mentoring State
+  const [myBookings, setMyBookings] = useState<any[]>([]);
+  const [mentorBookings, setMentorBookings] = useState<any[]>([]);
+  const [remainingSessions, setRemainingSessions] = useState<number>(0);
+  const [mentorInfo, setMentorInfo] = useState<{ mentorId: number; status: string } | null>(null);
+
   // --- Data Fetching Logic ---
   const fetchProfileData = useCallback(
     async (targetUserId: number, options: FetchOptions = {}) => {
@@ -346,6 +352,33 @@ export default function NewDashboard() {
         setIsLoading(true);
         setError(null);
         await fetchInitialData(storedId, { signal: controller.signal });
+
+        // Fetch mentoring bookings and remaining sessions
+        try {
+          const bookings = await bookingService.getMyBookings(storedId);
+          setMyBookings(bookings || []);
+        } catch (e) {
+          console.error('예약 목록 조회 실패:', e);
+        }
+
+        try {
+          const sessions = await paymentService.getRemainingSessions(storedId);
+          setRemainingSessions(sessions || 0);
+        } catch (e) {
+          console.error('잔여 횟수 조회 실패:', e);
+        }
+
+        // Check if user is a mentor and fetch mentor bookings
+        try {
+          const mentor = await mentorService.getMyApplication(storedId);
+          if (mentor && mentor.status === 'APPROVED') {
+            setMentorInfo({ mentorId: mentor.mentorId, status: mentor.status });
+            const mBookings = await bookingService.getMentorBookings(mentor.mentorId);
+            setMentorBookings(mBookings || []);
+          }
+        } catch (e) {
+          // Not a mentor or error - ignore
+        }
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
         const message = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.';
@@ -836,87 +869,283 @@ export default function NewDashboard() {
     </div>
   );
 
-  const renderMentoringSection = () => (
+  const getBookingStatusStyle = (status: string) => {
+    switch (status) {
+      case 'CONFIRMED':
+        return { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-200', label: '확정' };
+      case 'PENDING':
+        return { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-200', label: '대기중' };
+      case 'COMPLETED':
+        return { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-200', label: '완료' };
+      case 'CANCELLED':
+        return { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-200', label: '취소됨' };
+      case 'REJECTED':
+        return { bg: 'bg-rose-50', text: 'text-rose-600', border: 'border-rose-200', label: '거절됨' };
+      default:
+        return { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-200', label: status };
+    }
+  };
+
+  const renderMentoringSection = () => {
+    const isMentor = mentorInfo && mentorInfo.status === 'APPROVED';
+
+    return (
     <div className="space-y-6">
-      {/* Mentoring Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* 진여 횟수 */}
-        <div className={styles['glass-card']}>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-yellow-100 to-yellow-200 rounded-xl flex items-center justify-center">
-              <MessageSquare size={20} className="text-yellow-600" />
+      {/* Mentoring Stats Grid - 멘티용 */}
+      {!isMentor && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* 잔여 횟수 */}
+          <div className={styles['glass-card']}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-yellow-100 to-yellow-200 rounded-xl flex items-center justify-center">
+                <MessageSquare size={20} className="text-yellow-600" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-700">잔여 횟수</h3>
             </div>
-            <h3 className="text-sm font-bold text-slate-700">진여 횟수</h3>
+            <p className="text-3xl font-bold text-yellow-600 mb-1">{remainingSessions}회</p>
           </div>
-          <p className="text-3xl font-bold text-yellow-600 mb-1">0회</p>
-        </div>
 
-        {/* 멘토 찾기 */}
-        <div className={styles['glass-card']}>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl flex items-center justify-center">
-              <Search size={20} className="text-purple-600" />
+          {/* 멘토 찾기 */}
+          <div className={styles['glass-card']}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl flex items-center justify-center">
+                <Search size={20} className="text-purple-600" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-700">멘토 찾기</h3>
             </div>
-            <h3 className="text-sm font-bold text-slate-700">멘토 찾기</h3>
+            <button onClick={() => navigate('/mentoring')} className="text-sm text-purple-600 font-semibold hover:underline">
+              세션 둘러보기
+            </button>
           </div>
-          <button onClick={() => navigate('/mentoring')} className="text-sm text-purple-600 font-semibold hover:underline">
-            세션 둘러보기
-          </button>
-        </div>
 
-        {/* 내 예약 */}
-        <div className={styles['glass-card']}>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-pink-100 to-pink-200 rounded-xl flex items-center justify-center">
-              <Heart size={20} className="text-pink-600" />
+          {/* 내 예약 */}
+          <div className={styles['glass-card']}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-pink-100 to-pink-200 rounded-xl flex items-center justify-center">
+                <Heart size={20} className="text-pink-600" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-700">내 예약</h3>
             </div>
-            <h3 className="text-sm font-bold text-slate-700">내 예약</h3>
+            <p className="text-3xl font-bold text-pink-600 mb-1">{myBookings.length}건</p>
           </div>
-          <p className="text-3xl font-bold text-pink-600 mb-1">0건</p>
         </div>
-      </div>
+      )}
 
-      {/* My Reservations */}
-      <div className={styles['glass-card']}>
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-pink-500 rounded-xl flex items-center justify-center">
-            <Heart size={24} className="text-white" />
+      {/* My Reservations - 멘티용 */}
+      {!isMentor && (
+        <div className={styles['glass-card']}>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-pink-500 rounded-xl flex items-center justify-center">
+              <Heart size={24} className="text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-800">나의 예약</h3>
+              <p className="text-sm text-slate-500">예약한 멘토링 세션</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-lg font-bold text-slate-800">나의 예약</h3>
-            <p className="text-sm text-slate-500">예약한 멘토링 세션</p>
-          </div>
-        </div>
 
-        <div className="flex flex-col items-center justify-center py-12">
-          <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
-            <Heart size={32} className="text-slate-400" />
-          </div>
-          <p className="text-slate-600 text-sm mb-6">예약한 세션이 없습니다</p>
-          <button onClick={() => navigate('/mentoring')} className="px-6 py-3 bg-gradient-to-r from-pink-400 to-pink-500 text-white rounded-xl text-sm font-bold hover:opacity-90 transition-opacity shadow-lg">
-            세션 찾아보기
-          </button>
-        </div>
-      </div>
+          {myBookings.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
+                <Heart size={32} className="text-slate-400" />
+              </div>
+              <p className="text-slate-600 text-sm mb-6">예약한 세션이 없습니다</p>
+              <button onClick={() => navigate('/mentoring')} className="px-6 py-3 bg-gradient-to-r from-pink-400 to-pink-500 text-white rounded-xl text-sm font-bold hover:opacity-90 transition-opacity shadow-lg">
+                세션 찾아보기
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {myBookings.map((booking) => {
+                const status = getBookingStatusStyle(booking.status);
+                return (
+                  <div key={booking.bookingId} className={`border ${status.border} rounded-xl p-4 ${status.bg}`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-pink-400 to-pink-500 rounded-full flex items-center justify-center">
+                          <User size={20} className="text-white" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-semibold text-slate-800">{booking.mentorName}</h4>
+                          <p className="text-xs text-slate-500">멘토</p>
+                        </div>
+                      </div>
+                      <span className={`text-xs px-2 py-1 rounded-lg ${status.bg} ${status.text} border ${status.border}`}>
+                        {status.label}
+                      </span>
+                    </div>
 
-      {/* Become a Mentor CTA */}
-      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-        <div className="relative z-10 flex flex-col items-center text-center">
-          <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4">
-            <User size={32} className="text-white" />
-          </div>
-          <h3 className="text-2xl font-bold mb-2">멘토가 되어보세요!</h3>
-          <p className="text-purple-100 mb-6 max-w-md">
-            후배들의 성장을 도와주실 멘토를 모집합니다.
-          </p>
-          <button onClick={() => setShowMentorModal(true)} className="px-6 py-3 bg-white text-purple-600 rounded-xl text-sm font-bold hover:bg-purple-50 transition-colors shadow-lg">
-            멘토 신청하기
-          </button>
+                    <p className="text-sm font-medium text-slate-800 mb-2">{booking.sessionTitle}</p>
+
+                    {booking.rejectionReason && (
+                      <div className="bg-white/50 rounded-lg p-2 mb-2">
+                        <p className="text-xs text-rose-600">거절 사유: {booking.rejectionReason}</p>
+                      </div>
+                    )}
+
+                    <p className="text-xs text-slate-500 mb-3">
+                      예약일: {booking.bookingDate} {booking.timeSlot}
+                    </p>
+
+                    {booking.status === 'CONFIRMED' && (
+                      <button
+                        onClick={() => navigate(`/mentoring/meeting/${booking.bookingId}`)}
+                        className="w-full py-2 bg-gradient-to-r from-emerald-400 to-emerald-500 text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
+                      >
+                        세션 입장하기
+                      </button>
+                    )}
+                    {booking.status === 'PENDING' && (
+                      <button
+                        onClick={async () => {
+                          if (confirm('예약을 취소하시겠습니까?')) {
+                            try {
+                              await bookingService.cancelBooking(booking.bookingId);
+                              showToast('예약이 취소되었습니다.', 'success');
+                              const bookings = await bookingService.getMyBookings(userId!);
+                              setMyBookings(bookings || []);
+                            } catch (e) {
+                              showToast('취소 실패', 'error');
+                            }
+                          }
+                        }}
+                        className="w-full py-2 bg-gradient-to-r from-gray-400 to-gray-500 text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
+                      >
+                        예약 취소
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
-      </div>
+      )}
+
+      {/* Mentor's Sessions (only for approved mentors) */}
+      {mentorInfo && mentorInfo.status === 'APPROVED' && (
+        <div className={styles['glass-card']}>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 bg-gradient-to-br from-violet-400 to-violet-500 rounded-xl flex items-center justify-center">
+              <User size={24} className="text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-800">멘토링 세션</h3>
+              <p className="text-sm text-slate-500">내가 진행하는 멘토링</p>
+            </div>
+          </div>
+
+          {mentorBookings.filter(b => b.status === 'CONFIRMED' || b.status === 'PENDING').length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
+                <User size={32} className="text-slate-400" />
+              </div>
+              <p className="text-slate-600 text-sm mb-6">예약된 멘토링이 없습니다</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {mentorBookings
+                .filter(b => b.status === 'CONFIRMED' || b.status === 'PENDING')
+                .map((booking) => {
+                  const status = getBookingStatusStyle(booking.status);
+                  return (
+                    <div key={booking.bookingId} className={`border ${status.border} rounded-xl p-4 ${status.bg}`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-violet-400 to-violet-500 rounded-full flex items-center justify-center">
+                            <User size={20} className="text-white" />
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-semibold text-slate-800">{booking.menteeName}</h4>
+                            <p className="text-xs text-slate-500">멘티</p>
+                          </div>
+                        </div>
+                        <span className={`text-xs px-2 py-1 rounded-lg ${status.bg} ${status.text} border ${status.border}`}>
+                          {status.label}
+                        </span>
+                      </div>
+
+                      <p className="text-sm font-medium text-slate-800 mb-2">{booking.sessionTitle}</p>
+
+                      <p className="text-xs text-slate-500 mb-3">
+                        예약일: {booking.bookingDate} {booking.timeSlot}
+                      </p>
+
+                      {booking.status === 'CONFIRMED' && (
+                        <button
+                          onClick={() => navigate(`/mentoring/meeting/${booking.bookingId}`)}
+                          className="w-full py-2 bg-gradient-to-r from-violet-400 to-violet-500 text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
+                        >
+                          세션 입장하기
+                        </button>
+                      )}
+                      {booking.status === 'PENDING' && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={async () => {
+                              try {
+                                await bookingService.confirmBooking(booking.bookingId);
+                                showToast('예약이 승인되었습니다.', 'success');
+                                // Refresh bookings
+                                const mBookings = await bookingService.getMentorBookings(mentorInfo.mentorId);
+                                setMentorBookings(mBookings || []);
+                              } catch (e) {
+                                showToast('승인 실패', 'error');
+                              }
+                            }}
+                            className="flex-1 py-2 bg-gradient-to-r from-emerald-400 to-emerald-500 text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
+                          >
+                            승인
+                          </button>
+                          <button
+                            onClick={async () => {
+                              const reason = prompt('거절 사유를 입력하세요:');
+                              if (reason) {
+                                try {
+                                  await bookingService.rejectBooking(booking.bookingId, reason);
+                                  showToast('예약이 거절되었습니다.', 'success');
+                                  const mBookings = await bookingService.getMentorBookings(mentorInfo.mentorId);
+                                  setMentorBookings(mBookings || []);
+                                } catch (e) {
+                                  showToast('거절 실패', 'error');
+                                }
+                              }
+                            }}
+                            className="flex-1 py-2 bg-gradient-to-r from-rose-400 to-rose-500 text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
+                          >
+                            거절
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Become a Mentor CTA - 멘토가 아닐 때만 표시 */}
+      {!isMentor && (
+        <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+          <div className="relative z-10 flex flex-col items-center text-center">
+            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4">
+              <User size={32} className="text-white" />
+            </div>
+            <h3 className="text-2xl font-bold mb-2">멘토가 되어보세요!</h3>
+            <p className="text-purple-100 mb-6 max-w-md">
+              후배들의 성장을 도와주실 멘토를 모집합니다.
+            </p>
+            <button onClick={() => setShowMentorModal(true)} className="px-6 py-3 bg-white text-purple-600 rounded-xl text-sm font-bold hover:bg-purple-50 transition-colors shadow-lg">
+              멘토 신청하기
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
+  };
 
   const renderSettingsSection = () => (
     <div className="space-y-6">

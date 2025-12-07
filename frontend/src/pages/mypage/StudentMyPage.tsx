@@ -202,8 +202,15 @@ export default function StudentMyPage() {
                 </div>
                 <h2 className="text-center text-sm font-semibold text-gray-900">{userProfile.name}</h2>
                 <p className="text-center text-xs text-gray-500 mt-0.5">{userProfile.username}</p>
-                <div className="flex justify-center mt-2">
-                  <span className="bg-pink-50 text-pink-600 px-2 py-0.5 rounded text-xs font-medium">학생</span>
+                <div className="flex justify-center gap-1 mt-2">
+                  {userProfile.role === 'ADMIN' ? (
+                    <span className="bg-red-50 text-red-600 px-2 py-0.5 rounded text-xs font-medium">관리자</span>
+                  ) : (
+                    <span className="bg-pink-50 text-pink-600 px-2 py-0.5 rounded text-xs font-medium">학생</span>
+                  )}
+                  {mentorApplication?.status === 'APPROVED' && (
+                    <span className="bg-violet-50 text-violet-600 px-2 py-0.5 rounded text-xs font-medium">멘토</span>
+                  )}
                 </div>
               </div>
 
@@ -676,7 +683,16 @@ export default function StudentMyPage() {
 
                   <div className="border border-gray-200 rounded p-3">
                     <p className="text-xs text-gray-500 mb-0.5">역할</p>
-                    <span className="text-xs px-2 py-0.5 rounded bg-pink-50 text-pink-600">학생</span>
+                    <div className="flex flex-wrap gap-1">
+                      {userProfile.role === 'ADMIN' ? (
+                        <span className="text-xs px-2 py-0.5 rounded bg-red-50 text-red-600">관리자</span>
+                      ) : (
+                        <span className="text-xs px-2 py-0.5 rounded bg-pink-50 text-pink-600">학생</span>
+                      )}
+                      {mentorApplication?.status === 'APPROVED' && (
+                        <span className="text-xs px-2 py-0.5 rounded bg-violet-50 text-violet-600">멘토</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
