@@ -202,6 +202,9 @@ public class AuthService {
                 .username(user.getUsername())
                 .name(user.getName())
                 .email(user.getEmail())
+                .phone(user.getPhone())
+                .birth(user.getBirth())
+                .createdAt(user.getCreatedAt())
                 .role(user.getRole())
                 .build();
     }

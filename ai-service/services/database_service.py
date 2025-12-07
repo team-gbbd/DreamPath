@@ -75,7 +75,15 @@ class DatabaseService:
             return False
         try:
             if USE_POSTGRES:
-                return conn.closed == 0
+                # conn.closed만으로는 서버에서 끊어진 연결을 감지 못함
+                # 실제 쿼리를 실행하여 연결 상태 확인
+                if conn.closed != 0:
+                    return False
+                cursor = conn.cursor()
+                cursor.execute("SELECT 1")
+                cursor.fetchone()  # 결과를 소비해서 버퍼 비우기
+                cursor.close()
+                return True
             # pymysql은 ping으로 상태 확인 (자동 재연결)
             conn.ping(reconnect=True)
             return True
@@ -820,8 +828,13 @@ class DatabaseService:
                 # 대화 형식으로 변환
                 conversation_lines = []
                 for row in results:
-                    role = row.get('role', row[0]) if isinstance(row, dict) else row[0]
-                    content = row.get('content', row[1]) if isinstance(row, dict) else row[1]
+                    # psycopg2는 튜플 반환, pymysql은 딕셔너리 반환
+                    if isinstance(row, dict):
+                        role = row.get('role')
+                        content = row.get('content')
+                    else:
+                        role = row[0]
+                        content = row[1]
                     conversation_lines.append(f"{role}: {content}")
 
                 return "\n".join(conversation_lines)

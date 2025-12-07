@@ -4,6 +4,9 @@ import com.dreampath.global.enums.Role;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
 @Getter
 @Builder
 public class LoginResponse {
@@ -11,5 +14,8 @@ public class LoginResponse {
     private String username;
     private String name;
     private String email;
+    private String phone;
+    private LocalDate birth;
+    private LocalDateTime createdAt;
     private Role role;
 }

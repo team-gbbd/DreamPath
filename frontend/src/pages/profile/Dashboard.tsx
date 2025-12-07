@@ -193,6 +193,14 @@ const ProgressBar = ({ label, value, color = 'bg-indigo-500' }: ProgressBarProps
   );
 };
 
+// 날짜 포맷 함수
+const formatDate = (dateStr: string | undefined): string => {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '-';
+  return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`;
+};
+
 export default function NewDashboard() {
   const navigate = useNavigate();
   const { showToast, ToastContainer } = useToast();
@@ -207,7 +215,16 @@ export default function NewDashboard() {
   const [yearsOfExperience, setYearsOfExperience] = useState('');
   const [mentorBio, setMentorBio] = useState('');
   const [mentorCareer, setMentorCareer] = useState('');
-  const [currentUser, setCurrentUser] = useState<{ name: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{
+    userId?: number;
+    username?: string;
+    name?: string;
+    email?: string;
+    phone?: string;
+    birth?: string;
+    createdAt?: string;
+    role?: string;
+  } | null>(null);
 
   // --- Dashboard Logic State ---
   const [userId, setUserId] = useState<number | null>(null);
@@ -924,37 +941,37 @@ export default function NewDashboard() {
           {/* 이름 */}
           <div className="border border-gray-200 rounded-lg p-4">
             <p className="text-xs text-gray-500 mb-1">이름</p>
-            <p className="text-sm font-medium text-gray-900">{currentUser?.name || '카나다'}</p>
+            <p className="text-sm font-medium text-gray-900">{currentUser?.name || '-'}</p>
           </div>
 
           {/* 아이디 */}
           <div className="border border-gray-200 rounded-lg p-4">
             <p className="text-xs text-gray-500 mb-1">아이디</p>
-            <p className="text-sm font-medium text-gray-900">user44</p>
+            <p className="text-sm font-medium text-gray-900">{currentUser?.username || '-'}</p>
           </div>
 
           {/* 이메일 */}
           <div className="border border-gray-200 rounded-lg p-4">
             <p className="text-xs text-gray-500 mb-1">이메일</p>
-            <p className="text-sm font-medium text-gray-900">vtxmgieloaaeurxawh@xfavaj.com</p>
+            <p className="text-sm font-medium text-gray-900">{currentUser?.email || '-'}</p>
           </div>
 
           {/* 전화번호 */}
           <div className="border border-gray-200 rounded-lg p-4">
             <p className="text-xs text-gray-500 mb-1">전화번호</p>
-            <p className="text-sm font-medium text-gray-900">01012340000</p>
+            <p className="text-sm font-medium text-gray-900">{currentUser?.phone || '-'}</p>
           </div>
 
           {/* 생년월일 */}
           <div className="border border-gray-200 rounded-lg p-4">
             <p className="text-xs text-gray-500 mb-1">생년월일</p>
-            <p className="text-sm font-medium text-gray-900">2025년 12월 4일</p>
+            <p className="text-sm font-medium text-gray-900">{formatDate(currentUser?.birth)}</p>
           </div>
 
           {/* 가입일 */}
           <div className="border border-gray-200 rounded-lg p-4">
             <p className="text-xs text-gray-500 mb-1">가입일</p>
-            <p className="text-sm font-medium text-gray-900">2025년 12월 5일</p>
+            <p className="text-sm font-medium text-gray-900">{formatDate(currentUser?.createdAt)}</p>
           </div>
 
           {/* 계정 상태 */}
@@ -969,7 +986,7 @@ export default function NewDashboard() {
           <div className="border border-gray-200 rounded-lg p-4">
             <p className="text-xs text-gray-500 mb-1">역할</p>
             <span className="text-xs px-2 py-1 rounded bg-pink-50 text-pink-600">
-              학생
+              {currentUser?.role === 'MENTOR' ? '멘토' : currentUser?.role === 'ADMIN' ? '관리자' : '학생'}
             </span>
           </div>
         </div>
