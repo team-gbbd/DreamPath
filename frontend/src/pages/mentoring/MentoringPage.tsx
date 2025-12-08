@@ -53,7 +53,6 @@ interface MentoringSession {
   description: string;
   sessionDate: string;
   durationMinutes: number;
-  price: number;
   status: string;
 }
 
@@ -79,7 +78,6 @@ export default function MentoringPage() {
     sessionDate: '',
     sessionTime: '',
     durationMinutes: 60,
-    price: 0,
   });
 
   useEffect(() => {
@@ -180,7 +178,6 @@ export default function MentoringPage() {
         description: sessionForm.description,
         sessionDate: sessionDateTime,
         durationMinutes: sessionForm.durationMinutes,
-        price: sessionForm.price,
       });
 
       showToast('멘토링 세션이 성공적으로 등록되었습니다!', 'success');
@@ -193,7 +190,6 @@ export default function MentoringPage() {
         sessionDate: '',
         sessionTime: '',
         durationMinutes: 60,
-        price: 0,
       });
       setValidationErrors({});
 
@@ -448,15 +444,9 @@ export default function MentoringPage() {
                         </div>
                       </div>
 
-                      {/* 가격 & 잔여석 */}
-                      <div className="flex items-center justify-between pt-4 border-t border-gray-100 mb-4">
-                        <div>
-                          <p className="text-xs text-gray-500">가격</p>
-                          <p className="text-lg font-bold text-gray-900">
-                            {session.price === 0 ? '무료' : `${session.price.toLocaleString()}원`}
-                          </p>
-                        </div>
-                        <div className="text-right">
+                      {/* 예약 상태 */}
+                      <div className="pt-4 border-t border-gray-100 mb-4">
+                        <div className="flex items-center justify-between">
                           <p className="text-xs text-gray-500">예약 상태</p>
                           <p className={`text-lg font-bold ${session.availableSlots > 0 ? 'text-green-600' : 'text-red-600'}`}>
                             {session.isFull ? '마감' : '예약 가능'}
@@ -589,19 +579,6 @@ export default function MentoringPage() {
                       onChange={(e) => setSessionForm({ ...sessionForm, durationMinutes: parseInt(e.target.value) || 60 })}
                       min="30"
                       step="30"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-pink-400 focus:ring-2 focus:ring-pink-200 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      가격 (원)
-                    </label>
-                    <input
-                      type="number"
-                      value={sessionForm.price}
-                      onChange={(e) => setSessionForm({ ...sessionForm, price: parseInt(e.target.value) || 0 })}
-                      min="0"
-                      step="1000"
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-pink-400 focus:ring-2 focus:ring-pink-200 focus:outline-none"
                     />
                   </div>

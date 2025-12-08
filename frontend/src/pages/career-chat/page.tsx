@@ -33,8 +33,8 @@ import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import SurveyModal from '../../components/profile/SurveyModal';
-import AgentCard, { AgentAction } from '../../components/career/AgentCard';
-import { API_BASE_URL } from '@/lib/api';
+import AgentCard, { type AgentAction } from '../../components/career/AgentCard';
+import { API_BASE_URL, PYTHON_AI_SERVICE_URL } from '@/lib/api';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -440,6 +440,91 @@ export default function CareerChatPage() {
     }
   };
 
+  // 에이전트 결과 폴링 함수
+  const pollAgentResult = async (taskId: string) => {
+    const maxAttempts = 30; // 최대 15초 (0.5초 * 30)
+    let attempts = 0;
+
+    const poll = async () => {
+      try {
+        const response = await fetch(`${PYTHON_AI_SERVICE_URL}/api/chat/agent-result/${taskId}`);
+        const task = await response.json();
+
+        console.log(`[폴링] task_id=${taskId}, status=${task.status}`);
+
+        if (task.status === 'completed' && task.agentAction) {
+          // 에이전트 결과 처리
+          setIsSearching(false);
+          const actionType = task.agentAction.type as string;
+          const results = task.agentAction.data?.results || [];
+
+          let summary = task.agentAction.summary;
+          if (!summary || summary.trim().length === 0) {
+            summary = results
+              .slice(0, 3)
+              .map((r: any) => r.snippet?.replace(/\.{3}$/, '') || '')
+              .filter((s: string) => s.length > 0)
+              .join(' ')
+              .slice(0, 300);
+          }
+
+          const panelType = actionType === 'web_search_results' ? 'web_search' :
+                actionType === 'mentoring_suggestion' ? 'mentoring' :
+                actionType === 'learning_path_suggestion' ? 'learning_path' : 'web_search';
+
+          const newResearchPanel: ResearchPanel = {
+            id: `research-${Date.now()}`,
+            type: panelType,
+            title: task.agentAction.reason || '리서치 결과',
+            summary: summary || '검색 결과를 확인하세요.',
+            sources: results.map((r: any) => ({
+              title: r.title,
+              url: r.url,
+              snippet: r.snippet,
+            })),
+            timestamp: new Date(),
+            mentoringData: panelType === 'mentoring' && task.agentAction.data?.sessions ? {
+              sessions: task.agentAction.data.sessions,
+              total: task.agentAction.data.sessions.length,
+            } : undefined,
+            learningPathData: panelType === 'learning_path' && task.agentAction.data?.path ? {
+              path: task.agentAction.data.path,
+              exists: task.agentAction.data.exists,
+              canCreate: task.agentAction.data.canCreate,
+              createUrl: task.agentAction.data.createUrl,
+            } : undefined,
+          };
+          setResearchPanels(prev => [newResearchPanel, ...prev]);
+          setRightPanelTab('research');
+          return;
+        }
+
+        if (task.status === 'skipped' || task.status === 'failed') {
+          // 스킵 또는 실패
+          setIsSearching(false);
+          if (task.status === 'failed') {
+            console.error('[폴링] 에이전트 실패:', task.error);
+          }
+          return;
+        }
+
+        // pending/running 상태면 계속 폴링
+        attempts++;
+        if (attempts < maxAttempts) {
+          setTimeout(poll, 500); // 0.5초 후 재시도
+        } else {
+          setIsSearching(false);
+          console.warn('[폴링] 타임아웃');
+        }
+      } catch (error) {
+        console.error('[폴링] 에러:', error);
+        setIsSearching(false);
+      }
+    };
+
+    poll();
+  };
+
   const sendMessage = async () => {
     if (!inputMessage.trim() || !sessionId || isLoading) return;
 
@@ -481,51 +566,7 @@ export default function CareerChatPage() {
       console.log('백엔드 응답:', data);
       console.log('정체성 상태:', data.identityStatus);
 
-      if (data.agentAction) {
-        setIsSearching(false);
-        const actionType = data.agentAction.type as string;
-        const results = data.agentAction.data?.results || [];
-
-        let summary = data.agentAction.summary;
-        if (!summary || summary.trim().length === 0) {
-          summary = results
-            .slice(0, 3)
-            .map((r: any) => r.snippet?.replace(/\.{3}$/, '') || '')
-            .filter((s: string) => s.length > 0)
-            .join(' ')
-            .slice(0, 300);
-        }
-
-        const panelType = actionType === 'web_search_results' ? 'web_search' :
-              actionType === 'mentoring_suggestion' ? 'mentoring' :
-              actionType === 'learning_path_suggestion' ? 'learning_path' : 'web_search';
-
-        const newResearchPanel: ResearchPanel = {
-          id: `research-${Date.now()}`,
-          type: panelType,
-          title: data.agentAction.reason || '리서치 결과',
-          summary: summary || '검색 결과를 확인하세요.',
-          sources: results.map((r: any) => ({
-            title: r.title,
-            url: r.url,
-            snippet: r.snippet,
-          })),
-          timestamp: new Date(),
-          mentoringData: panelType === 'mentoring' && data.agentAction.data?.sessions ? {
-            sessions: data.agentAction.data.sessions,
-            total: data.agentAction.data.sessions.length,
-          } : undefined,
-          learningPathData: panelType === 'learning_path' && data.agentAction.data?.path ? {
-            path: data.agentAction.data.path,
-            exists: data.agentAction.data.exists,
-            canCreate: data.agentAction.data.canCreate,
-            createUrl: data.agentAction.data.createUrl,
-          } : undefined,
-        };
-        setResearchPanels(prev => [newResearchPanel, ...prev]);
-        setRightPanelTab('research');
-      }
-
+      // 상담 응답 즉시 표시
       const assistantMessage: Message = {
         role: 'assistant',
         content: data.message,
@@ -535,6 +576,15 @@ export default function CareerChatPage() {
       };
 
       setMessages(prev => [...prev, assistantMessage]);
+      setIsLoading(false); // 상담 응답 받으면 로딩 해제
+
+      // 에이전트 태스크가 있으면 폴링 시작
+      if (data.taskId) {
+        console.log(`[Chat] 에이전트 폴링 시작: task_id=${data.taskId}`);
+        pollAgentResult(data.taskId);
+      } else {
+        setIsSearching(false);
+      }
 
       if (data.identityStatus) {
         setIdentityStatus(data.identityStatus);
@@ -552,7 +602,6 @@ export default function CareerChatPage() {
         content: '메시지 전송에 실패했습니다. 다시 시도해주세요.',
         timestamp: new Date(),
       }]);
-    } finally {
       setIsLoading(false);
       setIsSearching(false);
     }
@@ -778,6 +827,7 @@ export default function CareerChatPage() {
         />
       )}
 
+      {/* 헤더 - 따뜻하고 깔끔한 스타일 */}
       <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
@@ -875,6 +925,7 @@ export default function CareerChatPage() {
                 </div>
               </ScrollArea>
 
+              {/* 입력 영역 */}
               <div className="border-t border-gray-100 p-4 bg-gray-50/50">
                 {messages.length >= 6 && (
                   <div className="mb-3 flex justify-center">
@@ -909,6 +960,7 @@ export default function CareerChatPage() {
             </Card>
           </div>
 
+          {/* 우측 패널 - 탭 구조 */}
           <div className="lg:col-span-1">
             <Card className="sticky top-24 h-[calc(100vh-160px)] flex flex-col overflow-hidden border-0 shadow-lg">
               <Tabs value={rightPanelTab} onValueChange={(v) => setRightPanelTab(v as RightPanelTab)} className="flex flex-col h-full">
@@ -921,11 +973,13 @@ export default function CareerChatPage() {
                   </TabsTrigger>
                 </TabsList>
 
+                {/* 정체성 탭 */}
                 <TabsContent value="identity" className="flex-1 overflow-hidden m-0 bg-white">
                   <ScrollArea className="h-full">
                     <div className="p-4 space-y-4">
                       {identityStatus ? (
                         <>
+                          {/* 새로운 인사이트 */}
                           {identityStatus.recentInsight?.hasInsight && identityStatus.recentInsight?.insight && (
                             <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/50 rounded-xl p-4">
                               <div className="flex items-start gap-3">
@@ -942,6 +996,7 @@ export default function CareerChatPage() {
                             </div>
                           )}
 
+                          {/* 현재 단계 */}
                           {identityStatus.currentStage && (
                             <div className="bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/10 rounded-xl p-4">
                               <div className="flex items-center justify-between mb-3">
@@ -963,6 +1018,7 @@ export default function CareerChatPage() {
                             </div>
                           )}
 
+                          {/* 명확도 */}
                           {identityStatus.clarity != null && (
                             <div className="space-y-2">
                               <div className="flex justify-between items-center">
@@ -980,6 +1036,7 @@ export default function CareerChatPage() {
                             </div>
                           )}
 
+                          {/* 핵심 정체성 */}
                           {identityStatus.identityCore && identityStatus.identityCore !== '탐색 중...' && (
                             <div className="bg-gray-50 rounded-xl p-4">
                               <div className="flex items-center gap-2 mb-2">
@@ -995,6 +1052,7 @@ export default function CareerChatPage() {
                             </div>
                           )}
 
+                          {/* 발견된 특징 */}
                           {identityStatus.traits && identityStatus.traits.length > 0 && (
                             <div className="space-y-3">
                               <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">발견된 특징</span>

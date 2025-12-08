@@ -62,7 +62,6 @@ async def search_mentoring_sessions(career_interest: str) -> dict:
                         "topic": s.get("title"),
                         "description": s.get("description"),
                         "sessionDate": _format_date(s.get("sessionDate")),
-                        "price": s.get("price", 0),
                     })
 
             if matched:

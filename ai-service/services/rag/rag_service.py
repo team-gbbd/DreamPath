@@ -2,6 +2,7 @@ import os
 from openai import OpenAI
 from pinecone import Pinecone
 from dotenv import load_dotenv
+from config import settings
 
 load_dotenv()
 
@@ -20,6 +21,7 @@ class RAGService:
         self.client = OpenAI(api_key=api_key)
         self.pc = Pinecone(api_key=pine_key)
         self.index = self.pc.Index(index_name)
+        self.model = settings.OPENAI_MODEL
 
     # -----------------------------
     # ① 사용자 벡터 기반 Top-K 검색
@@ -80,7 +82,7 @@ class RAGService:
 """
 
         completion = self.client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=self.model,
             messages=[
                 {"role": "system", "content": "당신은 성향 분석 전문가입니다."},
                 {"role": "user", "content": prompt}

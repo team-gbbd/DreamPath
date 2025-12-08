@@ -7,7 +7,7 @@ import Footer from '../../components/feature/Footer';
  * AI 에이전트 대시보드
  */
 export default function AIAgentDashboard() {
-  const [activeTab, setActiveTab] = useState<'recommendations' | 'applications' | 'growth' | 'resume'>('recommendations');
+  const [activeTab, setActiveTab] = useState<'recommendations' | 'applications' | 'growth' | 'resume' | 'company'>('recommendations');
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -65,6 +65,16 @@ export default function AIAgentDashboard() {
             >
               📝 이력서 최적화
             </button>
+            <button
+              onClick={() => setActiveTab('company')}
+              className={`${
+                activeTab === 'company'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors`}
+            >
+              🏢 목표 기업 분석
+            </button>
           </nav>
         </div>
 
@@ -74,6 +84,7 @@ export default function AIAgentDashboard() {
           {activeTab === 'applications' && <ApplicationsTab />}
           {activeTab === 'growth' && <CareerGrowthTab />}
           {activeTab === 'resume' && <ResumeOptimizerTab />}
+          {activeTab === 'company' && <CompanyTalentTab />}
         </div>
       </main>
 
@@ -247,6 +258,49 @@ function CareerGrowthTab() {
 }
 
 // ============== 4. 이력서 최적화 탭 ==============
+
+// ============== 5. 목표 기업 분석 탭 ==============
+
+function CompanyTalentTab() {
+  return (
+    <div>
+      <h2 className="text-2xl font-bold mb-4">목표 기업 인재상 분석</h2>
+      <p className="text-gray-600 mb-6">
+        가고 싶은 기업의 인재상을 분석하고 나와의 매칭도를 확인하세요.
+      </p>
+
+      {/* 기능 소개 카드 */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <div className="text-2xl mb-2">🔍</div>
+          <h3 className="font-semibold text-blue-900 mb-1">인재상 분석</h3>
+          <p className="text-sm text-blue-700">기업이 원하는 인재 특성, 핵심가치 파악</p>
+        </div>
+        <div className="bg-green-50 p-4 rounded-lg">
+          <div className="text-2xl mb-2">📋</div>
+          <h3 className="font-semibold text-green-900 mb-1">채용 요건 분석</h3>
+          <p className="text-sm text-green-700">필수/우대 조건, 기술스택 정리</p>
+        </div>
+        <div className="bg-purple-50 p-4 rounded-lg">
+          <div className="text-2xl mb-2">📊</div>
+          <h3 className="font-semibold text-purple-900 mb-1">매칭도 분석</h3>
+          <p className="text-sm text-purple-700">나와 기업의 적합도 점수 확인</p>
+        </div>
+      </div>
+
+      {/* CTA 버튼 */}
+      <div className="text-center py-6">
+        <Link
+          to="/company-talent"
+          className="inline-flex items-center gap-2 px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+        >
+          <span>목표 기업 분석 시작하기</span>
+          <span>→</span>
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 function ResumeOptimizerTab() {
   return (

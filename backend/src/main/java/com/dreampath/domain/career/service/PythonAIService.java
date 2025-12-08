@@ -139,5 +139,46 @@ public class PythonAIService {
             throw new RuntimeException("응답 변환 실패: " + e.getMessage(), e);
         }
     }
+
+    /**
+     * 사용자의 채용공고 추천을 백그라운드에서 계산하도록 트리거합니다.
+     * 비동기로 실행되며 즉시 반환됩니다.
+     *
+     * @param userId 사용자 ID
+     */
+    public void triggerJobRecommendationCalculation(Long userId) {
+        try {
+            String url = pythonAiServiceUrl + "/api/job-agent/recommendations/calculate/"
+                + userId + "?background=true";
+
+            log.info("채용공고 추천 계산 트리거: userId={}, url={}", userId, url);
+
+            // 비동기로 POST 요청 (응답 대기하지 않음)
+            new Thread(() -> {
+                try {
+                    HttpHeaders headers = new HttpHeaders();
+                    headers.setContentType(MediaType.APPLICATION_JSON);
+                    HttpEntity<Void> request = new HttpEntity<>(headers);
+
+                    ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
+
+                    if (response.getStatusCode().is2xxSuccessful()) {
+                        log.info("채용공고 추천 계산 트리거 성공: userId={}", userId);
+                    } else {
+                        log.warn("채용공고 추천 계산 트리거 응답 오류: userId={}, status={}",
+                            userId, response.getStatusCode());
+                    }
+
+                } catch (Exception e) {
+                    // 실패해도 메인 로직에 영향 없도록 로그만 기록
+                    log.error("채용공고 추천 계산 트리거 실패: userId={}", userId, e);
+                }
+            }, "JobRecommendationTrigger-" + userId).start();
+
+        } catch (Exception e) {
+            // 트리거 자체가 실패해도 메인 로직에 영향 없도록 로그만 기록
+            log.error("채용공고 추천 계산 트리거 실패: userId={}", userId, e);
+        }
+    }
 }
 

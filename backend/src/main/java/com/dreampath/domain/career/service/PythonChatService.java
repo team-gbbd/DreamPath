@@ -79,9 +79,15 @@ public class PythonChatService {
                     throw new RuntimeException("Python AI 서비스 응답에 message가 없습니다.");
                 }
 
-                // 응답 맵 구성 (message와 agentAction 포함)
+                // 응답 맵 구성 (message, taskId, agentAction 포함)
                 Map<String, Object> result = new HashMap<>();
                 result.put("message", message);
+
+                // taskId가 있으면 포함 (백그라운드 에이전트 폴링용)
+                if (responseBody.containsKey("taskId") && responseBody.get("taskId") != null) {
+                    result.put("taskId", responseBody.get("taskId"));
+                    log.info("에이전트 태스크 시작: sessionId={}, taskId={}", sessionId, responseBody.get("taskId"));
+                }
 
                 // agentAction이 있으면 포함
                 if (responseBody.containsKey("agentAction") && responseBody.get("agentAction") != null) {
