@@ -71,10 +71,10 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ErrorResponse> handleResponseStatusException(ResponseStatusException ex) {
-        log.warn("ResponseStatusException: {} - {}", ex.getStatusCode(), ex.getReason());
+        log.warn("Response status exception: {} - {}", ex.getStatusCode(), ex.getReason());
         ErrorResponse error = new ErrorResponse(
                 ex.getStatusCode().value(),
-                ex.getReason(),
+                ex.getReason() != null ? ex.getReason() : ex.getMessage(),
                 LocalDateTime.now()
         );
         return ResponseEntity.status(ex.getStatusCode()).body(error);
