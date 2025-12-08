@@ -23,7 +23,7 @@
         },
         {
           "name": "PYTHON_AI_SERVICE_URL",
-          "value": "http://dreampath-ai-service.dreampath-cluster.local:8000"
+          "value": "https://ai.dreampathai.link"
         }
       ],
       "secrets": [
