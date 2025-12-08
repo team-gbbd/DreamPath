@@ -9,6 +9,7 @@ from typing import Dict, Any, List
 from collections import Counter
 from openai import OpenAI
 from ..state import JobResearchState
+from config import settings
 
 
 def load_prompt(prompt_name: str) -> str:
@@ -143,7 +144,7 @@ def get_ai_insights(state: JobResearchState) -> str:
         )
 
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=settings.OPENAI_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7
         )

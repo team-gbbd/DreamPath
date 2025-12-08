@@ -22,7 +22,7 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.MySQLDialect
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5-mini}
       PYTHON_AI_SERVICE_URL: http://ai-service:8000
       MAIL_USERNAME: ${MAIL_USERNAME}
       MAIL_PASSWORD: ${MAIL_PASSWORD}
@@ -86,7 +86,7 @@ services:
       - "8000:8000"
     environment:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5-mini}
       SERPER_API_KEY: ${SERPER_API_KEY}
       PINECONE_API_KEY: ${PINECONE_API_KEY:-dummykey}
       PINECONE_ENVIRONMENT: ${PINECONE_ENVIRONMENT:-us-west1-gcp}

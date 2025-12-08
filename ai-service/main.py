@@ -66,7 +66,7 @@ from services.chat_service import ChatService
 # Environment Variables
 # =========================================
 api_key = os.getenv("OPENAI_API_KEY", "")
-model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+model = os.getenv("OPENAI_MODEL", "gpt-5-mini")
 
 # =========================================
 # Lifespan (Startup/Shutdown Events)

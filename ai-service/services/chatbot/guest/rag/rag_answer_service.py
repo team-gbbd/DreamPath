@@ -1,11 +1,13 @@
 import os
 from openai import OpenAI
 from typing import List, Dict, Any
+from config import settings
 
 
 class RagAnswerService:
     def __init__(self):
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.model = settings.OPENAI_MODEL
 
     def generate_answer(self, question: str, matches: List[Dict[str, Any]]) -> str:
         """FAQ 전용 답변 생성 메서드"""
@@ -66,7 +68,7 @@ class RagAnswerService:
 
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=self.model,
                 messages=[
                     {"role": "user", "content": prompt}
                 ]

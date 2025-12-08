@@ -10,6 +10,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
 from services.agents import route_message, should_use_agent
+from config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,8 @@ logger = logging.getLogger(__name__)
 class ChatService:
     """LangChain을 사용한 대화형 진로 상담 서비스"""
 
-    def __init__(self, api_key: str, model: str = "gpt-4o-mini"):
+    def __init__(self, api_key: str, model: str = None):
+        model = model or settings.OPENAI_MODEL
         self.llm = ChatOpenAI(
             api_key=api_key,
             model=model,
