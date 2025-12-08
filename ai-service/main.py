@@ -30,6 +30,7 @@ from routers.user_embedding import router as user_embedding_router
 from routers.bigfive_router import router as bigfive_router
 from routers.mbti_router import router as mbti_router
 from routers.personality_profile_router import router as personality_profile_router
+from routers.personality_agent_router import router as personality_agent_router
 from routers.chatbot_router import router as chatbot_router
 
 # ====== Services ======
@@ -97,6 +98,7 @@ app.include_router(rag_router)
 app.include_router(profile_match_router, prefix="/api")
 app.include_router(qnet_router)             # Q-net 자격증 API
 app.include_router(job_agent_router)        # 채용공고 AI 에이전트 API
+app.include_router(personality_agent_router)  # Personality Agent #1 API
 app.include_router(user_document_router, prefix="/analysis", tags=["analysis"])
 app.include_router(user_embedding_router, prefix="/embedding", tags=["embedding"])
 app.include_router(bigfive_router, prefix="/api")

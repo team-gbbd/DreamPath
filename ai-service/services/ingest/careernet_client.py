@@ -69,3 +69,23 @@ class CareerNetClient:
             return {}
         except Exception:
             return {}
+
+    @staticmethod
+    def get_job_detail(job_seq):
+        """
+        직업 상세 정보 조회 (JOB_VIEW)
+        https://www.career.go.kr/cnet/front/openapi/job.json?seq={job_seq}
+        """
+        url = "https://www.career.go.kr/cnet/front/openapi/job.json"
+        
+        params = {
+            'apiKey': CareerNetClient.API_KEY,
+            'seq': job_seq
+        }
+        
+        try:
+            response = requests.get(url, params=params).json()
+            return response
+        except Exception as e:
+            print(f"Error fetching job detail for seq {job_seq}: {e}")
+            return {}

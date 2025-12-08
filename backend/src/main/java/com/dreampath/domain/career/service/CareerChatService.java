@@ -126,6 +126,14 @@ public class CareerChatService {
 
     @Transactional
     public CareerSession getOrCreateSession(String sessionId, String userId) {
+        return getOrCreateSession(sessionId, userId, false);
+    }
+
+    public CareerSession getOrCreateSession(String sessionId, String userId, boolean forceNewSession) {
+        if (forceNewSession) {
+            return createNewSession(userId);
+        }
+
         if (sessionId != null && !sessionId.isBlank()) {
             return sessionRepository.findBySessionId(sessionId)
                     .orElseGet(() -> createNewSession(userId));
@@ -181,16 +189,19 @@ public class CareerChatService {
      */
     @Transactional(readOnly = true)
     public String getConversationHistory(String sessionId) {
+        log.info("getConversationHistory called: sessionId={}", sessionId);
         CareerSession session = sessionRepository.findBySessionId(sessionId)
                 .orElseThrow(() -> new RuntimeException("세션을 찾을 수 없습니다."));
 
-        return session.getMessages().stream()
+        String history = session.getMessages().stream()
                 .sorted((m1, m2) -> m1.getTimestamp().compareTo(m2.getTimestamp()))
                 .map(msg -> {
                     String role = msg.getRole() == ChatMessage.MessageRole.USER ? "학생" : "상담사";
                     return role + ": " + msg.getContent();
                 })
                 .collect(Collectors.joining("\n\n"));
+        log.info("getConversationHistory size={}", session.getMessages().size());
+        return history;
     }
     
     /**

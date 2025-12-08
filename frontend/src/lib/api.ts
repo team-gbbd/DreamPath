@@ -39,6 +39,40 @@ export const backendApi = axios.create({
   withCredentials: true,
 });
 
+export interface JobDetailData {
+  jobId: number;
+  summary?: string | null;
+  wageText?: string | null;
+  wageSource?: string | null;
+  aptitudeText?: string | null;
+  abilities?: Array<Record<string, any>>;
+  majors?: Array<Record<string, any>>;
+  certifications?: Array<Record<string, any>>;
+  rawData?: Record<string, any>;
+}
+
+export interface MajorDetailData {
+  majorId: number;
+  majorName?: string | null;
+  summary?: string | null;
+  interest?: string | null;
+  propertyText?: string | null;
+  job?: string | null;
+  salary?: string | null;
+  employment?: string | null;
+  rawData?: Record<string, any>;
+}
+
+export const fetchJobDetail = async (jobId: number | string): Promise<JobDetailData> => {
+  const response = await backendApi.get<JobDetailData>(`/job/${jobId}/details`);
+  return response.data;
+};
+
+export const fetchMajorDetail = async (majorId: number | string): Promise<MajorDetailData> => {
+  const response = await backendApi.get<MajorDetailData>(`/major/${majorId}/details`);
+  return response.data;
+};
+
 
 /* ================================
    🔹 DreamPath – Chat Service
@@ -162,6 +196,9 @@ export const jobSiteService = {
     return response.data;
   },
 };
+
+export const callPersonalityAgent = (payload: Record<string, any>) =>
+  pythonApi.post("/api/agent/personality", payload).then((res) => res.data);
 
 /* ================================
    🔹 DreamPath – Profile Service

@@ -47,10 +47,17 @@ class DatabaseService:
                 'autocommit': False
             }
 
-        # Supabase에서는 테이블 자동 생성이 필요 없어 연결만 소모하므로 비활성화
         # self._ensure_table_exists()
         self._local = threading.local()
         self._connection_lock = threading.Lock()
+
+        # CareerNet 재수집을 위해 테이블 생성이 필요하므로 일시적으로 활성화
+        try:
+             with self.get_connection() as conn:
+                 self._ensure_job_details_table(conn)
+        except Exception as e:
+             # Already printed inside or negligible if connection fails here (will fail later)
+             print(f"Table creation check error: {e}")
 
     def cleanup(self):
         """연결 정리용 스텁"""
@@ -188,6 +195,12 @@ class DatabaseService:
 
                 # company_info 테이블 생성
                 self._ensure_company_info_table(conn)
+                
+                # job_details 테이블 생성
+                self._ensure_job_details_table(conn)
+                
+                # major_details 테이블 생성
+                self._ensure_major_details_table(conn)
         except Exception as e:
             print(f"테이블 생성 확인 중 오류 발생: {str(e)}")
             # 테이블 생성 실패해도 계속 진행 (이미 존재할 수 있음)
@@ -320,7 +333,288 @@ class DatabaseService:
             cursor.close()
         except Exception as e:
             print(f"company_info 테이블 생성 중 오류: {str(e)}")
-    
+
+    def _ensure_job_details_table(self, conn):
+        """job_details 테이블 생성"""
+        try:
+            cursor = conn.cursor()
+            
+            # 테이블 존재 여부 확인
+            if USE_POSTGRES:
+                cursor.execute("""
+                    SELECT COUNT(*) as count
+                    FROM information_schema.tables
+                    WHERE table_schema = 'public' AND table_name = 'job_details'
+                """)
+            else:
+                cursor.execute("""
+                    SELECT COUNT(*) as count
+                    FROM information_schema.tables
+                    WHERE table_schema = %s AND table_name = 'job_details'
+                """, (self.db_config['database'],))
+            
+            result = cursor.fetchone()
+            if result['count'] == 0:
+                if USE_POSTGRES:
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS job_details (
+                            job_id BIGINT PRIMARY KEY,
+                            summary TEXT,
+                            wage_text TEXT,
+                            wage_source TEXT,
+                            aptitude_text TEXT,
+                            abilities TEXT,
+                            majors TEXT,
+                            certifications TEXT,
+                            raw_data TEXT,
+                            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """)
+                else:
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS job_details (
+                            job_id BIGINT PRIMARY KEY COMMENT 'CareerNet 직업 코드',
+                            summary TEXT COMMENT '상세 직업 개요',
+                            wage_text TEXT COMMENT '연봉 텍스트',
+                            wage_source TEXT COMMENT '연봉 출처 및 상세',
+                            aptitude_text TEXT COMMENT '적성 상세',
+                            abilities JSON COMMENT '능력/지식/환경 (JSON)',
+                            majors JSON COMMENT '관련 학과 및 통계 (JSON)',
+                            certifications JSON COMMENT '자격증 목록 (JSON)',
+                            raw_data JSON COMMENT '원본 데이터 (JSON)',
+                            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='직업 상세 정보'
+                    """)
+                conn.commit()
+                print("job_details 테이블이 생성되었습니다.")
+        except Exception as e:
+            print(f"job_details 테이블 생성 중 오류: {str(e)}")
+    def _ensure_major_details_table(self, conn):
+        """major_details 테이블 생성"""
+        try:
+            cursor = conn.cursor()
+            
+            # 테이블 존재 여부 확인
+            if USE_POSTGRES:
+                cursor.execute("""
+                    SELECT COUNT(*) as count
+                    FROM information_schema.tables
+                    WHERE table_schema = 'public' AND table_name = 'major_details'
+                """)
+            else:
+                cursor.execute("""
+                    SELECT COUNT(*) as count
+                    FROM information_schema.tables
+                    WHERE table_schema = %s AND table_name = 'major_details'
+                """, (self.db_config['database'],))
+            
+            result = cursor.fetchone()
+            if result['count'] == 0:
+                if USE_POSTGRES:
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS major_details (
+                            major_id BIGINT PRIMARY KEY,
+                            major_name VARCHAR(255) NOT NULL,
+                            summary TEXT,
+                            interest TEXT,
+                            property TEXT,
+                            job TEXT,
+                            salary TEXT,
+                            employment TEXT,
+                            raw_data JSONB,
+                            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                    """)
+                else:
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS major_details (
+                            major_id BIGINT PRIMARY KEY COMMENT 'CareerNet 학과 코드',
+                            major_name VARCHAR(255) NOT NULL COMMENT '학과명',
+                            summary TEXT COMMENT '학과 개요',
+                            interest TEXT COMMENT '적성 및 흥미',
+                            property TEXT COMMENT '학과 특성',
+                            job TEXT COMMENT '관련 직업',
+                            salary TEXT COMMENT '임금 정보',
+                            employment TEXT COMMENT '취업률 정보',
+                            raw_data JSON COMMENT '원본 데이터 (JSON)',
+                            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='학과 상세 정보'
+                    """)
+                conn.commit()
+                print("major_details 테이블이 생성되었습니다.")
+        except Exception as e:
+            print(f"major_details 테이블 생성 중 오류: {str(e)}")
+
+
+    def save_job_details(self, details: Dict) -> bool:
+        """
+        직업 상세 정보를 저장합니다.
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # JSON 필드 직렬화
+                import json
+                abilities_json = json.dumps(details.get('abilities', {}), ensure_ascii=False)
+                majors_json = json.dumps(details.get('majors', {}), ensure_ascii=False)
+                certifications_json = json.dumps(details.get('certifications', []), ensure_ascii=False)
+                raw_data_json = json.dumps(details.get('raw_data', {}), ensure_ascii=False)
+                
+                if USE_POSTGRES:
+                    cursor.execute("""
+                        INSERT INTO job_details (
+                            job_id, summary, wage_text, wage_source, aptitude_text,
+                            abilities, majors, certifications, raw_data, updated_at
+                        ) VALUES (
+                            %s, %s, %s, %s, %s,
+                            %s, %s, %s, %s, CURRENT_TIMESTAMP
+                        )
+                        ON CONFLICT (job_id)
+                        DO UPDATE SET
+                            summary = EXCLUDED.summary,
+                            wage_text = EXCLUDED.wage_text,
+                            wage_source = EXCLUDED.wage_source,
+                            aptitude_text = EXCLUDED.aptitude_text,
+                            abilities = EXCLUDED.abilities,
+                            majors = EXCLUDED.majors,
+                            certifications = EXCLUDED.certifications,
+                            raw_data = EXCLUDED.raw_data,
+                            updated_at = CURRENT_TIMESTAMP
+                    """, (
+                        details.get('job_id'),
+                        details.get('summary'),
+                        details.get('wage_text'),
+                        details.get('wage_source'),
+                        details.get('aptitude_text'),
+                        abilities_json,
+                        majors_json,
+                        certifications_json,
+                        raw_data_json
+                    ))
+                else:
+                    cursor.execute("""
+                        INSERT INTO job_details (
+                            job_id, summary, wage_text, wage_source, aptitude_text,
+                            abilities, majors, certifications, raw_data, updated_at
+                        ) VALUES (
+                            %s, %s, %s, %s, %s,
+                            %s, %s, %s, %s, CURRENT_TIMESTAMP
+                        )
+                        ON DUPLICATE KEY UPDATE
+                            summary = VALUES(summary),
+                            wage_text = VALUES(wage_text),
+                            wage_source = VALUES(wage_source),
+                            aptitude_text = VALUES(aptitude_text),
+                            abilities = VALUES(abilities),
+                            majors = VALUES(majors),
+                            certifications = VALUES(certifications),
+                            raw_data = VALUES(raw_data),
+                            updated_at = CURRENT_TIMESTAMP
+                    """, (
+                        details.get('job_id'),
+                        details.get('summary'),
+                        details.get('wage_text'),
+                        details.get('wage_source'),
+                        details.get('aptitude_text'),
+                        abilities_json,
+                        majors_json,
+                        certifications_json,
+                        raw_data_json
+                    ))
+                
+                conn.commit()
+                return True
+                
+        except Exception as e:
+            print(f"직업 상세 정보 저장 실패 (ID: {details.get('job_id')}): {str(e)}")
+            return False
+    def save_major_details(self, details: Dict) -> bool:
+        """
+        학과 상세 정보를 저장합니다.
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # JSON 필드 직렬화
+                import json
+                raw_data_json = json.dumps(details.get('raw_data', {}), ensure_ascii=False)
+                
+                if USE_POSTGRES:
+                    cursor.execute("""
+                        INSERT INTO major_details (
+                            major_id, major_name, summary, interest, property,
+                            job, salary, employment, raw_data, updated_at
+                        ) VALUES (
+                            %s, %s, %s, %s, %s,
+                            %s, %s, %s, %s, CURRENT_TIMESTAMP
+                        )
+                        ON CONFLICT (major_id)
+                        DO UPDATE SET
+                            major_name = EXCLUDED.major_name,
+                            summary = EXCLUDED.summary,
+                            interest = EXCLUDED.interest,
+                            property = EXCLUDED.property,
+                            job = EXCLUDED.job,
+                            salary = EXCLUDED.salary,
+                            employment = EXCLUDED.employment,
+                            raw_data = EXCLUDED.raw_data,
+                            updated_at = CURRENT_TIMESTAMP
+                    """, (
+                        details.get('major_id'),
+                        details.get('major_name'),
+                        details.get('summary'),
+                        details.get('interest'),
+                        details.get('property'),
+                        details.get('job'),
+                        details.get('salary'),
+                        details.get('employment'),
+                        raw_data_json
+                    ))
+                else:
+                    cursor.execute("""
+                        INSERT INTO major_details (
+                            major_id, major_name, summary, interest, property,
+                            job, salary, employment, raw_data, updated_at
+                        ) VALUES (
+                            %s, %s, %s, %s, %s,
+                            %s, %s, %s, %s, CURRENT_TIMESTAMP
+                        )
+                        ON DUPLICATE KEY UPDATE
+                            major_name = VALUES(major_name),
+                            summary = VALUES(summary),
+                            interest = VALUES(interest),
+                            property = VALUES(property),
+                            job = VALUES(job),
+                            salary = VALUES(salary),
+                            employment = VALUES(employment),
+                            raw_data = VALUES(raw_data),
+                            updated_at = CURRENT_TIMESTAMP
+                    """, (
+                        details.get('major_id'),
+                        details.get('major_name'),
+                        details.get('summary'),
+                        details.get('interest'),
+                        details.get('property'),
+                        details.get('job'),
+                        details.get('salary'),
+                        details.get('employment'),
+                        raw_data_json
+                    ))
+                
+                conn.commit()
+                return True
+                
+        except Exception as e:
+            print(f"학과 상세 정보 저장 실패 (ID: {details.get('major_id')}): {str(e)}")
+            return False
+
+
     def save_job_listings(
         self,
         site_name: str,
