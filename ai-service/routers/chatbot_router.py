@@ -14,6 +14,7 @@ from services.chatbot.rag import (
     RagSearchService,
     RagAnswerService,
 )
+from services.chatbot.shared.faq_service import FaqService
 from services.database_service import DatabaseService
 from dependencies import get_db
 
@@ -23,6 +24,7 @@ router = APIRouter(prefix="/api/rag", tags=["rag-chatbot"])
 embedding_service = RagEmbeddingService()
 search_service = RagSearchService()
 answer_service = RagAnswerService()
+faq_service = FaqService()
 db_service = DatabaseService()
 
 
@@ -76,14 +78,36 @@ async def chat(dto: ChatRequestDto, db: DatabaseService = Depends(get_db)):
             (str(session_id), dto.userId, dto.guestId, "user", dto.message, datetime.now())
         )
 
-        # 4. RAG 답변 생성 (user_type: 회원이면 'member', 비회원이면 'guest')
+        # 4. FAQ 검색 먼저 시도
         user_type = "member" if dto.userId else "guest"
-        print(f"[ROUTER DEBUG] user_type={user_type}, 질문: {dto.message}")
-        vector = embedding_service.embed(dto.message)
-        matches = search_service.search(vector, user_type=user_type)
-        print(f"[ROUTER DEBUG] Pinecone matches 개수: {len(matches)}")
-        answer = answer_service.generate_answer(dto.message, matches)
-        print(f"[ROUTER DEBUG] 최종 답변: {answer[:50]}...")
+        print(f"\n{'='*60}")
+        print(f"[ROUTER] user_type={user_type}, 질문: {dto.message}")
+
+        faq_match = faq_service.search_faq(dto.message, user_type=user_type, db=db)
+
+        if faq_match:
+            # FAQ 매칭되면 FAQ 답변 반환
+            answer = faq_match.get("answer", "답변을 찾을 수 없습니다.")
+            print(f"[FAQ 매칭 ✅] 카테고리: {faq_match.get('category')}, 질문: {faq_match.get('question')}")
+        else:
+            # FAQ 매칭 안되면 RAG 답변 생성
+            print("[FAQ 매칭 실패] RAG로 답변 생성 시도...")
+            vector = embedding_service.embed(dto.message)
+            print(f"[RAG] 임베딩 벡터 생성 완료 (차원: {len(vector)})")
+            matches = search_service.search(vector, user_type=user_type)
+            print(f"[RAG] Pinecone 검색 결과 개수: {len(matches)}")
+
+            if matches:
+                for i, match in enumerate(matches[:3]):
+                    score = match.get('score', 0)
+                    metadata = match.get('metadata', {})
+                    question = metadata.get('question', 'N/A')
+                    print(f"  [{i+1}] 유사도: {score:.3f}, 질문: {question[:50]}")
+
+            answer = answer_service.generate_answer(dto.message, matches)
+
+        print(f"[최종 답변] {answer[:100]}...")
+        print(f"{'='*60}\n")
 
         # 5. AI 답변 저장
         insert_ai_msg_query = """

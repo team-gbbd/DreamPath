@@ -49,9 +49,9 @@ export async function fetchAllFaq() {
 /* ==========================================================
    📌 2) FAQ 카테고리 목록 불러오기
    ========================================================== */
-export async function fetchFaqCategories() {
+export async function fetchFaqCategories(customUserType?: string) {
   try {
-    const userType = getUserType();
+    const userType = customUserType || getUserType();
     const response = await fetch(`${API_BASE_URL}/faq/categories?user_type=${userType}`);
 
     if (!response.ok) {
@@ -71,9 +71,9 @@ export async function fetchFaqCategories() {
 /* ==========================================================
    📌 3) 특정 카테고리의 FAQ 불러오기
    ========================================================== */
-export async function fetchFaqByCategory(category: string) {
+export async function fetchFaqByCategory(category: string, customUserType?: string) {
   try {
-    const userType = getUserType();
+    const userType = customUserType || getUserType();
     const encodedCategory = encodeURIComponent(category);
     const response = await fetch(`${API_BASE_URL}/faq/category?name=${encodedCategory}&user_type=${userType}`);
 

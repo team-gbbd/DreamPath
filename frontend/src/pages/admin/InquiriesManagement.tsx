@@ -20,7 +20,7 @@ interface Inquiry {
   createdAt: string;
 }
 
-const API_BASE_URL = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080';
 
 export default function InquiriesManagementPage() {
   const navigate = useNavigate();

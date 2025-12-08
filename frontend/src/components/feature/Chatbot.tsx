@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { sendChatMessage, getChatHistory } from "@/lib/api/ragChatApi";
 import { fetchFaqCategories, fetchFaqByCategory } from "@/lib/api/faqApi";
+import { BACKEND_BASE_URL } from "@/lib/api";
 import ReactMarkdown from "react-markdown";
 
 // 페이지 로드 시 sessionStorage 초기화 (새로고침 시 대화 내역 삭제)
@@ -331,8 +332,8 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
 
       console.log("🔍 문의 제출 데이터:", requestData);
 
-      const AI_SERVICE_URL = import.meta.env.VITE_AI_SERVICE_URL || "http://localhost:8000";
-      const response = await fetch(`${AI_SERVICE_URL}/api/inquiry`, {
+      // Java 백엔드로 문의 전송 (VITE_BACKEND_URL 환경변수 사용)
+      const response = await fetch(`${BACKEND_BASE_URL}/api/inquiry`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json;charset=UTF-8",

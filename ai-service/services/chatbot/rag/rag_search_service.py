@@ -8,7 +8,7 @@ class RagSearchService:
         self.pinecone_api_key = os.getenv("PINECONE_FAQ_API_KEY", "dummykey")
         self.pinecone_host = os.getenv("PINECONE_FAQ_HOST", "dummy-host.pinecone.io")
 
-    def search(self, vector: List[float], user_type: str = "guest") -> List[Dict[str, Any]]:
+    def search(self, vector: List[float], user_type: str = "guest", top_k: int = 5) -> List[Dict[str, Any]]:
         """Pinecone에서 벡터 검색 (user_type 필터링 포함)"""
         # Pinecone이 설정되지 않았으면 빈 배열 반환
         if self.pinecone_api_key == "dummykey" or self.pinecone_host == "dummy-host.pinecone.io":
@@ -22,7 +22,7 @@ class RagSearchService:
             }
             payload = {
                 "vector": vector,
-                "topK": 5,
+                "topK": top_k,
                 "includeMetadata": True,
                 "filter": {
                     "user_type": {"$in": [user_type, "both"]}

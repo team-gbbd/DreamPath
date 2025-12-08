@@ -6,7 +6,7 @@ import { fetchAllFaq, fetchFaqByCategory } from "@/lib/api/faqApi";
 import ChatMessage from "../shared/ChatMessage";
 import ChatInput from "../shared/ChatInput";
 import InquiryForm, { InquiryData } from "../shared/InquiryForm";
-import { API_BASE_URL } from "@/lib/api";
+import { BACKEND_BASE_URL } from "@/lib/api";
 
 // 페이지 로드 시 sessionStorage 초기화
 if (typeof window !== "undefined") {
@@ -227,7 +227,8 @@ export default function FaqChatbot({ onClose }: { onClose?: () => void }) {
     try {
       const userId = getUserId();
 
-      const response = await fetch(`${API_BASE_URL}/api/inquiry`, {
+      // Java 백엔드로 문의 전송 (VITE_BACKEND_URL 환경변수 사용)
+      const response = await fetch(`${BACKEND_BASE_URL}/api/inquiry`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json;charset=UTF-8",

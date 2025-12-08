@@ -9,7 +9,7 @@ interface Faq {
   category: string;
   question: string;
   answer: string;
-  user_type: "guest" | "member" | "both";
+  user_type: "guest" | "member" | "both" | "assistant";
   answer_type: "static" | "function";
   function_name?: string;
   function_description?: string;
@@ -34,7 +34,7 @@ export default function FaqManagementPage() {
     category: "",
     question: "",
     answer: "",
-    user_type: "both" as "guest" | "member" | "both",
+    user_type: "both" as "guest" | "member" | "both" | "assistant",
     answer_type: "static" as "static" | "function",
     function_name: "",
     function_description: "",
@@ -44,7 +44,7 @@ export default function FaqManagementPage() {
     is_active: true,
   });
   const [filterUserType, setFilterUserType] = useState<
-    "all" | "guest" | "member" | "both"
+    "all" | "guest" | "member" | "both" | "assistant"
   >("all");
   const [filterCategory, setFilterCategory] = useState<string>("전체");
   const [validationError, setValidationError] = useState<string>("");
@@ -54,19 +54,25 @@ export default function FaqManagementPage() {
   const [categories, setCategories] = useState<string[]>(["전체"]);
 
   useEffect(() => {
-    fetchCategories();
     fetchFaqs();
   }, []);
 
-  const fetchCategories = async () => {
+  // 사용자 유형이 변경될 때마다 카테고리 다시 조회
+  useEffect(() => {
+    fetchCategories(filterUserType);
+    setFilterCategory("전체"); // 카테고리 필터 초기화
+  }, [filterUserType]);
+
+  const fetchCategories = async (userType: string) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/faq/categories`);
+      // 사용자 유형에 맞는 카테고리만 조회
+      const response = await axios.get(`${API_BASE_URL}/api/faq/categories?user_type=${userType}`);
       if (response.data && Array.isArray(response.data)) {
         setCategories(["전체", ...response.data]);
       }
     } catch (err) {
       console.error("카테고리 로딩 실패:", err);
-      // 실패 시 기본 카테고리라도 보여주거나, 조용히 실패
+      setCategories(["전체"]);
     }
   };
 
@@ -207,7 +213,7 @@ export default function FaqManagementPage() {
           showToast("FAQ가 생성되었습니다.", "success");
           setIsModalOpen(false);
           fetchFaqs();
-          fetchCategories(); // 카테고리가 새로 생겼을 수 있으므로 갱신
+          fetchCategories(filterUserType); // 카테고리가 새로 생겼을 수 있으므로 갱신
         } else {
           showToast(response.data.message || "생성 실패", "error");
         }
@@ -313,7 +319,7 @@ export default function FaqManagementPage() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
             <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-pink-100/50 p-6">
               <div className="flex items-center justify-between mb-3">
                 <div className="w-12 h-12 bg-pink-50 rounded-xl flex items-center justify-center">
@@ -354,6 +360,17 @@ export default function FaqManagementPage() {
               <p className="text-sm text-gray-500 mb-1">공통 FAQ</p>
               <p className="text-3xl font-bold text-gray-900">
                 {faqs.filter((f) => f.user_type === "both").length}
+              </p>
+            </div>
+            <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-cyan-100/50 p-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-12 h-12 bg-cyan-50 rounded-xl flex items-center justify-center">
+                  <i className="ri-dashboard-line text-2xl text-cyan-500"></i>
+                </div>
+              </div>
+              <p className="text-sm text-gray-500 mb-1">대시보드 FAQ</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {faqs.filter((f) => f.user_type === "assistant").length}
               </p>
             </div>
           </div>
@@ -403,6 +420,16 @@ export default function FaqManagementPage() {
                 }`}
               >
                 공통
+              </button>
+              <button
+                onClick={() => setFilterUserType("assistant")}
+                className={`px-4 py-2 rounded-xl font-medium transition-all ${
+                  filterUserType === "assistant"
+                    ? "bg-blue-500 text-white shadow-md"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                대시보드
               </button>
             </div>
           </div>
@@ -460,6 +487,8 @@ export default function FaqManagementPage() {
                                 ? "bg-blue-100 text-blue-700"
                                 : faq.user_type === "guest"
                                 ? "bg-green-100 text-green-700"
+                                : faq.user_type === "assistant"
+                                ? "bg-cyan-100 text-cyan-700"
                                 : "bg-purple-100 text-purple-700"
                             }`}
                           >
@@ -467,6 +496,8 @@ export default function FaqManagementPage() {
                               ? "회원"
                               : faq.user_type === "guest"
                               ? "비회원"
+                              : faq.user_type === "assistant"
+                              ? "대시보드"
                               : "공통"}
                           </span>
                           <span
@@ -645,7 +676,8 @@ export default function FaqManagementPage() {
                         user_type: e.target.value as
                           | "guest"
                           | "member"
-                          | "both",
+                          | "both"
+                          | "assistant",
                       })
                     }
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500"
@@ -653,6 +685,7 @@ export default function FaqManagementPage() {
                     <option value="both">공통</option>
                     <option value="member">회원</option>
                     <option value="guest">비회원</option>
+                    <option value="assistant">대시보드</option>
                   </select>
                 </div>
 

@@ -1921,18 +1921,18 @@ export default function NewDashboard() {
       {/* AI Assistant Chatbot - Floating Button */}
       <button
         onClick={() => setShowAssistantChat(!showAssistantChat)}
-        className="fixed bottom-9 right-9 w-16 h-16 scale-100 bg-gradient-to-r from-purple-500 to-pink-500 
-             text-white rounded-full shadow-lg flex items-center justify-center 
+        className="fixed bottom-9 right-9 w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500
+             text-white rounded-full shadow-lg flex items-center justify-center
              hover:scale-105 transition-all z-50 animate-[wiggle_1.5s_ease-in-out_infinite]"
         title="AI 비서"
       >
-        <Bot size={32} strokeWidth={2} />
+        <Bot size={40} strokeWidth={2} />
       </button>
 
       {/* Chat Overlay */}
       {showAssistantChat && (
         <div
-          className="fixed inset-0 bg-black/10 backdrop-blur-sm z-[60]"
+          className="fixed inset-0 bg-black/10 backdrop-blur-sm z-60"
           onClick={() => setShowAssistantChat(false)}
         ></div>
       )}
@@ -1940,7 +1940,7 @@ export default function NewDashboard() {
       {/* Chat Panel */}
       {showAssistantChat && (
         <div
-          className={`fixed bottom-32 right-9 w-[420px] h-[600px] bg-white rounded-3xl shadow-xl z-[70] p-0 overflow-hidden border border-gray-200 transform transition-all duration-300 ${
+          className={`fixed bottom-32 right-9 w-[420px] h-[600px] bg-white rounded-3xl shadow-xl z-50 p-0 overflow-hidden border border-gray-200 transform transition-all duration-300 ${
             showAssistantChat
               ? "scale-100 opacity-100"
               : "scale-90 opacity-0 pointer-events-none"

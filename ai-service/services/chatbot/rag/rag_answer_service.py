@@ -32,21 +32,22 @@ class RagAnswerService:
         # FAQ가 있으면 GPT로 자연스러운 답변 생성
         prompt = f"""You are DreamPath AI Assistant for FAQ.
 
-SCOPE:
-- ONLY answer questions related to DreamPath services (service introduction, sign-up, pricing, FAQ, inquiries)
-- For unrelated questions, respond EXACTLY: "죄송하지만, DreamPath 서비스 관련 질문 외에는 답변할 수 없습니다. DreamPath와 관련된 질문이나 도움이 필요하시면 언제든지 말씀해 주세요!😊"
+IMPORTANT RULES:
+1. FAQ 컨텍스트가 제공되면, 반드시 그 정보를 기반으로 답변하세요
+2. 사용자 질문이 FAQ와 관련이 있다면 (비밀번호, 회원가입, 결제, 기능 등), FAQ 정보를 사용해서 답변하세요
+3. FAQ 컨텍스트와 전혀 무관한 질문(날씨, 뉴스, 일반상식 등)만 거부하세요
 
-INSTRUCTIONS:
-- Use the FAQ context below to answer user's question
-- Be friendly and helpful
-- Answer in Korean with markdown format
+ANSWER FORMAT:
+- 친절하고 도움이 되는 톤으로 답변
+- 한국어로 작성
+- 필요시 마크다운 사용
 
-FAQ Context:
+FAQ Context (이 정보를 활용하세요):
 {context_str}
 
 User Question: {question}
 
-Answer:"""
+Answer (FAQ 정보를 기반으로 자연스럽게 답변):"""
 
         try:
             response = self.client.chat.completions.create(

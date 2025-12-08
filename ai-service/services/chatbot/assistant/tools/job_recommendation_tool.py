@@ -63,13 +63,14 @@ def execute(
         if not keywords:
             try:
                 career_query = """
-                    SELECT recommended_careers
-                    FROM career_analysis
-                    WHERE user_id = %s
-                    ORDER BY created_at DESC
+                    SELECT ca.recommended_careers
+                    FROM career_analyses ca
+                    JOIN career_sessions cs ON ca.session_id = cs.id
+                    WHERE cs.user_id = %s
+                    ORDER BY ca.analyzed_at DESC
                     LIMIT 1
                 """
-                career_result = db.execute_query(career_query, (user_id,))
+                career_result = db.execute_query(career_query, (str(user_id),))
 
                 if career_result and len(career_result) > 0:
                     recommended_careers = career_result[0].get("recommended_careers")
@@ -86,7 +87,7 @@ def execute(
                             except:
                                 pass
             except Exception as e:
-                print(f"진로 분석 결과 조회 오류: {str(e)}")
+                pass
 
         # 여전히 키워드가 없으면 최신 공고를 반환
         if not keywords:
@@ -133,9 +134,6 @@ def execute(
         }
 
     except Exception as e:
-        print(f"채용 공고 추천 오류: {str(e)}")
-        import traceback
-        traceback.print_exc()
         return {
             "success": False,
             "message": f"채용 공고 추천 중 오류가 발생했습니다: {str(e)}"
@@ -166,15 +164,19 @@ def format_result(data: Dict[str, Any]) -> str:
 
     for idx, job in enumerate(job_postings, 1):
         title = job.get("title", "제목 없음")
-        company = job.get("company", "회사명 없음")
-        location = job.get("location", "위치 미상")
+        company = job.get("company") or ""
+        location = job.get("location") or ""
         url = job.get("url", "")
         site_name = job.get("site_name", "")
-        crawled_at = job.get("crawled_at", "")
+        description = job.get("description", "")
 
         response += f"### {idx}. {title}\n"
-        response += f"- **회사**: {company}\n"
-        response += f"- **위치**: {location}\n"
+
+        # 회사/위치가 있으면 표시
+        if company:
+            response += f"- **회사**: {company}\n"
+        if location:
+            response += f"- **위치**: {location}\n"
 
         if site_name:
             response += f"- **출처**: {site_name}\n"
@@ -182,15 +184,9 @@ def format_result(data: Dict[str, Any]) -> str:
         if url:
             response += f"- **링크**: {url}\n"
 
-        # 설명 (100자 제한)
-        description = job.get("description", "")
+        # 설명 (마감일, 학력 정보 포함)
         if description:
-            if len(description) > 100:
-                description = description[:100] + "..."
-            response += f"- **설명**: {description}\n"
-
-        if crawled_at:
-            response += f"- **등록일**: {crawled_at}\n"
+            response += f"- {description}\n"
 
         response += "\n"
 

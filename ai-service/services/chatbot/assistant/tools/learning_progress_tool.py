@@ -37,103 +37,11 @@ def execute(user_id: int, db: DatabaseService = None, **kwargs) -> Dict[str, Any
     Returns:
         학습 진행 현황
     """
-    try:
-        if db is None:
-            db = DatabaseService()
-
-        results = {}
-
-        # 1. 전체 학습 진도율 조회 (user_learning_progress 테이블)
-        try:
-            progress_query = """
-                SELECT
-                    total_questions,
-                    completed_questions,
-                    average_score,
-                    last_activity_at,
-                    total_study_time_minutes
-                FROM user_learning_progress
-                WHERE user_id = %s
-            """
-            progress_result = db.execute_query(progress_query, (user_id,))
-
-            if progress_result and len(progress_result) > 0:
-                results["overall_progress"] = progress_result[0]
-            else:
-                results["overall_progress"] = None
-        except Exception as e:
-            print(f"전체 진도 조회 오류: {str(e)}")
-            results["overall_progress"] = None
-
-        # 2. 최근 완료한 문제 조회 (user_question_attempts 테이블)
-        try:
-            recent_query = """
-                SELECT
-                    uqa.question_id,
-                    uqa.is_correct,
-                    uqa.score,
-                    uqa.attempted_at,
-                    lq.title as question_title,
-                    lq.category
-                FROM user_question_attempts uqa
-                LEFT JOIN learning_questions lq ON uqa.question_id = lq.question_id
-                WHERE uqa.user_id = %s
-                ORDER BY uqa.attempted_at DESC
-                LIMIT 10
-            """
-            recent_result = db.execute_query(recent_query, (user_id,))
-
-            if recent_result:
-                results["recent_attempts"] = recent_result
-            else:
-                results["recent_attempts"] = []
-        except Exception as e:
-            print(f"최근 문제 조회 오류: {str(e)}")
-            results["recent_attempts"] = []
-
-        # 3. 카테고리별 통계 조회
-        try:
-            category_query = """
-                SELECT
-                    lq.category,
-                    COUNT(*) as total_attempts,
-                    SUM(CASE WHEN uqa.is_correct THEN 1 ELSE 0 END) as correct_count,
-                    AVG(uqa.score) as avg_score
-                FROM user_question_attempts uqa
-                LEFT JOIN learning_questions lq ON uqa.question_id = lq.question_id
-                WHERE uqa.user_id = %s
-                GROUP BY lq.category
-            """
-            category_result = db.execute_query(category_query, (user_id,))
-
-            if category_result:
-                results["category_stats"] = category_result
-            else:
-                results["category_stats"] = []
-        except Exception as e:
-            print(f"카테고리별 통계 조회 오류: {str(e)}")
-            results["category_stats"] = []
-
-        # 결과 확인
-        if not results.get("overall_progress") and not results.get("recent_attempts"):
-            return {
-                "success": False,
-                "message": "학습 기록이 없습니다. 학습을 시작해보세요!"
-            }
-
-        return {
-            "success": True,
-            "data": results
-        }
-
-    except Exception as e:
-        print(f"학습 진행 현황 조회 오류: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return {
-            "success": False,
-            "message": f"학습 진행 현황 조회 중 오류가 발생했습니다: {str(e)}"
-        }
+    # 현재 학습 진행 테이블이 구현되지 않았으므로 안내 메시지 반환
+    return {
+        "success": False,
+        "message": "학습 진행 현황 기능은 현재 준비 중입니다. 곧 이용하실 수 있습니다!"
+    }
 
 
 def format_result(data: Dict[str, Any]) -> str:
