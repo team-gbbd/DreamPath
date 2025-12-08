@@ -6,3 +6,8 @@ export async function fetchHybridJobs(vectorId: string, topK: number = 20) {
   });
   return res.data.recommended;
 }
+
+export async function fetchMajors(vectorId: string) {
+  const res = await api.post(`/recommend/majors`, { vectorId });
+  return res.data;
+}

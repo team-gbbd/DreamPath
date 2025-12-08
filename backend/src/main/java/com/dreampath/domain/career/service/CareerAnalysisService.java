@@ -93,7 +93,7 @@ public class CareerAnalysisService {
 
         // 커리어 분석 완료 후 채용공고 추천 계산 트리거 (비동기)
         try {
-            Long userId = session.getUser().getUserId();
+            Long userId = session.getUserId() != null ? Long.parseLong(session.getUserId()) : null;
             log.info("커리어 분석 완료, 채용공고 추천 계산 트리거: userId={}", userId);
             pythonAIService.triggerJobRecommendationCalculation(userId);
         } catch (Exception e) {
