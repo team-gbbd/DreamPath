@@ -95,7 +95,7 @@ public class CareerAnalysisService {
         analysisRepository.save(analysis);
         sessionRepository.save(session);
 
-        // 🔄 자동 동기화: CareerAnalysis → ProfileAnalysis → UserProfile → Vector 재생성
+        // 🔄 자동 동기화: CareerAnalysis → ProfileAnalysis → UserProfile → Vector 재생성 → 채용추천 계산
         try {
             if (session.getUserId() != null) {
                 Long userId = Long.parseLong(session.getUserId());
@@ -110,6 +110,10 @@ public class CareerAnalysisService {
 
                 // UserProfile 동기화
                 userProfileSyncService.syncFromAnalysis(userId, profileAnalysis);
+
+                // 🎯 채용공고 추천 계산 트리거 (백그라운드에서 비동기 실행)
+                log.info("🎯 Triggering job recommendation calculation for userId: {}", userId);
+                pythonAIService.triggerJobRecommendationCalculation(userId);
             } else {
                 log.warn("⚠️ Session userId is null, skipping profile sync for sessionId: {}", sessionId);
             }

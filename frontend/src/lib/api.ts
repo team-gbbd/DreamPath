@@ -303,6 +303,24 @@ export const jobAnalysisService = {
    🔹 Job Recommendation Agent
    ================================ */
 export const jobRecommendationService = {
+  // 캐시된 추천 조회 (빠른 응답)
+  getCachedRecommendations: async (userId: number, limit: number = 20, minScore: number = 0) => {
+    const response = await pythonApi.get(`/api/job-agent/recommendations/fast/${userId}`, {
+      params: { limit, min_score: minScore },
+    });
+    return response.data;
+  },
+
+  // 추천 계산 트리거 (백그라운드 실행)
+  triggerCalculation: async (userId: number, background: boolean = true) => {
+    const response = await pythonApi.post(
+      `/api/job-agent/recommendations/calculate/${userId}`,
+      {},
+      { params: { background } }
+    );
+    return response.data;
+  },
+
   getRecommendations: async (userId: number, careerAnalysis: any, userProfile?: any, limit: number = 10) => {
     const response = await pythonApi.post("/api/agent/job-recommendations", {
       userId,
@@ -704,6 +722,69 @@ export const companyTalentService = {
     const response = await pythonApi.get(
       `/api/company-talent/search?${params.toString()}`
     );
+    return response.data;
+  },
+};
+
+/* ================================
+   AI 지원서 작성 도우미 서비스
+   ================================ */
+export const applicationService = {
+  // 자기소개서 초안 생성
+  generateCoverLetter: async (
+    userId: number,
+    jobInfo: {
+      jobId: string;
+      title: string;
+      company: string;
+      description?: string;
+      location?: string;
+      url?: string;
+    },
+    style: "professional" | "passionate" | "creative" = "professional"
+  ) => {
+    const response = await pythonApi.post("/api/application/generate-cover-letter", {
+      userId,
+      jobInfo,
+      style,
+    });
+    return response.data;
+  },
+
+  // 지원 팁 조회
+  getApplicationTips: async (
+    userId: number,
+    jobInfo: {
+      jobId: string;
+      title: string;
+      company: string;
+      description?: string;
+      location?: string;
+    }
+  ) => {
+    const response = await pythonApi.post("/api/application/tips", {
+      userId,
+      jobInfo,
+    });
+    return response.data;
+  },
+
+  // 자기소개서 피드백
+  reviewCoverLetter: async (
+    coverLetter: string,
+    jobInfo: {
+      jobId: string;
+      title: string;
+      company: string;
+      description?: string;
+    },
+    userId?: number
+  ) => {
+    const response = await pythonApi.post("/api/application/review", {
+      userId,
+      coverLetter,
+      jobInfo,
+    });
     return response.data;
   },
 };

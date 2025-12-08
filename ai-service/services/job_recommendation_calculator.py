@@ -204,7 +204,8 @@ class JobRecommendationCalculator:
                 ORDER BY ca.analyzed_at DESC
                 LIMIT 1
             """
-            results = self.db.execute_query(query, (user_id,))
+            # user_id를 문자열로 변환 (DB에 문자열로 저장됨)
+            results = self.db.execute_query(query, (str(user_id),))
 
             if not results:
                 return None

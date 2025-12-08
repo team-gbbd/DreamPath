@@ -243,10 +243,9 @@ class WebCrawlerService:
             page = 0
             
             while page < max_pages:
-                # 검색 파라미터 설정
+                # 검색 파라미터 설정 (전체 직군 크롤링 - tag_type_ids 제거)
                 params = {
                     "country": "kr",
-                    "tag_type_ids": "518",
                     "job_sort": "job.latest_order",
                     "locations": "all",
                     "years": "-1",

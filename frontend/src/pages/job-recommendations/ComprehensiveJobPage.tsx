@@ -1,8 +1,22 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { companyTalentService } from "@/lib/api";
+import { jobRecommendationService, BACKEND_BASE_URL } from "@/lib/api";
 import Header from "../../components/feature/Header";
 import Footer from "../../components/feature/Footer";
+import ApplicationWriterModal from "../../components/application/ApplicationWriterModal";
+
+// localStorage에서 userId 가져오기
+const getStoredUserId = (): number | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem('dreampath:user');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { userId?: number };
+    return typeof parsed?.userId === 'number' ? parsed.userId : null;
+  } catch {
+    return null;
+  }
+};
 
 // 타입 정의
 interface IdealTalent {
@@ -140,11 +154,17 @@ interface RecommendationResult {
 export default function ComprehensiveJobPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [calculating, setCalculating] = useState(false);
   const [result, setResult] = useState<RecommendationResult | null>(null);
   const [selectedJob, setSelectedJob] = useState<JobRecommendation | null>(null);
   const [activeAnalysisTab, setActiveAnalysisTab] = useState<
     "talent" | "process" | "criteria" | "status" | "result" | "prediction"
   >("talent");
+  const [notLoggedIn, setNotLoggedIn] = useState(false);
+  const [noAnalysis, setNoAnalysis] = useState(false);
+  const [isCached, setIsCached] = useState(false);
+  const [calculatedAt, setCalculatedAt] = useState<string | null>(null);
+  const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false);
 
   useEffect(() => {
     loadRecommendations();
@@ -153,65 +173,124 @@ export default function ComprehensiveJobPage() {
   const loadRecommendations = async () => {
     setLoading(true);
     try {
-      let analysisData = localStorage.getItem("careerAnalysis");
-      const profileData = localStorage.getItem("userProfile");
-      const skillsData = localStorage.getItem("userSkills");
-
-      // 샘플 데이터
-      if (!analysisData) {
-        analysisData = JSON.stringify({
-          recommendedCareers: [
-            { careerName: "백엔드 개발자", matchScore: 85 },
-          ],
-          strengths: ["문제 해결 능력", "논리적 사고"],
-          values: ["성장", "안정성"],
-          interests: ["웹 개발", "데이터베이스"],
-        });
+      // 1. 로그인한 사용자 ID 가져오기
+      const userId = getStoredUserId();
+      if (!userId) {
+        setNotLoggedIn(true);
+        setLoading(false);
+        return;
       }
 
-      const careerAnalysis = JSON.parse(analysisData);
-      const userProfile = profileData
-        ? JSON.parse(profileData)
-        : { education: "컴퓨터공학과", gpa: "3.5/4.5", experience: "인턴 3개월" };
-      const userSkills = skillsData
-        ? JSON.parse(skillsData)
-        : ["Python", "Java", "Spring", "React"];
-
-      const response = await companyTalentService.getComprehensiveRecommendations(
-        1,
-        careerAnalysis,
-        userProfile,
-        userSkills,
-        10
-      );
-
-      if (response.success && response.data) {
-        setResult(response.data);
-        if (response.data.recommendations?.length > 0) {
-          setSelectedJob(response.data.recommendations[0]);
+      // 2. 백엔드에서 프로파일 분석 데이터 가져오기 (분석 여부 확인)
+      const analysisResponse = await fetch(`${BACKEND_BASE_URL}/api/profiles/${userId}/analysis`);
+      if (!analysisResponse.ok) {
+        if (analysisResponse.status === 404) {
+          setNoAnalysis(true);
+          setLoading(false);
+          return;
         }
+        throw new Error('분석 데이터를 불러오지 못했습니다.');
       }
+
+      // 3. 캐시된 추천 조회 시도 (빠른 응답)
+      try {
+        const cachedResult = await jobRecommendationService.getCachedRecommendations(userId, 20);
+
+        if (cachedResult.success && cachedResult.recommendations && cachedResult.recommendations.length > 0) {
+          // 캐시된 데이터가 있으면 바로 표시
+          const mappedRecommendations: JobRecommendation[] = cachedResult.recommendations.map((rec: any) => ({
+            jobId: rec.id?.toString() || '',
+            title: rec.title || '',
+            company: rec.company || '',
+            location: rec.location || null,
+            url: rec.url || '',
+            description: rec.description || null,
+            siteName: rec.siteName || '',
+            matchScore: rec.matchScore || 0,
+            reasons: rec.matchReason ? [rec.matchReason] : [],
+            strengths: rec.strengths || [],
+            concerns: rec.concerns || [],
+            comprehensiveAnalysis: rec.comprehensiveAnalysis || null,
+          }));
+
+          setResult({
+            recommendations: mappedRecommendations,
+            totalCount: cachedResult.totalCount || mappedRecommendations.length,
+            summary: {
+              message: `${mappedRecommendations.length}개의 맞춤 채용 공고를 분석했습니다.`,
+              topRecommendation: mappedRecommendations[0] ? {
+                company: mappedRecommendations[0].company,
+                reason: mappedRecommendations[0].reasons[0] || '높은 매칭 점수'
+              } : null,
+              insights: [],
+              actionPriorities: []
+            },
+            commonRequiredTechnologies: [],
+            overallLearningPath: []
+          });
+          if (mappedRecommendations.length > 0) {
+            setSelectedJob(mappedRecommendations[0]);
+          }
+          setIsCached(true);
+          setCalculatedAt(cachedResult.calculatedAt || null);
+          setLoading(false);
+          return;
+        }
+      } catch (cacheError) {
+        console.log("캐시된 추천 조회 실패:", cacheError);
+      }
+
+      // 4. 캐시가 없으면 "준비 중" 표시 (프로파일링 시점에 이미 계산 트리거됨)
+      setResult(null);
+      setIsCached(false);
     } catch (error: any) {
       console.error("추천 실패:", error);
-      alert(error.response?.data?.detail || "채용 공고 추천 실패");
+      if (error.response?.status === 404) {
+        setNoAnalysis(true);
+      }
     } finally {
       setLoading(false);
+      setCalculating(false);
     }
   };
 
-  if (loading) {
+  // 추천 재계산 트리거
+  const handleRecalculate = async () => {
+    const userId = getStoredUserId();
+    if (!userId) return;
+
+    setCalculating(true);
+    try {
+      // 백그라운드에서 계산 시작
+      await jobRecommendationService.triggerCalculation(userId, false);
+      // 재로드
+      await loadRecommendations();
+    } catch (error) {
+      console.error("재계산 실패:", error);
+      alert("추천 재계산에 실패했습니다.");
+    } finally {
+      setCalculating(false);
+    }
+  };
+
+  // 로그인 필요
+  if (notLoggedIn) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
         <div className="max-w-7xl mx-auto px-4 py-12">
           <div className="bg-white rounded-lg shadow p-12 text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600 text-lg">
-              AI가 6가지 종합 채용 분석을 수행하고 있습니다...
+            <div className="text-6xl mb-4">🔐</div>
+            <h2 className="text-2xl font-bold mb-4">로그인이 필요합니다</h2>
+            <p className="text-gray-600 mb-6">
+              종합 채용 분석을 받으려면 먼저 로그인해주세요.
             </p>
-            <p className="text-sm text-gray-500 mt-2">
-              인재상, 채용 프로세스, 검증 기준, 합격 예측 등을 분석합니다
-            </p>
+            <button
+              onClick={() => navigate("/login")}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              로그인하기
+            </button>
           </div>
         </div>
         <Footer />
@@ -219,13 +298,77 @@ export default function ComprehensiveJobPage() {
     );
   }
 
+  // 프로파일 분석 필요
+  if (noAnalysis) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <div className="max-w-7xl mx-auto px-4 py-12">
+          <div className="bg-white rounded-lg shadow p-12 text-center">
+            <div className="text-6xl mb-4">📋</div>
+            <h2 className="text-2xl font-bold mb-4">프로파일 분석이 필요합니다</h2>
+            <p className="text-gray-600 mb-6">
+              먼저 프로파일 분석을 완료해야 종합 채용 분석을 받을 수 있습니다.
+            </p>
+            <button
+              onClick={() => navigate("/profile/input")}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              프로파일 분석하기
+            </button>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  // 로딩/계산 중
+  if (loading || calculating) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <div className="max-w-7xl mx-auto px-4 py-12">
+          <div className="bg-white rounded-lg shadow p-12 text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600 text-lg">
+              {calculating
+                ? "AI가 6가지 종합 채용 분석을 수행하고 있습니다..."
+                : "추천 정보를 불러오는 중..."}
+            </p>
+            {calculating && (
+              <p className="text-sm text-gray-500 mt-2">
+                인재상, 채용 프로세스, 검증 기준, 합격 예측 등을 분석합니다
+              </p>
+            )}
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  // 캐시 없음 - 준비 중
   if (!result) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
         <div className="max-w-7xl mx-auto px-4 py-12">
-          <div className="text-center text-gray-500">
-            데이터를 불러올 수 없습니다.
+          <div className="bg-white rounded-lg shadow p-12 text-center">
+            <div className="text-4xl mb-4">⏳</div>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">종합 분석 준비 중</h3>
+            <p className="text-gray-600 mb-4">
+              AI가 당신에게 맞는 채용 공고를 종합 분석하고 있습니다.
+            </p>
+            <p className="text-sm text-gray-500 mb-6">
+              백그라운드에서 분석 중이며, 1-2분 후 새로고침하면 결과를 확인할 수 있습니다.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              새로고침
+            </button>
           </div>
         </div>
         <Footer />
@@ -240,10 +383,39 @@ export default function ComprehensiveJobPage() {
       <main className="max-w-7xl mx-auto px-4 py-8">
         {/* 헤더 */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">AI 종합 채용 분석</h1>
-          <p className="mt-2 text-gray-600">
-            채용 공고별 6가지 맞춤 분석으로 합격 가능성을 높이세요
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">AI 종합 채용 분석</h1>
+              <p className="mt-2 text-gray-600">
+                채용 공고별 6가지 맞춤 분석으로 합격 가능성을 높이세요
+              </p>
+              {isCached && calculatedAt && (
+                <p className="text-sm text-gray-400 mt-1">
+                  마지막 분석: {new Date(calculatedAt).toLocaleString('ko-KR')}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={handleRecalculate}
+              disabled={calculating}
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              <svg
+                className={`w-4 h-4 ${calculating ? 'animate-spin' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              {calculating ? '분석 중...' : '다시 분석'}
+            </button>
+          </div>
         </div>
 
         {/* 전체 요약 */}
@@ -357,14 +529,23 @@ export default function ComprehensiveJobPage() {
                         <p className="text-sm text-gray-500">{selectedJob.location}</p>
                       )}
                     </div>
-                    <a
-                      href={selectedJob.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      지원하기
-                    </a>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setIsApplicationModalOpen(true)}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1"
+                      >
+                        <span>✍️</span>
+                        지원서 작성
+                      </button>
+                      <a
+                        href={selectedJob.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        지원하기
+                      </a>
+                    </div>
                   </div>
                 </div>
 
@@ -431,6 +612,23 @@ export default function ComprehensiveJobPage() {
       </main>
 
       <Footer />
+
+      {/* 지원서 작성 모달 */}
+      {selectedJob && (
+        <ApplicationWriterModal
+          isOpen={isApplicationModalOpen}
+          onClose={() => setIsApplicationModalOpen(false)}
+          jobInfo={{
+            jobId: selectedJob.jobId,
+            title: selectedJob.title,
+            company: selectedJob.company,
+            description: selectedJob.description,
+            location: selectedJob.location,
+            url: selectedJob.url,
+          }}
+          userId={getStoredUserId() || 0}
+        />
+      )}
     </div>
   );
 }
