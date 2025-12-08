@@ -141,12 +141,16 @@ public class CareerChatService {
             session.getStageMessageCount(),
             agentAction != null ? agentAction.getType() : "없음");
 
+        // taskId 추출 (백그라운드 에이전트 폴링용)
+        String taskId = (String) aiResult.get("taskId");
+
         return ChatResponse.builder()
                 .sessionId(session.getSessionId())
                 .message(aiResponse)
                 .role("assistant")
                 .timestamp(System.currentTimeMillis())
                 .agentAction(agentAction)
+                .taskId(taskId)
                 .build();
     }
 

@@ -27,6 +27,12 @@ public interface MentoringSessionRepository extends JpaRepository<MentoringSessi
     List<MentoringSession> findByIsActiveTrueAndSessionDateAfterOrderBySessionDateAsc(LocalDateTime now);
 
     /**
+     * 예약 가능한 세션 조회 (활성화 + 미예약 + 미래 날짜)
+     */
+    List<MentoringSession> findByIsActiveTrueAndCurrentParticipantsLessThanAndSessionDateAfterOrderBySessionDateAsc(
+            Integer maxParticipants, LocalDateTime now);
+
+    /**
      * 특정 날짜 이후의 활성화된 세션 조회
      */
     List<MentoringSession> findByIsActiveTrueAndSessionDateBetweenOrderBySessionDateAsc(

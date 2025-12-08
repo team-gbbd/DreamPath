@@ -34,7 +34,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import SurveyModal from '../../components/profile/SurveyModal';
 import AgentCard, { type AgentAction } from '../../components/career/AgentCard';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, PYTHON_AI_SERVICE_URL } from '@/lib/api';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -440,6 +440,91 @@ export default function CareerChatPage() {
     }
   };
 
+  // 에이전트 결과 폴링 함수
+  const pollAgentResult = async (taskId: string) => {
+    const maxAttempts = 30; // 최대 15초 (0.5초 * 30)
+    let attempts = 0;
+
+    const poll = async () => {
+      try {
+        const response = await fetch(`${PYTHON_AI_SERVICE_URL}/api/chat/agent-result/${taskId}`);
+        const task = await response.json();
+
+        console.log(`[폴링] task_id=${taskId}, status=${task.status}`);
+
+        if (task.status === 'completed' && task.agentAction) {
+          // 에이전트 결과 처리
+          setIsSearching(false);
+          const actionType = task.agentAction.type as string;
+          const results = task.agentAction.data?.results || [];
+
+          let summary = task.agentAction.summary;
+          if (!summary || summary.trim().length === 0) {
+            summary = results
+              .slice(0, 3)
+              .map((r: any) => r.snippet?.replace(/\.{3}$/, '') || '')
+              .filter((s: string) => s.length > 0)
+              .join(' ')
+              .slice(0, 300);
+          }
+
+          const panelType = actionType === 'web_search_results' ? 'web_search' :
+                actionType === 'mentoring_suggestion' ? 'mentoring' :
+                actionType === 'learning_path_suggestion' ? 'learning_path' : 'web_search';
+
+          const newResearchPanel: ResearchPanel = {
+            id: `research-${Date.now()}`,
+            type: panelType,
+            title: task.agentAction.reason || '리서치 결과',
+            summary: summary || '검색 결과를 확인하세요.',
+            sources: results.map((r: any) => ({
+              title: r.title,
+              url: r.url,
+              snippet: r.snippet,
+            })),
+            timestamp: new Date(),
+            mentoringData: panelType === 'mentoring' && task.agentAction.data?.sessions ? {
+              sessions: task.agentAction.data.sessions,
+              total: task.agentAction.data.sessions.length,
+            } : undefined,
+            learningPathData: panelType === 'learning_path' && task.agentAction.data?.path ? {
+              path: task.agentAction.data.path,
+              exists: task.agentAction.data.exists,
+              canCreate: task.agentAction.data.canCreate,
+              createUrl: task.agentAction.data.createUrl,
+            } : undefined,
+          };
+          setResearchPanels(prev => [newResearchPanel, ...prev]);
+          setRightPanelTab('research');
+          return;
+        }
+
+        if (task.status === 'skipped' || task.status === 'failed') {
+          // 스킵 또는 실패
+          setIsSearching(false);
+          if (task.status === 'failed') {
+            console.error('[폴링] 에이전트 실패:', task.error);
+          }
+          return;
+        }
+
+        // pending/running 상태면 계속 폴링
+        attempts++;
+        if (attempts < maxAttempts) {
+          setTimeout(poll, 500); // 0.5초 후 재시도
+        } else {
+          setIsSearching(false);
+          console.warn('[폴링] 타임아웃');
+        }
+      } catch (error) {
+        console.error('[폴링] 에러:', error);
+        setIsSearching(false);
+      }
+    };
+
+    poll();
+  };
+
   const sendMessage = async () => {
     if (!inputMessage.trim() || !sessionId || isLoading) return;
 
@@ -481,51 +566,7 @@ export default function CareerChatPage() {
       console.log('백엔드 응답:', data);
       console.log('정체성 상태:', data.identityStatus);
 
-      if (data.agentAction) {
-        setIsSearching(false);
-        const actionType = data.agentAction.type as string;
-        const results = data.agentAction.data?.results || [];
-
-        let summary = data.agentAction.summary;
-        if (!summary || summary.trim().length === 0) {
-          summary = results
-            .slice(0, 3)
-            .map((r: any) => r.snippet?.replace(/\.{3}$/, '') || '')
-            .filter((s: string) => s.length > 0)
-            .join(' ')
-            .slice(0, 300);
-        }
-
-        const panelType = actionType === 'web_search_results' ? 'web_search' :
-              actionType === 'mentoring_suggestion' ? 'mentoring' :
-              actionType === 'learning_path_suggestion' ? 'learning_path' : 'web_search';
-
-        const newResearchPanel: ResearchPanel = {
-          id: `research-${Date.now()}`,
-          type: panelType,
-          title: data.agentAction.reason || '리서치 결과',
-          summary: summary || '검색 결과를 확인하세요.',
-          sources: results.map((r: any) => ({
-            title: r.title,
-            url: r.url,
-            snippet: r.snippet,
-          })),
-          timestamp: new Date(),
-          mentoringData: panelType === 'mentoring' && data.agentAction.data?.sessions ? {
-            sessions: data.agentAction.data.sessions,
-            total: data.agentAction.data.sessions.length,
-          } : undefined,
-          learningPathData: panelType === 'learning_path' && data.agentAction.data?.path ? {
-            path: data.agentAction.data.path,
-            exists: data.agentAction.data.exists,
-            canCreate: data.agentAction.data.canCreate,
-            createUrl: data.agentAction.data.createUrl,
-          } : undefined,
-        };
-        setResearchPanels(prev => [newResearchPanel, ...prev]);
-        setRightPanelTab('research');
-      }
-
+      // 상담 응답 즉시 표시
       const assistantMessage: Message = {
         role: 'assistant',
         content: data.message,
@@ -535,6 +576,15 @@ export default function CareerChatPage() {
       };
 
       setMessages(prev => [...prev, assistantMessage]);
+      setIsLoading(false); // 상담 응답 받으면 로딩 해제
+
+      // 에이전트 태스크가 있으면 폴링 시작
+      if (data.taskId) {
+        console.log(`[Chat] 에이전트 폴링 시작: task_id=${data.taskId}`);
+        pollAgentResult(data.taskId);
+      } else {
+        setIsSearching(false);
+      }
 
       if (data.identityStatus) {
         setIdentityStatus(data.identityStatus);
@@ -552,7 +602,6 @@ export default function CareerChatPage() {
         content: '메시지 전송에 실패했습니다. 다시 시도해주세요.',
         timestamp: new Date(),
       }]);
-    } finally {
       setIsLoading(false);
       setIsSearching(false);
     }
