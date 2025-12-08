@@ -14,7 +14,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -28,6 +30,8 @@ public class CareerAnalysisService {
     private final CareerSessionRepository sessionRepository;
     private final CareerAnalysisRepository analysisRepository;
     private final PythonAIService pythonAIService;
+    private final com.dreampath.domain.profile.service.UserProfileSyncService userProfileSyncService;
+    private final com.dreampath.domain.profile.repository.ProfileAnalysisRepository profileAnalysisRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional
@@ -47,7 +51,7 @@ public class CareerAnalysisService {
 
         // Python AI 서비스를 호출하여 분석 수행
         AnalysisResponse analysisResponse = pythonAIService.analyzeCareer(sessionId, conversationHistory);
-        
+
         // 분석 결과 추출
         AnalysisResponse.EmotionAnalysis emotionAnalysis = analysisResponse.getEmotion();
         AnalysisResponse.PersonalityAnalysis personalityAnalysis = analysisResponse.getPersonality();
@@ -57,7 +61,7 @@ public class CareerAnalysisService {
 
         // 기존 분석 결과가 있는지 확인
         Optional<CareerAnalysis> existingAnalysis = analysisRepository.findBySession(session);
-        
+
         CareerAnalysis analysis;
         if (existingAnalysis.isPresent()) {
             // 기존 분석 업데이트
@@ -91,14 +95,29 @@ public class CareerAnalysisService {
         analysisRepository.save(analysis);
         sessionRepository.save(session);
 
-        // 커리어 분석 완료 후 채용공고 추천 계산 트리거 (비동기)
+        // 🔄 자동 동기화: CareerAnalysis → ProfileAnalysis → UserProfile → Vector 재생성
         try {
-            Long userId = session.getUserId() != null ? Long.parseLong(session.getUserId()) : null;
-            log.info("커리어 분석 완료, 채용공고 추천 계산 트리거: userId={}", userId);
-            pythonAIService.triggerJobRecommendationCalculation(userId);
+            if (session.getUserId() != null) {
+                Long userId = Long.parseLong(session.getUserId());
+                log.info("🔄 Triggering ProfileAnalysis and UserProfile sync for userId: {}", userId);
+
+                // CareerAnalysis를 ProfileAnalysis 형식으로 변환 및 저장
+                com.dreampath.domain.profile.entity.ProfileAnalysis profileAnalysis = convertToProfileAnalysis(
+                        analysis, analysisResponse, userId);
+                profileAnalysis = profileAnalysisRepository.save(profileAnalysis);
+                log.info("✅ ProfileAnalysis saved: analysisId={}, userId={}",
+                        profileAnalysis.getAnalysisId(), userId);
+
+                // UserProfile 동기화
+                userProfileSyncService.syncFromAnalysis(userId, profileAnalysis);
+            } else {
+                log.warn("⚠️ Session userId is null, skipping profile sync for sessionId: {}", sessionId);
+            }
+        } catch (NumberFormatException e) {
+            log.error("❌ Invalid userId format: {}", session.getUserId(), e);
         } catch (Exception e) {
-            // 추천 계산 실패해도 분석 결과는 정상 반환
-            log.error("채용공고 추천 계산 트리거 실패 (무시됨)", e);
+            log.error("❌ Profile sync failed for sessionId: {}", sessionId, e);
+            // 동기화 실패해도 분석 결과는 유지
         }
 
         return analysisResponse;
@@ -114,13 +133,13 @@ public class CareerAnalysisService {
     @Transactional(readOnly = true)
     public AnalysisResponse getAnalysis(String sessionId) {
         log.info("분석 결과 조회 요청: sessionId={}", sessionId);
-        
+
         CareerAnalysis analysis = analysisRepository.findBySession_SessionId(sessionId)
                 .orElseThrow(() -> new RuntimeException("분석 결과를 찾을 수 없습니다."));
-        
+
         return convertToResponse(analysis);
     }
-    
+
     /**
      * CareerAnalysis 엔티티를 AnalysisResponse DTO로 변환합니다.
      */
@@ -131,7 +150,7 @@ public class CareerAnalysisService {
                 .score(analysis.getEmotionScore())
                 .emotionalState(determineEmotionalState(analysis.getEmotionScore()))
                 .build();
-        
+
         // 성향 분석
         AnalysisResponse.PersonalityAnalysis personality = AnalysisResponse.PersonalityAnalysis.builder()
                 .description(analysis.getPersonalityAnalysis())
@@ -139,17 +158,18 @@ public class CareerAnalysisService {
                 .strengths(new ArrayList<>()) // 필요시 추가 파싱
                 .growthAreas(new ArrayList<>()) // 필요시 추가 파싱
                 .build();
-        
+
         // 흥미 분석
         List<AnalysisResponse.InterestArea> interestAreas = parseInterestAreas(analysis.getInterestAreas());
         AnalysisResponse.InterestAnalysis interest = AnalysisResponse.InterestAnalysis.builder()
                 .description(analysis.getInterestAnalysis())
                 .areas(interestAreas)
                 .build();
-        
+
         // 추천 진로
-        List<AnalysisResponse.CareerRecommendation> recommendations = parseCareerRecommendations(analysis.getRecommendedCareers());
-        
+        List<AnalysisResponse.CareerRecommendation> recommendations = parseCareerRecommendations(
+                analysis.getRecommendedCareers());
+
         return AnalysisResponse.builder()
                 .sessionId(analysis.getSession().getSessionId())
                 .emotion(emotion)
@@ -159,7 +179,7 @@ public class CareerAnalysisService {
                 .recommendedCareers(recommendations)
                 .build();
     }
-    
+
     /**
      * 감정 점수에 따라 감정 상태를 결정합니다.
      */
@@ -175,7 +195,7 @@ public class CareerAnalysisService {
             return "부정적";
         }
     }
-    
+
     /**
      * JSON 문자열을 InterestArea 리스트로 파싱합니다.
      */
@@ -184,13 +204,14 @@ public class CareerAnalysisService {
             return new ArrayList<>();
         }
         try {
-            return objectMapper.readValue(json, new TypeReference<List<AnalysisResponse.InterestArea>>() {});
+            return objectMapper.readValue(json, new TypeReference<List<AnalysisResponse.InterestArea>>() {
+            });
         } catch (JsonProcessingException e) {
             log.error("흥미 분야 JSON 파싱 실패", e);
             return new ArrayList<>();
         }
     }
-    
+
     /**
      * JSON 문자열을 CareerRecommendation 리스트로 파싱합니다.
      */
@@ -199,13 +220,53 @@ public class CareerAnalysisService {
             return new ArrayList<>();
         }
         try {
-            return objectMapper.readValue(json, new TypeReference<List<AnalysisResponse.CareerRecommendation>>() {});
+            return objectMapper.readValue(json, new TypeReference<List<AnalysisResponse.CareerRecommendation>>() {
+            });
         } catch (JsonProcessingException e) {
             log.error("추천 진로 JSON 파싱 실패", e);
             return new ArrayList<>();
         }
     }
-    
+
+    /**
+     * CareerAnalysis를 ProfileAnalysis로 변환하고 DB에 저장합니다.
+     * 기존 ProfileAnalysis가 있으면 업데이트하고, 없으면 새로 생성합니다.
+     */
+    private com.dreampath.domain.profile.entity.ProfileAnalysis convertToProfileAnalysis(
+            CareerAnalysis careerAnalysis, AnalysisResponse analysisResponse, Long userId) {
+
+        // 기존 ProfileAnalysis 조회 또는 새로 생성
+        com.dreampath.domain.profile.entity.ProfileAnalysis profileAnalysis = profileAnalysisRepository
+                .findByUserId(userId)
+                .orElseGet(() -> com.dreampath.domain.profile.entity.ProfileAnalysis.builder()
+                        .userId(userId)
+                        .build());
+
+        // CareerAnalysis의 데이터를 ProfileAnalysis 형식으로 매핑
+        profileAnalysis.setPersonality(buildPersonalityJson(analysisResponse, careerAnalysis));
+        profileAnalysis.setValues(buildValuesJson(analysisResponse, careerAnalysis));
+        profileAnalysis.setEmotions(buildEmotionJson(analysisResponse, careerAnalysis));
+        profileAnalysis.setInterests(buildInterestJson(analysisResponse, careerAnalysis));
+
+        // MBTI 설정
+        if (analysisResponse != null && analysisResponse.getPersonality() != null
+                && analysisResponse.getPersonality().getType() != null) {
+            profileAnalysis.setMbti(analysisResponse.getPersonality().getType());
+        } else if (careerAnalysis.getPersonalityType() != null) {
+            profileAnalysis.setMbti(careerAnalysis.getPersonalityType());
+        }
+
+        // Confidence Score 설정 (기본값 0.8)
+        if (profileAnalysis.getConfidenceScore() == null) {
+            Double confidence = careerAnalysis.getEmotionScore() != null
+                    ? Math.min(Math.max(careerAnalysis.getEmotionScore() / 100.0, 0.0), 1.0)
+                    : 0.8;
+            profileAnalysis.setConfidenceScore(confidence);
+        }
+
+        return profileAnalysis;
+    }
+
     private String serializeToJson(Object obj) {
         try {
             return objectMapper.writeValueAsString(obj);
@@ -214,5 +275,73 @@ public class CareerAnalysisService {
             return "{}";
         }
     }
-}
 
+    private String buildPersonalityJson(AnalysisResponse analysisResponse, CareerAnalysis careerAnalysis) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        AnalysisResponse.PersonalityAnalysis personality = analysisResponse != null
+                ? analysisResponse.getPersonality()
+                : null;
+
+        payload.put("description", personality != null && personality.getDescription() != null
+                ? personality.getDescription()
+                : careerAnalysis.getPersonalityAnalysis());
+        payload.put("type", personality != null ? personality.getType() : careerAnalysis.getPersonalityType());
+        payload.put("strengths", personality != null && personality.getStrengths() != null
+                ? personality.getStrengths()
+                : Collections.emptyList());
+        payload.put("growthAreas", personality != null && personality.getGrowthAreas() != null
+                ? personality.getGrowthAreas()
+                : Collections.emptyList());
+        payload.put("traits", Collections.emptyMap());
+
+        return serializeToJson(payload);
+    }
+
+    private String buildValuesJson(AnalysisResponse analysisResponse, CareerAnalysis careerAnalysis) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("summary", analysisResponse != null && analysisResponse.getComprehensiveAnalysis() != null
+                ? analysisResponse.getComprehensiveAnalysis()
+                : careerAnalysis.getComprehensiveAnalysis());
+
+        AnalysisResponse.PersonalityAnalysis personality = analysisResponse != null
+                ? analysisResponse.getPersonality()
+                : null;
+        payload.put("highlights", personality != null && personality.getStrengths() != null
+                ? personality.getStrengths()
+                : Collections.emptyList());
+        payload.put("growthAreas", personality != null && personality.getGrowthAreas() != null
+                ? personality.getGrowthAreas()
+                : Collections.emptyList());
+        payload.put("scores", Collections.emptyMap());
+        return serializeToJson(payload);
+    }
+
+    private String buildEmotionJson(AnalysisResponse analysisResponse, CareerAnalysis careerAnalysis) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        AnalysisResponse.EmotionAnalysis emotion = analysisResponse != null ? analysisResponse.getEmotion() : null;
+        payload.put("description", emotion != null && emotion.getDescription() != null
+                ? emotion.getDescription()
+                : careerAnalysis.getEmotionAnalysis());
+        payload.put("score", emotion != null && emotion.getScore() != null
+                ? emotion.getScore()
+                : careerAnalysis.getEmotionScore());
+        payload.put("emotionalState", emotion != null && emotion.getEmotionalState() != null
+                ? emotion.getEmotionalState()
+                : "중립적");
+        return serializeToJson(payload);
+    }
+
+    private String buildInterestJson(AnalysisResponse analysisResponse, CareerAnalysis careerAnalysis) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        AnalysisResponse.InterestAnalysis interest = analysisResponse != null ? analysisResponse.getInterest() : null;
+        payload.put("description", interest != null && interest.getDescription() != null
+                ? interest.getDescription()
+                : careerAnalysis.getInterestAnalysis());
+
+        List<AnalysisResponse.InterestArea> areas = interest != null && interest.getAreas() != null
+                ? interest.getAreas()
+                : parseInterestAreas(careerAnalysis.getInterestAreas());
+        payload.put("areas", areas);
+        return serializeToJson(payload);
+    }
+}
