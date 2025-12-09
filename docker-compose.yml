@@ -78,7 +78,7 @@ services:
       # Supabase PostgreSQL
       DB_TYPE: postgres
       DB_HOST: ${DB_HOST:-aws-1-ap-northeast-1.pooler.supabase.com}
-      DB_PORT: ${DB_PORT:-5432}
+      DB_PORT: ${DB_PORT:-6543}
       DB_USER: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME:-postgres}

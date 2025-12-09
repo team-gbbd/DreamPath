@@ -4,12 +4,16 @@ import com.dreampath.domain.agent.personality.dto.PersonalityAgentRequest;
 import com.dreampath.domain.agent.personality.dto.PersonalityAgentResponse;
 import com.dreampath.domain.agent.service.PythonAgentService;
 import com.dreampath.domain.career.entity.CareerSession;
+import com.dreampath.domain.career.entity.ChatMessage;
 import com.dreampath.domain.career.repository.CareerSessionRepository;
-import com.dreampath.domain.career.service.CareerChatService;
 import com.dreampath.domain.profile.entity.ProfileAnalysis;
+import com.dreampath.domain.profile.entity.ProfileVector;
 import com.dreampath.domain.profile.entity.UserProfile;
 import com.dreampath.domain.profile.repository.ProfileAnalysisRepository;
+import com.dreampath.domain.profile.repository.ProfileVectorRepository;
 import com.dreampath.domain.profile.repository.UserProfileRepository;
+import com.dreampath.domain.profile.service.UserProfileSyncService;
+import com.dreampath.domain.recommendation.service.RecommendationStorageService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -28,12 +32,14 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class PersonalityAgentService {
 
-    private final CareerChatService careerChatService;
     private final CareerSessionRepository careerSessionRepository;
     private final UserProfileRepository userProfileRepository;
     private final ProfileAnalysisRepository profileAnalysisRepository;
+    private final ProfileVectorRepository profileVectorRepository;
     private final PythonAgentService pythonAgentService;
     private final ObjectMapper objectMapper;
+    private final UserProfileSyncService userProfileSyncService;
+    private final RecommendationStorageService recommendationStorageService;
 
     @Transactional
     public PersonalityAgentResponse run(PersonalityAgentRequest incomingRequest) {
@@ -47,8 +53,7 @@ public class PersonalityAgentService {
 
         List<Map<String, Object>> history = resolveConversationHistory(
                 incomingRequest.getConversationHistory(),
-                sessionId
-        );
+                session);
         Map<String, Object> surveyData = resolveSurveyData(incomingRequest.getSurveyData(), session);
         Map<String, Object> userProfile = resolveUserProfile(incomingRequest.getUserProfile(), session.getUserId());
 
@@ -77,33 +82,34 @@ public class PersonalityAgentService {
 
     private List<Map<String, Object>> resolveConversationHistory(
             List<Map<String, Object>> providedHistory,
-            String sessionId
-    ) {
+            CareerSession session) {
         if (providedHistory != null && !providedHistory.isEmpty()) {
             return providedHistory;
         }
 
-        String historyText = careerChatService.getConversationHistory(sessionId);
-        if (historyText == null || historyText.isBlank()) {
+        List<ChatMessage> messages = session.getMessages();
+        if (messages == null || messages.isEmpty()) {
             return List.of();
         }
 
         List<Map<String, Object>> history = new ArrayList<>();
-        String[] entries = historyText.split("\\n\\n+");
-        for (String entry : entries) {
-            String trimmed = entry.trim();
-            if (trimmed.isEmpty()) {
-                continue;
-            }
-            String role = trimmed.startsWith("상담사") ? "assistant" : "user";
-            int separator = trimmed.indexOf(":");
-            String content = separator >= 0 ? trimmed.substring(separator + 1).trim() : trimmed;
-            Map<String, Object> message = new HashMap<>();
-            message.put("role", role);
-            message.put("content", content);
-            history.add(message);
-        }
+        messages.stream()
+                .sorted((m1, m2) -> m1.getTimestamp().compareTo(m2.getTimestamp()))
+                .forEach(message -> {
+                    Map<String, Object> entry = new HashMap<>();
+                    entry.put("role", convertRole(message.getRole()));
+                    entry.put("content", message.getContent());
+                    history.add(entry);
+                });
         return history;
+    }
+
+    private String convertRole(ChatMessage.MessageRole role) {
+        return switch (role) {
+            case ASSISTANT -> "assistant";
+            case SYSTEM -> "system";
+            default -> "user";
+        };
     }
 
     private Map<String, Object> resolveSurveyData(Map<String, Object> provided, CareerSession session) {
@@ -165,21 +171,59 @@ public class PersonalityAgentService {
         if (userId.isEmpty()) {
             return;
         }
+
+        // 1. ProfileAnalysis 저장
         ProfileAnalysis analysis = profileAnalysisRepository.findByUserId(userId.get())
                 .orElseGet(() -> ProfileAnalysis.builder().userId(userId.get()).build());
 
+        analysis.setSummary((String) pythonResponse.get("summary"));
+
         Map<String, Object> personality = new HashMap<>();
-        personality.put("summary", pythonResponse.get("summary"));
         personality.put("bigFive", pythonResponse.get("big_five"));
         analysis.setPersonality(writeJson(personality));
 
-        Map<String, Object> strengthsAndRisks = new HashMap<>();
-        strengthsAndRisks.put("strengths", pythonResponse.get("strengths"));
-        strengthsAndRisks.put("risks", pythonResponse.get("risks"));
-        analysis.setValues(writeJson(strengthsAndRisks));
+        analysis.setStrengths(castToList(pythonResponse.get("strengths")));
+        analysis.setRisks(castToList(pythonResponse.get("risks")));
+        analysis.setGoals(castToList(pythonResponse.get("goals")));
+        analysis.setValuesList(castToList(pythonResponse.get("values")));
         analysis.setMbti((String) pythonResponse.get("mbti"));
 
         profileAnalysisRepository.save(analysis);
+        log.info("✅ ProfileAnalysis 저장 완료. userId: {}", userId.get());
+
+        // 2. UserProfile 동기화 및 벡터 재생성
+        try {
+            UserProfile updatedProfile = userProfileSyncService.syncFromAnalysis(userId.get(), analysis);
+            log.info("✅ UserProfile 동기화 및 벡터 재생성 완료. profileId: {}", updatedProfile.getProfileId());
+
+            // 3. 추천 결과 저장
+            saveRecommendations(userId.get(), updatedProfile.getProfileId());
+        } catch (Exception e) {
+            log.error("❌ UserProfile 동기화 실패. userId: {}", userId.get(), e);
+        }
+    }
+
+    /**
+     * 직업/학과 추천 결과를 DB에 저장합니다.
+     */
+    private void saveRecommendations(Long userId, Long profileId) {
+        try {
+            // ProfileVector에서 실제 vectorDbId 조회 (user-{profileId} 형식)
+            ProfileVector profileVector = profileVectorRepository.findByProfileId(profileId);
+            if (profileVector == null || profileVector.getVectorDbId() == null) {
+                log.warn("ProfileVector를 찾을 수 없어 추천 결과를 저장하지 않습니다. profileId: {}", profileId);
+                return;
+            }
+
+            String vectorId = profileVector.getVectorDbId();
+            log.info("🔮 VectorDbId 조회 완료: {}", vectorId);
+
+            // 추천 결과 저장
+            recommendationStorageService.updateRecommendations(userId, vectorId);
+            log.info("✅ 추천 결과 저장 완료. userId: {}, vectorId: {}", userId, vectorId);
+        } catch (Exception e) {
+            log.error("❌ 추천 결과 저장 중 오류 발생. userId: {}, profileId: {}", userId, profileId, e);
+        }
     }
 
     private String writeJson(Object payload) {

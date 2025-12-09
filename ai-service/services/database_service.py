@@ -28,7 +28,7 @@ class DatabaseService:
         if USE_POSTGRES:
             self.db_config = {
                 'host': os.getenv('DB_HOST', 'localhost'),
-                'port': int(os.getenv('DB_PORT', 5432)),
+                'port': int(os.getenv('DB_PORT', 6543)),
                 'user': os.getenv('DB_USER', 'postgres'),
                 'password': os.getenv('DB_PASSWORD', 'postgres'),
                 'database': os.getenv('DB_NAME', 'postgres'),
@@ -1122,4 +1122,47 @@ class DatabaseService:
 
         except Exception as e:
             print(f"대화 기록 조회 실패: {str(e)}")
+            return ""
+
+    def get_conversation_history_by_session_id(self, session_id: str, limit: int = 100) -> str:
+        """
+        sessionId(UUID)로 특정 세션의 대화 기록을 조회합니다.
+        
+        Args:
+            session_id: 세션 UUID (예: "3adaf543-e2ce-4dd2-8254-6be2f0f56a3c")
+            limit: 최대 메시지 수
+        
+        Returns:
+            대화 기록 문자열 (role: content 형식)
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                # career_sessions와 chat_messages 조인하여 조회
+                query = """
+                    SELECT cm.role, cm.content, cm.timestamp
+                    FROM chat_messages cm
+                    INNER JOIN career_sessions cs ON cm.session_id = cs.id
+                    WHERE cs.session_id = %s
+                    ORDER BY cm.timestamp ASC
+                    LIMIT %s
+                """
+                cursor.execute(query, (session_id, limit))
+                results = cursor.fetchall()
+
+                if not results:
+                    return ""
+
+                # 대화 형식으로 변환
+                conversation_lines = []
+                for row in results:
+                    role = row.get('role', row[0]) if isinstance(row, dict) else row[0]
+                    content = row.get('content', row[1]) if isinstance(row, dict) else row[1]
+                    conversation_lines.append(f"{role}: {content}")
+
+                return "\n".join(conversation_lines)
+
+        except Exception as e:
+            print(f"대화 기록 조회 실패 (sessionId: {session_id}): {str(e)}")
             return ""

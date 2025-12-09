@@ -51,6 +51,8 @@ export default function CareerChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [identityStatus, setIdentityStatus] = useState<IdentityStatus | null>(null);
+  const [personalityPromptDismissed, setPersonalityPromptDismissed] = useState(false);
+  const [personalityTriggered, setPersonalityTriggered] = useState(false);
   const [showSurvey, setShowSurvey] = useState(false);
   const [surveyQuestions, setSurveyQuestions] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -230,7 +232,8 @@ export default function CareerChatPage() {
 
       const data = await response.json();
       setSessionId(data.sessionId);
-
+      setPersonalityPromptDismissed(false);
+      setPersonalityTriggered(false);
       // localStorage에 세션 정보 저장 (userId와 함께)
       localStorage.setItem('career_chat_session', JSON.stringify({
         sessionId: data.sessionId,
@@ -311,6 +314,8 @@ export default function CareerChatPage() {
   const handlePersonalityPromptAction = (action: 'view' | 'later', messageId: string) => {
     if (action === 'view') {
       navigate('/profile/dashboard');
+    } else {
+      setPersonalityPromptDismissed(true);
     }
 
     setMessages((prev) =>
@@ -403,7 +408,8 @@ export default function CareerChatPage() {
         data?.personality_agent ??
         data?.personality_agent_result;
 
-      if (personalityAgentPayload) {
+      if (personalityAgentPayload && !personalityPromptDismissed) {
+        setPersonalityTriggered(true);
         handlePersonalityAgentResponse(personalityAgentPayload);
       }
     } catch (error) {
@@ -667,7 +673,7 @@ export default function CareerChatPage() {
 
               {/* Input Area */}
               <div className="border-t border-gray-200 p-4">
-                {messages.length >= 6 && (
+                {messages.length >= 6 && (personalityTriggered || personalityPromptDismissed) && (
                   <div className="mb-3 flex justify-center">
                     <button
                       onClick={handleAnalyze}
