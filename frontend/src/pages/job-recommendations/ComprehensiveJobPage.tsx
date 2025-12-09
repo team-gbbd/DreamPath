@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { jobRecommendationService, BACKEND_BASE_URL } from "@/lib/api";
+import { jobRecommendationService, jobSiteService, BACKEND_BASE_URL } from "@/lib/api";
 import Header from "../../components/feature/Header";
 import Footer from "../../components/feature/Footer";
 import ApplicationWriterModal from "../../components/application/ApplicationWriterModal";
@@ -61,6 +61,9 @@ interface VerificationCriteria {
 interface HiringStatus {
   estimatedPhase: string;
   competitionLevel: string;
+  competitionRatio: string;
+  estimatedApplicants: number;
+  estimatedHires: number;
   bestApplyTiming: string;
   marketDemand: string;
 }
@@ -86,36 +89,12 @@ interface UserVerificationResult {
   growthPotential: string;
 }
 
-interface KeyFactor {
-  factor: string;
-  impact: string;
-  weight: string;
-}
-
-interface ImprovementAction {
-  action: string;
-  expectedImprovement: string;
-  timeline: string;
-}
-
-interface SuccessPrediction {
-  overallProbability: number;
-  documentPassRate: number;
-  interviewPassRate: number;
-  finalPassRate: number;
-  keyFactors: KeyFactor[];
-  improvementActions: ImprovementAction[];
-  confidenceLevel: string;
-  reasoning: string;
-}
-
 interface ComprehensiveAnalysis {
   idealTalent: IdealTalent;
   hiringProcess: HiringProcess;
   verificationCriteria: VerificationCriteria;
   hiringStatus: HiringStatus;
   userVerificationResult: UserVerificationResult;
-  successPrediction: SuccessPrediction;
 }
 
 interface JobRecommendation {
@@ -158,17 +137,49 @@ export default function ComprehensiveJobPage() {
   const [result, setResult] = useState<RecommendationResult | null>(null);
   const [selectedJob, setSelectedJob] = useState<JobRecommendation | null>(null);
   const [activeAnalysisTab, setActiveAnalysisTab] = useState<
-    "talent" | "process" | "criteria" | "status" | "result" | "prediction"
+    "talent" | "process" | "criteria" | "status" | "result"
   >("talent");
   const [notLoggedIn, setNotLoggedIn] = useState(false);
   const [noAnalysis, setNoAnalysis] = useState(false);
   const [isCached, setIsCached] = useState(false);
   const [calculatedAt, setCalculatedAt] = useState<string | null>(null);
   const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false);
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [filteredRecommendations, setFilteredRecommendations] = useState<JobRecommendation[]>([]);
+
+  // 전체 검색 관련 state
+  const [viewMode, setViewMode] = useState<"recommendations" | "allJobs">("recommendations");
+  const [allJobListings, setAllJobListings] = useState<JobRecommendation[]>([]);
+  const [allJobsLoading, setAllJobsLoading] = useState(false);
+  const [allJobsTotalCount, setAllJobsTotalCount] = useState(0);
+  const [selectedAllJob, setSelectedAllJob] = useState<JobRecommendation | null>(null);
+  const [allJobsSearchKeyword, setAllJobsSearchKeyword] = useState("");
 
   useEffect(() => {
     loadRecommendations();
   }, []);
+
+  // 검색어에 따라 추천 목록 필터링
+  useEffect(() => {
+    if (!result?.recommendations) {
+      setFilteredRecommendations([]);
+      return;
+    }
+
+    if (!searchKeyword.trim()) {
+      setFilteredRecommendations(result.recommendations);
+      return;
+    }
+
+    const keyword = searchKeyword.toLowerCase();
+    const filtered = result.recommendations.filter(job =>
+      job.title.toLowerCase().includes(keyword) ||
+      job.company.toLowerCase().includes(keyword) ||
+      (job.location?.toLowerCase().includes(keyword)) ||
+      job.reasons.some(r => r.toLowerCase().includes(keyword))
+    );
+    setFilteredRecommendations(filtered);
+  }, [searchKeyword, result?.recommendations]);
 
   const loadRecommendations = async () => {
     setLoading(true);
@@ -272,6 +283,54 @@ export default function ComprehensiveJobPage() {
       setCalculating(false);
     }
   };
+
+  // 전체 채용 정보 검색
+  const searchAllJobs = async (keyword?: string) => {
+    setAllJobsLoading(true);
+    try {
+      const response = await jobSiteService.searchJobListings(
+        undefined,
+        keyword || undefined,
+        100,
+        0
+      );
+
+      if (response.success && response.jobListings) {
+        const mappedJobs: JobRecommendation[] = response.jobListings.map((job: any) => ({
+          jobId: job.id?.toString() || '',
+          title: job.title || '',
+          company: job.company || '',
+          location: job.location || null,
+          url: job.url || '',
+          description: job.description || null,
+          siteName: response.site || '',
+          matchScore: 0,
+          reasons: [],
+          strengths: [],
+          concerns: [],
+          comprehensiveAnalysis: null as any,
+        }));
+
+        setAllJobListings(mappedJobs);
+        setAllJobsTotalCount(response.totalResults || mappedJobs.length);
+
+        if (mappedJobs.length > 0 && !selectedAllJob) {
+          setSelectedAllJob(mappedJobs[0]);
+        }
+      }
+    } catch (error) {
+      console.error("전체 채용 정보 검색 실패:", error);
+    } finally {
+      setAllJobsLoading(false);
+    }
+  };
+
+  // 전체 채용 모드로 전환 시 데이터 로드
+  useEffect(() => {
+    if (viewMode === "allJobs" && allJobListings.length === 0) {
+      searchAllJobs();
+    }
+  }, [viewMode]);
 
   // 로그인 필요
   if (notLoggedIn) {
@@ -416,10 +475,34 @@ export default function ComprehensiveJobPage() {
               {calculating ? '분석 중...' : '다시 분석'}
             </button>
           </div>
+
+          {/* 보기 모드 탭 */}
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={() => setViewMode("recommendations")}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                viewMode === "recommendations"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              맞춤 추천 ({result?.totalCount || 0})
+            </button>
+            <button
+              onClick={() => setViewMode("allJobs")}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                viewMode === "allJobs"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              전체 채용공고 ({allJobsTotalCount})
+            </button>
+          </div>
         </div>
 
-        {/* 전체 요약 */}
-        {result.summary && (
+        {/* 전체 요약 - 추천 모드에서만 */}
+        {viewMode === "recommendations" && result.summary && (
           <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg shadow p-6 mb-6 text-white">
             <p className="text-lg mb-3">{result.summary.message}</p>
             {result.summary.topRecommendation && (
@@ -451,72 +534,182 @@ export default function ComprehensiveJobPage() {
           {/* 채용 공고 목록 (좌측) */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow p-4">
-              <h2 className="font-semibold text-gray-900 mb-4">
-                추천 공고 ({result.totalCount}개)
-              </h2>
-              <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                {result.recommendations.map((job) => (
-                  <div
-                    key={job.jobId}
-                    onClick={() => setSelectedJob(job)}
-                    className={`p-4 rounded-lg cursor-pointer transition-all ${
-                      selectedJob?.jobId === job.jobId
-                        ? "bg-blue-50 border-2 border-blue-500"
-                        : "bg-gray-50 border border-gray-200 hover:bg-gray-100"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-gray-900 truncate">
-                          {job.title}
-                        </h3>
-                        <p className="text-sm text-gray-600">{job.company}</p>
-                        {job.location && (
-                          <p className="text-xs text-gray-500">{job.location}</p>
-                        )}
-                      </div>
-                      <div className="ml-2 text-right">
-                        <div
-                          className={`text-lg font-bold ${
-                            job.matchScore >= 80
-                              ? "text-green-600"
-                              : job.matchScore >= 60
-                              ? "text-blue-600"
-                              : "text-gray-600"
-                          }`}
-                        >
-                          {job.matchScore}점
-                        </div>
-                        <p className="text-xs text-gray-500">매칭</p>
-                      </div>
-                    </div>
+              {viewMode === "recommendations" ? (
+                <>
+                  <h2 className="font-semibold text-gray-900 mb-3">
+                    추천 공고 ({filteredRecommendations.length}개)
+                  </h2>
 
-                    {/* 합격 예측 미니 표시 */}
-                    {job.comprehensiveAnalysis?.successPrediction && (
-                      <div className="mt-2 flex items-center gap-2">
-                        <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-green-500 rounded-full"
-                            style={{
-                              width: `${job.comprehensiveAnalysis.successPrediction.overallProbability}%`,
-                            }}
-                          />
-                        </div>
-                        <span className="text-xs text-gray-600">
-                          합격 {job.comprehensiveAnalysis.successPrediction.overallProbability}%
-                        </span>
-                      </div>
+                  {/* 추천 목록 내 필터 검색 */}
+                  <div className="relative mb-4">
+                    <input
+                      type="text"
+                      placeholder="추천 목록에서 검색..."
+                      value={searchKeyword}
+                      onChange={(e) => setSearchKeyword(e.target.value)}
+                      className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    />
+                    <svg
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                    {searchKeyword && (
+                      <button
+                        onClick={() => setSearchKeyword("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
                     )}
                   </div>
-                ))}
-              </div>
+
+                  <div className="space-y-3 max-h-[550px] overflow-y-auto">
+                    {filteredRecommendations.length === 0 && searchKeyword ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <p>'{searchKeyword}'에 대한 검색 결과가 없습니다.</p>
+                      </div>
+                    ) : filteredRecommendations.map((job) => (
+                      <div
+                        key={job.jobId}
+                        onClick={() => setSelectedJob(job)}
+                        className={`p-4 rounded-lg cursor-pointer transition-all ${
+                          selectedJob?.jobId === job.jobId
+                            ? "bg-blue-50 border-2 border-blue-500"
+                            : "bg-gray-50 border border-gray-200 hover:bg-gray-100"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-medium text-gray-900 truncate">
+                              {job.title}
+                            </h3>
+                            <p className="text-sm text-gray-600">{job.company}</p>
+                            {job.location && (
+                              <p className="text-xs text-gray-500">{job.location}</p>
+                            )}
+                          </div>
+                          <div className="ml-2 text-right">
+                            <div
+                              className={`text-lg font-bold ${
+                                job.matchScore >= 80
+                                  ? "text-green-600"
+                                  : job.matchScore >= 60
+                                  ? "text-blue-600"
+                                  : "text-gray-600"
+                              }`}
+                            >
+                              {job.matchScore}점
+                            </div>
+                            <p className="text-xs text-gray-500">매칭</p>
+                          </div>
+                        </div>
+
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                /* 전체 채용공고 모드 */
+                <>
+                  <h2 className="font-semibold text-gray-900 mb-3">
+                    전체 채용공고 ({allJobsTotalCount}개)
+                  </h2>
+
+                  {/* DB 검색 입력 */}
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      searchAllJobs(allJobsSearchKeyword);
+                    }}
+                    className="relative mb-4"
+                  >
+                    <input
+                      type="text"
+                      placeholder="회사명, 직무로 검색..."
+                      value={allJobsSearchKeyword}
+                      onChange={(e) => setAllJobsSearchKeyword(e.target.value)}
+                      className="w-full px-4 py-2 pl-10 pr-16 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    />
+                    <svg
+                      className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                    <button
+                      type="submit"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                    >
+                      검색
+                    </button>
+                  </form>
+
+                  {allJobsLoading ? (
+                    <div className="flex justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-[550px] overflow-y-auto">
+                      {allJobListings.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                          <p>채용 정보가 없습니다.</p>
+                        </div>
+                      ) : allJobListings.map((job) => (
+                        <div
+                          key={job.jobId}
+                          onClick={() => setSelectedAllJob(job)}
+                          className={`p-4 rounded-lg cursor-pointer transition-all ${
+                            selectedAllJob?.jobId === job.jobId
+                              ? "bg-blue-50 border-2 border-blue-500"
+                              : "bg-gray-50 border border-gray-200 hover:bg-gray-100"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-medium text-gray-900 truncate">
+                                {job.title}
+                              </h3>
+                              <p className="text-sm text-gray-600">{job.company}</p>
+                              {job.location && (
+                                <p className="text-xs text-gray-500">{job.location}</p>
+                              )}
+                            </div>
+                            <span className="ml-2 px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                              {job.siteName}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
 
           {/* 상세 분석 (우측) */}
           <div className="lg:col-span-2">
-            {selectedJob ? (
-              <div className="bg-white rounded-lg shadow">
+            {viewMode === "recommendations" ? (
+              selectedJob ? (
+                <div className="bg-white rounded-lg shadow">
                 {/* 선택된 공고 헤더 */}
                 <div className="p-6 border-b border-gray-200">
                   <div className="flex justify-between items-start">
@@ -549,7 +742,7 @@ export default function ComprehensiveJobPage() {
                   </div>
                 </div>
 
-                {/* 6가지 분석 탭 */}
+                {/* 5가지 분석 탭 */}
                 <div className="border-b border-gray-200">
                   <nav className="flex overflow-x-auto">
                     {[
@@ -558,7 +751,6 @@ export default function ComprehensiveJobPage() {
                       { id: "criteria", label: "검증 기준", icon: "✅" },
                       { id: "status", label: "채용 현황", icon: "📊" },
                       { id: "result", label: "검증 결과", icon: "📝" },
-                      { id: "prediction", label: "합격 예측", icon: "🎯" },
                     ].map((tab) => (
                       <button
                         key={tab.id}
@@ -595,9 +787,6 @@ export default function ComprehensiveJobPage() {
                       {activeAnalysisTab === "result" && (
                         <ResultTab analysis={selectedJob.comprehensiveAnalysis.userVerificationResult} />
                       )}
-                      {activeAnalysisTab === "prediction" && (
-                        <PredictionTab analysis={selectedJob.comprehensiveAnalysis.successPrediction} />
-                      )}
                     </>
                   )}
                 </div>
@@ -606,6 +795,77 @@ export default function ComprehensiveJobPage() {
               <div className="bg-white rounded-lg shadow p-12 text-center text-gray-500">
                 좌측에서 채용 공고를 선택하세요
               </div>
+            )
+          ) : (
+              /* 전체 채용공고 모드 상세 보기 */
+              selectedAllJob ? (
+                <div className="bg-white rounded-lg shadow">
+                  {/* 선택된 공고 헤더 */}
+                  <div className="p-6 border-b border-gray-200">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h2 className="text-xl font-bold text-gray-900">
+                          {selectedAllJob.title}
+                        </h2>
+                        <p className="text-gray-600">{selectedAllJob.company}</p>
+                        {selectedAllJob.location && (
+                          <p className="text-sm text-gray-500">{selectedAllJob.location}</p>
+                        )}
+                        {selectedAllJob.siteName && (
+                          <span className="inline-block mt-2 px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                            {selectedAllJob.siteName}
+                          </span>
+                        )}
+                      </div>
+                      <a
+                        href={selectedAllJob.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        지원하기
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* 상세 정보 */}
+                  <div className="p-6">
+                    {selectedAllJob.description ? (
+                      <div>
+                        <h3 className="font-semibold text-gray-900 mb-3">채용 상세</h3>
+                        <div className="p-4 bg-gray-50 rounded-lg">
+                          <p className="text-gray-700 whitespace-pre-wrap">
+                            {selectedAllJob.description}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <p>상세 정보가 없습니다.</p>
+                        <a
+                          href={selectedAllJob.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-block mt-4 text-blue-600 hover:underline"
+                        >
+                          원본 공고에서 확인하기 →
+                        </a>
+                      </div>
+                    )}
+
+                    {/* 안내 메시지 */}
+                    <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-800">
+                        💡 이 채용공고에 대한 AI 분석을 받으려면 "맞춤 추천" 탭에서 프로파일 기반 추천을 확인하세요.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white rounded-lg shadow p-12 text-center text-gray-500">
+                  좌측에서 채용 공고를 선택하세요
+                </div>
+              )
             )}
           </div>
         </div>
@@ -811,13 +1071,36 @@ function CriteriaTab({ analysis }: { analysis: VerificationCriteria }) {
 function StatusTab({ analysis }: { analysis: HiringStatus }) {
   return (
     <div className="space-y-6">
+      {/* 경쟁률 하이라이트 */}
+      <div className="p-6 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg text-white">
+        <div className="text-center">
+          <span className="text-sm opacity-90">예상 경쟁률</span>
+          <p className="text-4xl font-bold mt-1">{analysis.competitionRatio || analysis.competitionLevel}</p>
+          <p className="text-xs opacity-70 mt-1">* 유사 공고 기반 추정치</p>
+          <div className="flex justify-center gap-8 mt-4">
+            <div>
+              <span className="text-2xl font-semibold">
+                {analysis.estimatedApplicants ? `~${analysis.estimatedApplicants}명` : '-'}
+              </span>
+              <p className="text-xs opacity-80">예상 지원자</p>
+            </div>
+            <div className="border-l border-white/30 pl-8">
+              <span className="text-2xl font-semibold">
+                {analysis.estimatedHires ? `${analysis.estimatedHires}명` : '-'}
+              </span>
+              <p className="text-xs opacity-80">채용 인원</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <div className="p-4 bg-blue-50 rounded-lg text-center">
           <span className="text-sm text-gray-600">현재 단계</span>
           <p className="text-xl font-bold text-blue-900 mt-1">{analysis.estimatedPhase}</p>
         </div>
         <div className="p-4 bg-orange-50 rounded-lg text-center">
-          <span className="text-sm text-gray-600">예상 경쟁률</span>
+          <span className="text-sm text-gray-600">경쟁 수준</span>
           <p className="text-xl font-bold text-orange-900 mt-1">{analysis.competitionLevel}</p>
         </div>
       </div>
@@ -916,105 +1199,3 @@ function ResultTab({ analysis }: { analysis: UserVerificationResult }) {
   );
 }
 
-// ============== 6. 합격 예측 탭 ==============
-function PredictionTab({ analysis }: { analysis: SuccessPrediction }) {
-  return (
-    <div className="space-y-6">
-      {/* 합격률 카드 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="p-4 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg text-white text-center">
-          <div className="text-3xl font-bold">{analysis.overallProbability}%</div>
-          <p className="text-sm opacity-90">종합 합격률</p>
-        </div>
-        <div className="p-4 bg-gray-50 rounded-lg text-center">
-          <div className="text-2xl font-bold text-gray-900">{analysis.documentPassRate}%</div>
-          <p className="text-sm text-gray-600">서류 통과율</p>
-        </div>
-        <div className="p-4 bg-gray-50 rounded-lg text-center">
-          <div className="text-2xl font-bold text-gray-900">{analysis.interviewPassRate}%</div>
-          <p className="text-sm text-gray-600">면접 통과율</p>
-        </div>
-        <div className="p-4 bg-gray-50 rounded-lg text-center">
-          <div className="text-2xl font-bold text-gray-900">{analysis.finalPassRate}%</div>
-          <p className="text-sm text-gray-600">최종 합격률</p>
-        </div>
-      </div>
-
-      {/* 주요 요인 */}
-      {analysis.keyFactors?.length > 0 && (
-        <div>
-          <h3 className="font-semibold text-gray-900 mb-3">합격에 영향을 주는 요소</h3>
-          <div className="space-y-2">
-            {analysis.keyFactors.map((factor, idx) => (
-              <div
-                key={idx}
-                className={`flex items-center justify-between p-3 rounded-lg ${
-                  factor.impact === "POSITIVE" ? "bg-green-50" : "bg-red-50"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className={factor.impact === "POSITIVE" ? "text-green-500" : "text-red-500"}>
-                    {factor.impact === "POSITIVE" ? "+" : "-"}
-                  </span>
-                  <span className={factor.impact === "POSITIVE" ? "text-green-800" : "text-red-800"}>
-                    {factor.factor}
-                  </span>
-                </div>
-                <span
-                  className={`px-2 py-1 text-xs rounded ${
-                    factor.weight === "HIGH"
-                      ? "bg-blue-100 text-blue-800"
-                      : "bg-gray-100 text-gray-800"
-                  }`}
-                >
-                  {factor.weight === "HIGH" ? "중요" : "보통"}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 개선 액션 */}
-      {analysis.improvementActions?.length > 0 && (
-        <div>
-          <h3 className="font-semibold text-gray-900 mb-3">합격률 올리는 방법</h3>
-          <div className="space-y-3">
-            {analysis.improvementActions.map((action, idx) => (
-              <div key={idx} className="p-4 bg-blue-50 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-medium text-blue-900">{action.action}</h4>
-                  <div className="flex items-center gap-2">
-                    <span className="text-green-600 font-semibold">{action.expectedImprovement}</span>
-                    <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                      {action.timeline}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 예측 근거 */}
-      <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="font-semibold text-gray-900">예측 근거</h3>
-          <span
-            className={`px-2 py-1 text-xs rounded ${
-              analysis.confidenceLevel === "높음"
-                ? "bg-green-100 text-green-800"
-                : analysis.confidenceLevel === "중간"
-                ? "bg-yellow-100 text-yellow-800"
-                : "bg-gray-100 text-gray-800"
-            }`}
-          >
-            신뢰도: {analysis.confidenceLevel}
-          </span>
-        </div>
-        <p className="text-gray-700">{analysis.reasoning}</p>
-      </div>
-    </div>
-  );
-}

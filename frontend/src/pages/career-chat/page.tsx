@@ -380,7 +380,7 @@ export default function CareerChatPage() {
     await startNewSession(currentUserId);
   };
 
-  const startNewSession = async (currentUserId: number | null = null) => {
+  const startNewSession = async (currentUserId: number | null = null, forceNew: boolean = false) => {
     try {
       let userIdFromStorage: number | null = null;
       try {
@@ -401,7 +401,8 @@ export default function CareerChatPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          userId: userIdToUse ? String(userIdToUse) : null
+          userId: userIdToUse ? String(userIdToUse) : null,
+          forceNew: forceNew
         }),
       });
 
@@ -413,23 +414,29 @@ export default function CareerChatPage() {
         userId: userIdToUse
       }));
 
-      const hasHistory = await restoreSessionState(data.sessionId);
+      // forceNew일 때는 기존 세션 복원하지 않음
+      if (!forceNew) {
+        const hasHistory = await restoreSessionState(data.sessionId);
+        if (hasHistory) {
+          console.log('기존 세션 복원 완료:', data.sessionId);
+          return;
+        }
+      }
 
       if (data.needsSurvey && data.surveyQuestions) {
         setSurveyQuestions(data.surveyQuestions);
         setShowSurvey(true);
       }
 
-      if (!hasHistory) {
-        setIdentityStatus(null);
-        setMessages([{
-          role: 'assistant',
-          content: data.message,
-          timestamp: new Date(),
-        }]);
-      }
+      // 새 세션이므로 정체성 상태 초기화
+      setIdentityStatus(null);
+      setMessages([{
+        role: 'assistant',
+        content: data.message,
+        timestamp: new Date(),
+      }]);
 
-      console.log('새 세션 시작:', data.sessionId, 'userId:', userIdToUse);
+      console.log('새 세션 시작:', data.sessionId, 'userId:', userIdToUse, 'forceNew:', forceNew);
     } catch (error) {
       console.error('Failed to start session:', error);
       setMessages([{
@@ -711,7 +718,7 @@ export default function CareerChatPage() {
     setSurveyQuestions([]);
     setResearchPanels([]);
     setRightPanelTab('identity');
-    startNewSession();
+    startNewSession(null, true);  // forceNew: true로 새 세션 강제 생성
   };
 
   const handleSurveyComplete = () => {

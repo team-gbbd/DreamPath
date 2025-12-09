@@ -65,23 +65,41 @@ export default function JobRecommendationsPage() {
         return;
       }
 
-      // 2. 백엔드에서 프로파일 분석 데이터 가져오기 (분석 여부 확인)
-      const analysisResponse = await fetch(`${BACKEND_BASE_URL}/api/profiles/${userId}/analysis`);
-      if (!analysisResponse.ok) {
-        if (analysisResponse.status === 404) {
-          setNoAnalysis(true);
+      // 2. 진로상담 직업추천 기반 채용공고 추천 조회 (우선)
+      try {
+        const careerResult = await jobRecommendationService.getRecommendationsByCareerAnalysis(userId, 20);
+
+        if (careerResult.success && careerResult.recommendations && careerResult.recommendations.length > 0) {
+          const mappedRecommendations = careerResult.recommendations.map((rec: any) => ({
+            jobId: rec.id?.toString() || '',
+            title: rec.title || '',
+            company: rec.company || '',
+            location: rec.location || null,
+            url: rec.url || '',
+            description: rec.description || null,
+            siteName: rec.siteName || '',
+            matchScore: rec.matchScore || 0,
+            reasons: rec.matchReason ? [rec.matchReason] : [],
+            strengths: rec.matchedCareers || [],
+            concerns: [],
+          }));
+
+          setRecommendations(mappedRecommendations);
+          setTotalCount(careerResult.totalCount || mappedRecommendations.length);
+          setIsCached(false);
+          setCalculatedAt(null);
           setLoading(false);
           return;
         }
-        throw new Error('분석 데이터를 불러오지 못했습니다.');
+      } catch (careerError) {
+        console.log("진로상담 기반 추천 조회 실패:", careerError);
       }
 
-      // 3. 캐시된 추천 조회 시도 (빠른 응답)
+      // 3. 진로상담 결과가 없으면 캐시된 추천 조회 시도 (fallback)
       try {
         const cachedResult = await jobRecommendationService.getCachedRecommendations(userId, 20);
 
         if (cachedResult.success && cachedResult.recommendations && cachedResult.recommendations.length > 0) {
-          // 캐시된 데이터가 있으면 바로 표시
           const mappedRecommendations = cachedResult.recommendations.map((rec: any) => ({
             jobId: rec.id?.toString() || '',
             title: rec.title || '',
@@ -107,10 +125,8 @@ export default function JobRecommendationsPage() {
         console.log("캐시된 추천 조회 실패:", cacheError);
       }
 
-      // 4. 캐시가 없으면 "준비 중" 표시 (프로파일링 시점에 이미 계산 트리거됨)
-      setRecommendations([]);
-      setTotalCount(0);
-      setIsCached(false);
+      // 4. 둘 다 없으면 진로상담 필요 안내
+      setNoAnalysis(true);
     } catch (error: any) {
       console.error("추천 실패:", error);
       if (error.response?.status === 404) {
@@ -170,16 +186,16 @@ export default function JobRecommendationsPage() {
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-7xl mx-auto px-4">
           <div className="bg-white rounded-lg shadow p-12 text-center">
-            <div className="text-6xl mb-4">📋</div>
-            <h2 className="text-2xl font-bold mb-4">프로파일 분석이 필요합니다</h2>
+            <div className="text-6xl mb-4">💬</div>
+            <h2 className="text-2xl font-bold mb-4">진로상담이 필요합니다</h2>
             <p className="text-gray-600 mb-6">
-              먼저 프로파일 분석을 완료해야 맞춤 채용 추천을 받을 수 있습니다.
+              먼저 진로상담 챗봇과 대화하고 종합분석을 완료해야 맞춤 채용 추천을 받을 수 있습니다.
             </p>
             <button
-              onClick={() => navigate("/profile/input")}
+              onClick={() => navigate("/career-chat")}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
-              프로파일 분석하기
+              진로상담 시작하기
             </button>
           </div>
         </div>

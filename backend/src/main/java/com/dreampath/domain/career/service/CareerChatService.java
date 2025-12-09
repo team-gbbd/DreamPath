@@ -177,10 +177,29 @@ public class CareerChatService {
                 .status(CareerSession.SessionStatus.ACTIVE)
                 .messages(new ArrayList<>())
                 .build();
-        log.info("새 세션 생성 - ID: {}, 초기 단계: {}", 
-            session.getSessionId(), 
+        log.info("새 세션 생성 - ID: {}, 초기 단계: {}",
+            session.getSessionId(),
             session.getCurrentStage().getDisplayName());
         return sessionRepository.save(session);
+    }
+
+    /**
+     * 기존 ACTIVE 세션을 닫고 새 세션 생성 (새 상담 시작 시 사용)
+     */
+    @Transactional
+    public CareerSession createNewSessionForUser(String userId) {
+        // 기존 ACTIVE 세션들 모두 COMPLETED로 변경
+        List<CareerSession> activeSessions = sessionRepository.findAllByUserIdAndStatus(
+            userId, CareerSession.SessionStatus.ACTIVE);
+
+        for (CareerSession activeSession : activeSessions) {
+            activeSession.setStatus(CareerSession.SessionStatus.COMPLETED);
+            sessionRepository.save(activeSession);
+            log.info("기존 세션 종료 - ID: {}", activeSession.getSessionId());
+        }
+
+        // 새 세션 생성
+        return createNewSession(userId);
     }
 
     @Transactional(readOnly = true)

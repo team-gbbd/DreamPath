@@ -311,6 +311,14 @@ export const jobRecommendationService = {
     return response.data;
   },
 
+  // 진로상담 직업추천 기반 채용공고 추천
+  getRecommendationsByCareerAnalysis: async (userId: number, limit: number = 20) => {
+    const response = await pythonApi.get(`/api/job-agent/recommendations/by-careers/${userId}`, {
+      params: { limit },
+    });
+    return response.data;
+  },
+
   // 추천 계산 트리거 (백그라운드 실행)
   triggerCalculation: async (userId: number, background: boolean = true) => {
     const response = await pythonApi.post(

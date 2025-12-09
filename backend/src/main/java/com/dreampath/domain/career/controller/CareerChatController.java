@@ -124,18 +124,23 @@ public class CareerChatController {
      */
     @PostMapping("/start")
     public ResponseEntity<?> startSession(
-            @RequestBody(required = false) Map<String, String> request) {
+            @RequestBody(required = false) Map<String, Object> request) {
         log.info("새 세션 시작");
 
         // userId 필수 검증
-        String userId = request != null ? request.get("userId") : null;
+        String userId = request != null ? (String) request.get("userId") : null;
         if (userId == null || userId.isBlank()) {
             log.warn("로그인하지 않은 사용자의 세션 시작 시도");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "로그인이 필요합니다."));
         }
 
-        var session = chatService.getOrCreateSession(null, userId);
+        // forceNew 파라미터 확인 (새 상담 버튼 클릭 시)
+        Boolean forceNew = request.get("forceNew") != null ? (Boolean) request.get("forceNew") : false;
+
+        var session = forceNew
+                ? chatService.createNewSessionForUser(userId)
+                : chatService.getOrCreateSession(null, userId);
 
         // 설문조사 질문 조회
         var surveyResponse = chatService.getSurveyQuestions(session.getSessionId());

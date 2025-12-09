@@ -30,21 +30,11 @@ class IdentityAnalysisService:
 
     def _get_full_conversation(self, conversation_history: str, user_id: Optional[str] = None) -> str:
         """
-        userId가 있으면 이전 대화 기록을 가져와서 현재 대화와 합칩니다.
+        현재 세션의 대화 기록만 반환합니다.
+        (이전 세션의 대화는 포함하지 않음 - 새 상담 시 정체성 초기화를 위해)
         """
-        if not user_id:
-            return conversation_history
-
-        try:
-            db = self._get_db_service()
-            previous_history = db.get_conversation_history_by_user_id(user_id)
-
-            if previous_history:
-                return f"[이전 대화 기록]\n{previous_history}\n\n[현재 대화]\n{conversation_history}"
-            return conversation_history
-        except Exception as e:
-            print(f"이전 대화 조회 실패: {e}")
-            return conversation_history
+        # 이전 세션 대화 조회 비활성화 - 새 상담마다 정체성을 새로 시작
+        return conversation_history
     
     async def assess_clarity(self, conversation_history: str, user_id: Optional[str] = None) -> Dict:
         """

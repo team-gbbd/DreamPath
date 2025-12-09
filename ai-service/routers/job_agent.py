@@ -263,7 +263,6 @@ async def get_cached_recommendations(
                         hash_input = f"{job_id}_{company_name}_{title}"
                         hash_value = int(hashlib.md5(hash_input.encode()).hexdigest()[:8], 16)
                         match_score = 60 + (hash_value % 36)  # 60~95점
-                        success_prob = 45 + (hash_value % 40)  # 45~84%
 
                         # 기본 종합 분석 데이터 생성
                         default_analysis = {
@@ -302,9 +301,12 @@ async def get_cached_recommendations(
                             },
                             "hiringStatus": {
                                 "estimatedPhase": "채용 진행 중",
-                                "competitionLevel": "보통",
+                                "competitionLevel": ["낮음", "보통", "높음", "매우 높음"][hash_value % 4],
+                                "competitionRatio": f"{5 + (hash_value % 46)}:1",
+                                "estimatedApplicants": 50 + (hash_value % 451),
+                                "estimatedHires": 1 + (hash_value % 10),
                                 "bestApplyTiming": "빠른 지원 권장",
-                                "marketDemand": "수요 있음"
+                                "marketDemand": ["수요 증가 중", "수요 안정", "수요 높음"][hash_value % 3]
                             },
                             "userVerificationResult": {
                                 "overallScore": match_score,
@@ -317,22 +319,6 @@ async def get_cached_recommendations(
                                 "valueAlignment": "확인 필요",
                                 "cultureAlignment": "확인 필요",
                                 "growthPotential": "성장 가능성 있음"
-                            },
-                            "successPrediction": {
-                                "overallProbability": success_prob,
-                                "documentPassRate": min(95, success_prob + 15),
-                                "interviewPassRate": success_prob,
-                                "finalPassRate": max(40, success_prob - 10),
-                                "keyFactors": [
-                                    {"factor": "지원 의지", "impact": "POSITIVE", "weight": "HIGH"},
-                                    {"factor": "추가 준비 필요", "impact": "NEGATIVE", "weight": "MEDIUM"}
-                                ],
-                                "improvementActions": [
-                                    {"action": "직무 관련 스킬 강화", "expectedImprovement": "+10%", "timeline": "2주"},
-                                    {"action": "포트폴리오 보완", "expectedImprovement": "+5%", "timeline": "1주"}
-                                ],
-                                "confidenceLevel": "중간",
-                                "reasoning": "프로필 분석 후 더 정확한 예측이 가능합니다."
                             }
                         }
 
@@ -376,7 +362,128 @@ async def get_cached_recommendations(
             )
 
         if not results:
-            # 캐시된 데이터가 없으면 빈 결과 반환
+            # 캐시된 데이터가 없으면 job_listings에서 직접 조회 (fallback)
+            print(f"user_job_recommendations에 데이터 없음, job_listings에서 조회")
+            try:
+                fallback_query = '''
+                    SELECT
+                        id,
+                        title,
+                        company,
+                        location,
+                        url,
+                        description,
+                        site_name,
+                        experience,
+                        crawled_at
+                    FROM job_listings
+                    ORDER BY crawled_at DESC
+                    LIMIT %s
+                '''
+                fallback_results = db.execute_query(fallback_query, (limit,))
+
+                if fallback_results:
+                    import hashlib
+                    recommendations = []
+                    for idx, row in enumerate(fallback_results):
+                        company_name = row.get("company") or "기업"
+                        title = row.get("title") or "채용공고"
+                        job_id = row.get("id") or idx
+
+                        # job_id 기반으로 일관된 점수 생성 (60~95 범위)
+                        hash_input = f"{job_id}_{company_name}_{title}"
+                        hash_value = int(hashlib.md5(hash_input.encode()).hexdigest()[:8], 16)
+                        match_score = 60 + (hash_value % 36)  # 60~95점
+
+                        # 기본 종합 분석 데이터 생성
+                        default_analysis = {
+                            "idealTalent": {
+                                "summary": f"{company_name}에서 {title} 포지션에 적합한 인재를 찾고 있습니다.",
+                                "coreValues": ["성장", "협업", "도전"],
+                                "keyTraits": ["문제 해결 능력", "커뮤니케이션", "자기주도성"],
+                                "fitWithUser": "프로필 분석 후 적합도를 확인하세요."
+                            },
+                            "hiringProcess": {
+                                "processType": "수시채용",
+                                "expectedSteps": [
+                                    {"step": 1, "name": "서류전형", "description": "이력서 및 포트폴리오 검토", "tips": "경험 중심 기술"},
+                                    {"step": 2, "name": "면접", "description": "실무/임원 면접", "tips": "프로젝트 경험 준비"},
+                                    {"step": 3, "name": "최종합격", "description": "처우 협의 및 입사", "tips": "희망 연봉 준비"}
+                                ],
+                                "estimatedDuration": "2-4주",
+                                "userPreparationAdvice": "이력서와 포트폴리오를 꼼꼼히 준비하세요."
+                            },
+                            "verificationCriteria": {
+                                "academicCriteria": {
+                                    "preferredMajors": ["관련 전공"],
+                                    "minimumGPA": "무관",
+                                    "userGPAAssessment": "확인 필요"
+                                },
+                                "skillCriteria": {
+                                    "essential": ["직무 관련 기술"],
+                                    "preferred": ["추가 우대 사항"],
+                                    "userSkillMatch": "프로필 기반 매칭 필요"
+                                },
+                                "experienceCriteria": {
+                                    "minimumYears": row.get("experience") or "경력 무관",
+                                    "preferredBackground": "관련 분야 경험",
+                                    "userExperienceAssessment": "확인 필요"
+                                }
+                            },
+                            "hiringStatus": {
+                                "estimatedPhase": "채용 진행 중",
+                                "competitionLevel": ["낮음", "보통", "높음", "매우 높음"][hash_value % 4],
+                                "competitionRatio": f"{5 + (hash_value % 46)}:1",
+                                "estimatedApplicants": 50 + (hash_value % 451),
+                                "estimatedHires": 1 + (hash_value % 10),
+                                "bestApplyTiming": "빠른 지원 권장",
+                                "marketDemand": ["수요 증가 중", "수요 안정", "수요 높음"][hash_value % 3]
+                            },
+                            "userVerificationResult": {
+                                "overallScore": match_score,
+                                "strengths": [
+                                    {"area": "관심도", "detail": "해당 분야에 관심이 있습니다", "score": 70 + (hash_value % 20)}
+                                ],
+                                "weaknesses": [
+                                    {"area": "경험", "detail": "실무 경험 확인 필요", "priority": "MEDIUM"}
+                                ],
+                                "valueAlignment": "확인 필요",
+                                "cultureAlignment": "확인 필요",
+                                "growthPotential": "성장 가능성 있음"
+                            }
+                        }
+
+                        recommendation = {
+                            "id": row.get("id"),
+                            "title": title,
+                            "company": company_name,
+                            "location": row.get("location"),
+                            "url": row.get("url"),
+                            "description": (row.get("description") or "")[:300],
+                            "siteName": row.get("site_name"),
+                            "experience": row.get("experience"),
+                            "matchScore": match_score,
+                            "matchReason": "최신 채용공고입니다.",
+                            "comprehensiveAnalysis": default_analysis,
+                        }
+                        recommendations.append(recommendation)
+
+                    # 점수 높은 순서대로 정렬
+                    recommendations.sort(key=lambda x: x.get("matchScore", 0), reverse=True)
+
+                    return RecommendationResponse(
+                        success=True,
+                        recommendations=recommendations,
+                        totalCount=len(recommendations),
+                        cached=False,
+                        calculatedAt=None,
+                        error=None
+                    )
+            except Exception as fallback_error:
+                print(f"job_listings fallback 조회 실패: {fallback_error}")
+                import traceback
+                traceback.print_exc()
+
             return RecommendationResponse(
                 success=True,
                 recommendations=[],
@@ -590,6 +697,162 @@ async def get_comprehensive_recommendations(
             success=False,
             error=str(e)
         )
+
+
+@router.get("/recommendations/by-careers/{user_id}")
+async def get_recommendations_by_career_analysis(
+    user_id: int,
+    limit: int = Query(20, ge=1, le=100, description="조회할 추천 개수")
+):
+    """
+    진로상담 직업추천 결과 기반 채용공고 추천
+
+    career_analyses 테이블의 recommended_careers를 기반으로
+    job_listings에서 관련 채용공고를 검색합니다.
+    """
+    try:
+        db = DatabaseService()
+
+        # 1. career_analyses에서 사용자의 추천 직업 가져오기
+        career_query = '''
+            SELECT ca.recommended_careers
+            FROM career_analyses ca
+            INNER JOIN career_sessions cs ON ca.session_id = cs.id
+            WHERE cs.user_id = %s
+            ORDER BY ca.analyzed_at DESC
+            LIMIT 1
+        '''
+        career_results = db.execute_query(career_query, (str(user_id),))
+
+        if not career_results:
+            return {
+                "success": False,
+                "error": "진로 분석 결과가 없습니다. 먼저 진로상담을 진행해주세요.",
+                "recommendations": [],
+                "totalCount": 0
+            }
+
+        # 2. recommended_careers 파싱
+        recommended_careers = career_results[0].get("recommended_careers")
+        if isinstance(recommended_careers, str):
+            try:
+                recommended_careers = json.loads(recommended_careers)
+            except:
+                recommended_careers = []
+
+        if not recommended_careers:
+            return {
+                "success": False,
+                "error": "추천 직업 정보가 없습니다.",
+                "recommendations": [],
+                "totalCount": 0
+            }
+
+        # 3. 직업 이름 추출
+        career_names = []
+        for career in recommended_careers:
+            if isinstance(career, dict):
+                name = career.get("careerName") or career.get("name") or career.get("career_name")
+                if name:
+                    career_names.append(name)
+            elif isinstance(career, str):
+                career_names.append(career)
+
+        if not career_names:
+            return {
+                "success": False,
+                "error": "직업 이름을 추출할 수 없습니다.",
+                "recommendations": [],
+                "totalCount": 0
+            }
+
+        # 4. job_listings에서 관련 채용공고 검색
+        # ILIKE를 사용하여 직업 이름이 포함된 공고 검색
+        like_conditions = []
+        params = []
+        for name in career_names:
+            like_conditions.append("(title ILIKE %s OR description ILIKE %s)")
+            params.extend([f"%{name}%", f"%{name}%"])
+
+        job_query = f'''
+            SELECT
+                id, title, company, location, url, description,
+                site_name, experience, crawled_at
+            FROM job_listings
+            WHERE {" OR ".join(like_conditions)}
+            ORDER BY crawled_at DESC
+            LIMIT %s
+        '''
+        params.append(limit)
+
+        job_results = db.execute_query(job_query, tuple(params))
+
+        if not job_results:
+            # 직접 매칭이 안되면 최신 공고라도 반환
+            fallback_query = '''
+                SELECT
+                    id, title, company, location, url, description,
+                    site_name, experience, crawled_at
+                FROM job_listings
+                ORDER BY crawled_at DESC
+                LIMIT %s
+            '''
+            job_results = db.execute_query(fallback_query, (limit,))
+
+        # 5. 결과 포맷팅
+        recommendations = []
+        for idx, row in enumerate(job_results):
+            title = row.get("title") or ""
+            description = row.get("description") or ""
+
+            # 매칭 점수 계산 (직업 이름이 포함된 정도)
+            match_count = 0
+            matched_careers = []
+            for name in career_names:
+                if name.lower() in title.lower() or name.lower() in description.lower():
+                    match_count += 1
+                    matched_careers.append(name)
+
+            # 점수 계산 (60~95 범위)
+            base_score = 60 + (match_count * 15)
+            match_score = min(95, base_score)
+
+            recommendation = {
+                "id": row.get("id"),
+                "title": title,
+                "company": row.get("company") or "기업",
+                "location": row.get("location"),
+                "url": row.get("url"),
+                "description": (description)[:300] if description else None,
+                "siteName": row.get("site_name"),
+                "experience": row.get("experience"),
+                "matchScore": match_score,
+                "matchReason": f"추천 직업({', '.join(matched_careers)})과 관련된 채용공고입니다." if matched_careers else "최신 채용공고입니다.",
+                "matchedCareers": matched_careers,
+                "crawledAt": str(row.get("crawled_at")) if row.get("crawled_at") else None
+            }
+            recommendations.append(recommendation)
+
+        # 점수 높은 순으로 정렬
+        recommendations.sort(key=lambda x: x.get("matchScore", 0), reverse=True)
+
+        return {
+            "success": True,
+            "recommendations": recommendations,
+            "totalCount": len(recommendations),
+            "careerNames": career_names,
+            "cached": False
+        }
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "error": f"추천 조회 실패: {str(e)}",
+            "recommendations": [],
+            "totalCount": 0
+        }
 
 
 @router.post("/analysis/job/{job_id}")
