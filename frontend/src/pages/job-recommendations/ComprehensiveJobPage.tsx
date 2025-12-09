@@ -1074,15 +1074,21 @@ function StatusTab({ analysis }: { analysis: HiringStatus }) {
       {/* 경쟁률 하이라이트 */}
       <div className="p-6 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg text-white">
         <div className="text-center">
-          <span className="text-sm opacity-90">예상 경쟁률</span>
+          <span className="text-sm opacity-90">
+            {analysis.estimatedApplicants ? '현재 지원자 기준 경쟁률' : '예상 경쟁률'}
+          </span>
           <p className="text-4xl font-bold mt-1">{analysis.competitionRatio || analysis.competitionLevel}</p>
-          <p className="text-xs opacity-70 mt-1">* 유사 공고 기반 추정치</p>
+          {!analysis.estimatedApplicants && (
+            <p className="text-xs opacity-70 mt-1">* 유사 공고 기반 추정치</p>
+          )}
           <div className="flex justify-center gap-8 mt-4">
             <div>
               <span className="text-2xl font-semibold">
-                {analysis.estimatedApplicants ? `~${analysis.estimatedApplicants}명` : '-'}
+                {analysis.estimatedApplicants ? `${analysis.estimatedApplicants}명` : '-'}
               </span>
-              <p className="text-xs opacity-80">예상 지원자</p>
+              <p className="text-xs opacity-80">
+                {analysis.estimatedApplicants ? '현재 지원자' : '지원자 정보 없음'}
+              </p>
             </div>
             <div className="border-l border-white/30 pl-8">
               <span className="text-2xl font-semibold">

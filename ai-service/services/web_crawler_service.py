@@ -609,13 +609,57 @@ class WebCrawlerService:
                     if tag_text and len(tag_text) < 30:
                         tech_stack.append(tag_text)
 
+                # 지원자 수 추출
+                applicant_count = 0
+
+                # 방법 1: "지원현황" 또는 "지원자" 텍스트 근처에서 숫자 찾기
+                applicant_section = soup.find(string=re.compile(r"지원현황|지원자\s*수|지원자|현재\s*지원", re.I))
+                if applicant_section:
+                    parent = applicant_section.find_parent()
+                    if parent:
+                        # 부모 요소 전체 텍스트에서 숫자 추출
+                        parent_text = parent.get_text(strip=True)
+                        count_match = re.search(r'(\d{1,5})\s*명', parent_text)
+                        if count_match:
+                            applicant_count = int(count_match.group(1))
+                        else:
+                            # "명" 없이 숫자만 있는 경우
+                            count_match = re.search(r'지원[자현황]*\s*[:\s]*(\d{1,5})', parent_text)
+                            if count_match:
+                                applicant_count = int(count_match.group(1))
+
+                # 방법 2: 클래스명으로 찾기
+                if not applicant_count:
+                    applicant_elem = soup.find(class_=re.compile(r".*applicant.*|.*apply.*cnt.*|.*jv_apply.*", re.I))
+                    if applicant_elem:
+                        elem_text = applicant_elem.get_text(strip=True)
+                        count_match = re.search(r'(\d{1,5})', elem_text)
+                        if count_match:
+                            applicant_count = int(count_match.group(1))
+
+                # 방법 3: 전체 HTML에서 "N명 지원" 패턴 찾기
+                if not applicant_count:
+                    full_text = soup.get_text()
+                    patterns = [
+                        r'(\d{1,5})\s*명\s*지원',
+                        r'지원자\s*(\d{1,5})\s*명',
+                        r'현재\s*(\d{1,5})\s*명',
+                        r'(\d{1,5})\s*명이?\s*지원'
+                    ]
+                    for pattern in patterns:
+                        match = re.search(pattern, full_text)
+                        if match:
+                            applicant_count = int(match.group(1))
+                            break
+
                 full_description = "\n".join(description_parts)[:2000]
 
                 return {
                     "description": full_description if full_description else "",
                     "tech_stack": tech_stack,
                     "requirements": requirements,
-                    "preferred": preferred
+                    "preferred": preferred,
+                    "applicant_count": applicant_count
                 }
             else:
                 print(f"[사람인] 상세 페이지 호출 실패: HTTP {response.status_code}")
@@ -1585,7 +1629,9 @@ class WebCrawlerService:
                                 job["tech_stack"] = ",".join(detail_info["tech_stack"])
                             if detail_info.get("requirements"):
                                 job["required_skills"] = detail_info["requirements"][:500]
-                            print(f"[사람인] ({i+1}/{total_jobs}) {job.get('title', '')[:30]}... 상세 정보 추가 완료")
+                            if detail_info.get("applicant_count"):
+                                job["applicant_count"] = detail_info["applicant_count"]
+                            print(f"[사람인] ({i+1}/{total_jobs}) {job.get('title', '')[:30]}... 상세 정보 추가 완료 (지원자: {detail_info.get('applicant_count', 0)}명)")
 
                 print(f"[사람인] 상세 정보 가져오기 완료")
 

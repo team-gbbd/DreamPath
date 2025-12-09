@@ -244,7 +244,8 @@ async def get_cached_recommendations(
                         description,
                         site_name,
                         experience,
-                        crawled_at
+                        crawled_at,
+                        applicant_count
                     FROM job_listings
                     ORDER BY crawled_at DESC
                     LIMIT %s
@@ -258,6 +259,7 @@ async def get_cached_recommendations(
                         company_name = row.get("company") or "기업"
                         title = row.get("title") or "채용공고"
                         job_id = row.get("id") or idx
+                        applicant_count = row.get("applicant_count") or 0
 
                         # job_id 기반으로 일관된 점수 생성 (60~95 범위)
                         hash_input = f"{job_id}_{company_name}_{title}"
@@ -301,9 +303,9 @@ async def get_cached_recommendations(
                             },
                             "hiringStatus": {
                                 "estimatedPhase": "채용 진행 중",
-                                "competitionLevel": ["낮음", "보통", "높음", "매우 높음"][hash_value % 4],
-                                "competitionRatio": f"{5 + (hash_value % 46)}:1",
-                                "estimatedApplicants": 50 + (hash_value % 451),
+                                "competitionLevel": ["낮음", "보통", "높음", "매우 높음"][min(3, applicant_count // 50) if applicant_count else (hash_value % 4)],
+                                "competitionRatio": f"{max(1, applicant_count // max(1, 1 + (hash_value % 5)))}:1" if applicant_count else f"{5 + (hash_value % 46)}:1",
+                                "estimatedApplicants": applicant_count if applicant_count else None,
                                 "estimatedHires": 1 + (hash_value % 10),
                                 "bestApplyTiming": "빠른 지원 권장",
                                 "marketDemand": ["수요 증가 중", "수요 안정", "수요 높음"][hash_value % 3]
@@ -375,7 +377,8 @@ async def get_cached_recommendations(
                         description,
                         site_name,
                         experience,
-                        crawled_at
+                        crawled_at,
+                        applicant_count
                     FROM job_listings
                     ORDER BY crawled_at DESC
                     LIMIT %s
@@ -389,6 +392,7 @@ async def get_cached_recommendations(
                         company_name = row.get("company") or "기업"
                         title = row.get("title") or "채용공고"
                         job_id = row.get("id") or idx
+                        applicant_count = row.get("applicant_count") or 0
 
                         # job_id 기반으로 일관된 점수 생성 (60~95 범위)
                         hash_input = f"{job_id}_{company_name}_{title}"
@@ -432,9 +436,9 @@ async def get_cached_recommendations(
                             },
                             "hiringStatus": {
                                 "estimatedPhase": "채용 진행 중",
-                                "competitionLevel": ["낮음", "보통", "높음", "매우 높음"][hash_value % 4],
-                                "competitionRatio": f"{5 + (hash_value % 46)}:1",
-                                "estimatedApplicants": 50 + (hash_value % 451),
+                                "competitionLevel": ["낮음", "보통", "높음", "매우 높음"][min(3, applicant_count // 50) if applicant_count else (hash_value % 4)],
+                                "competitionRatio": f"{max(1, applicant_count // max(1, 1 + (hash_value % 5)))}:1" if applicant_count else f"{5 + (hash_value % 46)}:1",
+                                "estimatedApplicants": applicant_count if applicant_count else None,
                                 "estimatedHires": 1 + (hash_value % 10),
                                 "bestApplyTiming": "빠른 지원 권장",
                                 "marketDemand": ["수요 증가 중", "수요 안정", "수요 높음"][hash_value % 3]
