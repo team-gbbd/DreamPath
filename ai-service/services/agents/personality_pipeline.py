@@ -1,6 +1,6 @@
 from typing import Any, Dict
 
-from services.agents.personality_agent import PersonalityAgent, PersonalityAgentInput
+from .personality_agent import PersonalityAgent, PersonalityAgentInput
 
 
 class PersonalityPipeline:

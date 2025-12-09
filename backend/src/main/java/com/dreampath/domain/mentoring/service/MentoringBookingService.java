@@ -56,12 +56,10 @@ public class MentoringBookingService {
             throw new RuntimeException("이미 마감된 세션입니다.");
         }
 
-        // 4. 잔여 횟수 확인 (가격이 0원이 아닌 경우만)
-        if (session.getPrice() > 0) {
-            int remainingSessions = paymentService.getRemainingSessions(request.getMenteeId());
-            if (remainingSessions < 1) {
-                throw new RuntimeException("잔여 멘토링 횟수가 부족합니다. 이용권을 구매해주세요.");
-            }
+        // 4. 잔여 이용권 확인
+        int remainingSessions = paymentService.getRemainingSessions(request.getMenteeId());
+        if (remainingSessions < 1) {
+            throw new RuntimeException("잔여 멘토링 횟수가 부족합니다. 이용권을 구매해주세요.");
         }
 
         // 5. 예약 생성
@@ -80,15 +78,13 @@ public class MentoringBookingService {
         session.incrementParticipants();
         sessionRepository.save(session);
 
-        // 7. 잔여 횟수 차감 (가격이 0원이 아닌 경우만)
-        if (session.getPrice() > 0) {
-            paymentService.useSessions(
-                    request.getMenteeId(),
-                    1,
-                    savedBooking.getBookingId(),
-                    "멘토링 예약 (세션: " + session.getTitle() + ")"
-            );
-        }
+        // 7. 이용권 1회 차감
+        paymentService.useSessions(
+                request.getMenteeId(),
+                1,
+                savedBooking.getBookingId(),
+                "멘토링 예약 (세션: " + session.getTitle() + ")"
+        );
 
         log.info("멘토링 예약 생성 완료 - bookingId: {}", savedBooking.getBookingId());
 

@@ -8,7 +8,7 @@ from models.chatbot import (
     FaqRequest,
     FaqUpdateRequest,
 )
-from services.chatbot import (
+from services.chatbot.rag import (
     RagEmbeddingService,
 )
 from services.database_service import DatabaseService
@@ -16,21 +16,27 @@ from dependencies import get_db
 
 router = APIRouter(prefix="/api/faq", tags=["faq"])
 
-# 서비스 인스턴스
+# 서비스 인스턴스 (싱글톤)
 embedding_service = RagEmbeddingService()
+db_service = DatabaseService()
+
+def get_db():
+    """데이터베이스 서비스 의존성 (싱글톤 인스턴스 재사용)"""
+    return db_service
 
 
-# ============ FAQ API ============
+# ============ FAQ 관리 API ============
 
 @router.get("/all")
 async def get_all_faq(
-    user_type: str = "guest",  # 'guest' 또는 'member'
+    user_type: str = "all",  # 'guest', 'member', 'all'
     db: DatabaseService = Depends(get_db)
 ):
     """
     사용자 타입별 FAQ 조회
     - guest: guest + both FAQ만 조회
     - member: member + both FAQ 조회
+    - all: 모든 FAQ 조회 (관리자용)
     """
     try:
         if user_type == "guest":
@@ -40,11 +46,17 @@ async def get_all_faq(
                   AND is_active = true
                 ORDER BY priority DESC, id ASC
             """
-        else:  # member
+        elif user_type == "member":
             query = """
                 SELECT * FROM faq
                 WHERE user_type IN ('member', 'both')
                   AND is_active = true
+                ORDER BY priority DESC, id ASC
+            """
+        else:  # all
+            query = """
+                SELECT * FROM faq
+                WHERE is_active = true
                 ORDER BY priority DESC, id ASC
             """
 
@@ -53,6 +65,63 @@ async def get_all_faq(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"FAQ 조회 실패: {str(e)}")
+
+
+@router.get("/categories")
+async def get_faq_categories(
+    user_type: str = "guest",  # 'guest', 'member', 'both', 'assistant', 'all'
+    db: DatabaseService = Depends(get_db)
+):
+    """사용자 타입별 카테고리 목록 조회"""
+    try:
+        if user_type == "guest":
+            query = """
+                SELECT DISTINCT category
+                FROM faq
+                WHERE user_type IN ('guest', 'both')
+                  AND is_active = true
+                ORDER BY category
+            """
+        elif user_type == "member":
+            query = """
+                SELECT DISTINCT category
+                FROM faq
+                WHERE user_type IN ('member', 'both')
+                  AND is_active = true
+                ORDER BY category
+            """
+        elif user_type == "both":
+            # both는 member + guest 공통 (assistant 제외)
+            query = """
+                SELECT DISTINCT category
+                FROM faq
+                WHERE user_type = 'both'
+                  AND is_active = true
+                ORDER BY category
+            """
+        elif user_type == "assistant":
+            query = """
+                SELECT DISTINCT category
+                FROM faq
+                WHERE user_type = 'assistant'
+                  AND is_active = true
+                ORDER BY category
+            """
+        else:  # all (관리자용)
+            query = """
+                SELECT DISTINCT category
+                FROM faq
+                WHERE is_active = true
+                ORDER BY category
+            """
+
+        results = db.execute_query(query)
+        # 결과가 [{'category': 'A'}, {'category': 'B'}] 형태이므로 리스트로 변환
+        categories = [row['category'] for row in results if row.get('category')]
+        return categories
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"카테고리 조회 실패: {str(e)}")
 
 
 @router.get("/category")
@@ -71,11 +140,26 @@ async def get_faq_by_category(
                   AND is_active = true
                 ORDER BY priority DESC, id ASC
             """
-        else:  # member
+        elif user_type == "member":
             query = """
                 SELECT * FROM faq
                 WHERE category = %s
                   AND user_type IN ('member', 'both')
+                  AND is_active = true
+                ORDER BY priority DESC, id ASC
+            """
+        elif user_type == "assistant":
+            query = """
+                SELECT * FROM faq
+                WHERE category = %s
+                  AND user_type = 'assistant'
+                  AND is_active = true
+                ORDER BY priority DESC, id ASC
+            """
+        else:  # all (관리자용)
+            query = """
+                SELECT * FROM faq
+                WHERE category = %s
                   AND is_active = true
                 ORDER BY priority DESC, id ASC
             """
@@ -156,12 +240,11 @@ async def create_faq(request: FaqRequest, db: DatabaseService = Depends(get_db))
         )
         saved_faq = result[0]
 
-        # Pinecone에 업로드 (정적 답변만)
-        if request.answer_type == "static":
-            try:
-                await upload_to_pinecone(saved_faq)
-            except Exception as e:
-                print(f"Pinecone 업로드 실패: {str(e)}")
+        # Pinecone에 업로드 (static + function 모두)
+        try:
+            await upload_to_pinecone(saved_faq)
+        except Exception as e:
+            print(f"Pinecone 업로드 실패: {str(e)}")
 
         return {
             "success": True,
@@ -237,12 +320,11 @@ async def update_faq(
         # 업데이트된 FAQ 조회
         updated_faq = db.execute_query(select_query, (faq_id,))[0]
 
-        # Pinecone에 업데이트 (정적 답변만)
-        if updated_faq.get("answer_type") == "static":
-            try:
-                await upload_to_pinecone(updated_faq)
-            except Exception as e:
-                print(f"Pinecone 업데이트 실패: {str(e)}")
+        # Pinecone에 업데이트 (static + function 모두)
+        try:
+            await upload_to_pinecone(updated_faq)
+        except Exception as e:
+            print(f"Pinecone 업데이트 실패: {str(e)}")
 
         return {
             "success": True,
@@ -292,10 +374,10 @@ async def delete_faq(faq_id: int, db: DatabaseService = Depends(get_db)):
 
 @router.post("/sync-pinecone")
 async def sync_to_pinecone(db: DatabaseService = Depends(get_db)):
-    """모든 FAQ를 Pinecone에 동기화 (정적 답변만)"""
+    """모든 FAQ를 Pinecone에 동기화 (static + function 모두)"""
     try:
-        # 정적 답변만 조회
-        query = "SELECT * FROM faq WHERE answer_type = 'static'"
+        # 모든 활성 FAQ 조회
+        query = "SELECT * FROM faq WHERE is_active = true"
         all_faqs = db.execute_query(query)
 
         if not all_faqs:
@@ -333,14 +415,18 @@ async def sync_to_pinecone(db: DatabaseService = Depends(get_db)):
 # ============ Helper Functions ============
 
 async def upload_to_pinecone(faq: Dict[str, Any]):
-    """FAQ를 Pinecone에 업로드/업데이트 (정적 답변만)"""
+    """FAQ를 Pinecone에 업로드/업데이트 (static + function 모두 지원)"""
     faq_id = str(faq["id"])
+    answer_type = faq.get("answer_type", "static")
 
-    # answer가 없으면 스킵
-    if not faq.get("answer"):
-        raise ValueError(f"FAQ #{faq_id}는 answer가 없어서 업로드 불가")
+    # 임베딩용 텍스트 생성 (question + keywords 조합 - 유사 질문 매칭 향상)
+    keywords = faq.get('keywords') or []
+    if isinstance(keywords, list):
+        keywords_str = ' '.join(keywords)
+    else:
+        keywords_str = str(keywords) if keywords else ''
 
-    text = f"{faq['category']}\n{faq['question']}\n{faq['answer']}"
+    text = f"{faq['question']} {keywords_str}".strip()
 
     # 임베딩 생성
     embedding = embedding_service.embed(text)
@@ -358,17 +444,27 @@ async def upload_to_pinecone(faq: Dict[str, Any]):
         "Content-Type": "application/json"
     }
 
+    # metadata 구성
+    metadata = {
+        "category": faq["category"],
+        "question": faq["question"],
+        "user_type": faq.get("user_type", "guest"),
+        "answer_type": answer_type
+    }
+
+    # static이면 answer 추가, function이면 function_name 추가
+    if answer_type == "function":
+        metadata["function_name"] = faq.get("function_name")
+        metadata["function_description"] = faq.get("function_description")
+    else:
+        metadata["answer"] = faq.get("answer")
+
     payload = {
         "vectors": [
             {
                 "id": faq_id,
                 "values": embedding,
-                "metadata": {
-                    "category": faq["category"],
-                    "question": faq["question"],
-                    "answer": faq["answer"],
-                    "user_type": faq.get("user_type", "guest")  # user_type 추가
-                }
+                "metadata": metadata
             }
         ]
     }
@@ -376,8 +472,6 @@ async def upload_to_pinecone(faq: Dict[str, Any]):
     async with httpx.AsyncClient() as client:
         response = await client.post(url, json=payload, headers=headers, timeout=30.0)
         response.raise_for_status()
-
-    print(f"✅ FAQ #{faq_id} Pinecone 업로드 완료")
 
 
 async def delete_from_pinecone(faq_id: int):
@@ -401,5 +495,3 @@ async def delete_from_pinecone(faq_id: int):
     async with httpx.AsyncClient() as client:
         response = await client.post(url, json=payload, headers=headers, timeout=30.0)
         response.raise_for_status()
-
-    print(f"✅ FAQ #{faq_id} Pinecone에서 삭제 완료")

@@ -8,12 +8,14 @@ from typing import Dict, Optional
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from services.database_service import DatabaseService
+from config import settings
 
 
 class IdentityAnalysisService:
     """LangChain을 사용한 정체성 분석 서비스"""
 
-    def __init__(self, api_key: str, model: str = "gpt-4o-mini"):
+    def __init__(self, api_key: str, model: str = None):
+        model = model or settings.OPENAI_MODEL
         self.llm = ChatOpenAI(
             api_key=api_key,
             model=model,

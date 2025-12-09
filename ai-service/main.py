@@ -5,9 +5,21 @@ Python FastAPI Microservice
 
 import os
 from dotenv import load_dotenv
+load_dotenv()  # 🔥 FastAPI 시작 전에 .env 강제 로드
+import logging
+from dotenv import load_dotenv
 
 # 환경변수를 먼저 로드 (다른 모듈 import 전에 반드시 실행)
 load_dotenv()
+
+# 로깅 설정 (에이전트 로그 표시용)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+# 에이전트 관련 로거만 DEBUG 레벨로
+logging.getLogger("services.agents").setLevel(logging.DEBUG)
+logging.getLogger("services.chat_service").setLevel(logging.DEBUG)
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
@@ -32,6 +44,9 @@ from routers.mbti_router import router as mbti_router
 from routers.personality_profile_router import router as personality_profile_router
 from routers.personality_agent_router import router as personality_agent_router
 from routers.chatbot_router import router as chatbot_router
+from routers.assistant_router import router as assistant_router
+from routers.faq_router import router as faq_router
+from routers.company_talent_router import router as company_talent_router
 
 # ====== Services ======
 from services.common.openai_client import OpenAIService as OpenAIServiceDev
@@ -52,7 +67,7 @@ from services.chat_service import ChatService
 # Environment Variables
 # =========================================
 api_key = os.getenv("OPENAI_API_KEY", "")
-model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+model = os.getenv("OPENAI_MODEL", "gpt-5-mini")
 
 # =========================================
 # Lifespan (Startup/Shutdown Events)
@@ -104,7 +119,10 @@ app.include_router(user_embedding_router, prefix="/embedding", tags=["embedding"
 app.include_router(bigfive_router, prefix="/api")
 app.include_router(personality_profile_router, prefix="/api")
 app.include_router(mbti_router, prefix='/api')
-app.include_router(chatbot_router)            # 챗봇/FAQ/문의 API
+app.include_router(chatbot_router)            # RAG 챗봇 API (메인페이지 - 비회원 + 회원)
+app.include_router(assistant_router)          # AI 비서 API (대시보드 - 회원 전용, Function Calling)
+app.include_router(faq_router)                # FAQ 관리 API
+app.include_router(company_talent_router)     # 목표 기업 인재상 분석 API
 
 
 # =========================================
@@ -425,22 +443,6 @@ async def recommend_schools(payload: dict):
     try:
         svc = RecommendService()
         return {"items": svc.recommend_school(vector_id)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/recommend/counsel")
-async def recommend_counsel(payload: dict):
-
-    vector_id = payload.get("vectorId")
-    if not vector_id:
-        raise HTTPException(status_code=400, detail="vectorId 필요")
-
-    top_k = payload.get("topK", 10)
-
-    try:
-        svc = RecommendService()
-        return {"items": svc.recommend_counsel(vector_id, top_k)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

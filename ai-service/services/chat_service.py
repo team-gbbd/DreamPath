@@ -1,72 +1,159 @@
 """
 대화형 진로 상담 서비스
 LangChain을 사용하여 단계별 진로 상담 응답을 생성합니다.
+ReAct 에이전트와 연동하여 도구 기반 응답도 지원합니다.
 """
 import asyncio
-from typing import List, Dict, Optional
+import logging
+from typing import List, Dict, Optional, Any
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+
+from services.agents import route_message, should_use_agent
+from config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class ChatService:
     """LangChain을 사용한 대화형 진로 상담 서비스"""
-    
-    def __init__(self, api_key: str, model: str = "gpt-4o-mini"):
+
+    def __init__(self, api_key: str, model: str = None):
+        model = model or settings.OPENAI_MODEL
         self.llm = ChatOpenAI(
             api_key=api_key,
             model=model,
             temperature=0.7,
-            max_tokens=150  # 짧은 응답을 위해 토큰 수 제한
+            max_tokens=1000 # 응답 생성을 위한 충분한 토큰
         )
-    
+        # 기존 agent_integration 제거됨 - ReAct 에이전트가 대체
+
     async def generate_response(
         self,
         session_id: str,
         user_message: str,
         current_stage: str,
         conversation_history: List[Dict[str, str]],
-        survey_data: Optional[Dict] = None
-    ) -> str:
+        survey_data: Optional[Dict] = None,
+        user_id: Optional[int] = None,
+        identity_status: Optional[Dict] = None,
+    ) -> Dict[str, Any]:
         """
-        대화형 진로 상담 응답을 생성합니다.
-        
+        대화형 진로 상담 응답을 생성합니다. (상담만, 에이전트는 백그라운드)
+
         Args:
             session_id: 세션 ID
             user_message: 사용자 메시지
-            current_stage: 현재 대화 단계 (PRESENT, PAST, VALUES, FUTURE, IDENTITY)
-            conversation_history: 대화 이력 (최근 10개 메시지)
-            survey_data: 설문조사 정보 (선택)
-        
+            current_stage: 현재 대화 단계
+            conversation_history: 대화 이력
+            survey_data: 설문조사 정보
+            user_id: 사용자 ID
+            identity_status: 정체성 상태
+
         Returns:
-            AI 응답 메시지
+            dict: {"message": str}  # 상담 응답만 반환
+        """
+        counseling_message = await self._generate_counseling_response(
+            user_message=user_message,
+            current_stage=current_stage,
+            conversation_history=conversation_history,
+            survey_data=survey_data,
+        )
+
+        return {
+            "message": counseling_message,
+        }
+
+    async def run_agent_task(
+        self,
+        session_id: str,
+        user_message: str,
+        user_id: Optional[int],
+        conversation_history: List[Dict[str, str]],
+    ) -> Dict[str, Any]:
+        """
+        리서치 에이전트 실행 (백그라운드 태스크용)
+
+        Returns:
+            dict: {"agent_action": dict|None, "agent_steps": list|None, "used_agent": bool}
+        """
+        try:
+            agent_result = await route_message(
+                message=user_message,
+                user_id=user_id,
+                session_id=session_id,
+                conversation_history=conversation_history,
+            )
+
+            if agent_result.get("used_agent"):
+                tools_used = agent_result.get("tools_used", [])
+                full_result = agent_result.get("agent_result", {})
+
+                if tools_used:
+                    logger.info(f"[ChatService] 리서치 도구 사용: {tools_used}")
+
+                    agent_action = self._build_agent_action_from_tools(
+                        tools_used=tools_used,
+                        agent_result=full_result,
+                    )
+
+                    if agent_action:
+                        agent_answer = full_result.get("answer", "")
+                        if agent_answer:
+                            agent_action["summary"] = agent_answer
+
+                    return {
+                        "agent_action": agent_action,
+                        "agent_steps": full_result.get("steps", []),
+                        "used_agent": True,
+                    }
+
+            return {"agent_action": None, "agent_steps": None, "used_agent": False}
+
+        except Exception as e:
+            logger.error(f"[ChatService] 에이전트 오류: {e}")
+            raise e
+
+    async def _generate_counseling_response(
+        self,
+        user_message: str,
+        current_stage: str,
+        conversation_history: List[Dict[str, str]],
+        survey_data: Optional[Dict] = None,
+    ) -> str:
+        """
+        기본 LLM을 사용한 감정적 상담 응답 생성
+
+        이 메서드는 항상 따뜻한 상담 응답을 생성합니다.
+        리서치/정보는 별도 에이전트가 담당합니다.
         """
         # 단계별 시스템 프롬프트 생성
         system_prompt = self._build_system_prompt(current_stage, survey_data)
-        
+
         # 대화 이력을 LangChain 메시지 형식으로 변환
         messages = [SystemMessage(content=system_prompt)]
-        
+
         # 최근 대화 이력 추가 (최대 10개)
         for msg in conversation_history[-10:]:
             role = msg.get("role", "").upper()
             content = msg.get("content", "")
-            
+
             if role == "USER":
                 messages.append(HumanMessage(content=content))
             elif role == "ASSISTANT":
                 messages.append(AIMessage(content=content))
-        
+
         # 현재 사용자 메시지 추가
         messages.append(HumanMessage(content=user_message))
-        
+
         # LangChain을 통한 응답 생성
         loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(
+        response_message = await loop.run_in_executor(
             None,
             lambda: self.llm.invoke(messages).content
         )
-        
-        return response
+
+        return response_message
     
     def _build_system_prompt(self, current_stage: str, survey_data: Optional[Dict] = None) -> str:
         """현재 단계에 맞는 시스템 프롬프트 생성"""
@@ -272,6 +359,119 @@ class ChatService:
         }
         
         stage_prompt = stage_prompts.get(current_stage, stage_prompts["PRESENT"])
-        
+
         return base_prompt + "\n" + stage_prompt
+
+    def _build_agent_action_from_tools(
+        self,
+        tools_used: List[str],
+        agent_result: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        """
+        에이전트 도구 사용 결과를 AgentAction 형식으로 변환
+
+        Args:
+            tools_used: 사용된 도구 목록
+            agent_result: 에이전트 실행 결과
+
+        Returns:
+            AgentAction 딕셔너리 또는 None
+        """
+        if not tools_used:
+            return None
+
+        tool_results = agent_result.get("tool_results", [])
+
+        # 도구별 AgentAction 생성
+        for tool_result in tool_results:
+            tool_name = tool_result.get("tool_name")
+            tool_output = tool_result.get("tool_output", {})
+
+            if not tool_output.get("success", False):
+                continue
+
+            # 멘토링 세션 검색 결과
+            if tool_name == "search_mentoring_sessions" and tool_output.get("sessions"):
+                sessions = tool_output["sessions"]
+                return {
+                    "type": "mentoring_suggestion",
+                    "reason": "관심 분야와 관련된 멘토링 세션을 찾았어요!",
+                    "data": {"sessions": sessions},
+                    "actions": [
+                        {
+                            "id": f"view_session_{s.get('sessionId', i)}",
+                            "label": f"{s.get('mentorName', '멘토')} 멘토 세션 보기",
+                            "primary": i == 0,
+                            "params": {"sessionId": s.get("sessionId")},
+                        }
+                        for i, s in enumerate(sessions[:3])
+                    ],
+                }
+
+            # 학습 경로 조회 결과
+            if tool_name == "get_learning_path" and tool_output.get("path"):
+                path = tool_output["path"]
+                exists = tool_output.get("exists", False)
+                can_create = tool_output.get("canCreate", False)
+
+                # 학습 경로가 존재하거나 생성 가능할 때만 카드 표시
+                if exists or can_create:
+                    return {
+                        "type": "learning_path_suggestion",
+                        "reason": f"{path.get('career', '직업')} 학습 로드맵을 준비했어요!",
+                        "data": {
+                            "path": path,
+                            "exists": exists,
+                            "canCreate": can_create,
+                            "createUrl": tool_output.get("createUrl", "/learning"),
+                        },
+                        "actions": [
+                            {
+                                "id": "start_learning",
+                                "label": "이어서 학습하기" if exists else "학습 시작하기",
+                                "primary": True,
+                                "params": {"career": path.get("career")},
+                            },
+                        ],
+                    }
+
+            # 멘토링 예약 결과
+            if tool_name == "book_mentoring" and tool_output.get("success"):
+                return {
+                    "type": "booking_confirmed",
+                    "reason": "멘토링 예약이 완료되었어요!",
+                    "data": {
+                        "bookingId": tool_output.get("bookingId"),
+                        "mentorName": tool_output.get("mentorName"),
+                        "sessionDate": tool_output.get("sessionDate"),
+                    },
+                    "actions": [
+                        {
+                            "id": "view_booking",
+                            "label": "예약 확인하기",
+                            "primary": True,
+                            "params": {"bookingId": tool_output.get("bookingId")},
+                        },
+                    ],
+                }
+
+            # 웹 검색 결과
+            if tool_name == "web_search" and tool_output.get("results"):
+                results = tool_output["results"]
+                return {
+                    "type": "web_search_results",
+                    "reason": "관련 정보들을 찾아봤어요!",
+                    "data": {"results": results},
+                    "actions": [
+                        {
+                            "id": f"open_link_{i}",
+                            "label": r.get("title", "링크")[:30] + "...",
+                            "primary": i == 0,
+                            "params": {"url": r.get("url")},
+                        }
+                        for i, r in enumerate(results[:3])
+                    ],
+                }
+
+        return None
 

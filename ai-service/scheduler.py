@@ -83,6 +83,33 @@ async def crawl_jobkorea():
         print(f"[스케줄러] 잡코리아 크롤링 오류 - {str(e)}")
 
 
+async def calculate_job_recommendations():
+    """채용공고 추천 계산 (모든 사용자)"""
+    from services.job_recommendation_calculator import JobRecommendationCalculator
+
+    print(f"[스케줄러] 채용공고 추천 계산 시작 - {datetime.now()}")
+    try:
+        calculator = JobRecommendationCalculator()
+        result = await calculator.calculate_all_user_recommendations(
+            batch_size=10,  # 동시에 10명씩 처리
+            max_recommendations=50  # 사용자당 최대 50개 추천
+        )
+
+        if result.get("success"):
+            print(f"[스케줄러] 추천 계산 완료 - {result.get('processed_users', 0)}명 처리, "
+                  f"{result.get('total_recommendations', 0)}개 추천 생성")
+        else:
+            print(f"[스케줄러] 추천 계산 실패")
+
+        return result
+
+    except Exception as e:
+        print(f"[스케줄러] 추천 계산 오류 - {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+
 async def daily_crawl_job():
     """매일 실행되는 크롤링 작업"""
     print(f"\n{'='*50}")
@@ -105,6 +132,20 @@ async def daily_crawl_job():
 
     print(f"\n{'='*50}")
     print(f"[스케줄러] 일일 크롤링 완료 - 소요시간: {duration:.1f}초")
+    print(f"{'='*50}\n")
+
+    # 크롤링 완료 후 추천 계산
+    print(f"\n{'='*50}")
+    print(f"[스케줄러] 추천 계산 시작")
+    print(f"{'='*50}\n")
+
+    await calculate_job_recommendations()
+
+    final_time = datetime.now()
+    total_duration = (final_time - start_time).total_seconds()
+
+    print(f"\n{'='*50}")
+    print(f"[스케줄러] 전체 작업 완료 - 총 소요시간: {total_duration:.1f}초")
     print(f"{'='*50}\n")
 
 

@@ -31,6 +31,9 @@ public class MentoringSessionService {
     public MentoringSessionResponse createSession(MentoringSessionRequest request) {
         log.info("멘토링 세션 생성 - mentorId: {}, title: {}", request.getMentorId(), request.getTitle());
 
+        // 시간 정각 검증
+        validateSessionTime(request.getSessionDate());
+
         Mentor mentor = mentorRepository.findById(request.getMentorId())
                 .orElseThrow(() -> new ResourceNotFoundException("Mentor", "id", request.getMentorId()));
 
@@ -39,8 +42,7 @@ public class MentoringSessionService {
         session.setTitle(request.getTitle());
         session.setDescription(request.getDescription());
         session.setSessionDate(request.getSessionDate());
-        session.setDurationMinutes(request.getDurationMinutes());
-        session.setPrice(request.getPrice());
+        session.setDurationMinutes(60); // 1시간 고정
         session.setCurrentParticipants(0);
         session.setIsActive(true);
 
@@ -51,11 +53,23 @@ public class MentoringSessionService {
     }
 
     /**
+     * 세션 시간 정각 검증
+     */
+    private void validateSessionTime(LocalDateTime sessionDate) {
+        if (sessionDate.getMinute() != 0 || sessionDate.getSecond() != 0) {
+            throw new RuntimeException("멘토링 시간은 정각에만 설정 가능합니다. (예: 14:00, 15:00)");
+        }
+    }
+
+    /**
      * 멘토링 세션 수정
      */
     @Transactional
     public MentoringSessionResponse updateSession(Long sessionId, MentoringSessionRequest request) {
         log.info("멘토링 세션 수정 - sessionId: {}", sessionId);
+
+        // 시간 정각 검증
+        validateSessionTime(request.getSessionDate());
 
         MentoringSession session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("MentoringSession", "id", sessionId));
@@ -63,8 +77,7 @@ public class MentoringSessionService {
         session.setTitle(request.getTitle());
         session.setDescription(request.getDescription());
         session.setSessionDate(request.getSessionDate());
-        session.setDurationMinutes(request.getDurationMinutes());
-        session.setPrice(request.getPrice());
+        session.setDurationMinutes(60); // 1시간 고정
 
         return MentoringSessionResponse.from(session);
     }
@@ -98,14 +111,17 @@ public class MentoringSessionService {
     }
 
     /**
-     * 활성화된 모든 세션 조회 (학생용)
+     * 예약 가능한 세션 조회 (학생용)
+     * - 활성화된 세션
+     * - 예약되지 않은 세션 (currentParticipants < 1)
+     * - 미래 날짜
      */
     @Transactional(readOnly = true)
     public List<MentoringSessionResponse> getAvailableSessions() {
-        log.info("활성화된 세션 목록 조회");
+        log.info("예약 가능한 세션 목록 조회");
 
         LocalDateTime now = LocalDateTime.now();
-        return sessionRepository.findByIsActiveTrueAndSessionDateAfterOrderBySessionDateAsc(now).stream()
+        return sessionRepository.findByIsActiveTrueAndCurrentParticipantsLessThanAndSessionDateAfterOrderBySessionDateAsc(1, now).stream()
                 .map(MentoringSessionResponse::from)
                 .collect(Collectors.toList());
     }

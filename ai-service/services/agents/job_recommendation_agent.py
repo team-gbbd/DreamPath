@@ -5,8 +5,17 @@
 매칭 점수 (규칙 기반 100점):
 - 직무명 일치: 40점
 - 스킬 매칭률: 60점
+
+추가 기능 (6가지 채용 분석):
+1. 인재상 분석 - 기업이 원하는 인재 특성/가치관
+2. 채용 프로세스 정보 - 공채/수시/인턴 절차 안내
+3. 검증기준 표시 - 학점/역량 커트라인
+4. 채용 현황 - 현재 진행 중인 전형 단계
+5. 검증결과표 - 지원자 강약점/가치관 분석
+6. 합격 예측 리포트 - 전형별 합격 가능성
 """
 import os
+import httpx
 from typing import List, Dict, Optional
 from openai import OpenAI
 from services.database_service import DatabaseService
@@ -958,3 +967,485 @@ class JobRecommendationAgent:
             path = ["현재 스킬을 유지하고 프로젝트 경험을 쌓으세요"]
 
         return path
+
+    # ==================== 6가지 채용 분석 기능 ====================
+
+    async def get_comprehensive_job_analysis(
+        self,
+        user_id: int,
+        career_analysis: Dict,
+        user_profile: Optional[Dict] = None,
+        user_skills: List[str] = None,
+        limit: int = 10
+    ) -> Dict:
+        """
+        채용 공고 추천 + 6가지 종합 분석
+
+        외부 데이터 + AI 분석을 결합하여 맞춤형 채용 정보 제공
+
+        Returns:
+            recommendations: 추천 공고 목록 (6가지 분석 포함)
+            - idealTalent: 인재상 분석
+            - hiringProcess: 채용 프로세스
+            - verificationCriteria: 검증 기준
+            - hiringStatus: 채용 현황
+            - userVerificationResult: 사용자 검증 결과
+            - successPrediction: 합격 예측
+        """
+        import json
+        import re
+
+        user_skills = user_skills or []
+
+        # 1. 기본 추천 공고 가져오기
+        base_result = await self.get_recommendations_with_requirements(
+            user_id, career_analysis, user_profile, user_skills, limit
+        )
+
+        recommendations = base_result.get("recommendations", [])
+
+        if not recommendations:
+            return {
+                "recommendations": [],
+                "totalCount": 0,
+                "summary": "추천할 채용 공고가 없습니다."
+            }
+
+        # 2. 각 추천 공고에 6가지 분석 추가
+        enhanced_recommendations = []
+
+        for job in recommendations[:limit]:
+            company_name = job.get("company", "")
+
+            # 외부 데이터 수집 (기업 정보)
+            external_data = await self._fetch_external_company_data(company_name)
+
+            # 6가지 분석 수행
+            comprehensive_analysis = await self._perform_comprehensive_analysis(
+                job, external_data, career_analysis, user_profile, user_skills
+            )
+
+            # 기존 추천 정보에 6가지 분석 추가
+            enhanced_job = {
+                **job,
+                "comprehensiveAnalysis": comprehensive_analysis
+            }
+
+            enhanced_recommendations.append(enhanced_job)
+
+        # 3. 전체 요약 생성
+        overall_summary = await self._generate_overall_summary(
+            enhanced_recommendations, career_analysis
+        )
+
+        return {
+            "recommendations": enhanced_recommendations,
+            "totalCount": len(enhanced_recommendations),
+            "commonRequiredTechnologies": base_result.get("commonRequiredTechnologies", []),
+            "commonRequiredCertifications": base_result.get("commonRequiredCertifications", []),
+            "overallLearningPath": base_result.get("overallLearningPath", []),
+            "summary": overall_summary
+        }
+
+    async def _fetch_external_company_data(self, company_name: str) -> Dict:
+        """
+        외부 소스에서 기업 데이터 수집
+        - DB 기업 정보
+        - 크롤링 데이터 (잡코리아, 사람인 등) - 향후 확장
+        """
+        external_data = {
+            "companyInfo": {},
+            "reviews": [],
+            "interviewInfo": [],
+            "salaryInfo": {},
+            "dataSource": []
+        }
+
+        try:
+            # 1. DB에서 기업 정보 조회
+            company_info_query = """
+                SELECT
+                    company_id, company_name, industry, description,
+                    employee_count, established_year, homepage_url,
+                    address, company_type, revenue, ceo_name,
+                    average_salary, benefits, vision, capital
+                FROM company_info
+                WHERE company_name ILIKE %s
+                ORDER BY updated_at DESC
+                LIMIT 1
+            """
+            company_results = self.db_service.execute_query(
+                company_info_query, (f"%{company_name}%",)
+            )
+
+            if company_results:
+                row = company_results[0]
+                external_data["companyInfo"] = {
+                    "companyName": row.get("company_name"),
+                    "industry": row.get("industry"),
+                    "description": row.get("description"),
+                    "employeeCount": row.get("employee_count"),
+                    "establishedYear": row.get("established_year"),
+                    "companyType": row.get("company_type"),
+                    "address": row.get("address"),
+                    "averageSalary": row.get("average_salary"),
+                    "benefits": row.get("benefits"),
+                    "vision": row.get("vision")
+                }
+                external_data["dataSource"].append("company_db")
+
+            # 2. 해당 기업의 다른 채용공고들도 참고
+            job_query = """
+                SELECT title, description, tech_stack, required_skills
+                FROM job_listings
+                WHERE company ILIKE %s
+                AND crawled_at >= NOW() - INTERVAL '90 days'
+                ORDER BY crawled_at DESC
+                LIMIT 10
+            """
+            job_results = self.db_service.execute_query(
+                job_query, (f"%{company_name}%",)
+            )
+
+            if job_results:
+                external_data["otherJobPostings"] = []
+                for row in job_results:
+                    external_data["otherJobPostings"].append({
+                        "title": row.get("title"),
+                        "description": (row.get("description") or "")[:200]
+                    })
+                external_data["dataSource"].append("job_listings")
+
+        except Exception as e:
+            print(f"외부 데이터 수집 실패: {str(e)}")
+
+        return external_data
+
+    async def _perform_comprehensive_analysis(
+        self,
+        job: Dict,
+        external_data: Dict,
+        career_analysis: Dict,
+        user_profile: Optional[Dict],
+        user_skills: List[str]
+    ) -> Dict:
+        """
+        6가지 종합 분석 수행
+        외부 데이터 + AI 분석 결합
+        """
+        import json
+        import re
+
+        # 사용자 정보 요약
+        user_info_parts = []
+        if career_analysis.get("recommendedCareers"):
+            careers = [c.get("careerName", "") for c in career_analysis["recommendedCareers"][:3]]
+            user_info_parts.append(f"추천 직업: {', '.join(careers)}")
+        if career_analysis.get("strengths"):
+            user_info_parts.append(f"강점: {', '.join(career_analysis['strengths'][:5])}")
+        if career_analysis.get("values"):
+            user_info_parts.append(f"가치관: {', '.join(career_analysis['values'][:3])}")
+        if user_skills:
+            user_info_parts.append(f"보유 스킬: {', '.join(user_skills[:10])}")
+        if user_profile:
+            if user_profile.get("education"):
+                user_info_parts.append(f"학력: {user_profile['education']}")
+            if user_profile.get("gpa"):
+                user_info_parts.append(f"학점: {user_profile['gpa']}")
+            if user_profile.get("experience"):
+                user_info_parts.append(f"경력: {user_profile['experience']}")
+
+        user_summary = "\n".join(user_info_parts) if user_info_parts else "정보 없음"
+
+        # 기업 정보 요약
+        company_info = external_data.get("companyInfo", {})
+        other_jobs = external_data.get("otherJobPostings", [])
+
+        company_context = f"""
+기업명: {job.get('company', '')}
+산업: {company_info.get('industry', '정보 없음')}
+기업규모: {company_info.get('employeeCount', '정보 없음')}
+기업유형: {company_info.get('companyType', '정보 없음')}
+비전: {company_info.get('vision', '정보 없음')}
+복리후생: {company_info.get('benefits', '정보 없음')}
+평균연봉: {company_info.get('averageSalary', '정보 없음')}
+"""
+
+        # 다른 채용공고 정보
+        other_jobs_text = ""
+        if other_jobs:
+            other_jobs_text = "\n동일 기업 다른 채용공고:\n"
+            for oj in other_jobs[:5]:
+                other_jobs_text += f"- {oj.get('title', '')}\n"
+
+        prompt = f"""다음 채용 공고와 사용자 정보를 분석하여 6가지 채용 분석을 수행해주세요.
+
+【채용 공고】
+- 제목: {job.get('title', '')}
+- 회사: {job.get('company', '')}
+- 위치: {job.get('location', '')}
+- 설명: {(job.get('description') or '')[:500]}
+
+【기업 정보 (외부 데이터)】
+{company_context}
+{other_jobs_text}
+
+【사용자 정보】
+{user_summary}
+
+다음 JSON 형식으로 6가지 분석 결과를 제공해주세요:
+{{
+  "idealTalent": {{
+    "summary": "이 기업/포지션이 원하는 인재 한 문장 요약",
+    "coreValues": ["핵심가치1", "핵심가치2", "핵심가치3"],
+    "keyTraits": ["원하는 특성1", "특성2", "특성3"],
+    "fitWithUser": "사용자와의 적합도 설명 (사용자 정보 기반)"
+  }},
+  "hiringProcess": {{
+    "processType": "공채/수시/인턴 중 예상 유형",
+    "expectedSteps": [
+      {{"step": 1, "name": "서류 전형", "description": "이력서/자기소개서 심사", "tips": "준비 팁"}},
+      {{"step": 2, "name": "코딩 테스트", "description": "알고리즘 문제 풀이", "tips": "준비 팁"}},
+      {{"step": 3, "name": "1차 면접", "description": "기술 면접", "tips": "준비 팁"}},
+      {{"step": 4, "name": "2차 면접", "description": "임원 면접", "tips": "준비 팁"}}
+    ],
+    "estimatedDuration": "예상 채용 기간",
+    "userPreparationAdvice": "사용자 맞춤 준비 조언"
+  }},
+  "verificationCriteria": {{
+    "academicCriteria": {{
+      "preferredMajors": ["선호 전공1", "전공2"],
+      "minimumGPA": "예상 최소 학점 (예: 3.0/4.5)",
+      "userGPAAssessment": "사용자 학점 평가 (충족/미충족/정보없음)"
+    }},
+    "skillCriteria": {{
+      "essential": ["필수 역량1", "역량2"],
+      "preferred": ["우대 역량1", "역량2"],
+      "userSkillMatch": "사용자 역량 매칭 분석"
+    }},
+    "experienceCriteria": {{
+      "minimumYears": "예상 최소 경력",
+      "preferredBackground": "선호 경력 배경",
+      "userExperienceAssessment": "사용자 경력 평가"
+    }}
+  }},
+  "hiringStatus": {{
+    "estimatedPhase": "예상 현재 단계 (접수중/마감임박/상시채용)",
+    "competitionLevel": "예상 경쟁률 (높음/중간/낮음)",
+    "bestApplyTiming": "최적 지원 시기 조언",
+    "marketDemand": "해당 직무 시장 수요 분석"
+  }},
+  "userVerificationResult": {{
+    "overallScore": 75,
+    "strengths": [
+      {{"area": "강점 영역", "detail": "구체적 강점", "score": 85}}
+    ],
+    "weaknesses": [
+      {{"area": "보완 영역", "detail": "보완 필요 내용", "priority": "HIGH/MEDIUM/LOW"}}
+    ],
+    "valueAlignment": "가치관 적합도 분석",
+    "cultureAlignment": "문화 적합도 분석",
+    "growthPotential": "성장 가능성 분석"
+  }},
+  "successPrediction": {{
+    "overallProbability": 65,
+    "documentPassRate": 70,
+    "interviewPassRate": 60,
+    "finalPassRate": 55,
+    "keyFactors": [
+      {{"factor": "합격에 유리한 요소", "impact": "POSITIVE", "weight": "HIGH"}},
+      {{"factor": "합격에 불리한 요소", "impact": "NEGATIVE", "weight": "MEDIUM"}}
+    ],
+    "improvementActions": [
+      {{"action": "합격률 높이기 위한 행동", "expectedImprovement": "+10%", "timeline": "2주"}}
+    ],
+    "confidenceLevel": "예측 신뢰도 (높음/중간/낮음)",
+    "reasoning": "예측 근거 설명"
+  }}
+}}
+
+분석 시 주의사항:
+1. 외부 데이터가 있으면 적극 활용하고, 없으면 AI가 합리적으로 추론
+2. 사용자 정보를 기반으로 맞춤형 분석 제공
+3. 구체적이고 실행 가능한 조언 포함
+4. 점수는 현실적으로 산정 (과대/과소 평가 지양)
+"""
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "당신은 채용 분석 전문가입니다. 기업 데이터와 사용자 정보를 종합 분석하여 맞춤형 채용 인사이트를 제공합니다. 반드시 JSON으로만 응답하세요."
+                    },
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.4,
+                max_tokens=3000
+            )
+
+            result_text = response.choices[0].message.content
+
+            # JSON 추출
+            json_match = re.search(r'\{[\s\S]*\}', result_text)
+            if json_match:
+                result = json.loads(json_match.group())
+                return result
+
+            return self._get_default_comprehensive_analysis()
+
+        except Exception as e:
+            print(f"종합 분석 실패: {str(e)}")
+            return self._get_default_comprehensive_analysis()
+
+    async def _generate_overall_summary(
+        self,
+        recommendations: List[Dict],
+        career_analysis: Dict
+    ) -> Dict:
+        """전체 추천 결과 요약 생성"""
+        import json
+        import re
+
+        if not recommendations:
+            return {
+                "message": "추천할 채용 공고가 없습니다.",
+                "topRecommendation": None,
+                "insights": []
+            }
+
+        # 상위 3개 공고 요약
+        top_jobs = []
+        for job in recommendations[:3]:
+            analysis = job.get("comprehensiveAnalysis", {})
+            prediction = analysis.get("successPrediction", {})
+            top_jobs.append({
+                "title": job.get("title"),
+                "company": job.get("company"),
+                "matchScore": job.get("matchScore"),
+                "passRate": prediction.get("overallProbability", 50)
+            })
+
+        user_careers = []
+        if career_analysis.get("recommendedCareers"):
+            user_careers = [c.get("careerName", "") for c in career_analysis["recommendedCareers"][:3]]
+
+        prompt = f"""다음 채용 추천 결과를 요약해주세요.
+
+추천 직업: {', '.join(user_careers)}
+
+상위 추천 공고:
+{json.dumps(top_jobs, ensure_ascii=False, indent=2)}
+
+총 추천 공고 수: {len(recommendations)}개
+
+다음 JSON 형식으로 요약해주세요:
+{{
+  "message": "전체 요약 메시지 (2-3문장)",
+  "topRecommendation": {{
+    "company": "가장 추천하는 기업",
+    "reason": "추천 이유"
+  }},
+  "insights": [
+    "인사이트1 (예: '백엔드 개발자 포지션이 가장 많습니다')",
+    "인사이트2 (예: '평균 합격 예상률은 65%입니다')",
+    "인사이트3 (예: '스타트업 비중이 높습니다')"
+  ],
+  "actionPriorities": [
+    "우선 행동1",
+    "우선 행동2"
+  ]
+}}
+"""
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "당신은 커리어 컨설턴트입니다. 채용 추천 결과를 간결하게 요약합니다. JSON으로만 응답하세요."
+                    },
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.5,
+                max_tokens=500
+            )
+
+            result_text = response.choices[0].message.content
+            json_match = re.search(r'\{[\s\S]*\}', result_text)
+            if json_match:
+                return json.loads(json_match.group())
+
+            return {
+                "message": f"총 {len(recommendations)}개의 채용 공고를 추천합니다.",
+                "topRecommendation": None,
+                "insights": []
+            }
+
+        except Exception as e:
+            print(f"요약 생성 실패: {str(e)}")
+            return {
+                "message": f"총 {len(recommendations)}개의 채용 공고를 추천합니다.",
+                "topRecommendation": None,
+                "insights": []
+            }
+
+    def _get_default_comprehensive_analysis(self) -> Dict:
+        """기본 종합 분석 결과"""
+        return {
+            "idealTalent": {
+                "summary": "분석 중입니다.",
+                "coreValues": [],
+                "keyTraits": [],
+                "fitWithUser": "정보 부족"
+            },
+            "hiringProcess": {
+                "processType": "정보 없음",
+                "expectedSteps": [],
+                "estimatedDuration": "정보 없음",
+                "userPreparationAdvice": "해당 기업 채용 페이지를 확인하세요."
+            },
+            "verificationCriteria": {
+                "academicCriteria": {
+                    "preferredMajors": [],
+                    "minimumGPA": "정보 없음",
+                    "userGPAAssessment": "정보 없음"
+                },
+                "skillCriteria": {
+                    "essential": [],
+                    "preferred": [],
+                    "userSkillMatch": "정보 없음"
+                },
+                "experienceCriteria": {
+                    "minimumYears": "정보 없음",
+                    "preferredBackground": "정보 없음",
+                    "userExperienceAssessment": "정보 없음"
+                }
+            },
+            "hiringStatus": {
+                "estimatedPhase": "정보 없음",
+                "competitionLevel": "정보 없음",
+                "bestApplyTiming": "정보 없음",
+                "marketDemand": "정보 없음"
+            },
+            "userVerificationResult": {
+                "overallScore": 50,
+                "strengths": [],
+                "weaknesses": [],
+                "valueAlignment": "정보 없음",
+                "cultureAlignment": "정보 없음",
+                "growthPotential": "정보 없음"
+            },
+            "successPrediction": {
+                "overallProbability": 50,
+                "documentPassRate": 50,
+                "interviewPassRate": 50,
+                "finalPassRate": 50,
+                "keyFactors": [],
+                "improvementActions": [],
+                "confidenceLevel": "낮음",
+                "reasoning": "분석에 필요한 정보가 부족합니다."
+            }
+        }

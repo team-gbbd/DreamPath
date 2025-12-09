@@ -1,6 +1,7 @@
 import os
 from openai import OpenAI
 from dotenv import load_dotenv
+from config import settings
 
 load_dotenv()
 
@@ -11,6 +12,7 @@ class BigFiveService:
         if not api_key:
             raise RuntimeError('OPENAI_API_KEY 필요')
         self.client = OpenAI(api_key=api_key)
+        self.model = settings.OPENAI_MODEL
 
     async def analyze_bigfive(self, document: str):
         prompt = f'''
@@ -33,7 +35,7 @@ class BigFiveService:
 '''
 
         resp = self.client.chat.completions.create(
-            model='gpt-4o-mini',
+            model=self.model,
             messages=[
                 {"role": "system", "content": "당신은 Big Five 성향 분석 전문가입니다."},
                 {"role": "user", "content": prompt}

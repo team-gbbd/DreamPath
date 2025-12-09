@@ -4,8 +4,8 @@ import json
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Mapping, MutableMapping
 
-from services.agents.tools.profile_document_tool import ProfileDocumentTool
-from services.agents.tools.summarizer_tool import ConversationHistory, SummarizerTool
+from .tools.profile_document_tool import ProfileDocumentTool
+from .tools.summarizer_tool import ConversationHistory, SummarizerTool
 from services.bigfive.bigfive_service import BigFiveService
 from services.mbti.mbti_service import MBTIService
 

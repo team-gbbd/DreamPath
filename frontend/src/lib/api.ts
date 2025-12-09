@@ -118,7 +118,7 @@ export const analysisService = {
 
 // Python AI Service URL (채용 정보 크롤링용)
 export const PYTHON_AI_SERVICE_URL =
-  import.meta.env.VITE_PYTHON_AI_SERVICE_URL || "http://localhost:8000";
+  import.meta.env.VITE_AI_SERVICE_URL || "http://localhost:8000";
 
 export const pythonApi = axios.create({
   baseURL: PYTHON_AI_SERVICE_URL,
@@ -619,6 +619,128 @@ export const userService = {
     birth: string;
   }) => {
     const response = await api.put(`/users/${userId}`, data);
+    return response.data;
+  },
+};
+
+/* ================================
+   목표 기업 인재상 분석 서비스
+   ================================ */
+export const companyTalentService = {
+  // 기업 인재상 종합 분석
+  analyzeCompanyTalent: async (
+    companyName: string,
+    userProfile?: any,
+    careerAnalysis?: any
+  ) => {
+    const response = await pythonApi.post("/api/company-talent/analyze", {
+      company_name: companyName,
+      user_profile: userProfile,
+      career_analysis: careerAnalysis,
+    });
+    return response.data;
+  },
+
+  // 6가지 종합 채용 분석 + 맞춤 추천
+  getComprehensiveRecommendations: async (
+    userId: number,
+    careerAnalysis: any,
+    userProfile?: any,
+    userSkills?: string[],
+    limit: number = 10
+  ) => {
+    const response = await pythonApi.post(
+      `/api/job-agent/recommendations/comprehensive/${userId}`,
+      {
+        career_analysis: careerAnalysis,
+        user_profile: userProfile,
+        user_skills: userSkills,
+        limit: limit,
+      }
+    );
+    return response.data;
+  },
+
+  // 단일 채용공고 종합 분석
+  analyzeSingleJob: async (
+    jobId: string,
+    careerAnalysis: any,
+    userProfile?: any,
+    userSkills?: string[]
+  ) => {
+    const response = await pythonApi.post(
+      `/api/job-agent/analysis/job/${jobId}`,
+      {
+        career_analysis: careerAnalysis,
+        user_profile: userProfile,
+        user_skills: userSkills,
+      }
+    );
+    return response.data;
+  },
+
+  // 기업 인재상 분석 (GET 방식)
+  analyzeCompanyTalentGet: async (companyName: string) => {
+    const response = await pythonApi.get(
+      `/api/company-talent/analyze/${encodeURIComponent(companyName)}`
+    );
+    return response.data;
+  },
+
+  // 채용공고 상세 분석
+  analyzeJobPosting: async (jobId?: string, jobUrl?: string, jobData?: any) => {
+    const response = await pythonApi.post("/api/company-talent/analyze-job", {
+      job_id: jobId,
+      job_url: jobUrl,
+      job_data: jobData,
+    });
+    return response.data;
+  },
+
+  // 기업 비교 분석
+  compareCompanies: async (
+    companyNames: string[],
+    userProfile?: any,
+    careerAnalysis?: any
+  ) => {
+    const response = await pythonApi.post("/api/company-talent/compare", {
+      company_names: companyNames,
+      user_profile: userProfile,
+      career_analysis: careerAnalysis,
+    });
+    return response.data;
+  },
+
+  // 기업 검색
+  searchCompanies: async (criteria: {
+    industry?: string;
+    companyType?: string;
+    location?: string;
+    techStack?: string[];
+  }) => {
+    const response = await pythonApi.post("/api/company-talent/search", {
+      industry: criteria.industry,
+      company_type: criteria.companyType,
+      location: criteria.location,
+      tech_stack: criteria.techStack,
+    });
+    return response.data;
+  },
+
+  // 기업 검색 (GET 방식)
+  searchCompaniesGet: async (
+    industry?: string,
+    companyType?: string,
+    location?: string
+  ) => {
+    const params = new URLSearchParams();
+    if (industry) params.append("industry", industry);
+    if (companyType) params.append("company_type", companyType);
+    if (location) params.append("location", location);
+
+    const response = await pythonApi.get(
+      `/api/company-talent/search?${params.toString()}`
+    );
     return response.data;
   },
 };

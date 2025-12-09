@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { sendChatMessage, getChatHistory } from "@/lib/Chatbot";
-import { sendAssistantMessage, getAssistantHistory } from "@/lib/ChatbotAssistant";
-import { fetchAllFaq, fetchFaqByCategory } from "@/lib/getFaq";
+import { sendChatMessage, getChatHistory } from "@/lib/api/ragChatApi";
+import { fetchFaqCategories, fetchFaqByCategory } from "@/lib/api/faqApi";
+import { BACKEND_BASE_URL } from "@/lib/api";
 import ReactMarkdown from "react-markdown";
 
 // 페이지 로드 시 sessionStorage 초기화 (새로고침 시 대화 내역 삭제)
@@ -141,23 +141,21 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
     }
   }, [messages]);
 
-  /* FAQ 전체 로드 */
+  /* FAQ 카테고리 로드 */
   useEffect(() => {
-    const loadFaq = async () => {
-      const all = await fetchAllFaq();
-      if (!all) return;
-
-      const uniqueCats = [...new Set(all.map((f: any) => f.category))];
+    const loadCategories = async () => {
+      const categories = await fetchFaqCategories();
+      if (!categories || categories.length === 0) return;
 
       // ---- 2개씩 묶기 ----
       const chunked: string[][] = [];
-      for (let i = 0; i < uniqueCats.length; i += 2) {
-        chunked.push(uniqueCats.slice(i, i + 2));
+      for (let i = 0; i < categories.length; i += 2) {
+        chunked.push(categories.slice(i, i + 2));
       }
       setChunkedCategories(chunked);
     };
 
-    loadFaq();
+    loadCategories();
   }, []);
 
   /* 선택된 카테고리 FAQ 로드 */
@@ -202,34 +200,19 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
     setLoading(true);
 
     try {
-      const userId = getUserId(); // 숫자 타입으로 반환됨 (로그인 시)
-      const isLoggedIn = userId !== null;
+      const userId = getUserId();
+      const guestId = getGuestId();
 
-      console.log("🔍 챗봇 메시지 전송:", { userId, isLoggedIn });
+      console.log("🔍 RAG 챗봇 메시지 전송:", { userId, guestId });
 
-      let res;
-
-      if (isLoggedIn) {
-        // 🆕 회원 전용 AI 비서 (Function Calling)
-        console.log("👤 회원용 AI 비서 호출");
-        res = await sendAssistantMessage({
-          userId: userId as number,
-          sessionId,
-          message: userMsg,
-          conversationTitle: sessionId ? undefined : userMsg.slice(0, 20),
-        });
-      } else {
-        // 기존 비회원 챗봇 (FAQ)
-        console.log("😊 비회원 일반 챗봇 호출");
-        const guestId = getGuestId();
-        res = await sendChatMessage({
-          sessionId,
-          userId: null,
-          guestId,
-          message: userMsg,
-          conversationTitle: sessionId ? undefined : userMsg.slice(0, 20),
-        });
-      }
+      // ✅ 메인페이지: 회원+비회원 모두 RAG (FAQ 기반) 사용
+      const res = await sendChatMessage({
+        sessionId,
+        userId,
+        guestId,
+        message: userMsg,
+        conversationTitle: sessionId ? undefined : userMsg.slice(0, 20),
+      });
 
       if (!sessionId) setSessionId(res.session);
       setMessages((prev) => [
@@ -349,8 +332,8 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
 
       console.log("🔍 문의 제출 데이터:", requestData);
 
-      const AI_SERVICE_URL = import.meta.env.VITE_AI_SERVICE_URL || "http://localhost:8000";
-      const response = await fetch(`${AI_SERVICE_URL}/api/inquiry`, {
+      // Java 백엔드로 문의 전송 (VITE_BACKEND_URL 환경변수 사용)
+      const response = await fetch(`${BACKEND_BASE_URL}/api/inquiry`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json;charset=UTF-8",
@@ -385,15 +368,8 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
       {/* 상단바 */}
       <div className="flex items-center justify-between px-4 py-3 bg-white border-b">
         <div className="flex items-center gap-2">
-          <span className="text-xl">{getUserId() !== null ? "✨" : "🤖"}</span>
-          <span className="font-semibold">
-            {getUserId() !== null ? "AI 비서와 대화 중 ···" : "AI 챗봇과 대화 중 ···"}
-          </span>
-          {getUserId() !== null && (
-            <span className="text-xs bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-0.5 rounded-full">
-              회원 전용
-            </span>
-          )}
+          <span className="text-xl">🤖</span>
+          <span className="font-semibold">AI 챗봇과 대화 중 ···</span>
         </div>
         <button
           onClick={handleClose}
@@ -407,17 +383,8 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
       <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-2">
         {/* 인사말 */}
         <div className="max-w-[78%] bg-white text-gray-1000 px-4 py-2 rounded-2xl rounded-bl-none shadow-sm text-[14px] leading-relaxed">
-          {getUserId() !== null ? (
-            <>
-              <p>안녕하세요! DreamPath AI 비서입니다✨</p>
-              <p>멘토링 예약, 학습 진행 상황 등을 물어보세요!</p>
-            </>
-          ) : (
-            <>
-              <p>안녕하세요! DreamPath AI 챗봇이에요😊</p>
-              <p>무엇을 도와드릴까요?</p>
-            </>
-          )}
+          <p>안녕하세요! DreamPath AI 챗봇이에요😊</p>
+          <p>무엇을 도와드릴까요?</p>
         </div>
 
         {/* FAQ 카테고리 */}

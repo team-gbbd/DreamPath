@@ -18,7 +18,6 @@ public class MentoringSessionResponse {
     private String description;
     private LocalDateTime sessionDate;
     private Integer durationMinutes;
-    private Integer price;
     private Integer currentParticipants;
     private Integer availableSlots;
     private Boolean isActive;
@@ -36,7 +35,6 @@ public class MentoringSessionResponse {
                 .description(session.getDescription())
                 .sessionDate(session.getSessionDate())
                 .durationMinutes(session.getDurationMinutes())
-                .price(session.getPrice())
                 .currentParticipants(session.getCurrentParticipants())
                 .availableSlots(session.getAvailableSlots())
                 .isActive(session.getIsActive())
