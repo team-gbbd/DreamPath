@@ -26,6 +26,7 @@ webdriver-manager>=4.0.0
 pymysql>=1.1.0
 psycopg2-binary>=2.9.9
 sqlalchemy>=2.0.0
+redis>=5.0.0
 
 # Pinecone
 pinecone>=5.0.0
@@ -33,5 +34,6 @@ pinecone>=5.0.0
 # Supabase
 supabase>=2.0.0
 
-# Scheduler
+# Scheduler & Lock
 apscheduler>=3.10.0
+redis>=5.0.0

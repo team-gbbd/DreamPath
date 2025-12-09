@@ -397,6 +397,26 @@ class WebCrawlerService:
             
             if all_job_listings:
                 print(f"원티드 API에서 총 {len(all_job_listings)}개 공고 발견 (페이지: {page})")
+
+                # 각 공고의 상세 정보 가져오기 (모든 공고)
+                total_jobs = len(all_job_listings)
+                print(f"[원티드] 전체 {total_jobs}개 공고의 상세 정보 가져오기...")
+
+                for i, job in enumerate(all_job_listings):
+                    job_id = job.get("id", "")
+                    if job_id:
+                        detail_info = await self._crawl_wanted_job_detail(client, job_id)
+                        if detail_info:
+                            # 상세 정보 업데이트
+                            if detail_info.get("description"):
+                                job["description"] = detail_info["description"]
+                            if detail_info.get("tech_stack"):
+                                job["tech_stack"] = ",".join(detail_info["tech_stack"])
+                            if detail_info.get("requirements"):
+                                job["required_skills"] = detail_info["requirements"][:500]
+                            print(f"[원티드] ({i+1}/{total_jobs}) {job.get('title', '')[:30]}... 상세 정보 추가 완료")
+
+                print(f"[원티드] 상세 정보 가져오기 완료")
                 return all_job_listings
             
             # API 호출 실패 시 빈 리스트 반환 (HTML 파싱으로 fallback)
@@ -410,43 +430,202 @@ class WebCrawlerService:
     async def _crawl_wanted_job_detail(
         self,
         client: httpx.AsyncClient,
+        job_id: str
+    ) -> Optional[Dict]:
+        """원티드 채용 공고 상세 정보 API로 가져오기"""
+        try:
+            # 원티드 상세 API 엔드포인트
+            detail_api_url = f"https://www.wanted.co.kr/api/v4/jobs/{job_id}"
+
+            await self._wait_if_needed()  # IP 차단 방지
+            response = await client.get(detail_api_url)
+
+            if response.status_code == 200:
+                data = response.json()
+                job_data = data.get("job", {})
+
+                # 상세 정보 추출
+                detail = job_data.get("detail", {})
+
+                # 주요업무, 자격요건, 우대사항, 혜택 추출
+                intro = detail.get("intro", "")  # 회사 소개
+                main_tasks = detail.get("main_tasks", "")  # 주요업무
+                requirements = detail.get("requirements", "")  # 자격요건
+                preferred = detail.get("preferred_points", "")  # 우대사항
+                benefits = detail.get("benefits", "")  # 혜택
+
+                # 기술스택 추출
+                skill_tags = job_data.get("skill_tags", [])
+                tech_stack = []
+                if skill_tags:
+                    for tag in skill_tags:
+                        if isinstance(tag, dict):
+                            tech_stack.append(tag.get("title", ""))
+                        elif isinstance(tag, str):
+                            tech_stack.append(tag)
+
+                # 전체 설명 조합
+                description_parts = []
+                if main_tasks:
+                    description_parts.append(f"[주요업무] {main_tasks}")
+                if requirements:
+                    description_parts.append(f"[자격요건] {requirements}")
+                if preferred:
+                    description_parts.append(f"[우대사항] {preferred}")
+                if benefits:
+                    description_parts.append(f"[혜택] {benefits}")
+
+                full_description = "\n".join(description_parts)
+
+                return {
+                    "description": full_description[:2000] if full_description else "",
+                    "tech_stack": tech_stack,
+                    "requirements": requirements,
+                    "preferred": preferred
+                }
+            else:
+                print(f"[원티드] 상세 API 호출 실패 (job_id: {job_id}): HTTP {response.status_code}")
+
+        except Exception as e:
+            print(f"[원티드] 상세 정보 크롤링 실패 (job_id: {job_id}): {str(e)}")
+
+        return None
+
+
+    async def _crawl_jobkorea_job_detail(
+        self,
+        client: httpx.AsyncClient,
         job_url: str
     ) -> Optional[Dict]:
-        """원티드 채용 공고 상세 페이지 크롤링"""
+        """잡코리아 채용 공고 상세 페이지 크롤링"""
         try:
+            await self._wait_if_needed()  # IP 차단 방지
             response = await client.get(job_url)
-            
+
             if response.status_code == 200:
                 html = response.text
                 soup = BeautifulSoup(html, "lxml")
-                
-                # 채용 공고 정보 추출 (실제 HTML 구조에 맞게 수정 필요)
-                title_elem = soup.find("h2", class_=re.compile(r".*title.*", re.I))
-                title = title_elem.get_text(strip=True) if title_elem else ""
-                
-                company_elem = soup.find("a", class_=re.compile(r".*company.*", re.I))
-                company = company_elem.get_text(strip=True) if company_elem else ""
-                
-                location_elem = soup.find("div", class_=re.compile(r".*location.*", re.I))
-                location = location_elem.get_text(strip=True) if location_elem else ""
-                
-                # 상세 정보 추출
-                description_elem = soup.find("div", class_=re.compile(r".*description.*", re.I))
-                description = description_elem.get_text(strip=True) if description_elem else ""
-                
+
+                # 상세 내용 추출
+                description_parts = []
+
+                # 자격요건/우대사항 섹션 찾기
+                detail_sections = soup.find_all("div", class_=re.compile(r".*detail.*|.*desc.*|.*content.*", re.I))
+
+                for section in detail_sections:
+                    section_text = section.get_text(strip=True)
+                    if len(section_text) > 50:  # 의미있는 내용만
+                        description_parts.append(section_text[:500])
+
+                # 기술스택 추출 - 키워드 태그에서
+                tech_tags = soup.find_all("span", class_=re.compile(r".*skill.*|.*tech.*|.*tag.*", re.I))
+                tech_stack = []
+                for tag in tech_tags:
+                    tag_text = tag.get_text(strip=True)
+                    if tag_text and len(tag_text) < 30:  # 짧은 기술 키워드만
+                        tech_stack.append(tag_text)
+
+                # 자격요건 섹션
+                requirements_section = soup.find(string=re.compile(r"자격.*요건|지원.*자격|필수.*조건", re.I))
+                requirements = ""
+                if requirements_section:
+                    parent = requirements_section.find_parent()
+                    if parent:
+                        next_elem = parent.find_next_sibling()
+                        if next_elem:
+                            requirements = next_elem.get_text(strip=True)[:500]
+
+                # 우대사항 섹션
+                preferred_section = soup.find(string=re.compile(r"우대.*사항|우대.*조건|가점.*사항", re.I))
+                preferred = ""
+                if preferred_section:
+                    parent = preferred_section.find_parent()
+                    if parent:
+                        next_elem = parent.find_next_sibling()
+                        if next_elem:
+                            preferred = next_elem.get_text(strip=True)[:500]
+
+                full_description = "\n".join(description_parts)[:2000]
+
                 return {
-                    "title": title,
-                    "company": company,
-                    "location": location,
-                    "description": description[:500] if description else "",  # 처음 500자만
-                    "url": job_url
+                    "description": full_description if full_description else "",
+                    "tech_stack": tech_stack,
+                    "requirements": requirements,
+                    "preferred": preferred
                 }
-            
+            else:
+                print(f"[잡코리아] 상세 페이지 호출 실패: HTTP {response.status_code}")
+
         except Exception as e:
-            print(f"상세 페이지 크롤링 실패: {str(e)}")
-        
+            print(f"[잡코리아] 상세 페이지 크롤링 실패: {str(e)}")
+
         return None
-    
+
+    async def _crawl_saramin_job_detail(
+        self,
+        client: httpx.AsyncClient,
+        job_url: str
+    ) -> Optional[Dict]:
+        """사람인 채용 공고 상세 페이지 크롤링"""
+        try:
+            await self._wait_if_needed()  # IP 차단 방지
+            response = await client.get(job_url)
+
+            if response.status_code == 200:
+                html = response.text
+                soup = BeautifulSoup(html, "lxml")
+
+                description_parts = []
+
+                # 채용 상세 내용 추출
+                job_content = soup.find("div", class_=re.compile(r".*jv_cont.*|.*job_content.*|.*recruit_content.*", re.I))
+                if job_content:
+                    description_parts.append(job_content.get_text(strip=True)[:1000])
+
+                # 자격요건 찾기
+                requirements_section = soup.find(string=re.compile(r"자격.*요건|지원.*자격|필수.*사항", re.I))
+                requirements = ""
+                if requirements_section:
+                    parent = requirements_section.find_parent()
+                    if parent:
+                        next_elem = parent.find_next_sibling()
+                        if next_elem:
+                            requirements = next_elem.get_text(strip=True)[:500]
+
+                # 우대사항 찾기
+                preferred_section = soup.find(string=re.compile(r"우대.*사항|우대.*조건", re.I))
+                preferred = ""
+                if preferred_section:
+                    parent = preferred_section.find_parent()
+                    if parent:
+                        next_elem = parent.find_next_sibling()
+                        if next_elem:
+                            preferred = next_elem.get_text(strip=True)[:500]
+
+                # 기술스택 추출
+                tech_stack = []
+                skill_tags = soup.find_all("span", class_=re.compile(r".*skill.*|.*tech.*|.*stack.*|.*keyword.*", re.I))
+                for tag in skill_tags:
+                    tag_text = tag.get_text(strip=True)
+                    if tag_text and len(tag_text) < 30:
+                        tech_stack.append(tag_text)
+
+                full_description = "\n".join(description_parts)[:2000]
+
+                return {
+                    "description": full_description if full_description else "",
+                    "tech_stack": tech_stack,
+                    "requirements": requirements,
+                    "preferred": preferred
+                }
+            else:
+                print(f"[사람인] 상세 페이지 호출 실패: HTTP {response.status_code}")
+
+        except Exception as e:
+            print(f"[사람인] 상세 페이지 크롤링 실패: {str(e)}")
+
+        return None
+
     async def crawl_job_site(
         self,
         site_name: str,
@@ -907,6 +1086,26 @@ class WebCrawlerService:
                     job_ids_sample = [(job.get("id", "NO_ID"), job.get("title", "NO_TITLE")[:30]) for job in all_job_listings[:5]]
                     print(f"[잡코리아] 첫 5개 job_id 샘플: {job_ids_sample}")
                 
+
+                    # 각 공고의 상세 정보 가져오기 (모든 공고)
+                    total_jobs = len(all_job_listings)
+                    print(f"[잡코리아] 전체 {total_jobs}개 공고의 상세 정보 가져오기...")
+
+                    for i, job in enumerate(all_job_listings):
+                        job_url = job.get("url", "")
+                        if job_url and "jobkorea.co.kr" in job_url:
+                            detail_info = await self._crawl_jobkorea_job_detail(client, job_url)
+                            if detail_info:
+                                if detail_info.get("description"):
+                                    job["description"] = detail_info["description"]
+                                if detail_info.get("tech_stack"):
+                                    job["tech_stack"] = ",".join(detail_info["tech_stack"])
+                                if detail_info.get("requirements"):
+                                    job["required_skills"] = detail_info["requirements"][:500]
+                                print(f"[잡코리아] ({i+1}/{total_jobs}) {job.get('title', '')[:30]}... 상세 정보 추가 완료")
+
+                    print(f"[잡코리아] 상세 정보 가져오기 완료")
+
                 result = {
                     "success": True,
                     "site": "jobkorea",
@@ -1276,6 +1475,26 @@ class WebCrawlerService:
                 
                 print(f"[사람인] 총 파싱된 공고 수: {len(all_job_listings)} (페이지: {page})")
                 
+
+                # 각 공고의 상세 정보 가져오기 (모든 공고)
+                total_jobs = len(all_job_listings)
+                print(f"[사람인] 전체 {total_jobs}개 공고의 상세 정보 가져오기...")
+
+                for i, job in enumerate(all_job_listings):
+                    job_url = job.get("url", "")
+                    if job_url and "saramin.co.kr" in job_url:
+                        detail_info = await self._crawl_saramin_job_detail(client, job_url)
+                        if detail_info:
+                            if detail_info.get("description"):
+                                job["description"] = detail_info["description"]
+                            if detail_info.get("tech_stack"):
+                                job["tech_stack"] = ",".join(detail_info["tech_stack"])
+                            if detail_info.get("requirements"):
+                                job["required_skills"] = detail_info["requirements"][:500]
+                            print(f"[사람인] ({i+1}/{total_jobs}) {job.get('title', '')[:30]}... 상세 정보 추가 완료")
+
+                print(f"[사람인] 상세 정보 가져오기 완료")
+
                 result = {
                     "success": True,
                     "site": "saramin",

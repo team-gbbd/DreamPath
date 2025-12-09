@@ -5,6 +5,7 @@ from openai import OpenAI
 from services.bigfive.bigfive_service import BigFiveService
 from services.mbti.mbti_service import MBTIService
 from services.rag.rag_service import RAGService
+from config import settings
 
 
 class PersonalityProfileService:
@@ -13,6 +14,7 @@ class PersonalityProfileService:
         if not api_key:
             raise RuntimeError("OPENAI_API_KEY 필요")
         self.client = OpenAI(api_key=api_key)
+        self.model = settings.OPENAI_MODEL
         self.bigfive = BigFiveService()
         self.mbti = MBTIService()
         self.rag = RAGService()
@@ -60,7 +62,7 @@ class PersonalityProfileService:
 """
 
         completion = self.client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=self.model,
             messages=[
                 {"role": "system", "content": "당신은 성향 분석 전문가입니다."},
                 {"role": "user", "content": prompt}

@@ -44,6 +44,16 @@ class AgentStep(BaseModel):
 class ChatResponse(BaseModel):
     sessionId: str
     message: str
+    taskId: Optional[str] = None  # 에이전트 태스크 ID (폴링용)
     agentAction: Optional[AgentAction] = None  # 에이전트 액션 (있을 때만)
     agentSteps: Optional[List[AgentStep]] = None  # ReAct 단계 정보 (시각화용)
+
+
+class AgentTaskResponse(BaseModel):
+    """에이전트 태스크 결과 조회 응답"""
+    taskId: str
+    status: str  # pending, running, completed, failed, skipped
+    agentAction: Optional[AgentAction] = None
+    agentSteps: Optional[List[AgentStep]] = None
+    error: Optional[str] = None
 

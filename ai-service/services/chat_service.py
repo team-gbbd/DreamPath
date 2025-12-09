@@ -10,6 +10,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
 from services.agents import route_message, should_use_agent
+from config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -17,12 +18,13 @@ logger = logging.getLogger(__name__)
 class ChatService:
     """LangChain을 사용한 대화형 진로 상담 서비스"""
 
-    def __init__(self, api_key: str, model: str = "gpt-4o-mini"):
+    def __init__(self, api_key: str, model: str = None):
+        model = model or settings.OPENAI_MODEL
         self.llm = ChatOpenAI(
             api_key=api_key,
             model=model,
             temperature=0.7,
-            max_tokens=150  # 짧은 응답을 위해 토큰 수 제한
+            max_tokens=500  # 응답 생성을 위한 충분한 토큰
         )
         # 기존 agent_integration 제거됨 - ReAct 에이전트가 대체
 
@@ -37,27 +39,20 @@ class ChatService:
         identity_status: Optional[Dict] = None,
     ) -> Dict[str, Any]:
         """
-        대화형 진로 상담 응답을 생성합니다.
-
-        새로운 아키텍처:
-        - 메인 상담: 항상 기본 LLM 사용 (따뜻한 감정적 상담)
-        - 리서치 패널: 에이전트가 도구 사용시 별도로 반환
+        대화형 진로 상담 응답을 생성합니다. (상담만, 에이전트는 백그라운드)
 
         Args:
             session_id: 세션 ID
             user_message: 사용자 메시지
-            current_stage: 현재 대화 단계 (PRESENT, PAST, VALUES, FUTURE, IDENTITY)
-            conversation_history: 대화 이력 (최근 10개 메시지)
-            survey_data: 설문조사 정보 (선택)
-            user_id: 사용자 ID (에이전트 기능용)
-            identity_status: 정체성 상태 (에이전트 기능용)
+            current_stage: 현재 대화 단계
+            conversation_history: 대화 이력
+            survey_data: 설문조사 정보
+            user_id: 사용자 ID
+            identity_status: 정체성 상태
 
         Returns:
-            dict: {"message": str, "agent_action": Optional[dict], "agent_steps": Optional[list]}
+            dict: {"message": str}  # 상담 응답만 반환
         """
-        # ============================================================
-        # 1. 메인 상담 응답 생성 (항상 실행)
-        # ============================================================
         counseling_message = await self._generate_counseling_response(
             user_message=user_message,
             current_stage=current_stage,
@@ -65,12 +60,23 @@ class ChatService:
             survey_data=survey_data,
         )
 
-        # ============================================================
-        # 2. 리서치 에이전트 (병렬 실행 - 도구 필요시에만 반환)
-        # ============================================================
-        agent_action = None
-        agent_steps = None
+        return {
+            "message": counseling_message,
+        }
 
+    async def run_agent_task(
+        self,
+        session_id: str,
+        user_message: str,
+        user_id: Optional[int],
+        conversation_history: List[Dict[str, str]],
+    ) -> Dict[str, Any]:
+        """
+        리서치 에이전트 실행 (백그라운드 태스크용)
+
+        Returns:
+            dict: {"agent_action": dict|None, "agent_steps": list|None, "used_agent": bool}
+        """
         try:
             agent_result = await route_message(
                 message=user_message,
@@ -79,43 +85,34 @@ class ChatService:
                 conversation_history=conversation_history,
             )
 
-            # 에이전트가 도구를 사용한 경우에만 리서치 패널에 추가
             if agent_result.get("used_agent"):
                 tools_used = agent_result.get("tools_used", [])
                 full_result = agent_result.get("agent_result", {})
 
                 if tools_used:
-                    logger.info(f"[ChatService] 리서치 패널에 추가, 도구: {tools_used}")
-                    logger.info(f"[ChatService] full_result 키들: {full_result.keys()}")
-                    logger.info(f"[ChatService] full_result['answer']: {full_result.get('answer', 'NOT FOUND')[:100] if full_result.get('answer') else 'EMPTY'}")
+                    logger.info(f"[ChatService] 리서치 도구 사용: {tools_used}")
 
-                    # 도구 사용 결과를 agent_action으로 변환
                     agent_action = self._build_agent_action_from_tools(
                         tools_used=tools_used,
                         agent_result=full_result,
                     )
 
-                    # 에이전트가 생성한 요약 답변 추가 (LLM이 검색 결과를 요약한 것)
                     if agent_action:
                         agent_answer = full_result.get("answer", "")
-                        logger.info(f"[ChatService] agent_answer 존재: {bool(agent_answer)}, 길이: {len(agent_answer) if agent_answer else 0}")
                         if agent_answer:
                             agent_action["summary"] = agent_answer
-                            logger.info(f"[ChatService] 에이전트 요약 추가 완료: {agent_answer[:50]}...")
 
-                    agent_steps = full_result.get("steps", [])
-                else:
-                    logger.info("[ChatService] 에이전트 FINISH, 리서치 없음")
+                    return {
+                        "agent_action": agent_action,
+                        "agent_steps": full_result.get("steps", []),
+                        "used_agent": True,
+                    }
+
+            return {"agent_action": None, "agent_steps": None, "used_agent": False}
 
         except Exception as e:
-            logger.warning(f"[ChatService] 리서치 에이전트 오류: {e}")
-            # 에이전트 실패해도 상담 응답은 그대로 반환
-
-        return {
-            "message": counseling_message,
-            "agent_action": agent_action,
-            "agent_steps": agent_steps,
-        }
+            logger.error(f"[ChatService] 에이전트 오류: {e}")
+            raise e
 
     async def _generate_counseling_response(
         self,

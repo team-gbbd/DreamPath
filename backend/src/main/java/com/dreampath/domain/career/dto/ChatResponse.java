@@ -30,5 +30,11 @@ public class ChatResponse {
      * 대화 분석 결과 멘토링/학습경로 등을 제안할 때 포함됨
      */
     private AgentAction agentAction;
+
+    /**
+     * 에이전트 태스크 ID (폴링용)
+     * 백그라운드에서 실행 중인 에이전트 결과를 조회할 때 사용
+     */
+    private String taskId;
 }
 
