@@ -94,7 +94,7 @@ export default function BookMentoringPage() {
     // 잔여 횟수가 부족한 경우 (모든 멘토링에 이용권 필요)
     if (remainingSessions < 1) {
       showToast('잔여 멘토링 횟수가 부족합니다. 이용권을 구매해주세요.', 'warning');
-      navigate('/payments/purchase');
+      navigate(`/payments/purchase?returnUrl=${encodeURIComponent(`/mentoring/book/${sessionId}`)}`);
       return;
     }
 
@@ -361,7 +361,7 @@ export default function BookMentoringPage() {
 
                   {remainingSessions < 1 && (
                     <button
-                      onClick={() => navigate('/payments/purchase')}
+                      onClick={() => navigate(`/payments/purchase?returnUrl=${encodeURIComponent(`/mentoring/book/${sessionId}`)}`)}
                       className="w-full mt-4 py-3 bg-orange-500 text-white rounded-lg font-semibold hover:bg-orange-600 transition-colors"
                     >
                       <i className="ri-shopping-cart-line mr-2"></i>
