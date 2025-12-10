@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import Button from '../../components/base/Button';
 import { useToast } from '../../components/common/Toast';
+import Header from '@/components/feature/Header';
 import styles from './dashboard.module.css';
 
 // Dashboard Logic Imports
@@ -51,6 +52,10 @@ interface AnalysisData {
   confidenceScore?: number | null;
   createdAt?: string | null;
   summary?: string | null;
+  strengths?: string[] | null;
+  risks?: string[] | null;
+  goals?: string[] | null;
+  valuesList?: string[] | null; // 가치 텍스트 목록 (values는 점수용)
 }
 
 type ProfileCache = Record<string, { timestamp: number; profile: ProfileData }>;
@@ -420,6 +425,20 @@ export default function NewDashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem("dreampath:user");
+
+    // 챗봇 세션 및 대화 내용 초기화
+    sessionStorage.removeItem("assistant_chatbot_session_id");
+    sessionStorage.removeItem("assistant_chatbot_messages");
+    sessionStorage.removeItem("chatbot_session_id");
+    sessionStorage.removeItem("chatbot_messages");
+    sessionStorage.removeItem("faq_chatbot_session_id");
+    sessionStorage.removeItem("faq_chatbot_messages");
+
+    // 마지막 사용자 ID 초기화 (다음 로그인 시 변경 감지용)
+    localStorage.setItem("assistant_chatbot_last_user_id", "null");
+    localStorage.setItem("chatbot_last_user_id", "null");
+    localStorage.setItem("faq_chatbot_last_user_id", "null");
+
     window.dispatchEvent(new Event("dreampath-auth-change"));
     showToast("로그아웃되었습니다.", "success");
     navigate("/", { replace: true });
@@ -570,7 +589,42 @@ export default function NewDashboard() {
           </p>
         </div>
 
-        <div className="flex gap-3">
+        {/* Goals Section */}
+        {analysisData?.goals && analysisData.goals.length > 0 && (
+          <div className="mt-4 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
+            <h4 className="text-sm font-bold text-indigo-700 mb-3 flex items-center gap-2">
+              <Target size={16} />
+              나의 목표
+            </h4>
+            <ul className="space-y-2">
+              {analysisData.goals.map((goal, idx) => (
+                <li key={idx} className="text-sm text-slate-700 flex items-start gap-2">
+                  <span className="text-indigo-500 mt-0.5">•</span>
+                  <span>{goal}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Values Section */}
+        {analysisData?.valuesList && analysisData.valuesList.length > 0 && (
+          <div className="mt-3 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-100">
+            <h4 className="text-sm font-bold text-purple-700 mb-3 flex items-center gap-2">
+              <Heart size={16} />
+              핵심 가치
+            </h4>
+            <div className="flex flex-wrap gap-2">
+              {analysisData.valuesList.map((value, idx) => (
+                <span key={idx} className="px-3 py-1.5 bg-white text-purple-700 rounded-full text-xs font-medium border border-purple-200 shadow-sm">
+                  {value}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-3 mt-5">
           <button onClick={() => setActiveTab('personality')} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-colors shadow-lg">
             상세 리포트 보기
           </button>
@@ -767,6 +821,50 @@ export default function NewDashboard() {
               : 'MBTI 데이터가 준비되면 이 영역에서 해석을 확인할 수 있습니다.'}
           </p>
         </div>
+
+        {/* Strengths & Risks Cards */}
+        {(analysisData?.strengths && analysisData.strengths.length > 0) || (analysisData?.risks && analysisData.risks.length > 0) ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Strengths Card */}
+            {analysisData?.strengths && analysisData.strengths.length > 0 && (
+              <div className={styles['glass-card']}>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-green-200 rounded-xl flex items-center justify-center">
+                    <Check size={20} className="text-green-600" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800">나의 강점</h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {analysisData.strengths.map((strength, idx) => (
+                    <span key={idx} className="px-3 py-1.5 bg-green-50 text-green-700 rounded-full text-sm font-medium border border-green-200 shadow-sm hover:bg-green-100 transition-colors">
+                      {strength}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Risks Card */}
+            {analysisData?.risks && analysisData.risks.length > 0 && (
+              <div className={styles['glass-card']}>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 bg-gradient-to-br from-amber-100 to-amber-200 rounded-xl flex items-center justify-center">
+                    <AlertCircle size={20} className="text-amber-600" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800">주의할 점</h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {analysisData.risks.map((risk, idx) => (
+                    <span key={idx} className="px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full text-sm font-medium border border-amber-200 shadow-sm hover:bg-amber-100 transition-colors">
+                      {risk}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : null}
+
         {mbtiTraits && (
           <div className={styles['glass-card']}>
             <h3 className="text-lg font-semibold text-gray-800">MBTI 결정 근거</h3>
@@ -812,6 +910,29 @@ export default function NewDashboard() {
           <p className="mt-4 text-sm text-gray-500">가치관 데이터가 없습니다.</p>
         )}
       </div>
+
+      {/* Values Text List Card */}
+      {analysisData?.valuesList && analysisData.valuesList.length > 0 && (
+        <div className={styles['glass-card']}>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-pink-200 rounded-xl flex items-center justify-center">
+              <Heart size={20} className="text-purple-600" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-800">나의 핵심 가치</h3>
+          </div>
+          <p className="text-sm text-slate-600 mb-4">
+            Personality Agent가 분석한 당신의 핵심 가치관입니다.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {analysisData.valuesList.map((value, idx) => (
+              <span key={idx} className="px-4 py-2 bg-gradient-to-r from-purple-50 to-pink-50 text-purple-700 rounded-full text-sm font-medium border border-purple-200 shadow-sm hover:shadow-md hover:scale-105 transition-all">
+                {value}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {valuesDetailData && (
         <div className="grid gap-4 md:grid-cols-3">
           {valuesDetailData.map((value) => (
@@ -1288,103 +1409,12 @@ export default function NewDashboard() {
     </div>
   );
 
-  const navItems = [
-    { name: '진로 상담', href: '/career-chat', isRoute: true },
-    { name: '채용 추천', href: '/job-recommendations', isRoute: true, isDev: true },
-    { name: '멘토링', href: '/mentoring', isRoute: true, requiresAuth: true }
-  ];
-
   return (
     <>
       <ToastContainer />
 
       {/* Main Page Header */}
-      <header className={styles['glass-header']}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <div className="flex items-center space-x-3">
-              <img
-                src="https://static.readdy.ai/image/b6e15883c9875312b01889a8e71bf8cf/ccfcaec324d8c4883819f9f330e8ceab.png"
-                alt="DreamPath Logo"
-                className="h-10 w-10"
-              />
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] bg-clip-text text-transparent">
-                DreamPath
-              </h1>
-            </div>
-
-            {/* Navigation */}
-            <nav className="hidden md:flex items-center space-x-8">
-              {navItems.map((item) => (
-                item.isRoute ? (
-                  item.requiresAuth && !currentUser ? (
-                    <button
-                      key={item.name}
-                      onClick={() => {
-                        showToast('로그인이 필요합니다.', 'warning');
-                        navigate('/login');
-                      }}
-                      className="text-gray-700 hover:text-[#5A7BFF] transition-colors duration-200 font-medium"
-                    >
-                      {item.name}
-                    </button>
-                  ) : (
-                    <Link
-                      key={item.name}
-                      to={item.href}
-                      className={item.isDev
-                        ? "text-blue-600 hover:text-blue-700 transition-colors duration-200 font-semibold"
-                        : "text-gray-700 hover:text-[#5A7BFF] transition-colors duration-200 font-medium"
-                      }
-                    >
-                      {item.name}
-                    </Link>
-                  )
-                ) : (
-                  <a
-                    key={item.name}
-                    href={item.href}
-                    className="text-gray-700 hover:text-[#5A7BFF] transition-colors duration-200 font-medium"
-                  >
-                    {item.name}
-                  </a>
-                )
-              ))}
-            </nav>
-
-            {/* User Actions */}
-            <div className="flex items-center space-x-4">
-              {currentUser ? (
-                <>
-                  <Link to="/profile/dashboard">
-                    <Button variant="secondary" size="sm">
-                      <i className="ri-user-line mr-1"></i>
-                      프로파일링
-                    </Button>
-                  </Link>
-                  <Button size="sm" onClick={handleLogout}>
-                    로그아웃
-                  </Button>
-                </>
-              ) : (
-                <Link to="/login">
-                  <Button size="sm">
-                    로그인하기
-                  </Button>
-                </Link>
-              )}
-            </div>
-
-            {/* Mobile menu button */}
-            <div className="md:hidden">
-              <button className="text-gray-700 hover:text-[#5A7BFF] p-2">
-                <i className="ri-menu-line text-xl"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* Main Dashboard Container */}
       <div className={styles['glass-container']}>
@@ -1567,18 +1597,18 @@ export default function NewDashboard() {
       {/* AI Assistant Chatbot - Floating Button */}
       <button
         onClick={() => setShowAssistantChat(!showAssistantChat)}
-        className="fixed bottom-9 right-9 w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500
+        className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500
              text-white rounded-full shadow-lg flex items-center justify-center
-             hover:scale-105 transition-all z-50 animate-[wiggle_1.5s_ease-in-out_infinite]"
+             hover:scale-110 transition-all z-50 animate-bounce-slow"
         title="AI 비서"
       >
-        <Bot size={40} strokeWidth={2} />
+        <Bot size={32} strokeWidth={2} />
       </button>
 
-      {/* Chat Overlay */}
+      {/* Chat Overlay (배경 클릭 시 닫기) */}
       {showAssistantChat && (
         <div
-          className="fixed inset-0 bg-black/10 backdrop-blur-sm z-60"
+          className="fixed inset-0 z-60"
           onClick={() => setShowAssistantChat(false)}
         ></div>
       )}

@@ -22,8 +22,8 @@ DB_TYPE=${DB_TYPE:-postgres}
 read -p "DB 호스트를 입력하세요 (기본값: aws-1-ap-northeast-1.pooler.supabase.com): " DB_HOST
 DB_HOST=${DB_HOST:-aws-1-ap-northeast-1.pooler.supabase.com}
 
-read -p "DB 포트를 입력하세요 (기본값: 5432): " DB_PORT
-DB_PORT=${DB_PORT:-5432}
+read -p "DB 포트를 입력하세요 (기본값: 6543): " DB_PORT
+DB_PORT=${DB_PORT:-6543}
 
 read -p "DB 이름을 입력하세요 (기본값: postgres): " DB_NAME
 DB_NAME=${DB_NAME:-postgres}

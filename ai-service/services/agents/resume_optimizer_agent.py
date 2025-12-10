@@ -89,8 +89,8 @@ class ResumeOptimizerAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.7,
-                max_tokens=1500
+                temperature=1,
+                max_completion_tokens=1500
             )
 
             result_text = response.choices[0].message.content
@@ -168,8 +168,8 @@ class ResumeOptimizerAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.7,
-                max_tokens=1000
+                temperature=1,
+                max_completion_tokens=1000
             )
 
             result_text = response.choices[0].message.content
@@ -254,8 +254,8 @@ class ResumeOptimizerAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.8,
-                max_tokens=1200
+                temperature=1,
+                max_completion_tokens=1200
             )
 
             result_text = response.choices[0].message.content
@@ -327,8 +327,8 @@ JSON 배열로 15-20개의 키워드를 제공해주세요:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.5,
-                max_tokens=500
+                temperature=1,
+                max_completion_tokens=500
             )
 
             result_text = response.choices[0].message.content

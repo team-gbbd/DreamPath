@@ -59,11 +59,11 @@ public class IdentityService {
             return ctx;
         });
 
-        // 병렬 실행 (2개 API 동시 호출)
+        // 병렬 실행 (2개 API 동시 호출) - sessionId 전달
         CompletableFuture<Map<String, Object>> clarityFuture = CompletableFuture.supplyAsync(() ->
-                pythonIdentityService.assessClarity(context.conversationHistory, context.userId));
+                pythonIdentityService.assessClarity(context.conversationHistory, context.sessionId));
         CompletableFuture<Map<String, Object>> identityFuture = CompletableFuture.supplyAsync(() ->
-                pythonIdentityService.extractIdentity(context.conversationHistory, context.userId));
+                pythonIdentityService.extractIdentity(context.conversationHistory, context.sessionId));
 
         CompletableFuture.allOf(clarityFuture, identityFuture).join();
 
@@ -90,11 +90,11 @@ public class IdentityService {
             return ctx;
         });
 
-        // 병렬 실행 (3개 API 동시 호출)
+        // 병렬 실행 (3개 API 동시 호출) - sessionId 전달
         CompletableFuture<Map<String, Object>> clarityFuture = CompletableFuture.supplyAsync(() ->
-                pythonIdentityService.assessClarity(context.conversationHistory, context.userId));
+                pythonIdentityService.assessClarity(context.conversationHistory, context.sessionId));
         CompletableFuture<Map<String, Object>> identityFuture = CompletableFuture.supplyAsync(() ->
-                pythonIdentityService.extractIdentity(context.conversationHistory, context.userId));
+                pythonIdentityService.extractIdentity(context.conversationHistory, context.sessionId));
         CompletableFuture<Map<String, Object>> insightFuture = CompletableFuture.supplyAsync(() ->
                 pythonIdentityService.generateInsight(recentMessages, context.conversationHistory));
 
@@ -157,10 +157,11 @@ public class IdentityService {
             return false;
         }
 
+        // Python AI 서비스의 판단 요청 (sessionId 전달)
         Map<String, Object> progressResult = pythonIdentityService.assessStageProgress(
             stageContext.conversationHistory,
             stageContext.currentStage,
-            stageContext.userId
+            stageContext.sessionId
         );
 
         try {
@@ -192,30 +193,30 @@ public class IdentityService {
             Map<String, Object> clarityResult,
             Map<String, Object> identityResult,
             Map<String, Object> insightResult) {
-        
+
         try {
             // Clarity 파싱
             int clarity = ((Number) clarityResult.get("clarity")).intValue();
             String clarityReason = (String) clarityResult.get("reason");
-            
+
             // Identity 파싱
             String identityCore = (String) identityResult.getOrDefault("identityCore", "탐색 중...");
             int confidence = ((Number) identityResult.getOrDefault("confidence", 0)).intValue();
             String nextFocus = (String) identityResult.getOrDefault("nextFocus", "");
-            
+
             // Traits 파싱
             List<IdentityStatus.IdentityTrait> traits = new ArrayList<>();
             List<Map<String, Object>> traitsList = (List<Map<String, Object>>) identityResult.get("traits");
             if (traitsList != null) {
                 for (Map<String, Object> traitMap : traitsList) {
                     traits.add(IdentityStatus.IdentityTrait.builder()
-                        .category((String) traitMap.get("category"))
-                        .trait((String) traitMap.get("trait"))
-                        .evidence((String) traitMap.get("evidence"))
-                        .build());
+                            .category((String) traitMap.get("category"))
+                            .trait((String) traitMap.get("trait"))
+                            .evidence((String) traitMap.get("evidence"))
+                            .build());
                 }
             }
-            
+
             // Insights 파싱
             List<String> insights = new ArrayList<>();
             List<Object> insightsList = (List<Object>) identityResult.get("insights");
@@ -224,53 +225,52 @@ public class IdentityService {
                     insights.add(insight.toString());
                 }
             }
-            
+
             // Recent Insight 파싱
             IdentityStatus.RecentInsight recentInsight = null;
             if (insightResult != null) {
                 recentInsight = IdentityStatus.RecentInsight.builder()
-                    .hasInsight((Boolean) insightResult.getOrDefault("hasInsight", false))
-                    .insight((String) insightResult.get("insight"))
-                    .type((String) insightResult.get("type"))
-                    .build();
+                        .hasInsight((Boolean) insightResult.getOrDefault("hasInsight", false))
+                        .insight((String) insightResult.get("insight"))
+                        .type((String) insightResult.get("type"))
+                        .build();
             }
-            
+
             ConversationStage stage = session.getCurrentStage();
-            
+
             return IdentityStatus.builder()
-                .sessionId(session.getSessionId())
-                .currentStage(stage.getDisplayName())
-                .stageDescription(stage.getDescription())
-                .overallProgress(stage.getProgress())
-                .clarity(clarity)
-                .clarityReason(clarityReason)
-                .identityCore(identityCore)
-                .confidence(confidence)
-                .traits(traits)
-                .insights(insights)
-                .nextFocus(nextFocus)
-                .recentInsight(recentInsight)
-                .build();
-                
+                    .sessionId(session.getSessionId())
+                    .currentStage(stage.getDisplayName())
+                    .stageDescription(stage.getDescription())
+                    .overallProgress(stage.getProgress())
+                    .clarity(clarity)
+                    .clarityReason(clarityReason)
+                    .identityCore(identityCore)
+                    .confidence(confidence)
+                    .traits(traits)
+                    .insights(insights)
+                    .nextFocus(nextFocus)
+                    .recentInsight(recentInsight)
+                    .build();
+
         } catch (Exception e) {
             log.error("IdentityStatus 구축 실패", e);
-            
+
             // 기본 응답 반환
             ConversationStage stage = session.getCurrentStage();
             return IdentityStatus.builder()
-                .sessionId(session.getSessionId())
-                .currentStage(stage.getDisplayName())
-                .stageDescription(stage.getDescription())
-                .overallProgress(stage.getProgress())
-                .clarity(0)
-                .clarityReason("분석 중...")
-                .identityCore("탐색 중...")
-                .confidence(0)
-                .traits(new ArrayList<>())
-                .insights(new ArrayList<>())
-                .nextFocus("대화를 계속해주세요")
-                .build();
+                    .sessionId(session.getSessionId())
+                    .currentStage(stage.getDisplayName())
+                    .stageDescription(stage.getDescription())
+                    .overallProgress(stage.getProgress())
+                    .clarity(0)
+                    .clarityReason("분석 중...")
+                    .identityCore("탐색 중...")
+                    .confidence(0)
+                    .traits(new ArrayList<>())
+                    .insights(new ArrayList<>())
+                    .nextFocus("대화를 계속해주세요")
+                    .build();
         }
     }
 }
-

@@ -6,7 +6,7 @@ import { useToast } from "../common/Toast";
 export default function Header() {
   const navigate = useNavigate();
   const { showToast, ToastContainer } = useToast();
-  const [currentUser, setCurrentUser] = useState<{ name: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ name: string; role?: string } | null>(null);
 
   useEffect(() => {
     const syncUser = () => {
@@ -27,6 +27,20 @@ export default function Header() {
 
   const handleLogout = () => {
     localStorage.removeItem("dreampath:user");
+
+    // 챗봇 세션 및 대화 내용 초기화
+    sessionStorage.removeItem("assistant_chatbot_session_id");
+    sessionStorage.removeItem("assistant_chatbot_messages");
+    sessionStorage.removeItem("chatbot_session_id");
+    sessionStorage.removeItem("chatbot_messages");
+    sessionStorage.removeItem("faq_chatbot_session_id");
+    sessionStorage.removeItem("faq_chatbot_messages");
+
+    // 마지막 사용자 ID 초기화 (다음 로그인 시 변경 감지용)
+    localStorage.setItem("assistant_chatbot_last_user_id", "null");
+    localStorage.setItem("chatbot_last_user_id", "null");
+    localStorage.setItem("faq_chatbot_last_user_id", "null");
+
     window.dispatchEvent(new Event("dreampath-auth-change"));
     showToast("로그아웃되었습니다.", "success");
     navigate("/", { replace: true });
@@ -99,10 +113,10 @@ export default function Header() {
             <div className="flex items-center space-x-4">
               {currentUser ? (
                 <>
-                  <Link to="/profile/dashboard">
+                  <Link to={currentUser.role === 'ADMIN' ? '/admin' : '/profile/dashboard'}>
                     <Button variant="secondary" size="sm">
-                      <i className="ri-user-line mr-1"></i>
-                      프로파일링
+                      <i className={currentUser.role === 'ADMIN' ? 'ri-dashboard-line mr-1' : 'ri-user-line mr-1'}></i>
+                      {currentUser.role === 'ADMIN' ? '대시보드' : '프로파일링'}
                     </Button>
                   </Link>
                   <Button size="sm" onClick={handleLogout}>

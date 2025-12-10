@@ -11,10 +11,7 @@ import ChatInput from "../shared/ChatInput";
 import InquiryForm, { InquiryData } from "../shared/InquiryForm";
 import { BACKEND_BASE_URL } from "@/lib/api";
 
-// 페이지 로드 시 sessionStorage 초기화
-if (typeof window !== "undefined") {
-  sessionStorage.removeItem("assistant_chatbot_session_id");
-}
+// sessionStorage는 탭을 닫을 때만 초기화됨 (새로고침/페이지 이동 시 유지)
 
 interface Message {
   role: "user" | "assistant";
@@ -50,15 +47,78 @@ export default function AssistantChatbot({
   const [showInquiryForm, setShowInquiryForm] = useState(false);
 
   const chatRef = useRef<HTMLDivElement>(null);
+  const lastUserIdRef = useRef<string | null>(null);
 
-  // 세션 초기화 및 복원
+  // 세션 및 대화 내용 복원
   useEffect(() => {
-    const savedSessionId = sessionStorage.getItem(
-      "assistant_chatbot_session_id"
-    );
-    if (savedSessionId) {
-      setSessionId(savedSessionId);
+    const currentUserId = getUserId();
+    const lastUserId = localStorage.getItem("assistant_chatbot_last_user_id");
+
+    // 사용자 변경 감지
+    if (String(currentUserId) !== lastUserId) {
+      console.log("👤 사용자 변경 감지 - Assistant 챗봇 세션 초기화");
+      sessionStorage.removeItem("assistant_chatbot_session_id");
+      sessionStorage.removeItem("assistant_chatbot_messages");
+      setSessionId(null);
+      setMessages([]);
+      localStorage.setItem("assistant_chatbot_last_user_id", String(currentUserId));
+    } else {
+      const savedSessionId = sessionStorage.getItem(
+        "assistant_chatbot_session_id"
+      );
+      const savedMessages = sessionStorage.getItem(
+        "assistant_chatbot_messages"
+      );
+
+      if (savedSessionId) {
+        setSessionId(savedSessionId);
+      }
+      if (savedMessages) {
+        try {
+          setMessages(JSON.parse(savedMessages));
+        } catch (e) {
+          console.error("대화 내용 복원 실패:", e);
+        }
+      }
     }
+
+    lastUserIdRef.current = String(currentUserId);
+  }, []);
+
+  // 대화 내용 변경 시 sessionStorage에 저장
+  useEffect(() => {
+    if (messages.length > 0) {
+      sessionStorage.setItem(
+        "assistant_chatbot_messages",
+        JSON.stringify(messages)
+      );
+    }
+  }, [messages]);
+
+  // 로그인/로그아웃 이벤트 감지 (즉시 반응)
+  useEffect(() => {
+    const handleAuthChange = () => {
+      const currentUserId = getUserId();
+      const currentUserIdStr = String(currentUserId);
+      const lastUserIdStr = lastUserIdRef.current;
+
+      // 사용자가 실제로 변경된 경우에만 초기화
+      if (lastUserIdStr !== null && lastUserIdStr !== currentUserIdStr) {
+        console.log("👤 로그인/로그아웃 감지 - Assistant 챗봇 세션 초기화", { from: lastUserIdStr, to: currentUserIdStr });
+        sessionStorage.removeItem("assistant_chatbot_session_id");
+        sessionStorage.removeItem("assistant_chatbot_messages");
+        setSessionId(null);
+        setMessages([]);
+        setSelectedCategory(null);
+        setFaqList([]);
+      }
+
+      localStorage.setItem("assistant_chatbot_last_user_id", currentUserIdStr);
+      lastUserIdRef.current = currentUserIdStr;
+    };
+
+    window.addEventListener("dreampath-auth-change", handleAuthChange);
+    return () => window.removeEventListener("dreampath-auth-change", handleAuthChange);
   }, []);
 
   // 자동 스크롤
@@ -119,7 +179,7 @@ export default function AssistantChatbot({
   }, [selectedCategory]);
 
   // 메시지 전송
-  const handleSend = async (text?: string) => {
+  const handleSend = async (text?: string, functionName?: string) => {
     const userMsg = text ?? input.trim();
     if (!userMsg) return;
 
@@ -139,6 +199,7 @@ export default function AssistantChatbot({
         sessionId,
         message: userMsg,
         conversationTitle: sessionId ? undefined : userMsg.slice(0, 20),
+        functionName,  // FAQ 직접 호출용
       });
 
       if (!sessionId) setSessionId(res.session);
@@ -160,9 +221,9 @@ export default function AssistantChatbot({
     }
   };
 
-  // FAQ 클릭 시
-  const sendFaq = async (question: string) => {
-    await handleSend(question);
+  // FAQ 클릭 시 (function_name 포함)
+  const sendFaq = async (question: string, functionName?: string) => {
+    await handleSend(question, functionName);
   };
 
   // 문의하기 버튼 클릭
@@ -235,9 +296,9 @@ export default function AssistantChatbot({
       <div className="flex items-center justify-between px-4 py-3 bg-white border-b">
         <div className="flex items-center gap-2">
           <span className="text-xl">✨</span>
-          <span className="font-semibold">AI 비서와 대화 중 ···</span>
+          <span className="font-semibold">AI 챗봇 비서와 대화 중 ···</span>
           <span className="text-xs bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-0.5 rounded-full">
-            회원 전용
+            Assistant
           </span>
         </div>
         <button
@@ -252,7 +313,7 @@ export default function AssistantChatbot({
       <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-2">
         {/* 인사말 */}
         <div className="max-w-[78%] bg-white text-gray-1000 px-4 py-2 rounded-2xl rounded-bl-none shadow-sm text-[14px] leading-relaxed">
-          <p>안녕하세요! DreamPath AI 비서입니다✨</p>
+          <p>안녕하세요! DreamPath AI 챗봇 비서입니다✨</p>
           <p>
             멘토링 예약, 진로 추천 결과 등 서비스 관련 궁금한 내용을 모두
             물어보세요!
@@ -289,7 +350,7 @@ export default function AssistantChatbot({
             {faqList.map((q) => (
               <button
                 key={q.id}
-                onClick={() => sendFaq(q.question)}
+                onClick={() => sendFaq(q.question, q.function_name)}
                 className="bg-white inline-flex items-center py-3 px-3 text-sm rounded-xl shadow hover:bg-gray-100"
               >
                 {q.question}

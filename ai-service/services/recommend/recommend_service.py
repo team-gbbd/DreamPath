@@ -129,12 +129,12 @@ class RecommendService:
             
             # type filter mapping
             type_mapping = {
-                "major_vector": ("department", "univ_list"),
-                "school_vector": ("school", "high_list"), 
+                "major_vector": ("major", None),
+                "school_vector": ("school", None), 
                 "worknet_vector": ("worknet", None),
                 "case_vector": ("counsel", None)
             }
-            metadata_type, gubun = type_mapping.get(namespace, (namespace.replace("_vector", ""), None))
+            metadata_type, _ = type_mapping.get(namespace, (namespace.replace("_vector", ""), None))
             
             fetch_k = top_k * 5
             result = self.index.query(
@@ -147,66 +147,30 @@ class RecommendService:
             items = []
             seen_titles = set()
             
-            careernet_data = {}
-            if gubun and result.matches:
-                try:
-                    from services.ingest.careernet_client import CareerNetClient
-                    client = CareerNetClient()
-                    all_data = client.get_major_list(page_index=1, page_size=100, gubun=gubun)
-                    
-                    id_field = 'majorSeq' if gubun == 'univ_list' else 'seq'
-                    title_field = 'mClass' if gubun == 'univ_list' else 'schoolName'
-                    
-                    careernet_data = {item.get(id_field): item for item in all_data if item.get(id_field)}
-                    print(f"[DEBUG] Fetched {len(careernet_data)} {gubun} records from CareerNet API")
-                except Exception as e:
-                    print(f"[ERROR] Error fetching CareerNet data: {e}")
-            
             for match in result.matches:
                 original_id = match.metadata.get("original_id")
-                
-                title = ""
-                if original_id and original_id in careernet_data:
-                    cn_data = careernet_data[original_id]
-                    title = cn_data.get(title_field, '')
-                    
-                    item = {
-                        "id": match.id,
-                        "title": title,
-                        "score": float(match.score),
-                        "metadata": {
-                            **match.metadata,
-                            "deptName": cn_data.get('mClass', ''),
-                            "schoolName": cn_data.get('schoolName', ''),
-                            "lClass": cn_data.get('lClass', ''),
-                            "summary": cn_data.get('summary', ''),
-                            "job": cn_data.get('job', ''),
-                            "subject": cn_data.get('subject', ''),
-                            "region": cn_data.get('region', ''),
-                            "adres": cn_data.get('adres', ''),
-                            "link": cn_data.get('link', '')
-                        }
-                    }
-                else:
-                    item = {
-                        "id": match.id,
-                        "title": "",
-                        "score": float(match.score),
-                        "metadata": match.metadata
-                    }
-                
-                final_title = item["title"]
-                if final_title:
-                    final_title = final_title.strip()
-                
-                print(f"[DEBUG] Processing item: id={item['id']}, title='{final_title}'")
+                metadata = match.metadata or {}
+                title = (
+                    metadata.get("majorName")
+                    or metadata.get("deptName")
+                    or metadata.get("schoolName")
+                    or metadata.get("title")
+                    or ""
+                )
+                final_title = title.strip()
                 
                 if final_title and final_title in seen_titles:
-                    print(f"[DEBUG] Duplicate found: {final_title}")
                     continue
                 
                 if final_title:
                     seen_titles.add(final_title)
+                
+                item = {
+                    "id": match.id,
+                    "title": final_title,
+                    "score": float(match.score),
+                    "metadata": metadata
+                }
                 
                 items.append(item)
                 

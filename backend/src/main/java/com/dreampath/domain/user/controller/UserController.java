@@ -3,6 +3,7 @@ package com.dreampath.domain.user.controller;
 import com.dreampath.domain.user.dto.user.UpdateUserRequest;
 import com.dreampath.domain.user.dto.user.UserProfileResponse;
 import com.dreampath.domain.user.entity.User;
+import com.dreampath.global.enums.Role;
 import com.dreampath.global.exception.ResourceNotFoundException;
 import com.dreampath.domain.user.repository.UserRepository;
 import jakarta.validation.Valid;
@@ -10,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 /**
  * 사용자 정보 관련 컨트롤러
@@ -85,5 +88,55 @@ public class UserController {
         log.info("사용자 정보 수정 완료 - userId: {}", userId);
 
         return ResponseEntity.ok(UserProfileResponse.from(updatedUser));
+    }
+
+    /**
+     * 사용자 역할 변경 (관리자용)
+     * PATCH /api/users/{userId}/role
+     */
+    @PatchMapping("/{userId}/role")
+    public ResponseEntity<?> updateUserRole(
+            @PathVariable Long userId,
+            @RequestBody Map<String, String> request) {
+        log.info("사용자 역할 변경 - userId: {}, role: {}", userId, request.get("role"));
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+
+        String roleStr = request.get("role");
+        try {
+            Role role = Role.valueOf(roleStr);
+            user.setRole(role);
+            User updatedUser = userRepository.save(user);
+            log.info("사용자 역할 변경 완료 - userId: {}, role: {}", userId, role);
+            return ResponseEntity.ok(updatedUser);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body("Invalid role: " + roleStr);
+        }
+    }
+
+    /**
+     * 사용자 활성화/비활성화 (관리자용)
+     * PATCH /api/users/{userId}/status
+     */
+    @PatchMapping("/{userId}/status")
+    public ResponseEntity<?> updateUserStatus(
+            @PathVariable Long userId,
+            @RequestBody Map<String, Boolean> request) {
+        log.info("사용자 상태 변경 - userId: {}, isActive: {}", userId, request.get("isActive"));
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+
+        Boolean isActive = request.get("isActive");
+        if (isActive == null) {
+            return ResponseEntity.badRequest().body("isActive is required");
+        }
+
+        user.setIsActive(isActive);
+        User updatedUser = userRepository.save(user);
+        log.info("사용자 상태 변경 완료 - userId: {}, isActive: {}", userId, isActive);
+
+        return ResponseEntity.ok(updatedUser);
     }
 }

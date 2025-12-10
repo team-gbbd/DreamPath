@@ -46,8 +46,8 @@ class OpenAIService:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                temperature=0.7,
-                max_tokens=2000
+                temperature=1,
+                max_completion_tokens=2000
             )
             
             return response.choices[0].message.content

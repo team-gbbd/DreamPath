@@ -97,8 +97,8 @@ class CareerGrowthAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.7,
-                max_tokens=1500
+                temperature=1,
+                max_completion_tokens=1500
             )
 
             result_text = response.choices[0].message.content
@@ -172,8 +172,8 @@ class CareerGrowthAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.7,
-                max_tokens=1000
+                temperature=1,
+                max_completion_tokens=1000
             )
 
             result_text = response.choices[0].message.content
@@ -242,8 +242,8 @@ class CareerGrowthAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.7,
-                max_tokens=1200
+                temperature=1,
+                max_completion_tokens=1200
             )
 
             result_text = response.choices[0].message.content
@@ -303,8 +303,8 @@ class CareerGrowthAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.7,
-                max_tokens=800
+                temperature=1,
+                max_completion_tokens=800
             )
 
             result_text = response.choices[0].message.content
