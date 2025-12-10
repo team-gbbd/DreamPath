@@ -1,16 +1,15 @@
 import os
 from openai import OpenAI
 from typing import List, Dict, Any
-from config import settings
 
 
 class RagAnswerService:
     def __init__(self):
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        self.model = settings.OPENAI_MODEL
 
     def generate_answer(self, question: str, matches: List[Dict[str, Any]]) -> str:
         """FAQ 전용 답변 생성 메서드"""
+
         # FAQ 형식으로 context 생성
         context = []
 
@@ -63,12 +62,13 @@ class RagAnswerService:
 참고 정보:
 {context_str}
 
-사용자 질문: {question}
-"""
+User Question: {question}
+
+Answer (FAQ 정보를 기반으로 자연스럽게 답변):"""
 
         try:
             response = self.client.chat.completions.create(
-                model=self.model,
+                model="gpt-4o-mini",
                 messages=[
                     {"role": "user", "content": prompt}
                 ]

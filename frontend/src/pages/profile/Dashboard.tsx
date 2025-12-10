@@ -13,7 +13,7 @@ import styles from './dashboard.module.css';
 import ValuesSummaryCard from '@/components/profile/ValuesSummaryCard';
 import ValueDetailCard from '@/components/profile/ValueDetailCard';
 import HybridJobRecommendPanel from '@/components/profile/HybridJobRecommendPanel';
-import AssistantChatbot from '@/components/chatbot/AssistantChatbot';
+import AssistantChatbot from "@/components/chatbot/AssistantChatbot";
 import MajorRecommendPanel from '@/components/profile/MajorRecommendPanel';
 import CounselRecommendPanel from '@/components/profile/CounselRecommendPanel';
 import { BACKEND_BASE_URL, backendApi, bookingService, paymentService, mentorService } from '@/lib/api';
@@ -51,6 +51,10 @@ interface AnalysisData {
   confidenceScore?: number | null;
   createdAt?: string | null;
   summary?: string | null;
+  strengths?: string[] | null;
+  risks?: string[] | null;
+  goals?: string[] | null;
+  valuesList?: string[] | null; // 가치 텍스트 목록 (values는 점수용)
 }
 
 type ProfileCache = Record<string, { timestamp: number; profile: ProfileData }>;
@@ -556,7 +560,42 @@ export default function NewDashboard() {
           </p>
         </div>
 
-        <div className="flex gap-3">
+        {/* Goals Section */}
+        {analysisData?.goals && analysisData.goals.length > 0 && (
+          <div className="mt-4 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
+            <h4 className="text-sm font-bold text-indigo-700 mb-3 flex items-center gap-2">
+              <Target size={16} />
+              나의 목표
+            </h4>
+            <ul className="space-y-2">
+              {analysisData.goals.map((goal, idx) => (
+                <li key={idx} className="text-sm text-slate-700 flex items-start gap-2">
+                  <span className="text-indigo-500 mt-0.5">•</span>
+                  <span>{goal}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Values Section */}
+        {analysisData?.valuesList && analysisData.valuesList.length > 0 && (
+          <div className="mt-3 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-100">
+            <h4 className="text-sm font-bold text-purple-700 mb-3 flex items-center gap-2">
+              <Heart size={16} />
+              핵심 가치
+            </h4>
+            <div className="flex flex-wrap gap-2">
+              {analysisData.valuesList.map((value, idx) => (
+                <span key={idx} className="px-3 py-1.5 bg-white text-purple-700 rounded-full text-xs font-medium border border-purple-200 shadow-sm">
+                  {value}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-3 mt-5">
           <button onClick={() => setActiveTab('personality')} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-colors shadow-lg">
             상세 리포트 보기
           </button>
@@ -753,6 +792,50 @@ export default function NewDashboard() {
               : 'MBTI 데이터가 준비되면 이 영역에서 해석을 확인할 수 있습니다.'}
           </p>
         </div>
+
+        {/* Strengths & Risks Cards */}
+        {(analysisData?.strengths && analysisData.strengths.length > 0) || (analysisData?.risks && analysisData.risks.length > 0) ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Strengths Card */}
+            {analysisData?.strengths && analysisData.strengths.length > 0 && (
+              <div className={styles['glass-card']}>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-green-200 rounded-xl flex items-center justify-center">
+                    <Check size={20} className="text-green-600" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800">나의 강점</h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {analysisData.strengths.map((strength, idx) => (
+                    <span key={idx} className="px-3 py-1.5 bg-green-50 text-green-700 rounded-full text-sm font-medium border border-green-200 shadow-sm hover:bg-green-100 transition-colors">
+                      {strength}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Risks Card */}
+            {analysisData?.risks && analysisData.risks.length > 0 && (
+              <div className={styles['glass-card']}>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 bg-gradient-to-br from-amber-100 to-amber-200 rounded-xl flex items-center justify-center">
+                    <AlertCircle size={20} className="text-amber-600" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-800">주의할 점</h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {analysisData.risks.map((risk, idx) => (
+                    <span key={idx} className="px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full text-sm font-medium border border-amber-200 shadow-sm hover:bg-amber-100 transition-colors">
+                      {risk}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : null}
+
         {mbtiTraits && (
           <div className={styles['glass-card']}>
             <h3 className="text-lg font-semibold text-gray-800">MBTI 결정 근거</h3>
@@ -798,6 +881,29 @@ export default function NewDashboard() {
           <p className="mt-4 text-sm text-gray-500">가치관 데이터가 없습니다.</p>
         )}
       </div>
+
+      {/* Values Text List Card */}
+      {analysisData?.valuesList && analysisData.valuesList.length > 0 && (
+        <div className={styles['glass-card']}>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-pink-200 rounded-xl flex items-center justify-center">
+              <Heart size={20} className="text-purple-600" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-800">나의 핵심 가치</h3>
+          </div>
+          <p className="text-sm text-slate-600 mb-4">
+            Personality Agent가 분석한 당신의 핵심 가치관입니다.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {analysisData.valuesList.map((value, idx) => (
+              <span key={idx} className="px-4 py-2 bg-gradient-to-r from-purple-50 to-pink-50 text-purple-700 rounded-full text-sm font-medium border border-purple-200 shadow-sm hover:shadow-md hover:scale-105 transition-all">
+                {value}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {valuesDetailData && (
         <div className="grid gap-4 md:grid-cols-3">
           {valuesDetailData.map((value) => (
