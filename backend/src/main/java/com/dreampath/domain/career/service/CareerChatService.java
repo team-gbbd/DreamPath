@@ -1,5 +1,8 @@
 package com.dreampath.domain.career.service;
 
+import com.dreampath.domain.agent.personality.dto.PersonalityAgentRequest;
+import com.dreampath.domain.agent.personality.dto.PersonalityAgentResponse;
+import com.dreampath.domain.agent.personality.service.PersonalityAgentService;
 import com.dreampath.domain.career.dto.AgentAction;
 import com.dreampath.domain.career.dto.ChatRequest;
 import com.dreampath.domain.career.dto.ChatResponse;
@@ -15,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,7 +30,7 @@ import java.util.stream.Collectors;
 
 /**
  * 진로 상담 채팅 서비스
- * 
+ *
  * 4단계 대화 프로세스를 통해 학생의 진로 정체성을 점진적으로 확립합니다.
  * Python AI 서비스의 LangChain 기반 채팅 기능을 사용합니다.
  */
@@ -38,124 +42,183 @@ public class CareerChatService {
     private final CareerSessionRepository sessionRepository;
     private final ChatMessageRepository messageRepository;
     private final PythonChatService pythonChatService;
+    private final PersonalityAgentService personalityAgentService;
+    private final TransactionTemplate txTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Transactional
     public ChatResponse chat(ChatRequest request) {
         log.info("채팅 요청 - 세션: {}, 사용자: {}", request.getSessionId(), request.getUserId());
 
-        // 세션 찾기 또는 생성
-        CareerSession session = getOrCreateSession(request.getSessionId(), request.getUserId());
+        // 1단계: 세션 조회 및 사용자 메시지 저장 (트랜잭션 1)
+        ChatContext context = txTemplate.execute(status -> {
+            CareerSession session = getOrCreateSession(request.getSessionId(), request.getUserId());
 
-        // 설문조사가 완료되지 않았다면 설문조사 완료 요청 메시지 반환
-        // (정체성 상태는 컨트롤러에서 처리)
-        if (session.getSurveyCompleted() == null || !session.getSurveyCompleted()) {
+            ChatContext ctx = new ChatContext();
+            ctx.sessionId = session.getSessionId();
+
+            if (session.getSurveyCompleted() == null || !session.getSurveyCompleted()) {
+                ctx.surveyIncomplete = true;
+                return ctx;
+            }
+
+            ChatMessage userMessage = ChatMessage.builder()
+                    .session(session)
+                    .role(ChatMessage.MessageRole.USER)
+                    .content(request.getMessage())
+                    .build();
+            messageRepository.save(userMessage);
+            session.getMessages().add(userMessage);
+            session.setStageMessageCount(session.getStageMessageCount() + 1);
+            sessionRepository.save(session);
+
+            ctx.currentStage = session.getCurrentStage().name();
+            ctx.conversationHistory = session.getMessages().stream()
+                    .map(msg -> {
+                        Map<String, String> message = new HashMap<>();
+                        message.put("role", msg.getRole().name());
+                        message.put("content", msg.getContent());
+                        return message;
+                    })
+                    .collect(Collectors.toList());
+
+            if (session.getSurveyData() != null) {
+                try {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> parsed = objectMapper.readValue(session.getSurveyData(), Map.class);
+                    ctx.surveyData = parsed;
+                } catch (Exception e) {
+                    log.warn("설문조사 데이터 파싱 실패: {}", e.getMessage());
+                }
+            }
+
+            if (request.getUserId() != null && !request.getUserId().isEmpty()) {
+                try {
+                    ctx.userIdLong = Long.parseLong(request.getUserId());
+                } catch (NumberFormatException e) {
+                    log.warn("userId 파싱 실패: {}", request.getUserId());
+                }
+            }
+
+            if (request.getIdentityStatus() != null) {
+                ctx.identityStatusMap = objectMapper.convertValue(request.getIdentityStatus(), Map.class);
+            }
+
+            // 사용자 메시지 수 저장 (PersonalityAgent 트리거용)
+            ctx.userMessageCount = session.getMessages().stream()
+                    .filter(msg -> msg.getRole() == ChatMessage.MessageRole.USER)
+                    .count();
+
+            return ctx;
+        });
+
+        if (context.surveyIncomplete) {
             return ChatResponse.builder()
-                    .sessionId(session.getSessionId())
+                    .sessionId(context.sessionId)
                     .message("먼저 간단한 설문조사를 진행해주세요. 설문조사는 /api/chat/survey 엔드포인트를 통해 제출할 수 있습니다.")
                     .role("assistant")
                     .timestamp(System.currentTimeMillis())
                     .build();
         }
-        
-        // 사용자 메시지 저장
-        ChatMessage userMessage = ChatMessage.builder()
-                .session(session)
-                .role(ChatMessage.MessageRole.USER)
-                .content(request.getMessage())
-                .build();
-        messageRepository.save(userMessage);
-        session.getMessages().add(userMessage);
 
-        // 단계별 메시지 카운트 증가
-        session.setStageMessageCount(session.getStageMessageCount() + 1);
-
-        // 대화 이력을 Python AI 서비스 형식으로 변환
-        List<Map<String, String>> conversationHistory = session.getMessages().stream()
-                .map(msg -> {
-                    Map<String, String> message = new HashMap<>();
-                    message.put("role", msg.getRole().name());
-                    message.put("content", msg.getContent());
-                    return message;
-                })
-                .collect(Collectors.toList());
-        
-        // 설문조사 정보 파싱
-        Map<String, Object> surveyData = null;
-        if (session.getSurveyData() != null) {
-            try {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> parsed = objectMapper.readValue(session.getSurveyData(), Map.class);
-                surveyData = parsed;
-            } catch (Exception e) {
-                log.warn("설문조사 데이터 파싱 실패: {}", e.getMessage());
-            }
-        }
-
-        // userId를 Long으로 변환 (nullable)
-        Long userIdLong = null;
-        if (request.getUserId() != null && !request.getUserId().isEmpty()) {
-            try {
-                userIdLong = Long.parseLong(request.getUserId());
-            } catch (NumberFormatException e) {
-                log.warn("userId 파싱 실패: {}", request.getUserId());
-            }
-        }
-
-        // identityStatus를 Map으로 변환
-        Map<String, Object> identityStatusMap = null;
-        if (request.getIdentityStatus() != null) {
-            identityStatusMap = objectMapper.convertValue(request.getIdentityStatus(), Map.class);
-        }
-
-        // Python AI 서비스의 LangChain을 통해 응답 생성
+        // 2단계: AI 서비스 호출 (트랜잭션 없음)
         Map<String, Object> aiResult = pythonChatService.generateChatResponse(
-            session.getSessionId(),
+            context.sessionId,
             request.getMessage(),
-            session.getCurrentStage().name(),
-            conversationHistory,
-            surveyData,
-            userIdLong,
-            identityStatusMap
+            context.currentStage,
+            context.conversationHistory,
+            context.surveyData,
+            context.userIdLong,
+            context.identityStatusMap
         );
 
-        String aiResponse = (String) aiResult.get("message");
+        // 3단계: AI 응답 저장 (트랜잭션 2)
+        return txTemplate.execute(status -> {
+            CareerSession session = sessionRepository.findBySessionId(context.sessionId)
+                    .orElseThrow(() -> new RuntimeException("세션을 찾을 수 없습니다."));
 
-        // AI 응답 저장
-        ChatMessage assistantMessage = ChatMessage.builder()
-                .session(session)
-                .role(ChatMessage.MessageRole.ASSISTANT)
-                .content(aiResponse)
-                .build();
-        messageRepository.save(assistantMessage);
-        session.getMessages().add(assistantMessage);
+            String aiResponse = (String) aiResult.get("message");
 
-        sessionRepository.save(session);
+            ChatMessage assistantMessage = ChatMessage.builder()
+                    .session(session)
+                    .role(ChatMessage.MessageRole.ASSISTANT)
+                    .content(aiResponse)
+                    .build();
+            messageRepository.save(assistantMessage);
+            session.getMessages().add(assistantMessage);
+            sessionRepository.save(session);
 
-        // AgentAction 변환
-        AgentAction agentAction = convertToAgentAction(aiResult.get("agentAction"));
+            AgentAction agentAction = convertToAgentAction(aiResult.get("agentAction"));
+            String taskId = (String) aiResult.get("taskId");
 
-        log.info("응답 생성 완료 - 세션: {}, 단계: {}, 메시지 수: {}, 에이전트액션: {}",
-            session.getSessionId(),
-            session.getCurrentStage().getDisplayName(),
-            session.getStageMessageCount(),
-            agentAction != null ? agentAction.getType() : "없음");
+            log.info("응답 생성 완료 - 세션: {}, 단계: {}, 메시지 수: {}, 에이전트액션: {}, taskId: {}",
+                session.getSessionId(),
+                session.getCurrentStage().getDisplayName(),
+                session.getStageMessageCount(),
+                agentAction != null ? agentAction.getType() : "없음",
+                taskId);
 
-        // taskId 추출 (백그라운드 에이전트 폴링용)
-        String taskId = (String) aiResult.get("taskId");
+            // Personality Agent 트리거 체크 (사용자 메시지 12개 이상)
+            Object personalityAgentResult = null;
+            if (context.userMessageCount >= 12) {
+                try {
+                    log.info("Personality Agent 트리거 조건 충족: {} user messages", context.userMessageCount);
+                    PersonalityAgentRequest agentRequest = PersonalityAgentRequest.builder()
+                            .sessionId(session.getSessionId())
+                            .build();
 
-        return ChatResponse.builder()
-                .sessionId(session.getSessionId())
-                .message(aiResponse)
-                .role("assistant")
-                .timestamp(System.currentTimeMillis())
-                .agentAction(agentAction)
-                .taskId(taskId)
-                .build();
+                    PersonalityAgentResponse agentResponse = personalityAgentService.run(agentRequest);
+                    if (agentResponse != null) {
+                        personalityAgentResult = agentResponse;
+                        log.info("Personality Agent 결과 생성 완료: summary={}, mbti={}",
+                                agentResponse.getSummary() != null
+                                        ? agentResponse.getSummary().substring(0, Math.min(50, agentResponse.getSummary().length())) + "..."
+                                        : "null",
+                                agentResponse.getMbti());
+                    }
+                } catch (Exception e) {
+                    log.error("Personality Agent 실행 실패 (무시됨): {}", e.getMessage(), e);
+                }
+            }
+
+            return ChatResponse.builder()
+                    .sessionId(session.getSessionId())
+                    .message(aiResponse)
+                    .role("assistant")
+                    .timestamp(System.currentTimeMillis())
+                    .agentAction(agentAction)
+                    .taskId(taskId)
+                    .personalityAgentResult(personalityAgentResult)
+                    .build();
+        });
     }
 
-    @Transactional
+    /**
+     * AI 호출에 필요한 컨텍스트 정보를 담는 내부 클래스
+     */
+    private static class ChatContext {
+        String sessionId;
+        String currentStage;
+        List<Map<String, String>> conversationHistory;
+        Map<String, Object> surveyData;
+        Long userIdLong;
+        Map<String, Object> identityStatusMap;
+        boolean surveyIncomplete = false;
+        long userMessageCount = 0;
+    }
+
     public CareerSession getOrCreateSession(String sessionId, String userId) {
+        return getOrCreateSession(sessionId, userId, false);
+    }
+
+    /**
+     * 세션 조회 또는 생성 (forceNew 옵션 지원)
+     */
+    @Transactional
+    public CareerSession getOrCreateSession(String sessionId, String userId, boolean forceNewSession) {
+        if (forceNewSession) {
+            return createNewSession(userId);
+        }
+
         if (sessionId != null && !sessionId.isBlank()) {
             return sessionRepository.findBySessionId(sessionId)
                     .orElseGet(() -> createNewSession(userId));
@@ -177,17 +240,18 @@ public class CareerChatService {
                 .status(CareerSession.SessionStatus.ACTIVE)
                 .messages(new ArrayList<>())
                 .build();
-        log.info("새 세션 생성 - ID: {}, 초기 단계: {}", 
-            session.getSessionId(), 
-            session.getCurrentStage().getDisplayName());
+
+        log.info("새 세션 생성 - ID: {}, 초기 단계: {}",
+                session.getSessionId(),
+                session.getCurrentStage().getDisplayName());
+
         return sessionRepository.save(session);
     }
 
     @Transactional(readOnly = true)
     public List<ChatResponse> getSessionHistory(String sessionId) {
-
-        // 🚀 세션이 없으면 그냥 빈 리스트 반환 (오류 X)
-        CareerSession session = sessionRepository.findBySessionId(sessionId)
+        // JOIN FETCH로 메시지까지 함께 조회 (Lazy loading 이슈 방지)
+        CareerSession session = sessionRepository.findBySessionIdWithMessages(sessionId)
                 .orElse(null);
 
         if (session == null) {
@@ -195,15 +259,16 @@ public class CareerChatService {
         }
 
         return session.getMessages().stream()
+                .sorted((m1, m2) -> m1.getTimestamp().compareTo(m2.getTimestamp()))
                 .map(msg -> ChatResponse.builder()
                         .sessionId(sessionId)
                         .message(msg.getContent())
                         .role(msg.getRole().name().toLowerCase())
-                        .timestamp(msg.getTimestamp().atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli())
+                        .timestamp(msg.getTimestamp().atZone(java.time.ZoneId.systemDefault())
+                                .toInstant().toEpochMilli())
                         .build())
                 .collect(Collectors.toList());
     }
-
 
     /**
      * 세션의 전체 대화 내용을 텍스트로 반환
@@ -211,18 +276,23 @@ public class CareerChatService {
      */
     @Transactional(readOnly = true)
     public String getConversationHistory(String sessionId) {
+        log.info("getConversationHistory called: sessionId={}", sessionId);
+
         CareerSession session = sessionRepository.findBySessionId(sessionId)
                 .orElseThrow(() -> new RuntimeException("세션을 찾을 수 없습니다."));
 
-        return session.getMessages().stream()
+        String history = session.getMessages().stream()
                 .sorted((m1, m2) -> m1.getTimestamp().compareTo(m2.getTimestamp()))
                 .map(msg -> {
                     String role = msg.getRole() == ChatMessage.MessageRole.USER ? "학생" : "상담사";
                     return role + ": " + msg.getContent();
                 })
                 .collect(Collectors.joining("\n\n"));
+
+        log.info("getConversationHistory size={}", session.getMessages().size());
+        return history;
     }
-    
+
     /**
      * 최근 N개 메시지를 텍스트로 반환
      */
@@ -241,7 +311,7 @@ public class CareerChatService {
                 })
                 .collect(Collectors.joining("\n\n"));
     }
-    
+
     /**
      * 설문조사 질문 조회
      */
@@ -253,7 +323,7 @@ public class CareerChatService {
                     String userId = null; // 세션 ID만으로는 userId를 알 수 없음
                     return createNewSession(userId);
                 });
-        
+
         // 이미 설문조사를 완료했다면
         if (session.getSurveyCompleted() != null && session.getSurveyCompleted()) {
             return SurveyResponse.builder()
@@ -263,7 +333,7 @@ public class CareerChatService {
                     .questions(List.of())
                     .build();
         }
-        
+
         // 설문조사 질문 생성
         List<SurveyResponse.SurveyQuestion> questions = Arrays.asList(
                 SurveyResponse.SurveyQuestion.builder()
@@ -283,9 +353,8 @@ public class CareerChatService {
                         .question("관심 있는 분야를 선택해주세요 (여러 개 선택 가능)")
                         .type("multiselect")
                         .options(Arrays.asList(
-                                "프로그래밍", "디자인", "음악", "미술", "스포츠", 
-                                "언어", "과학", "수학", "문학", "경영", "의료", "교육", "기타"
-                        ))
+                                "프로그래밍", "디자인", "음악", "미술", "스포츠", "언어", "과학", "수학",
+                                "문학", "경영", "의료", "교육", "기타"))
                         .required(false)
                         .build(),
                 SurveyResponse.SurveyQuestion.builder()
@@ -293,9 +362,8 @@ public class CareerChatService {
                         .question("좋아하는 과목을 선택해주세요 (여러 개 선택 가능)")
                         .type("multiselect")
                         .options(Arrays.asList(
-                                "국어", "영어", "수학", "사회", "과학", "체육", 
-                                "음악", "미술", "기술", "가정", "정보", "기타"
-                        ))
+                                "국어", "영어", "수학", "사회", "과학", "체육", "음악", "미술",
+                                "기술", "가정", "정보", "기타"))
                         .required(false)
                         .build(),
                 SurveyResponse.SurveyQuestion.builder()
@@ -303,9 +371,8 @@ public class CareerChatService {
                         .question("어려워하거나 싫어하는 과목을 선택해주세요 (여러 개 선택 가능, 선택사항)")
                         .type("multiselect")
                         .options(Arrays.asList(
-                                "국어", "영어", "수학", "사회", "과학", "체육", 
-                                "음악", "미술", "기술", "가정", "정보", "없음"
-                        ))
+                                "국어", "영어", "수학", "사회", "과학", "체육", "음악", "미술",
+                                "기술", "가정", "정보", "없음"))
                         .required(false)
                         .build(),
                 SurveyResponse.SurveyQuestion.builder()
@@ -329,7 +396,7 @@ public class CareerChatService {
                         .required(false)
                         .build()
         );
-        
+
         return SurveyResponse.builder()
                 .needsSurvey(true)
                 .completed(false)
@@ -337,7 +404,7 @@ public class CareerChatService {
                 .questions(questions)
                 .build();
     }
-    
+
     /**
      * 설문조사 응답 저장
      */
@@ -345,7 +412,7 @@ public class CareerChatService {
     public SurveyResponse submitSurvey(SurveyRequest request) {
         CareerSession session = sessionRepository.findBySessionId(request.getSessionId())
                 .orElseThrow(() -> new RuntimeException("세션을 찾을 수 없습니다."));
-        
+
         // 설문조사 데이터를 JSON으로 변환
         Map<String, Object> surveyData = new HashMap<>();
         surveyData.put("name", request.getName());
@@ -356,15 +423,15 @@ public class CareerChatService {
         surveyData.put("hasDreamCareer", request.getHasDreamCareer());
         surveyData.put("careerPressure", request.getCareerPressure());
         surveyData.put("concern", request.getConcern());
-        
+
         try {
             String surveyDataJson = objectMapper.writeValueAsString(surveyData);
             session.setSurveyData(surveyDataJson);
             session.setSurveyCompleted(true);
             sessionRepository.save(session);
-            
+
             log.info("설문조사 완료 - 세션: {}, 나이: {}", session.getSessionId(), request.getAge());
-            
+
             return SurveyResponse.builder()
                     .needsSurvey(false)
                     .completed(true)

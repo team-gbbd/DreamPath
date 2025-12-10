@@ -141,8 +141,8 @@ class ApplicationTrackerAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.7,
-                max_tokens=500
+                temperature=1,
+                max_completion_tokens=500
             )
 
             result_text = response.choices[0].message.content

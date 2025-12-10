@@ -73,11 +73,9 @@ export default function BookMentoringPage() {
           return;
         }
 
-        // 잔여 횟수 조회 (가격이 0원이 아닌 경우만)
-        if (sessionData.price > 0) {
-          const sessions = await paymentService.getRemainingSessions(userId);
-          setRemainingSessions(sessions);
-        }
+        // 잔여 횟수 조회 (모든 멘토링에 이용권 필요)
+        const sessions = await paymentService.getRemainingSessions(userId);
+        setRemainingSessions(sessions);
 
         setIsLoading(false);
       } catch (error) {
@@ -93,10 +91,10 @@ export default function BookMentoringPage() {
   const handleSubmit = async () => {
     if (!session) return;
 
-    // 가격이 0원이 아닌데 잔여 횟수가 부족한 경우
-    if (session.price > 0 && remainingSessions < 1) {
+    // 잔여 횟수가 부족한 경우 (모든 멘토링에 이용권 필요)
+    if (remainingSessions < 1) {
       showToast('잔여 멘토링 횟수가 부족합니다. 이용권을 구매해주세요.', 'warning');
-      navigate('/payments/purchase');
+      navigate(`/payments/purchase?returnUrl=${encodeURIComponent(`/mentoring/book/${sessionId}`)}`);
       return;
     }
 
@@ -112,7 +110,7 @@ export default function BookMentoringPage() {
       });
 
       showToast('멘토링 예약이 완료되었습니다! 멘토가 확정하면 알림을 받으실 수 있습니다.', 'success');
-      navigate('/mypage/bookings');
+      navigate('/career-chat');
     } catch (error) {
       console.error('예약 생성 실패:', error);
       const apiError = error as { response?: { data?: { message?: string } } };
@@ -298,65 +296,37 @@ export default function BookMentoringPage() {
                     )}
                   </div>
 
-                  {/* Step 3: 결제 정보 */}
-                  {session.price > 0 ? (
-                    <>
-                      <div className="bg-green-50 rounded-lg p-5 border border-green-200">
-                        <div className="flex items-center mb-3">
-                          <div className="w-10 h-10 bg-pink-500 text-white rounded-lg flex items-center justify-center font-bold mr-3">
-                            3
-                          </div>
-                          <h3 className="font-bold text-gray-800">멘토링 이용권</h3>
-                        </div>
-                        <div className="bg-white rounded-lg p-4 border border-green-300">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center">
-                              <input type="radio" name="voucher" defaultChecked className="mr-2" />
-                              <span className="text-sm font-semibold text-gray-700">{remainingSessions}회 남음</span>
-                            </div>
-                            <span className="text-green-600 font-bold text-sm">~25. 12. 31. 23:59</span>
-                          </div>
-                          <p className="text-xs text-gray-500 ml-6">성장하고 싶은 개발자를 위한 실전 강의</p>
-                        </div>
-                        <label className="flex items-center mt-3 text-sm text-gray-600 cursor-pointer">
-                          <input type="radio" name="voucher" className="mr-2" />
-                          사용 안 함
-                        </label>
+                  {/* Step 3: 멘토링 이용권 (모든 멘토링에 필수) */}
+                  <div className="bg-green-50 rounded-lg p-5 border border-green-200">
+                    <div className="flex items-center mb-3">
+                      <div className="w-10 h-10 bg-pink-500 text-white rounded-lg flex items-center justify-center font-bold mr-3">
+                        3
                       </div>
-
-                      {/* 멘토링 금액 */}
-                      <div className="bg-gray-50 rounded-lg p-5 mb-6">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-sm text-gray-600">멘토링 금액</span>
-                          <span className="font-semibold">₩{session.price.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between items-center mb-3">
-                          <span className="text-sm text-gray-600">할인 금액</span>
-                          <span className="text-red-600 font-semibold">-₩{session.price.toLocaleString()}</span>
-                        </div>
-                        <div className="border-t border-gray-300 pt-3 flex justify-between items-center">
-                          <span className="font-bold text-gray-800">총 결제 금액</span>
-                          <span className="text-2xl font-bold">₩0</span>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="bg-green-50 rounded-lg p-5 border border-green-200">
-                      <div className="flex items-center mb-3">
-                        <div className="w-10 h-10 bg-pink-500 text-white rounded-lg flex items-center justify-center font-bold mr-3">
-                          3
-                        </div>
-                        <h3 className="font-bold text-gray-800">결제 정보</h3>
-                      </div>
-                      <div className="bg-white rounded-lg p-4">
-                        <div className="text-center">
-                          <i className="ri-gift-line text-5xl text-green-500 mb-2"></i>
-                          <p className="text-lg font-bold text-gray-800">무료 멘토링</p>
-                          <p className="text-sm text-gray-600 mt-1">이용권 없이 신청 가능합니다</p>
-                        </div>
-                      </div>
+                      <h3 className="font-bold text-gray-800">멘토링 이용권</h3>
                     </div>
-                  )}
+                    {remainingSessions > 0 ? (
+                      <div className="bg-white rounded-lg p-4 border border-green-300">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center">
+                            <i className="ri-checkbox-circle-fill text-green-500 mr-2"></i>
+                            <span className="text-sm font-semibold text-gray-700">{remainingSessions}회 남음</span>
+                          </div>
+                          <span className="text-green-600 font-bold text-sm">사용 가능</span>
+                        </div>
+                        <p className="text-xs text-gray-500 ml-6">멘토링 1회 차감됩니다</p>
+                      </div>
+                    ) : (
+                      <div className="bg-red-50 rounded-lg p-4 border border-red-300">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center">
+                            <i className="ri-close-circle-fill text-red-500 mr-2"></i>
+                            <span className="text-sm font-semibold text-red-700">이용권 없음</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-red-600">멘토링 예약을 위해 이용권을 구매해주세요</p>
+                      </div>
+                    )}
+                  </div>
 
                   {/* 결제하기 버튼 */}
                   <button
@@ -370,7 +340,7 @@ export default function BookMentoringPage() {
                       }
                     `}
                   >
-                    {isSubmitting ? '예약 중...' : session.isFull ? '마감된 세션' : session.price > 0 ? '결제하기' : '신청하기'}
+                    {isSubmitting ? '예약 중...' : session.isFull ? '마감된 세션' : remainingSessions < 1 ? '이용권 필요' : '신청하기'}
                   </button>
 
                   {/* 취소 정책 안내 */}
@@ -389,9 +359,9 @@ export default function BookMentoringPage() {
                     </div>
                   </div>
 
-                  {session.price > 0 && remainingSessions < 1 && (
+                  {remainingSessions < 1 && (
                     <button
-                      onClick={() => navigate('/payments/purchase')}
+                      onClick={() => navigate(`/payments/purchase?returnUrl=${encodeURIComponent(`/mentoring/book/${sessionId}`)}`)}
                       className="w-full mt-4 py-3 bg-orange-500 text-white rounded-lg font-semibold hover:bg-orange-600 transition-colors"
                     >
                       <i className="ri-shopping-cart-line mr-2"></i>

@@ -84,7 +84,8 @@ async def chat(dto: AssistantChatRequest, db: DatabaseService = Depends(get_db))
             user_id=dto.userId,
             message=dto.message,
             conversation_history=conversation_history,
-            db=db
+            db=db,
+            function_name=dto.functionName  # FAQ 직접 호출용
         )
 
         # 6. AI 답변 저장

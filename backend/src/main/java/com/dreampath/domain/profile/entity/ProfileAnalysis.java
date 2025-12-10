@@ -1,9 +1,11 @@
 package com.dreampath.domain.profile.entity;
 
+import com.dreampath.common.converter.JsonConverter;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "profile_analysis")
@@ -40,6 +42,25 @@ public class ProfileAnalysis {
 
     @Column(name = "mbti")
     private String mbti;
+
+    @Column(columnDefinition = "TEXT")
+    private String summary;
+
+    @Convert(converter = JsonConverter.class)
+    @Column(columnDefinition = "TEXT")
+    private List<String> strengths;
+
+    @Convert(converter = JsonConverter.class)
+    @Column(columnDefinition = "TEXT")
+    private List<String> risks;
+
+    @Convert(converter = JsonConverter.class)
+    @Column(columnDefinition = "TEXT")
+    private List<String> goals;
+
+    @Convert(converter = JsonConverter.class)
+    @Column(name = "values_list", columnDefinition = "TEXT")
+    private List<String> valuesList;
 
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();

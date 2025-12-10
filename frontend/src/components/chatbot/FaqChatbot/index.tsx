@@ -8,10 +8,7 @@ import ChatInput from "../shared/ChatInput";
 import InquiryForm, { InquiryData } from "../shared/InquiryForm";
 import { BACKEND_BASE_URL } from "@/lib/api";
 
-// 페이지 로드 시 sessionStorage 초기화
-if (typeof window !== "undefined") {
-  sessionStorage.removeItem("faq_chatbot_session_id");
-}
+// sessionStorage는 탭을 닫을 때만 초기화됨 (새로고침/페이지 이동 시 유지)
 
 interface Message {
   role: "user" | "assistant";
@@ -58,58 +55,92 @@ export default function FaqChatbot({ onClose }: { onClose?: () => void }) {
   const chatRef = useRef<HTMLDivElement>(null);
   const lastUserIdRef = useRef<string | null>(null);
 
-  // 세션 초기화 및 복원
+  // FAQ 카테고리 로드 함수
+  const loadFaqCategories = async () => {
+    const all = await fetchAllFaq();
+    if (!all) return;
+
+    const uniqueCats = [...new Set(all.map((f: any) => f.category))];
+    const chunked: string[][] = [];
+    for (let i = 0; i < uniqueCats.length; i += 2) {
+      chunked.push(uniqueCats.slice(i, i + 2));
+    }
+    setChunkedCategories(chunked);
+  };
+
+  // 세션 및 대화 내용 복원
   useEffect(() => {
     const currentUserId = getUserId();
-    const currentGuestId = getGuestId();
+    const lastUserId = localStorage.getItem("faq_chatbot_last_user_id");
 
-    const lastUserId = localStorage.getItem("chatbot_last_user_id");
-    const lastGuestId = localStorage.getItem("chatbot_last_guest_id");
-
+    // 사용자 변경 감지 (회원 ID로만 비교)
     const userIdChanged = String(currentUserId) !== lastUserId;
-    const guestIdChanged = String(currentGuestId) !== lastGuestId;
 
-    if (userIdChanged || guestIdChanged) {
+    if (userIdChanged && lastUserId !== null) {
+      // 사용자가 변경됨 (로그아웃/다른계정 로그인)
       console.log("👤 사용자 변경 감지 - FAQ 챗봇 세션 초기화");
       sessionStorage.removeItem("faq_chatbot_session_id");
+      sessionStorage.removeItem("faq_chatbot_messages");
       setSessionId(null);
       setMessages([]);
-
-      localStorage.setItem("chatbot_last_user_id", String(currentUserId));
-      localStorage.setItem("chatbot_last_guest_id", String(currentGuestId));
+      setSelectedCategory(null);
+      setFaqList([]);
     } else {
+      // 사용자 동일 - 대화 복원
       const savedSessionId = sessionStorage.getItem("faq_chatbot_session_id");
+      const savedMessages = sessionStorage.getItem("faq_chatbot_messages");
+
       if (savedSessionId) {
         setSessionId(savedSessionId);
       }
+      if (savedMessages) {
+        try {
+          setMessages(JSON.parse(savedMessages));
+        } catch (e) {
+          console.error("대화 내용 복원 실패:", e);
+        }
+      }
     }
 
+    // 현재 사용자 ID 저장
+    localStorage.setItem("faq_chatbot_last_user_id", String(currentUserId));
     lastUserIdRef.current = String(currentUserId);
   }, []);
 
-  // 사용자 변경 감지
+  // 대화 내용 변경 시 sessionStorage에 저장
   useEffect(() => {
-    const intervalId = setInterval(() => {
+    if (messages.length > 0) {
+      sessionStorage.setItem(
+        "faq_chatbot_messages",
+        JSON.stringify(messages)
+      );
+    }
+  }, [messages]);
+
+  // 로그인/로그아웃 이벤트 감지 (즉시 반응)
+  useEffect(() => {
+    const handleAuthChange = () => {
       const currentUserId = getUserId();
       const currentUserIdStr = String(currentUserId);
 
-      if (
-        lastUserIdRef.current !== null &&
-        lastUserIdRef.current !== currentUserIdStr
-      ) {
-        console.log("👤 실시간 사용자 변경 감지 - FAQ 챗봇 세션 초기화");
-        sessionStorage.removeItem("faq_chatbot_session_id");
-        setSessionId(null);
-        setMessages([]);
+      console.log("👤 로그인/로그아웃 감지 - FAQ 챗봇 세션 초기화");
+      sessionStorage.removeItem("faq_chatbot_session_id");
+      sessionStorage.removeItem("faq_chatbot_messages");
+      setSessionId(null);
+      setMessages([]);
+      setSelectedCategory(null);
+      setFaqList([]);
+      setChunkedCategories([]);  // FAQ 카테고리도 초기화
 
-        localStorage.setItem("chatbot_last_user_id", currentUserIdStr);
-        localStorage.setItem("chatbot_last_guest_id", String(getGuestId()));
-      }
-
+      localStorage.setItem("faq_chatbot_last_user_id", currentUserIdStr);
       lastUserIdRef.current = currentUserIdStr;
-    }, 1000);
 
-    return () => clearInterval(intervalId);
+      // FAQ 카테고리 다시 로드 (사용자 타입에 맞게)
+      loadFaqCategories();
+    };
+
+    window.addEventListener("dreampath-auth-change", handleAuthChange);
+    return () => window.removeEventListener("dreampath-auth-change", handleAuthChange);
   }, []);
 
   // 자동 스크롤

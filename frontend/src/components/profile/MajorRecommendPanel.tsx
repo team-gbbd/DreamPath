@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { backendApi, pythonApi } from "@/lib/api";
+import { backendApi, pythonApi, fetchMajorDetail, MajorDetailData } from "@/lib/api";
+import DetailModal from "@/pages/profile/DetailModal";
 
 interface RecommendItem {
   id?: string;
@@ -19,6 +20,10 @@ const MajorRecommendPanel = ({ embedded = false, profileId }: Props) => {
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedMajor, setSelectedMajor] = useState<RecommendItem | null>(null);
+  const [majorDetail, setMajorDetail] = useState<MajorDetailData | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
   const fetchRecommendations = async (vid: string) => {
     setLoading(true);
@@ -95,6 +100,49 @@ const MajorRecommendPanel = ({ embedded = false, profileId }: Props) => {
   const hasItems = useMemo(() => items.length > 0, [items.length]);
   const containerClass = embedded ? "space-y-6" : "space-y-8";
 
+  const resolveMajorId = (item: RecommendItem): string | number | null => {
+    const metadata = (item?.metadata ?? {}) as Record<string, any>;
+    return (
+      item.id ||
+      metadata?.majorId ||
+      metadata?.majorSeq ||
+      metadata?.original_id ||
+      metadata?.department_id ||
+      null
+    );
+  };
+
+  const handleCardClick = async (item: RecommendItem) => {
+    setSelectedMajor(item);
+    setMajorDetail(null);
+    setDetailError(null);
+    const majorId = resolveMajorId(item);
+    if (!majorId) {
+      setDetailError("학과 ID가 없어 상세 데이터를 불러올 수 없습니다.");
+      return;
+    }
+    try {
+      setDetailLoading(true);
+      const detail = await fetchMajorDetail(majorId);
+      setMajorDetail(detail);
+    } catch (error: any) {
+      const message =
+        error?.response?.status === 404
+          ? "상세 학과 데이터를 찾을 수 없습니다."
+          : "학과 상세 데이터를 불러오지 못했습니다.";
+      setDetailError(message);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const closeModal = () => {
+    setSelectedMajor(null);
+    setMajorDetail(null);
+    setDetailError(null);
+    setDetailLoading(false);
+  };
+
   return (
     <div className={containerClass}>
       {/* 상태 메시지 표시 영역 */}
@@ -156,7 +204,19 @@ const MajorRecommendPanel = ({ embedded = false, profileId }: Props) => {
 
       <div className="grid gap-4 md:grid-cols-2">
         {items.map((item, idx) => (
-          <div key={`${item.id ?? idx}`} className="rounded-2xl border p-5 shadow-sm hover:shadow-md transition-shadow">
+          <div
+            key={`${item.id ?? idx}`}
+            role="button"
+            tabIndex={0}
+            onClick={() => handleCardClick(item)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                handleCardClick(item);
+              }
+            }}
+            className="rounded-2xl border p-5 shadow-sm hover:shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer bg-white"
+          >
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-indigo-600">추천 #{idx + 1}</p>
               {item.score !== undefined && (
@@ -210,6 +270,17 @@ const MajorRecommendPanel = ({ embedded = false, profileId }: Props) => {
           </div>
         ))}
       </div>
+      {selectedMajor && (
+        <DetailModal
+          type="major"
+          open={Boolean(selectedMajor)}
+          onClose={closeModal}
+          detailData={majorDetail}
+          fallback={selectedMajor}
+          loading={detailLoading}
+          errorMessage={detailError}
+        />
+      )}
     </div>
   );
 };

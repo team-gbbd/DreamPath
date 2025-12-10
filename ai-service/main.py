@@ -4,6 +4,8 @@ Python FastAPI Microservice
 """
 
 import os
+from dotenv import load_dotenv
+load_dotenv()  # 🔥 FastAPI 시작 전에 .env 강제 로드
 import logging
 from dotenv import load_dotenv
 
@@ -40,6 +42,7 @@ from routers.user_embedding import router as user_embedding_router
 from routers.bigfive_router import router as bigfive_router
 from routers.mbti_router import router as mbti_router
 from routers.personality_profile_router import router as personality_profile_router
+from routers.personality_agent_router import router as personality_agent_router
 from routers.chatbot_router import router as chatbot_router
 from routers.assistant_router import router as assistant_router
 from routers.faq_router import router as faq_router
@@ -110,6 +113,7 @@ app.include_router(rag_router)
 app.include_router(profile_match_router, prefix="/api")
 app.include_router(qnet_router)             # Q-net 자격증 API
 app.include_router(job_agent_router)        # 채용공고 AI 에이전트 API
+app.include_router(personality_agent_router)  # Personality Agent #1 API
 app.include_router(user_document_router, prefix="/analysis", tags=["analysis"])
 app.include_router(user_embedding_router, prefix="/embedding", tags=["embedding"])
 app.include_router(bigfive_router, prefix="/api")
@@ -343,30 +347,30 @@ async def identity_progress(req: ProgressRequest):
 
 
 # =========================================
-# Chat API
+# Chat API (임시 복원 - 디버깅용)
 # =========================================
 
-class ChatRequest(BaseModel):
+class ChatRequestMain(BaseModel):
     sessionId: str
     userMessage: str
     currentStage: str
     conversationHistory: List[ConversationMessage]
     surveyData: Optional[dict] = None
 
-class ChatRes(BaseModel):
+class ChatResMain(BaseModel):
     sessionId: str
     message: str
 
 
-@app.post("/api/chat", response_model=ChatRes)
-async def chat(req: ChatRequest):
-
+@app.post("/api/chat/test", response_model=ChatResMain)
+async def chat_test(req: ChatRequestMain):
+    """디버깅용 테스트 엔드포인트"""
     if not chat_service:
         raise HTTPException(status_code=500, detail="OpenAI API Key 필요")
 
     history = [{"role": m.role, "content": m.content} for m in req.conversationHistory]
 
-    msg = await chat_service.generate_response(
+    result = await chat_service.generate_response(
         session_id=req.sessionId,
         user_message=req.userMessage,
         current_stage=req.currentStage,
@@ -374,7 +378,8 @@ async def chat(req: ChatRequest):
         survey_data=req.surveyData
     )
 
-    return ChatRes(sessionId=req.sessionId, message=msg)
+    # result는 {"message": "..."} dict
+    return ChatResMain(sessionId=req.sessionId, message=result["message"])
 
 
 # =========================================

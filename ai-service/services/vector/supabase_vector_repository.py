@@ -61,3 +61,39 @@ class SupabaseVectorRepository:
         except Exception as e:
             print(f"Error fetching user interests: {e}")
         return None
+
+    def get_job_details_by_ids(self, job_ids: list):
+        """
+        Fetch job details for a list of job IDs
+        """
+        if not job_ids:
+            return []
+        try:
+            response = (
+                self.supabase.table('job_details')
+                .select('*')
+                .in_('job_id', job_ids)
+                .execute()
+            )
+            return response.data
+        except Exception as e:
+            print(f"Error fetching job details: {e}")
+            return []
+
+    def get_major_details_by_ids(self, major_ids: list):
+        """
+        Fetch major details for a list of major IDs
+        """
+        if not major_ids:
+            return []
+        try:
+            response = (
+                self.supabase.table('major_details')
+                .select('*')
+                .in_('major_id', major_ids)
+                .execute()
+            )
+            return response.data
+        except Exception as e:
+            print(f"Error fetching major details: {e}")
+            return []

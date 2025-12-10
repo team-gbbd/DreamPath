@@ -12,40 +12,50 @@ logger = logging.getLogger(__name__)
 # 에이전트 사용 조건 판단
 # ============================================================
 
-# 명백히 불필요한 메시지만 필터링, 나머지는 에이전트가 판단
+# 최소 필터만 적용, 도구 선택은 LLM(reason_node)이 판단
 def should_use_agent(message: str) -> bool:
     """
-    에이전트 사용 여부 판단
+    에이전트 실행 여부 판단 (최소 필터)
 
     원칙:
-    - 라우터는 "명백히 에이전트가 필요 없는 것"만 필터링
-    - 나머지는 에이전트(LLM)가 도구 사용 여부를 자유롭게 판단
-    - 길이 제한 없음 ("예약", "검색" 같은 짧은 명령도 통과)
+    - "에이전트가 판단할 가치가 있는 메시지인가?"만 체크
+    - 도구 선택/FINISH 결정은 100% LLM(reason_node)이 담당
+    - ReAct 패턴 보존: 사람이 도구 매핑 로직을 강제하지 않음
 
     Args:
         message: 사용자 메시지
 
     Returns:
-        True: ReAct 에이전트 사용
-        False: 단순 응답 사용
+        True: 에이전트가 판단 (도구 사용 or FINISH)
+        False: 에이전트 스킵 (상담 LLM만 응답)
     """
-    message = message.strip()
+    text = message.strip()
 
-    if not message:
+    # 1. 빈 메시지
+    if not text:
         return False
 
+    # 2. 너무 짧은 메시지 (에이전트 돌릴 가치 없음)
+    if len(text) < 4:
+        logger.debug(f"[Router] 너무 짧음: {text}")
+        return False
+
+    # 3. 단답/감탄사/인사 패턴 (상담 LLM이 처리)
     skip_patterns = [
-        r"^[ㅋㅎㅠㅜㄱㄴㅇㄹ]+$",
-        r"^(응|네|아니|그래)[요~!.]*$",
-        r"^(오|와|우와|헐|대박)[~!.]*$",
+        r"^[ㅋㅎㅠㅜㄱㄴㅇㄹ\s]+$",              # ㅋㅋ, ㅠㅠ
+        r"^(응|네|아니|그래|ㅇㅇ|ㄴㄴ)[요~!.]*$", # 단답
+        r"^(오|와|우와|헐|대박)[~!.]*$",         # 감탄
+        r"^(안녕|하이|반가워)[요~!?.]*$",        # 인사
+        r"^(고마워|감사합니다|ㄱㅅ)[요~!.]*$",   # 감사
     ]
 
     for pattern in skip_patterns:
-        if re.match(pattern, message, re.IGNORECASE):
-            logger.debug(f"[Router] 단순 패턴 제외: {message}")
+        if re.match(pattern, text, re.IGNORECASE):
+            logger.debug(f"[Router] 스킵 패턴: {text}")
             return False
 
-    logger.info(f"[Router] 에이전트 사용: {message[:30]}...")
+    # 4. 나머지는 에이전트가 판단 (FINISH or 도구 사용)
+    logger.info(f"[Router] 에이전트 판단 위임: {text[:30]}...")
     return True
 
 
@@ -89,6 +99,17 @@ async def route_message(
                 session_id=session_id,
                 conversation_history=conversation_history,
             )
+
+            # 에이전트가 "액션 불필요"로 판단한 경우 (FINISH without tools)
+            if result.get("no_action"):
+                logger.info("[Router] 에이전트 판단: 액션 불필요")
+                return {
+                    "message": None,
+                    "used_agent": True,  # 에이전트는 사용했으나
+                    "no_action": True,   # 표시할 내용 없음
+                    "tools_used": [],
+                    "agent_result": result,
+                }
 
             return {
                 "message": result["answer"],

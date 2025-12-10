@@ -25,9 +25,9 @@ if ([string]::IsNullOrWhiteSpace($dbHost)) {
     $dbHost = "aws-1-ap-northeast-1.pooler.supabase.com"
 }
 
-$dbPort = Read-Host "DB 포트를 입력하세요 (기본값: 5432)"
+$dbPort = Read-Host "DB 포트를 입력하세요 (기본값: 6543)"
 if ([string]::IsNullOrWhiteSpace($dbPort)) {
-    $dbPort = "5432"
+    $dbPort = "6543"
 }
 
 $dbName = Read-Host "DB 이름을 입력하세요 (기본값: postgres)"

@@ -33,21 +33,21 @@ public class PythonIdentityService {
     /**
      * 정체성 명확도 평가
      */
-    public Map<String, Object> assessClarity(String conversationHistory, String userId) {
+    public Map<String, Object> assessClarity(String conversationHistory, String sessionId) {
         try {
             String url = pythonAiServiceUrl + "/api/identity/clarity";
 
             Map<String, String> requestBody = new HashMap<>();
             requestBody.put("conversationHistory", conversationHistory);
-            if (userId != null) {
-                requestBody.put("userId", userId);
+            if (sessionId != null) {
+                requestBody.put("sessionId", sessionId);
             }
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<Map<String, String>> request = new HttpEntity<>(requestBody, headers);
 
-            log.debug("정체성 명확도 평가 요청: {} (userId: {})", url, userId);
+            log.debug("정체성 명확도 평가 요청: {} (sessionId: {})", url, sessionId);
             @SuppressWarnings("unchecked")
             ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
 
@@ -67,21 +67,21 @@ public class PythonIdentityService {
     /**
      * 정체성 특징 추출
      */
-    public Map<String, Object> extractIdentity(String conversationHistory, String userId) {
+    public Map<String, Object> extractIdentity(String conversationHistory, String sessionId) {
         try {
             String url = pythonAiServiceUrl + "/api/identity/extract";
 
             Map<String, String> requestBody = new HashMap<>();
             requestBody.put("conversationHistory", conversationHistory);
-            if (userId != null) {
-                requestBody.put("userId", userId);
+            if (sessionId != null) {
+                requestBody.put("sessionId", sessionId);
             }
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<Map<String, String>> request = new HttpEntity<>(requestBody, headers);
 
-            log.debug("정체성 특징 추출 요청: {} (userId: {})", url, userId);
+            log.debug("정체성 특징 추출 요청: {} (sessionId: {})", url, sessionId);
             @SuppressWarnings("unchecked")
             ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
 
@@ -104,7 +104,7 @@ public class PythonIdentityService {
     public Map<String, Object> generateInsight(String recentMessages, String previousContext) {
         try {
             String url = pythonAiServiceUrl + "/api/identity/insight";
-            
+
             Map<String, String> requestBody = new HashMap<>();
             requestBody.put("recentMessages", recentMessages);
             requestBody.put("previousContext", previousContext);
@@ -133,22 +133,22 @@ public class PythonIdentityService {
     /**
      * 단계 진행 평가
      */
-    public Map<String, Object> assessStageProgress(String conversationHistory, String currentStage, String userId) {
+    public Map<String, Object> assessStageProgress(String conversationHistory, String currentStage, String sessionId) {
         try {
             String url = pythonAiServiceUrl + "/api/identity/progress";
 
             Map<String, String> requestBody = new HashMap<>();
             requestBody.put("conversationHistory", conversationHistory);
             requestBody.put("currentStage", currentStage);
-            if (userId != null) {
-                requestBody.put("userId", userId);
+            if (sessionId != null) {
+                requestBody.put("sessionId", sessionId);
             }
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<Map<String, String>> request = new HttpEntity<>(requestBody, headers);
 
-            log.debug("단계 진행 평가 요청: {} (userId: {})", url, userId);
+            log.debug("단계 진행 평가 요청: {} (sessionId: {})", url, sessionId);
             @SuppressWarnings("unchecked")
             ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
 
@@ -165,4 +165,3 @@ public class PythonIdentityService {
         }
     }
 }
-
