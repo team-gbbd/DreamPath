@@ -8,14 +8,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * 실시간 정체성 분석 서비스
- * 
+ *
  * 대화가 진행되는 동안 학생의 진로 정체성을 지속적으로 분석하고 업데이트합니다.
  * Python AI 서비스의 LangChain 기반 정체성 분석을 사용합니다.
  */
@@ -27,48 +29,86 @@ public class IdentityService {
     private final CareerSessionRepository sessionRepository;
     private final CareerChatService chatService;
     private final PythonIdentityService pythonIdentityService;
+    private final TransactionTemplate txTemplate;
 
-    /**
-     * 현재 정체성 상태를 조회합니다.
-     */
-    @Transactional(readOnly = true)
+    private static class IdentityContext {
+        String sessionId;
+        String userId;
+        String conversationHistory;
+    }
+
+    private static class StageContext {
+        String sessionId;
+        String userId;
+        String currentStage;
+        int messageCount;
+        int minMessages;
+        String conversationHistory;
+    }
+
     public IdentityStatus getIdentityStatus(String sessionId) {
         log.info("정체성 상태 조회 - 세션: {}", sessionId);
 
-        CareerSession session = sessionRepository.findBySessionId(sessionId)
-                .orElseThrow(() -> new RuntimeException("세션을 찾을 수 없습니다."));
+        IdentityContext context = txTemplate.execute(status -> {
+            CareerSession session = sessionRepository.findBySessionId(sessionId)
+                    .orElseThrow(() -> new RuntimeException("세션을 찾을 수 없습니다."));
+            IdentityContext ctx = new IdentityContext();
+            ctx.sessionId = sessionId;
+            ctx.userId = session.getUserId();
+            ctx.conversationHistory = chatService.getConversationHistory(sessionId);
+            return ctx;
+        });
 
-        String conversationHistory = chatService.getConversationHistory(sessionId);
-        String userId = session.getUserId();  // userId 가져오기
+        // 병렬 실행 (2개 API 동시 호출)
+        CompletableFuture<Map<String, Object>> clarityFuture = CompletableFuture.supplyAsync(() ->
+                pythonIdentityService.assessClarity(context.conversationHistory, context.userId));
+        CompletableFuture<Map<String, Object>> identityFuture = CompletableFuture.supplyAsync(() ->
+                pythonIdentityService.extractIdentity(context.conversationHistory, context.userId));
 
-        // Python AI 서비스를 통한 분석 (userId 포함)
-        Map<String, Object> clarityResult = pythonIdentityService.assessClarity(conversationHistory, userId);
-        Map<String, Object> identityResult = pythonIdentityService.extractIdentity(conversationHistory, userId);
+        CompletableFuture.allOf(clarityFuture, identityFuture).join();
 
-        return buildIdentityStatus(session, clarityResult, identityResult, null);
+        Map<String, Object> clarityResult = clarityFuture.join();
+        Map<String, Object> identityResult = identityFuture.join();
+
+        return txTemplate.execute(status -> {
+            CareerSession session = sessionRepository.findBySessionId(sessionId)
+                    .orElseThrow(() -> new RuntimeException("세션을 찾을 수 없습니다."));
+            return buildIdentityStatus(session, clarityResult, identityResult, null);
+        });
     }
 
-    /**
-     * 새 메시지 후 정체성 상태를 업데이트합니다.
-     */
-    @Transactional(readOnly = true)
     public IdentityStatus updateIdentityStatus(String sessionId, String recentMessages) {
         log.info("정체성 상태 업데이트 - 세션: {}", sessionId);
 
-        CareerSession session = sessionRepository.findBySessionId(sessionId)
-                .orElseThrow(() -> new RuntimeException("세션을 찾을 수 없습니다."));
+        IdentityContext context = txTemplate.execute(status -> {
+            CareerSession session = sessionRepository.findBySessionId(sessionId)
+                    .orElseThrow(() -> new RuntimeException("세션을 찾을 수 없습니다."));
+            IdentityContext ctx = new IdentityContext();
+            ctx.sessionId = sessionId;
+            ctx.userId = session.getUserId();
+            ctx.conversationHistory = chatService.getConversationHistory(sessionId);
+            return ctx;
+        });
 
-        String conversationHistory = chatService.getConversationHistory(sessionId);
-        String userId = session.getUserId();  // userId 가져오기
+        // 병렬 실행 (3개 API 동시 호출)
+        CompletableFuture<Map<String, Object>> clarityFuture = CompletableFuture.supplyAsync(() ->
+                pythonIdentityService.assessClarity(context.conversationHistory, context.userId));
+        CompletableFuture<Map<String, Object>> identityFuture = CompletableFuture.supplyAsync(() ->
+                pythonIdentityService.extractIdentity(context.conversationHistory, context.userId));
+        CompletableFuture<Map<String, Object>> insightFuture = CompletableFuture.supplyAsync(() ->
+                pythonIdentityService.generateInsight(recentMessages, context.conversationHistory));
 
-        // Python AI 서비스를 통한 분석 (userId 포함)
-        Map<String, Object> clarityResult = pythonIdentityService.assessClarity(conversationHistory, userId);
-        Map<String, Object> identityResult = pythonIdentityService.extractIdentity(conversationHistory, userId);
+        CompletableFuture.allOf(clarityFuture, identityFuture, insightFuture).join();
 
-        // 최근 인사이트 생성
-        Map<String, Object> insightResult = pythonIdentityService.generateInsight(recentMessages, conversationHistory);
+        Map<String, Object> clarityResult = clarityFuture.join();
+        Map<String, Object> identityResult = identityFuture.join();
+        Map<String, Object> insightResult = insightFuture.join();
 
-        return buildIdentityStatus(session, clarityResult, identityResult, insightResult);
+        return txTemplate.execute(status -> {
+            CareerSession session = sessionRepository.findBySessionId(sessionId)
+                    .orElseThrow(() -> new RuntimeException("세션을 찾을 수 없습니다."));
+            return buildIdentityStatus(session, clarityResult, identityResult, insightResult);
+        });
     }
 
     /**
@@ -77,12 +117,12 @@ public class IdentityService {
     @Transactional(readOnly = true)
     public IdentityStatus getDefaultIdentityStatus(String sessionId) {
         log.info("기본 정체성 상태 조회 - 세션: {}", sessionId);
-        
+
         CareerSession session = sessionRepository.findBySessionId(sessionId)
                 .orElseThrow(() -> new RuntimeException("세션을 찾을 수 없습니다."));
-        
+
         ConversationStage stage = session.getCurrentStage();
-        
+
         return IdentityStatus.builder()
                 .sessionId(session.getSessionId())
                 .currentStage(stage.getDisplayName())
@@ -98,47 +138,48 @@ public class IdentityService {
                 .recentInsight(null)
                 .build();
     }
-    
-    /**
-     * 다음 단계로 진행 가능한지 평가합니다.
-     */
-    @Transactional
-    public boolean shouldProgressToNextStage(String sessionId) {
-        CareerSession session = sessionRepository.findBySessionId(sessionId)
-                .orElseThrow(() -> new RuntimeException("세션을 찾을 수 없습니다."));
 
-        // 최소 메시지 수 체크
-        if (session.getStageMessageCount() < session.getCurrentStage().getMinMessages()) {
+    public boolean shouldProgressToNextStage(String sessionId) {
+        StageContext stageContext = txTemplate.execute(status -> {
+            CareerSession session = sessionRepository.findBySessionId(sessionId)
+                    .orElseThrow(() -> new RuntimeException("세션을 찾을 수 없습니다."));
+            StageContext ctx = new StageContext();
+            ctx.sessionId = sessionId;
+            ctx.userId = session.getUserId();
+            ctx.currentStage = session.getCurrentStage().name();
+            ctx.messageCount = session.getStageMessageCount();
+            ctx.minMessages = session.getCurrentStage().getMinMessages();
+            ctx.conversationHistory = chatService.getConversationHistory(sessionId);
+            return ctx;
+        });
+
+        if (stageContext.messageCount < stageContext.minMessages) {
             return false;
         }
 
-        // Python AI 서비스의 판단 요청 (userId 포함)
-        String conversationHistory = chatService.getConversationHistory(sessionId);
-        String userId = session.getUserId();
         Map<String, Object> progressResult = pythonIdentityService.assessStageProgress(
-            conversationHistory,
-            session.getCurrentStage().name(),
-            userId
+            stageContext.conversationHistory,
+            stageContext.currentStage,
+            stageContext.userId
         );
-        
+
         try {
             boolean ready = (Boolean) progressResult.get("readyToProgress");
-            
             if (ready) {
-                log.info("단계 진행 준비 완료 - 세션: {}, 현재 단계: {}", 
-                    sessionId, session.getCurrentStage());
-                
-                // 다음 단계로 이동
-                session.setCurrentStage(session.getCurrentStage().next());
-                session.setStageMessageCount(0);
-                sessionRepository.save(session);
-                
+                log.info("단계 진행 준비 완료 - 세션: {}, 현재 단계: {}", sessionId, stageContext.currentStage);
+                txTemplate.executeWithoutResult(status -> {
+                    CareerSession session = sessionRepository.findBySessionId(sessionId)
+                            .orElseThrow(() -> new RuntimeException("세션을 찾을 수 없습니다."));
+                    session.setCurrentStage(session.getCurrentStage().next());
+                    session.setStageMessageCount(0);
+                    sessionRepository.save(session);
+                });
                 return true;
             }
         } catch (Exception e) {
             log.error("단계 진행 평가 실패", e);
         }
-        
+
         return false;
     }
 

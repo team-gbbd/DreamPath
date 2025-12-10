@@ -345,9 +345,12 @@ export const mentorService = {
   // 멘토 신청
   applyForMentor: async (data: {
     userId: number;
+    company: string;
+    job: string;
+    experience: string;
     bio: string;
     career: string;
-    availableTime: Record<string, string[]>;
+    availableTime?: Record<string, object>;
   }) => {
     const response = await api.post('/mentors/apply', data);
     return response.data;

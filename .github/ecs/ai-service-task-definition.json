@@ -16,8 +16,41 @@
           "protocol": "tcp"
         }
       ],
-      "environment": [],
+      "environment": [
+        {
+          "name": "DB_TYPE",
+          "value": "postgres"
+        },
+        {
+          "name": "BACKEND_URL",
+          "value": "https://api.dreampathai.link"
+        }
+      ],
       "secrets": [
+        {
+          "name": "DB_HOST",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:479324456849:secret:dreampath/database:DB_HOST::"
+        },
+        {
+          "name": "DB_NAME",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:479324456849:secret:dreampath/database:DB_NAME::"
+        },
+        {
+          "name": "DB_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:479324456849:secret:dreampath/database:DB_PASSWORD::"
+        },
+        {
+          "name": "DB_PORT",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:479324456849:secret:dreampath/database:DB_PORT::"
+        },
+        {
+          "name": "DB_USER",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:479324456849:secret:dreampath/database:DB_USERNAME::"
+        },
+        {
+          "name": "SERPER_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:479324456849:secret:dreampath/serper-u4PwHz:SERPER_API_KEY::"
+        },
         {
           "name": "OPENAI_API_KEY",
           "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:479324456849:secret:dreampath/openai:OPENAI_API_KEY::"
