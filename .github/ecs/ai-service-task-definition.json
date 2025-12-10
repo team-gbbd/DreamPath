@@ -78,6 +78,18 @@
         {
           "name": "SUPABASE_SERVICE_KEY",
           "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:479324456849:secret:dreampath/supabase:SUPABASE_SERVICE_KEY::"
+        },
+        {
+          "name": "PINECONE_FAQ_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:479324456849:secret:dreampath/pinecone:PINECONE_FAQ_API_KEY::"
+        },
+        {
+          "name": "PINECONE_FAQ_HOST",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:479324456849:secret:dreampath/pinecone:PINECONE_FAQ_HOST::"
+        },
+        {
+          "name": "PINECONE_FAQ_INDEX",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:479324456849:secret:dreampath/pinecone:PINECONE_FAQ_INDEX::"
         }
       ],
       "logConfiguration": {
