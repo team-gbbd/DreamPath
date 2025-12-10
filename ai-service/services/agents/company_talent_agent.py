@@ -264,8 +264,8 @@ class CompanyTalentAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.5,
-                max_tokens=2000
+                temperature=1,
+                max_completion_tokens=2000
             )
 
             result_text = response.choices[0].message.content
@@ -368,8 +368,8 @@ class CompanyTalentAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.5,
-                max_tokens=1500
+                temperature=1,
+                max_completion_tokens=1500
             )
 
             result_text = response.choices[0].message.content
@@ -452,8 +452,8 @@ class CompanyTalentAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.5,
-                max_tokens=1500
+                temperature=1,
+                max_completion_tokens=1500
             )
 
             result_text = response.choices[0].message.content
@@ -611,8 +611,8 @@ class CompanyTalentAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.5,
-                max_tokens=1500
+                temperature=1,
+                max_completion_tokens=1500
             )
 
             result_text = response.choices[0].message.content

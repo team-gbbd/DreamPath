@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import Button from '../../components/base/Button';
 import { useToast } from '../../components/common/Toast';
+import Header from '@/components/feature/Header';
 import styles from './dashboard.module.css';
 
 // Dashboard Logic Imports
@@ -410,6 +411,20 @@ export default function NewDashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem("dreampath:user");
+
+    // 챗봇 세션 및 대화 내용 초기화
+    sessionStorage.removeItem("assistant_chatbot_session_id");
+    sessionStorage.removeItem("assistant_chatbot_messages");
+    sessionStorage.removeItem("chatbot_session_id");
+    sessionStorage.removeItem("chatbot_messages");
+    sessionStorage.removeItem("faq_chatbot_session_id");
+    sessionStorage.removeItem("faq_chatbot_messages");
+
+    // 마지막 사용자 ID 초기화 (다음 로그인 시 변경 감지용)
+    localStorage.setItem("assistant_chatbot_last_user_id", "null");
+    localStorage.setItem("chatbot_last_user_id", "null");
+    localStorage.setItem("faq_chatbot_last_user_id", "null");
+
     window.dispatchEvent(new Event("dreampath-auth-change"));
     showToast("로그아웃되었습니다.", "success");
     navigate("/", { replace: true });
@@ -1331,103 +1346,12 @@ export default function NewDashboard() {
     </div>
   );
 
-  const navItems = [
-    { name: '진로 상담', href: '/career-chat', isRoute: true },
-    { name: '채용 추천', href: '/job-recommendations', isRoute: true, isDev: true },
-    { name: '멘토링', href: '/mentoring', isRoute: true, requiresAuth: true }
-  ];
-
   return (
     <>
       <ToastContainer />
 
       {/* Main Page Header */}
-      <header className={styles['glass-header']}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <div className="flex items-center space-x-3">
-              <img
-                src="https://static.readdy.ai/image/b6e15883c9875312b01889a8e71bf8cf/ccfcaec324d8c4883819f9f330e8ceab.png"
-                alt="DreamPath Logo"
-                className="h-10 w-10"
-              />
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] bg-clip-text text-transparent">
-                DreamPath
-              </h1>
-            </div>
-
-            {/* Navigation */}
-            <nav className="hidden md:flex items-center space-x-8">
-              {navItems.map((item) => (
-                item.isRoute ? (
-                  item.requiresAuth && !currentUser ? (
-                    <button
-                      key={item.name}
-                      onClick={() => {
-                        showToast('로그인이 필요합니다.', 'warning');
-                        navigate('/login');
-                      }}
-                      className="text-gray-700 hover:text-[#5A7BFF] transition-colors duration-200 font-medium"
-                    >
-                      {item.name}
-                    </button>
-                  ) : (
-                    <Link
-                      key={item.name}
-                      to={item.href}
-                      className={item.isDev
-                        ? "text-blue-600 hover:text-blue-700 transition-colors duration-200 font-semibold"
-                        : "text-gray-700 hover:text-[#5A7BFF] transition-colors duration-200 font-medium"
-                      }
-                    >
-                      {item.name}
-                    </Link>
-                  )
-                ) : (
-                  <a
-                    key={item.name}
-                    href={item.href}
-                    className="text-gray-700 hover:text-[#5A7BFF] transition-colors duration-200 font-medium"
-                  >
-                    {item.name}
-                  </a>
-                )
-              ))}
-            </nav>
-
-            {/* User Actions */}
-            <div className="flex items-center space-x-4">
-              {currentUser ? (
-                <>
-                  <Link to="/profile/dashboard">
-                    <Button variant="secondary" size="sm">
-                      <i className="ri-user-line mr-1"></i>
-                      프로파일링
-                    </Button>
-                  </Link>
-                  <Button size="sm" onClick={handleLogout}>
-                    로그아웃
-                  </Button>
-                </>
-              ) : (
-                <Link to="/login">
-                  <Button size="sm">
-                    로그인하기
-                  </Button>
-                </Link>
-              )}
-            </div>
-
-            {/* Mobile menu button */}
-            <div className="md:hidden">
-              <button className="text-gray-700 hover:text-[#5A7BFF] p-2">
-                <i className="ri-menu-line text-xl"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* Main Dashboard Container */}
       <div className={styles['glass-container']}>
@@ -1610,18 +1534,18 @@ export default function NewDashboard() {
       {/* AI Assistant Chatbot - Floating Button */}
       <button
         onClick={() => setShowAssistantChat(!showAssistantChat)}
-        className="fixed bottom-9 right-9 w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500
+        className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500
              text-white rounded-full shadow-lg flex items-center justify-center
-             hover:scale-105 transition-all z-50 animate-[wiggle_1.5s_ease-in-out_infinite]"
+             hover:scale-110 transition-all z-50 animate-bounce-slow"
         title="AI 비서"
       >
-        <Bot size={40} strokeWidth={2} />
+        <Bot size={32} strokeWidth={2} />
       </button>
 
-      {/* Chat Overlay */}
+      {/* Chat Overlay (배경 클릭 시 닫기) */}
       {showAssistantChat && (
         <div
-          className="fixed inset-0 bg-black/10 backdrop-blur-sm z-60"
+          className="fixed inset-0 z-60"
           onClick={() => setShowAssistantChat(false)}
         ></div>
       )}

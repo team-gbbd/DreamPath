@@ -304,8 +304,8 @@ class JobSiteService:
                     {"role": "system", "content": "당신은 취업 상담 전문가입니다. 직업 추천에 맞는 최적의 취업 사이트를 추천합니다."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.7,
-                max_tokens=1500
+                temperature=1,
+                max_completion_tokens=1500
             )
             
             result_text = response.choices[0].message.content

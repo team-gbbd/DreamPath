@@ -109,7 +109,11 @@ def format_result(data: List[Dict[str, Any]]) -> str:
         status_badge = "✅ 답변 완료" if answered else "⏳ 답변 대기"
 
         response += f"### {idx}. {status_badge}\n"
-        response += f"- **문의 일시**: {inquiry.get('created_at', 'N/A')}\n"
+        # 문의 일시 (초 단위까지만 표시)
+        created_at = str(inquiry.get('created_at', 'N/A'))
+        if created_at and created_at != 'N/A':
+            created_at = created_at[:19] if len(created_at) >= 19 else created_at
+        response += f"- **문의 일시**: {created_at}\n"
 
         # 문의 내용 (100자 제한)
         content = inquiry.get("content", "")
@@ -123,6 +127,10 @@ def format_result(data: List[Dict[str, Any]]) -> str:
             reply_content = inquiry.get("reply_content", "")
 
             if answered_at:
+                # 답변 일시 (초 단위까지만 표시)
+                answered_at = str(answered_at)
+                if len(answered_at) >= 19:
+                    answered_at = answered_at[:19]
                 response += f"- **답변 일시**: {answered_at}\n"
 
             if reply_content:

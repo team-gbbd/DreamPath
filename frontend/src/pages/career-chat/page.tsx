@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
   Plus,
@@ -201,6 +201,7 @@ function TypingIndicator() {
 
 export default function CareerChatPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -211,6 +212,7 @@ export default function CareerChatPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasCheckedAuth = useRef(false);
+  const hasProcessedInitialMessage = useRef(false);
   const [rightPanelTab, setRightPanelTab] = useState<RightPanelTab>('identity');
   const [researchPanels, setResearchPanels] = useState<ResearchPanel[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -286,6 +288,17 @@ export default function CareerChatPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // HomePage에서 전달받은 initialMessage 처리
+  useEffect(() => {
+    const state = location.state as { initialMessage?: string } | null;
+    if (state?.initialMessage && sessionId && !isLoading && !hasProcessedInitialMessage.current) {
+      hasProcessedInitialMessage.current = true;
+      // location state 초기화 (새로고침 시 재전송 방지)
+      window.history.replaceState({}, document.title);
+      sendMessage(state.initialMessage);
+    }
+  }, [sessionId, location.state]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -600,8 +613,9 @@ export default function CareerChatPage() {
     poll();
   };
 
-  const sendMessage = async () => {
-    if (!inputMessage.trim() || !sessionId || isLoading) return;
+  const sendMessage = async (messageToSend?: string) => {
+    const messageContent = messageToSend || inputMessage;
+    if (!messageContent.trim() || !sessionId || isLoading) return;
 
     const userStr = localStorage.getItem('dreampath:user');
     if (!userStr) {
@@ -613,7 +627,7 @@ export default function CareerChatPage() {
     const userMessage: Message = {
       id: generateMessageId(),
       role: 'user',
-      content: inputMessage,
+      content: messageContent,
       timestamp: new Date(),
     };
 
@@ -631,7 +645,7 @@ export default function CareerChatPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId,
-          message: inputMessage,
+          message: messageContent,
           userId: String(userId),
           identityStatus,
         }),

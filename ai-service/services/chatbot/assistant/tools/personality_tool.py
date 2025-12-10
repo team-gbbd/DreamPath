@@ -159,10 +159,16 @@ def format_result(data: Dict[str, Any]) -> str:
     results = data.get("data", {})
     response = "## 🧠 성격 분석 결과\n\n"
 
-    # MBTI 결과
-    mbti = results.get("mbti")
-    if mbti:
-        response += f"### 🎭 MBTI 유형: **{mbti}**\n\n"
+    # 성격 유형 (personality.type 또는 mbti 필드)
+    personality = results.get("personality")
+    personality_type = None
+    if personality and isinstance(personality, dict):
+        personality_type = personality.get("type")
+    if not personality_type:
+        personality_type = results.get("mbti")
+
+    if personality_type:
+        response += f"### 🎭 성격 유형: **{personality_type}**\n\n"
 
     # Big Five 성격 특성
     personality = results.get("personality")
@@ -205,31 +211,6 @@ def format_result(data: Dict[str, Any]) -> str:
         if growth_areas and isinstance(growth_areas, list):
             response += "**성장 포인트**: " + ", ".join(growth_areas[:5]) + "\n\n"
 
-    # 가치관 분석
-    values = results.get("values")
-    if values and isinstance(values, dict):
-        response += "### 💎 가치관 분석\n\n"
-
-        scores = values.get("scores", values)
-        if isinstance(scores, dict):
-            value_labels = {
-                "creativity": "창의성",
-                "growth": "성장 지향",
-                "security": "안정성",
-                "autonomy": "자율성",
-                "achievement": "성취",
-                "relationships": "관계"
-            }
-
-            for key, label in value_labels.items():
-                if key in scores:
-                    score = scores[key]
-                    if isinstance(score, (int, float)):
-                        percent = int(score * 100) if score <= 1 else int(score)
-                        response += f"- **{label}**: {percent}%\n"
-
-            response += "\n"
-
     # 감정 분석
     emotions = results.get("emotions")
     if emotions and isinstance(emotions, dict):
@@ -238,18 +219,20 @@ def format_result(data: Dict[str, Any]) -> str:
         for emotion, score in emotions.items():
             if isinstance(score, (int, float)):
                 percent = int(score * 100) if score <= 1 else int(score)
-                response += f"- **{emotion}**: {percent}%\n"
+                response += f"- **{emotion}** (긍정적 감정 지수): {percent}%\n"
 
         response += "\n"
 
     # 신뢰도 점수
     confidence = results.get("confidence_score")
     if confidence:
-        response += f"*분석 신뢰도: {confidence:.1%}*\n"
+        response += f"*분석 신뢰도: {confidence:.1%}*\n\n"
 
-    # 분석 일시
+    # 분석 일시 (초 단위 제거: YYYY-MM-DD HH:MM 형식으로 출력)
     analyzed_at = results.get("analyzed_at")
     if analyzed_at:
-        response += f"*분석 일시: {analyzed_at}*\n"
+        # "2025-12-09 15:48:45.047117" -> "2025-12-09 15:48"
+        formatted_date = analyzed_at[:16] if len(analyzed_at) >= 16 else analyzed_at
+        response += f"*분석 일시: {formatted_date}*\n"
 
     return response

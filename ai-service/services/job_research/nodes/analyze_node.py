@@ -146,7 +146,7 @@ def get_ai_insights(state: JobResearchState) -> str:
         response = client.chat.completions.create(
             model=settings.OPENAI_MODEL,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.7
+            temperature=1
         )
 
         return response.choices[0].message.content

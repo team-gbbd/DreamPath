@@ -624,6 +624,24 @@ export const userService = {
     const response = await api.put(`/users/${userId}`, data);
     return response.data;
   },
+
+  // 관리자: 모든 사용자 조회
+  getAllUsers: async () => {
+    const response = await api.get('/users');
+    return response.data;
+  },
+
+  // 관리자: 사용자 역할 변경
+  updateUserRole: async (userId: number, role: string) => {
+    const response = await api.patch(`/users/${userId}/role`, { role });
+    return response.data;
+  },
+
+  // 관리자: 사용자 활성화/비활성화
+  updateUserStatus: async (userId: number, isActive: boolean) => {
+    const response = await api.patch(`/users/${userId}/status`, { isActive });
+    return response.data;
+  },
 };
 
 /* ================================
