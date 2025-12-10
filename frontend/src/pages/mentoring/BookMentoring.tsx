@@ -110,7 +110,7 @@ export default function BookMentoringPage() {
       });
 
       showToast('멘토링 예약이 완료되었습니다! 멘토가 확정하면 알림을 받으실 수 있습니다.', 'success');
-      navigate('/mypage/bookings');
+      navigate('/career-chat');
     } catch (error) {
       console.error('예약 생성 실패:', error);
       const apiError = error as { response?: { data?: { message?: string } } };

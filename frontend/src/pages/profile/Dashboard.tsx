@@ -245,6 +245,9 @@ export default function NewDashboard() {
   const [remainingSessions, setRemainingSessions] = useState<number>(0);
   const [mentorInfo, setMentorInfo] = useState<{ mentorId: number; status: string } | null>(null);
 
+  // Learning Path State
+  const [learningPaths, setLearningPaths] = useState<any[]>([]);
+
   // --- Data Fetching Logic ---
   const fetchProfileData = useCallback(
     async (targetUserId: number, options: FetchOptions = {}) => {
@@ -380,6 +383,17 @@ export default function NewDashboard() {
           }
         } catch (e) {
           // Not a mentor or error - ignore
+        }
+
+        // Fetch learning paths
+        try {
+          const pathsResponse = await fetch(`${BACKEND_BASE_URL}/api/learning-paths/user/${storedId}`);
+          if (pathsResponse.ok) {
+            const paths = await pathsResponse.json();
+            setLearningPaths(paths || []);
+          }
+        } catch (e) {
+          console.error('학습 경로 조회 실패:', e);
         }
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
@@ -808,68 +822,117 @@ export default function NewDashboard() {
     </div>
   );
 
-  const renderLearningSection = () => (
-    <div className="space-y-6">
-      {/* Learning Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* 학습 진행률 */}
-        <div className={styles['glass-card']}>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl flex items-center justify-center">
-              <PieChart size={20} className="text-blue-600" />
+  const renderLearningSection = () => {
+    // 학습 통계 계산
+    const totalProgress = learningPaths.length > 0
+      ? Math.round(learningPaths.reduce((sum, p) => sum + (p.overallProgress || 0), 0) / learningPaths.length)
+      : 0;
+    const completedWeeks = learningPaths.reduce((sum, p) => {
+      const completed = (p.weeklySessions || []).filter((w: any) => w.status === 'COMPLETED').length;
+      return sum + completed;
+    }, 0);
+
+    return (
+      <div className="space-y-6">
+        {/* Learning Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* 학습 진행률 */}
+          <div className={styles['glass-card']}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl flex items-center justify-center">
+                <PieChart size={20} className="text-blue-600" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-700">평균 학습 진행률</h3>
             </div>
-            <h3 className="text-sm font-bold text-slate-700">학습 진행률</h3>
+            <p className="text-3xl font-bold text-blue-600 mb-1">{totalProgress}%</p>
           </div>
-          <p className="text-3xl font-bold text-blue-600 mb-1">0%</p>
+
+          {/* 완료한 주차 */}
+          <div className={styles['glass-card']}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-green-200 rounded-xl flex items-center justify-center">
+                <BookOpen size={20} className="text-green-600" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-700">완료한 주차</h3>
+            </div>
+            <p className="text-3xl font-bold text-green-600 mb-1">{completedWeeks}주</p>
+          </div>
+
+          {/* 진행 중인 학습 */}
+          <div className={styles['glass-card']}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl flex items-center justify-center">
+                <GraduationCap size={20} className="text-purple-600" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-700">진행 중인 학습</h3>
+            </div>
+            <p className="text-3xl font-bold text-purple-600 mb-1">{learningPaths.length}개</p>
+          </div>
         </div>
 
-        {/* 완료한 주차 */}
+        {/* Learning Roadmap */}
         <div className={styles['glass-card']}>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-green-200 rounded-xl flex items-center justify-center">
-              <BookOpen size={20} className="text-green-600" />
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-pink-500 rounded-xl flex items-center justify-center">
+              <BookOpen size={24} className="text-white" />
             </div>
-            <h3 className="text-sm font-bold text-slate-700">완료한 주차</h3>
+            <div>
+              <h3 className="text-lg font-bold text-slate-800">학습 로드맵</h3>
+              <p className="text-sm text-slate-500">진행 중인 학습 경로</p>
+            </div>
           </div>
-          <p className="text-3xl font-bold text-green-600 mb-1">0주</p>
-        </div>
 
-        {/* 멘토링 잔여 */}
-        <div className={styles['glass-card']}>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl flex items-center justify-center">
-              <MessageSquare size={20} className="text-purple-600" />
+          {learningPaths.length > 0 ? (
+            <div className="space-y-4">
+              {learningPaths.slice(0, 5).map((path) => (
+                <div key={path.pathId} className="bg-slate-50 rounded-xl p-4 hover:bg-slate-100 transition-colors">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-pink-100 to-purple-100 rounded-lg flex items-center justify-center">
+                        <BookOpen size={18} className="text-pink-600" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-800">{path.domain}</h4>
+                        <p className="text-xs text-slate-500">{path.currentWeek}주차 진행 중</p>
+                      </div>
+                    </div>
+                    <Link
+                      to={`/learning?career=${encodeURIComponent(path.domain)}`}
+                      className="px-3 py-1.5 bg-pink-500 text-white text-xs font-bold rounded-lg hover:bg-pink-600 transition-colors"
+                    >
+                      이어서 학습
+                    </Link>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 bg-slate-200 rounded-full h-2">
+                      <div
+                        className="bg-gradient-to-r from-pink-400 to-purple-500 h-2 rounded-full transition-all"
+                        style={{ width: `${path.overallProgress || 0}%` }}
+                      />
+                    </div>
+                    <span className="text-sm font-bold text-pink-600">{path.overallProgress || 0}%</span>
+                  </div>
+                </div>
+              ))}
+              {learningPaths.length > 5 && (
+                <p className="text-center text-sm text-slate-500">외 {learningPaths.length - 5}개 더 있음</p>
+              )}
             </div>
-            <h3 className="text-sm font-bold text-slate-700">멘토링 잔여</h3>
-          </div>
-          <p className="text-3xl font-bold text-purple-600 mb-1">0회</p>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
+                <FileText size={32} className="text-slate-400" />
+              </div>
+              <p className="text-slate-600 text-sm mb-6">아직 시작한 학습 경로가 없습니다</p>
+              <button onClick={() => setActiveTab('roadmap')} className="px-6 py-3 bg-gradient-to-r from-pink-400 to-pink-500 text-white rounded-xl text-sm font-bold hover:opacity-90 transition-opacity shadow-lg">
+                학습 시작하기
+              </button>
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Learning Roadmap */}
-      <div className={styles['glass-card']}>
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-pink-500 rounded-xl flex items-center justify-center">
-            <BookOpen size={24} className="text-white" />
-          </div>
-          <div>
-            <h3 className="text-lg font-bold text-slate-800">학습 로드맵</h3>
-            <p className="text-sm text-slate-500">주차별 학습 현황</p>
-          </div>
-        </div>
-
-        <div className="flex flex-col items-center justify-center py-12">
-          <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
-            <FileText size={32} className="text-slate-400" />
-          </div>
-          <p className="text-slate-600 text-sm mb-6">아직 시작한 학습 경로가 없습니다</p>
-          <button onClick={() => setActiveTab('roadmap')} className="px-6 py-3 bg-gradient-to-r from-pink-400 to-pink-500 text-white rounded-xl text-sm font-bold hover:opacity-90 transition-opacity shadow-lg">
-            학습 시작하기
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+    );
+  };
 
   const getBookingStatusStyle = (status: string) => {
     switch (status) {

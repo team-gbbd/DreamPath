@@ -208,6 +208,15 @@ export default function CareerChatPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
   const [similarMentorLoading, setSimilarMentorLoading] = useState<string | null>(null);
+  const [personalityPromptDismissed, setPersonalityPromptDismissed] = useState(false);
+  const [personalityTriggered, setPersonalityTriggered] = useState(false);
+  const [isIdentityLoading, setIsIdentityLoading] = useState(false);
+
+  const promptMessageText = [
+    '사용자님의 상담 내용을 기반으로',
+    '성향 분석을 생성할 수 있을 것 같아요.',
+    '지금 바로 확인해 보시겠어요?',
+  ].join('\n');
 
   const findSimilarMentors = async (panelId: string, currentSession: MentoringSession) => {
     setSimilarMentorLoading(panelId);
@@ -587,6 +596,7 @@ export default function CareerChatPage() {
       }
 
       // 정체성 상태 업데이트 (별도 폴링 - 백엔드 비동기 분석 결과 가져오기)
+      setIsIdentityLoading(true);
       setTimeout(async () => {
         try {
           const identityResponse = await fetch(`${API_BASE_URL}/identity/${sessionId}`);
@@ -598,6 +608,8 @@ export default function CareerChatPage() {
           }
         } catch (err) {
           console.warn('정체성 상태 폴링 실패:', err);
+        } finally {
+          setIsIdentityLoading(false);
         }
       }, 2000); // 2초 후 폴링 (백엔드 비동기 분석 완료 대기)
     } catch (error) {
@@ -982,6 +994,18 @@ export default function CareerChatPage() {
                 <TabsContent value="identity" className="flex-1 overflow-hidden m-0 bg-white">
                   <ScrollArea className="h-full">
                     <div className="p-4 space-y-4">
+                      {/* 로딩 상태 */}
+                      {isIdentityLoading && (
+                        <div className="bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/10 rounded-xl p-4">
+                          <div className="flex items-center gap-3">
+                            <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700">정체성 분석 중...</p>
+                              <p className="text-xs text-gray-500">대화 내용을 분석하고 있어요</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       {identityStatus ? (
                         <>
                           {/* 새로운 인사이트 */}

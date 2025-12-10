@@ -12,7 +12,7 @@ from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
 
 from .state import AgentState, MAX_STEPS, TOOL_TIMEOUT_SECONDS
-from .tools import TOOL_MAP
+from .career_tools import TOOL_MAP
 from .prompts import (
     REACT_SYSTEM_PROMPT,
     ANSWER_SYSTEM_PROMPT,
@@ -141,10 +141,16 @@ async def action_node(state: AgentState) -> dict:
 
     # 도구 실행 (타임아웃 적용)
     try:
+        # LangChain @tool 도구의 입력 포맷: 단일 인자면 값만, 복수면 dict
+        # arun()은 문자열/dict 입력을 받아 내부에서 파싱
+        logger.info(f"[Agent] 도구 호출: {action}, 입력: {action_input}")
+
         result = await asyncio.wait_for(
             tool_func.ainvoke(action_input),
             timeout=TOOL_TIMEOUT_SECONDS
         )
+
+        logger.info(f"[Agent] 도구 결과 타입: {type(result)}, 값: {result}")
 
         logger.info(f"[Agent] 도구 실행 완료: {action}")
 
