@@ -28,7 +28,7 @@ class DatabaseService:
         if USE_POSTGRES:
             self.db_config = {
                 'host': os.getenv('DB_HOST', 'localhost'),
-                'port': int(os.getenv('DB_PORT', 5432)),
+                'port': int(os.getenv('DB_PORT', 6543)),
                 'user': os.getenv('DB_USER', 'postgres'),
                 'password': os.getenv('DB_PASSWORD', 'postgres'),
                 'database': os.getenv('DB_NAME', 'postgres'),

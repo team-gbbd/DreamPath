@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mentorService, BACKEND_BASE_URL } from '@/lib/api';
+import { mentorService } from '@/lib/api';
 import Header from '@/components/feature/Header';
 import { useToast } from '@/components/common/Toast';
-import axios from 'axios';
 
 interface MentorApplication {
     mentorId: number;
@@ -14,11 +13,6 @@ interface MentorApplication {
     status: 'PENDING' | 'APPROVED' | 'REJECTED';
     createdAt: string;
     updatedAt: string;
-}
-
-interface Inquiry {
-    id: number;
-    answered: boolean;
 }
 
 export default function AdminDashboardPage() {

@@ -23,8 +23,8 @@ class ChatService:
         self.llm = ChatOpenAI(
             api_key=api_key,
             model=model,
-            temperature=0.7,
-            max_tokens=1000 # 응답 생성을 위한 충분한 토큰
+            temperature=1,
+            max_completion_tokens=1000 # 응답 생성을 위한 충분한 토큰
         )
         # 기존 agent_integration 제거됨 - ReAct 에이전트가 대체
 

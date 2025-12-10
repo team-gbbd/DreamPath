@@ -12,6 +12,7 @@ class AssistantChatRequest(BaseModel):
     sessionId: Optional[UUID] = None  # 세션 ID (선택)
     message: str  # 사용자 메시지
     conversationTitle: Optional[str] = "새 대화"
+    functionName: Optional[str] = None  # FAQ 직접 호출용 (유사도 검색 건너뛰기)
 
 
 class AssistantChatResponse(BaseModel):

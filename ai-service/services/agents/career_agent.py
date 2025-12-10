@@ -32,7 +32,7 @@ def get_llm():
     return ChatOpenAI(
         api_key=os.getenv("OPENAI_API_KEY"),
         model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
-        temperature=0.3,
+        temperature=1,
     )
 
 
