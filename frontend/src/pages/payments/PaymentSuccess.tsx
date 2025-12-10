@@ -170,21 +170,42 @@ export default function PaymentSuccessPage() {
 
             {/* Action Buttons */}
             <div className="space-y-3">
-              <button
-                onClick={() => navigate('/profile/dashboard')}
-                className="w-full bg-pink-500 text-white py-3 rounded-lg font-bold hover:bg-pink-600 transition-colors"
-              >
-                <i className="ri-user-line mr-2"></i>
-                프로파일링 대시보드로 이동
-              </button>
+              {(() => {
+                const returnUrl = localStorage.getItem('payment_return_url');
+                if (returnUrl) {
+                  return (
+                    <button
+                      onClick={() => {
+                        localStorage.removeItem('payment_return_url');
+                        navigate(returnUrl);
+                      }}
+                      className="w-full bg-pink-500 text-white py-3 rounded-lg font-bold hover:bg-pink-600 transition-colors"
+                    >
+                      <i className="ri-arrow-go-back-line mr-2"></i>
+                      이전 페이지로 돌아가기
+                    </button>
+                  );
+                }
+                return (
+                  <>
+                    <button
+                      onClick={() => navigate('/profile/dashboard')}
+                      className="w-full bg-pink-500 text-white py-3 rounded-lg font-bold hover:bg-pink-600 transition-colors"
+                    >
+                      <i className="ri-user-line mr-2"></i>
+                      프로파일링 대시보드로 이동
+                    </button>
 
-              <button
-                onClick={() => navigate('/mentoring')}
-                className="w-full bg-white border-2 border-pink-500 text-pink-500 py-3 rounded-lg font-bold hover:bg-pink-50 transition-colors"
-              >
-                <i className="ri-calendar-check-line mr-2"></i>
-                멘토링 예약하러 가기
-              </button>
+                    <button
+                      onClick={() => navigate('/mentoring')}
+                      className="w-full bg-white border-2 border-pink-500 text-pink-500 py-3 rounded-lg font-bold hover:bg-pink-50 transition-colors"
+                    >
+                      <i className="ri-calendar-check-line mr-2"></i>
+                      멘토링 예약하러 가기
+                    </button>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>

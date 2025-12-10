@@ -125,7 +125,7 @@ export default function LearningPathDetail() {
             <i className="ri-arrow-left-s-line"></i> 대시보드
           </button>
           <button
-            onClick={() => navigate(`/learning/${pathId}/dashboard`)}
+            onClick={() => navigate('/learning', { state: { selectPathId: Number(pathId) } })}
             className="text-sm text-pink-600 hover:text-pink-700 flex items-center gap-1 transition-colors"
           >
             <i className="ri-bar-chart-2-line"></i> 통계 보기
