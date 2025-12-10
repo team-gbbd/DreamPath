@@ -36,5 +36,10 @@ public class ChatResponse {
      * 백그라운드에서 실행 중인 에이전트 결과를 조회할 때 사용
      */
     private String taskId;
-}
 
+    /**
+     * Personality Agent 분석 결과 (선택적)
+     * 메시지 12개 이상일 때 자동으로 생성됨
+     */
+    private Object personalityAgentResult;
+}

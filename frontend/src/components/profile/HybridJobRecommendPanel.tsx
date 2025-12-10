@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchHybridJobs } from "@/pages/profile/recommendApi";
-import { backendApi } from "@/lib/api";
+import { backendApi, fetchJobDetail, type JobDetailData } from "@/lib/api";
+import DetailModal, { formatWageText } from "@/pages/profile/DetailModal";
 
 interface HybridResultItem {
   job_id?: string;
@@ -21,6 +22,10 @@ const HybridJobRecommendPanel = ({ embedded = false, profileId }: HybridJobRecom
   const [results, setResults] = useState<HybridResultItem[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedJob, setSelectedJob] = useState<HybridResultItem | null>(null);
+  const [jobDetail, setJobDetail] = useState<JobDetailData | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profileId) return;
@@ -69,6 +74,56 @@ const HybridJobRecommendPanel = ({ embedded = false, profileId }: HybridJobRecom
     () => results.length > 0,
     [results.length]
   );
+
+  const resolveJobId = (item: HybridResultItem): string | number | null => {
+    const metadata = (item?.metadata ?? {}) as Record<string, any>;
+    let id = (
+      item.job_id ||
+      metadata?.job_id ||
+      metadata?.jobId ||
+      metadata?.original_id ||
+      metadata?.job_code ||
+      null
+    );
+
+    // Remove "job_" prefix if present (e.g., "job_923" → "923")
+    if (typeof id === 'string' && id.startsWith('job_')) {
+      id = id.replace('job_', '');
+    }
+
+    return id;
+  };
+
+  const handleCardClick = async (item: HybridResultItem) => {
+    setSelectedJob(item);
+    setJobDetail(null);
+    setDetailError(null);
+    const jobId = resolveJobId(item);
+    if (!jobId) {
+      setDetailError("직업 ID가 없어 상세 데이터를 불러올 수 없습니다.");
+      return;
+    }
+    try {
+      setDetailLoading(true);
+      const detail = await fetchJobDetail(jobId);
+      setJobDetail(detail);
+    } catch (error: any) {
+      const message =
+        error?.response?.status === 404
+          ? "상세 직업 데이터를 찾을 수 없습니다."
+          : "직업 상세 데이터를 불러오지 못했습니다.";
+      setDetailError(message);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const closeModal = () => {
+    setSelectedJob(null);
+    setJobDetail(null);
+    setDetailError(null);
+    setDetailLoading(false);
+  };
 
   const wrapperClass = embedded ? "space-y-6" : "space-y-8";
 
@@ -128,7 +183,16 @@ const HybridJobRecommendPanel = ({ embedded = false, profileId }: HybridJobRecom
             return (
               <div
                 key={item.job_id || index}
-                className="rounded-2xl border p-6 shadow-sm hover:shadow-md transition-shadow bg-white"
+                role="button"
+                tabIndex={0}
+                onClick={() => handleCardClick(item)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    handleCardClick(item);
+                  }
+                }}
+                className="rounded-2xl border p-6 shadow-sm hover:shadow-lg transition-all bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer"
               >
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold text-indigo-600">추천 #{index + 1}</p>
@@ -145,7 +209,21 @@ const HybridJobRecommendPanel = ({ embedded = false, profileId }: HybridJobRecom
                   {item.metadata?.wage && (
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-medium text-gray-500">💰 연봉:</span>
-                      <span className="text-sm text-gray-700">{item.metadata.wage}</span>
+                      <span className="text-sm font-semibold text-gray-900 flex items-center gap-1">
+                        {formatWageText(item.metadata.wage)}
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                          className="w-3.5 h-3.5 text-gray-900 -translate-y-[1px]"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M11.47 4.72a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 1 1-1.06 1.06L12.75 6.56v12.69a.75.75 0 0 1-1.5 0V6.56L8.03 10.28a.75.75 0 0 1-1.06-1.06l4.5-4.5Z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </span>
                     </div>
                   )}
                   {item.metadata?.wlb && (
@@ -184,6 +262,17 @@ const HybridJobRecommendPanel = ({ embedded = false, profileId }: HybridJobRecom
             );
           })}
         </div>
+      )}
+      {selectedJob && (
+        <DetailModal
+          type="job"
+          open={Boolean(selectedJob)}
+          onClose={closeModal}
+          detailData={jobDetail}
+          fallback={selectedJob}
+          loading={detailLoading}
+          errorMessage={detailError}
+        />
       )}
     </div >
   );
