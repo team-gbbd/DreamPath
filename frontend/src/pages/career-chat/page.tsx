@@ -517,7 +517,7 @@ export default function CareerChatPage() {
 
   // 에이전트 결과 폴링 함수
   const pollAgentResult = async (taskId: string) => {
-    const maxAttempts = 30; // 최대 15초 (0.5초 * 30)
+    const maxAttempts = 60; // 최대 30초 (0.5초 * 60)
     let attempts = 0;
 
     const poll = async () => {
@@ -664,16 +664,22 @@ export default function CareerChatPage() {
         setIsSearching(false);
       }
 
-      if (data.identityStatus) {
-        setIdentityStatus(data.identityStatus);
-
+      // 정체성 상태 업데이트 (별도 폴링 - 백엔드 비동기 분석 결과 가져오기)
+      setTimeout(async () => {
         try {
-          localStorage.setItem('career_chat_identity', JSON.stringify(data.identityStatus));
-        } catch (e) {
-          console.warn('Failed to save identity status');
+          const identityResponse = await fetch(`${API_BASE_URL}/identity/${sessionId}`);
+          if (identityResponse.ok) {
+            const updatedIdentity = await identityResponse.json();
+            setIdentityStatus(updatedIdentity);
+            localStorage.setItem('career_chat_identity', JSON.stringify(updatedIdentity));
+            console.log('정체성 상태 업데이트됨:', updatedIdentity.clarity);
+          }
+        } catch (err) {
+          console.warn('정체성 상태 폴링 실패:', err);
         }
-      }
+      }, 2000); // 2초 후 폴링 (백엔드 비동기 분석 완료 대기)
 
+      // PersonalityAgent 결과 처리
       const personalityAgentPayload =
         data?.personalityAgentResult ??
         data?.personalityAgent ??

@@ -1323,7 +1323,7 @@ export default function NewDashboard() {
           <div className="border border-gray-200 rounded-lg p-4">
             <p className="text-xs text-gray-500 mb-1">역할</p>
             <span className="text-xs px-2 py-1 rounded bg-pink-50 text-pink-600">
-              {currentUser?.role === 'MENTOR' ? '멘토' : currentUser?.role === 'ADMIN' ? '관리자' : '학생'}
+              {mentorInfo?.status === 'APPROVED' ? '멘토' : currentUser?.role === 'ADMIN' ? '관리자' : '학생'}
             </span>
           </div>
         </div>
@@ -1792,6 +1792,39 @@ export default function NewDashboard() {
                 </button>
                 <button
                   disabled={!company || !job || !yearsOfExperience || mentorBio.length < 50 || mentorCareer.length < 20}
+                  onClick={async () => {
+                    // 유효성 검사
+                    if (!company || !job || !yearsOfExperience || mentorBio.length < 50 || mentorCareer.length < 20) {
+                      showToast('모든 필드를 올바르게 입력해주세요.', 'warning');
+                      return;
+                    }
+                    if (!userId) {
+                      showToast('로그인이 필요합니다.', 'error');
+                      return;
+                    }
+                    try {
+                      await mentorService.applyForMentor({
+                        userId,
+                        company,
+                        job,
+                        experience: `${yearsOfExperience}년`,
+                        bio: mentorBio,
+                        career: mentorCareer,
+                      });
+                      showToast('멘토 신청이 완료되었습니다! 관리자 승인 후 멘토 활동이 가능합니다.', 'success');
+                      setShowMentorModal(false);
+                      // 폼 초기화
+                      setCompany('');
+                      setJob('');
+                      setYearsOfExperience('');
+                      setMentorBio('');
+                      setMentorCareer('');
+                    } catch (error) {
+                      console.error('멘토 신청 실패:', error);
+                      const apiError = error as { response?: { data?: { message?: string } } };
+                      showToast(apiError.response?.data?.message || '멘토 신청 중 오류가 발생했습니다.', 'error');
+                    }
+                  }}
                   className="flex-1 bg-pink-500 text-white py-4 rounded-lg font-bold hover:bg-pink-600 transition-colors disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed shadow-lg flex items-center justify-center gap-2"
                 >
                   <Send size={20} />
