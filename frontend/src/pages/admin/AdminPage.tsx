@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+   import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/feature/Header.tsx';
 import { useToast } from '@/components/common/Toast.tsx';
@@ -55,14 +55,17 @@ export default function AdminPage() {
     try {
       setIsLoading(true);
       const AI_SERVICE_URL = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8000';
+      const JAVA_BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080';
 
+      // FAQ는 Python AI 서비스에서 가져오기
       const faqResponse = await fetch(`${AI_SERVICE_URL}/api/faq/all`);
       if (faqResponse.ok) {
         const faqData = await faqResponse.json();
         setFaqCount(faqData.length);
       }
 
-      const inquiryResponse = await fetch(`${AI_SERVICE_URL}/api/inquiry/all`);
+      // 문의는 Java 백엔드에서 가져오기
+      const inquiryResponse = await fetch(`${JAVA_BACKEND_URL}/api/inquiry/all`);
       if (inquiryResponse.ok) {
         const inquiryData = await inquiryResponse.json();
         // 미답변 개수만 세기

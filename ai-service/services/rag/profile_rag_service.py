@@ -2,12 +2,14 @@ import json
 from typing import List
 
 from services.common.openai_client import OpenAIService
+from config import settings
 
 
 class ProfileRAGService:
 
     def __init__(self, openai: OpenAIService):
         self.openai = openai
+        self.model = settings.OPENAI_MODEL
 
     async def enrich_with_rag(self, job_matches: List[dict], user_document: str):
 
@@ -43,7 +45,7 @@ class ProfileRAGService:
             """
 
             resp = self.openai.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=self.model,
                 messages=[{"role": "user", "content": prompt}]
             )
 

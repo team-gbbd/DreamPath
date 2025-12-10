@@ -122,6 +122,14 @@ public class PythonAgentService {
         return callPythonAgent("/api/agent/resume/keywords", requestBody);
     }
 
+    /**
+     * 성향 분석 에이전트 호출
+     */
+    public Map<String, Object> callPersonalityAgent(Map<String, Object> requestBody) {
+        log.info("PersonalityAgent payload: {}", requestBody);
+        return callPythonAgent("/api/agent/personality", requestBody);
+    }
+
     // ============== 공통 메서드 ==============
 
     /**

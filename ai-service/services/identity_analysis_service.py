@@ -8,12 +8,14 @@ from typing import Dict, Optional
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from services.database_service import DatabaseService
+from config import settings
 
 
 class IdentityAnalysisService:
     """LangChain을 사용한 정체성 분석 서비스"""
 
-    def __init__(self, api_key: str, model: str = "gpt-4o-mini"):
+    def __init__(self, api_key: str, model: str = None):
+        model = model or settings.OPENAI_MODEL
         self.llm = ChatOpenAI(
             api_key=api_key,
             model=model,
@@ -28,7 +30,7 @@ class IdentityAnalysisService:
             self._db_service = DatabaseService()
         return self._db_service
 
-    def _get_full_conversation(self, conversation_history: str, user_id: Optional[str] = None) -> str:
+    def _get_full_conversation(self, conversation_history: str, session_id: Optional[str] = None) -> str:
         """
         현재 세션의 대화 기록만 반환합니다.
         (이전 세션의 대화는 포함하지 않음 - 새 상담 시 정체성 초기화를 위해)
@@ -36,10 +38,10 @@ class IdentityAnalysisService:
         # 이전 세션 대화 조회 비활성화 - 새 상담마다 정체성을 새로 시작
         return conversation_history
     
-    async def assess_clarity(self, conversation_history: str, user_id: Optional[str] = None) -> Dict:
+    async def assess_clarity(self, conversation_history: str, session_id: Optional[str] = None) -> Dict:
         """
         정체성 명확도를 평가합니다.
-        user_id가 있으면 이전 대화 기록도 포함하여 분석합니다.
+        session_id가 있으면 해당 세션의 전체 대화 기록으로 분석합니다.
 
         Returns:
             {
@@ -47,8 +49,8 @@ class IdentityAnalysisService:
                 "reason": "평가 이유"
             }
         """
-        # userId가 있으면 이전 대화 기록 포함
-        full_history = self._get_full_conversation(conversation_history, user_id)
+        # sessionId가 있으면 전체 대화 기록 포함
+        full_history = self._get_full_conversation(conversation_history, session_id)
         system_prompt = """
 대화 내용을 분석하여 학생의 진로 정체성이 얼마나 명확해졌는지 평가하세요.
 
@@ -79,10 +81,10 @@ JSON 형식으로만 응답하세요:
 
         return self._parse_clarity_response(response)
 
-    async def extract_identity(self, conversation_history: str, user_id: Optional[str] = None) -> Dict:
+    async def extract_identity(self, conversation_history: str, session_id: Optional[str] = None) -> Dict:
         """
         정체성 특징을 추출합니다.
-        user_id가 있으면 이전 대화 기록도 포함하여 분석합니다.
+        session_id가 있으면 해당 세션의 전체 대화 기록으로 분석합니다.
 
         Returns:
             {
@@ -93,8 +95,8 @@ JSON 형식으로만 응답하세요:
                 "nextFocus": "..."
             }
         """
-        # userId가 있으면 이전 대화 기록 포함
-        full_history = self._get_full_conversation(conversation_history, user_id)
+        # sessionId가 있으면 전체 대화 기록 포함
+        full_history = self._get_full_conversation(conversation_history, session_id)
 
         system_prompt = """
 대화에서 드러난 학생의 정체성 특징을 추출하세요.
@@ -190,11 +192,11 @@ JSON 형식으로만 응답하세요:
         self,
         conversation_history: str,
         current_stage: str,
-        user_id: Optional[str] = None
+        session_id: Optional[str] = None
     ) -> Dict:
         """
         현재 단계에서 다음 단계로 넘어갈 준비가 되었는지 평가합니다.
-        user_id가 있으면 이전 대화 기록도 포함하여 분석합니다.
+        session_id가 있으면 해당 세션의 전체 대화 기록으로 분석합니다.
 
         Returns:
             {
@@ -203,8 +205,8 @@ JSON 형식으로만 응답하세요:
                 "recommendation": "추천사항"
             }
         """
-        # userId가 있으면 이전 대화 기록 포함
-        full_history = self._get_full_conversation(conversation_history, user_id)
+        # sessionId가 있으면 전체 대화 기록 포함
+        full_history = self._get_full_conversation(conversation_history, session_id)
 
         system_prompt = f"""
 현재 대화 단계: {current_stage}

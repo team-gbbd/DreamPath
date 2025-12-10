@@ -10,12 +10,88 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 import json
+import asyncio
+from openai import OpenAI
 from services.agents.job_agent import run_job_agent
 from services.agents.job_recommendation_agent import JobRecommendationAgent
 from services.database_service import DatabaseService
 from services.job_recommendation_calculator import calculate_user_recommendations_sync, JobRecommendationCalculator
 
 router = APIRouter(prefix="/api/job-agent", tags=["job-agent"])
+
+# AI 기반 채용공고 적합도 평가 함수
+def evaluate_job_fitness_with_ai(career_names: List[str], job_title: str, job_description: str) -> Dict:
+    """
+    AI를 사용하여 채용공고가 추천 직업에 적합한지 평가
+    
+    Returns:
+        {
+            "is_relevant": bool,  # 관련성 있음 여부
+            "match_score": int,   # 0-100 점수
+            "matched_career": str, # 가장 관련 있는 직업
+            "reason": str,        # 추천 이유
+            "required_skills": List[str],  # 채용공고에서 추출한 필요 스킬
+            "skill_match": List[str]  # 직업과 매칭되는 스킬
+        }
+    """
+    try:
+        client = OpenAI()
+        
+        prompt = f"""당신은 채용 전문가입니다. 사용자의 추천 직업 목록과 채용공고를 비교하여 적합도를 평가해주세요.
+
+추천 직업 목록: {', '.join(career_names)}
+
+채용공고:
+- 제목: {job_title}
+- 설명: {job_description[:500] if job_description else '없음'}
+
+다음 JSON 형식으로만 응답하세요:
+{{
+    "is_relevant": true/false,  // 이 채용공고가 추천 직업 중 하나와 관련이 있는지
+    "match_score": 0-100,       // 적합도 점수 (관련 없으면 0-30, 약간 관련 30-60, 관련 있으면 60-85, 매우 관련 85-100)
+    "matched_career": "가장 관련 있는 직업명",  // 추천 직업 중 가장 관련있는 것
+    "reason": "이 채용공고가 해당 직업에 적합한 이유 (2-3문장)",
+    "required_skills": ["스킬1", "스킬2"],  // 채용공고에서 요구하는 스킬 (최대 5개)
+    "skill_match": ["매칭스킬1", "매칭스킬2"]  // 직업에 필요한 스킬 중 매칭되는 것
+}}
+
+중요: 
+- 직업명과 직접적으로 관련된 채용만 높은 점수를 주세요
+- "화가"에게 "미술학원 강사"는 관련성이 낮습니다 (30-50점)
+- "화가"에게 "일러스트레이터 채용"은 관련성이 높습니다 (70-90점)
+- 명확히 관련 없으면 is_relevant: false, match_score: 0-20으로 설정"""
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=500
+        )
+        
+        result_text = response.choices[0].message.content.strip()
+        
+        # JSON 파싱
+        if result_text.startswith('```'):
+            result_text = result_text.split('```')[1]
+            if result_text.startswith('json'):
+                result_text = result_text[4:]
+        
+        result = json.loads(result_text)
+        print(f"[AI Fitness] {job_title[:30]}... -> score: {result.get('match_score')}, career: {result.get('matched_career')}")
+        return result
+        
+    except Exception as e:
+        print(f"[AI Fitness Error] {str(e)}")
+        return {
+            "is_relevant": False,
+            "match_score": 50,
+            "matched_career": career_names[0] if career_names else "",
+            "reason": "AI 평가 실패, 키워드 기반 추천",
+            "required_skills": [],
+            "skill_match": []
+        }
+
+
 
 
 class AgentRequest(BaseModel):
@@ -245,7 +321,7 @@ async def get_cached_recommendations(
                         site_name,
                         experience,
                         crawled_at,
-                        applicant_count
+                        0 as applicant_count
                     FROM job_listings
                     ORDER BY crawled_at DESC
                     LIMIT %s
@@ -378,7 +454,7 @@ async def get_cached_recommendations(
                         site_name,
                         experience,
                         crawled_at,
-                        applicant_count
+                        0 as applicant_count
                     FROM job_listings
                     ORDER BY crawled_at DESC
                     LIMIT %s
@@ -536,7 +612,13 @@ async def get_cached_recommendations(
 
             # 계산 시간 추출 (첫 번째 레코드)
             if calculated_at is None:
-                calculated_at = row.get("calculated_at")
+                calc_time = row.get("calculated_at")
+                if calc_time:
+                    # datetime 객체면 문자열로 변환
+                    if hasattr(calc_time, 'isoformat'):
+                        calculated_at = calc_time.isoformat()
+                    else:
+                        calculated_at = str(calc_time)
 
         return RecommendationResponse(
             success=True,
@@ -716,67 +798,85 @@ async def get_recommendations_by_career_analysis(
     """
     try:
         db = DatabaseService()
-
-        # 1. career_analyses에서 사용자의 추천 직업 가져오기
-        career_query = '''
-            SELECT ca.recommended_careers
-            FROM career_analyses ca
-            INNER JOIN career_sessions cs ON ca.session_id = cs.id
-            WHERE cs.user_id = %s
-            ORDER BY ca.analyzed_at DESC
-            LIMIT 1
-        '''
-        career_results = db.execute_query(career_query, (str(user_id),))
-
-        if not career_results:
-            return {
-                "success": False,
-                "error": "진로 분석 결과가 없습니다. 먼저 진로상담을 진행해주세요.",
-                "recommendations": [],
-                "totalCount": 0
-            }
-
-        # 2. recommended_careers 파싱
-        recommended_careers = career_results[0].get("recommended_careers")
-        if isinstance(recommended_careers, str):
-            try:
-                recommended_careers = json.loads(recommended_careers)
-            except:
-                recommended_careers = []
-
-        if not recommended_careers:
-            return {
-                "success": False,
-                "error": "추천 직업 정보가 없습니다.",
-                "recommendations": [],
-                "totalCount": 0
-            }
-
-        # 3. 직업 이름 추출
         career_names = []
-        for career in recommended_careers:
-            if isinstance(career, dict):
-                name = career.get("careerName") or career.get("name") or career.get("career_name")
-                if name:
-                    career_names.append(name)
-            elif isinstance(career, str):
-                career_names.append(career)
+        data_source = None
 
+        # 1. 먼저 job_recommendations 테이블에서 추천 직업 조회 (우선순위 1)
+        job_rec_query = '''
+            SELECT job_name, job_code, match_score
+            FROM job_recommendations
+            WHERE user_id = %s
+            ORDER BY match_score DESC
+            LIMIT 5
+        '''
+        job_rec_results = db.execute_query(job_rec_query, (user_id,))
+
+        if job_rec_results:
+            career_names = [r.get("job_name") for r in job_rec_results if r.get("job_name")]
+            data_source = "job_recommendations"
+            print(f"[JobRecommendation] job_recommendations에서 직업 조회: {career_names}")
+
+        # 2. job_recommendations가 없으면 career_analyses에서 조회 (우선순위 2)
+        if not career_names:
+            career_query = '''
+                SELECT ca.recommended_careers
+                FROM career_analyses ca
+                INNER JOIN career_sessions cs ON ca.session_id = cs.id
+                WHERE cs.user_id = %s
+                ORDER BY ca.analyzed_at DESC
+                LIMIT 1
+            '''
+            career_results = db.execute_query(career_query, (str(user_id),))
+
+            if career_results:
+                recommended_careers = career_results[0].get("recommended_careers")
+                if isinstance(recommended_careers, str):
+                    try:
+                        recommended_careers = json.loads(recommended_careers)
+                    except:
+                        recommended_careers = []
+
+                for career in recommended_careers or []:
+                    if isinstance(career, dict):
+                        name = career.get("careerName") or career.get("name") or career.get("career_name")
+                        if name:
+                            career_names.append(name)
+                    elif isinstance(career, str):
+                        career_names.append(career)
+
+                if career_names:
+                    data_source = "career_analyses"
+                    print(f"[JobRecommendation] career_analyses에서 직업 조회: {career_names}")
+
+        # 3. 둘 다 없으면 에러
         if not career_names:
             return {
                 "success": False,
-                "error": "직업 이름을 추출할 수 없습니다.",
+                "error": "추천 직업 정보가 없습니다. 진로상담 또는 프로필 분석을 먼저 진행해주세요.",
                 "recommendations": [],
                 "totalCount": 0
             }
 
-        # 4. job_listings에서 관련 채용공고 검색
-        # ILIKE를 사용하여 직업 이름이 포함된 공고 검색
+        # 4. AI를 사용하여 각 직업명에서 관련 키워드 생성
+        calculator = JobRecommendationCalculator()
+        all_keywords = []
+        career_to_keywords = {}  # 직업명 → 키워드 매핑 (매칭 추적용)
+
+        for career_name in career_names:
+            keywords = calculator._extract_keywords(career_name)
+            career_to_keywords[career_name] = keywords
+            all_keywords.extend(keywords)
+
+        # 중복 키워드 제거
+        unique_keywords = list(set(all_keywords))
+        print(f"[AI JobRecommendation] 직업명: {career_names} → AI 생성 키워드: {unique_keywords}")
+
+        # 5. job_listings에서 관련 채용공고 검색 (AI 생성 키워드 사용)
         like_conditions = []
         params = []
-        for name in career_names:
+        for keyword in unique_keywords:
             like_conditions.append("(title ILIKE %s OR description ILIKE %s)")
-            params.extend([f"%{name}%", f"%{name}%"])
+            params.extend([f"%{keyword}%", f"%{keyword}%"])
 
         job_query = f'''
             SELECT
@@ -803,24 +903,50 @@ async def get_recommendations_by_career_analysis(
             '''
             job_results = db.execute_query(fallback_query, (limit,))
 
-        # 5. 결과 포맷팅
+        # 6. AI 기반 적합도 평가 및 결과 포맷팅
         recommendations = []
+        
+        # 상위 N개만 AI 평가 (비용/속도 최적화)
+        max_ai_eval = min(len(job_results), 30)  # 최대 30개만 AI 평가
+        
         for idx, row in enumerate(job_results):
             title = row.get("title") or ""
             description = row.get("description") or ""
-
-            # 매칭 점수 계산 (직업 이름이 포함된 정도)
-            match_count = 0
-            matched_careers = []
-            for name in career_names:
-                if name.lower() in title.lower() or name.lower() in description.lower():
-                    match_count += 1
-                    matched_careers.append(name)
-
-            # 점수 계산 (60~95 범위)
-            base_score = 60 + (match_count * 15)
-            match_score = min(95, base_score)
-
+            
+            # AI 기반 적합도 평가 수행
+            if idx < max_ai_eval:
+                ai_result = evaluate_job_fitness_with_ai(career_names, title, description)
+                
+                # AI 평가 결과 사용
+                match_score = ai_result.get("match_score", 50)
+                matched_career = ai_result.get("matched_career", "")
+                match_reason = ai_result.get("reason", "키워드 기반 추천")
+                required_skills = ai_result.get("required_skills", [])
+                skill_match = ai_result.get("skill_match", [])
+                is_relevant = ai_result.get("is_relevant", False)
+                
+                # 관련성 없는 채용공고는 낮은 점수 부여
+                if not is_relevant:
+                    match_score = min(match_score, 30)
+            else:
+                # AI 평가 제한 초과시 키워드 기반 평가
+                keyword_match_count = 0
+                matched_careers_temp = []
+                
+                for career_name, keywords in career_to_keywords.items():
+                    for keyword in keywords:
+                        if keyword.lower() in title.lower() or keyword.lower() in description.lower():
+                            keyword_match_count += 1
+                            if career_name not in matched_careers_temp:
+                                matched_careers_temp.append(career_name)
+                            break
+                
+                match_score = 40 + min(keyword_match_count * 5, 30)
+                matched_career = matched_careers_temp[0] if matched_careers_temp else ""
+                match_reason = f"키워드 기반 추천 (AI 미평가)"
+                required_skills = []
+                skill_match = []
+            
             recommendation = {
                 "id": row.get("id"),
                 "title": title,
@@ -831,13 +957,16 @@ async def get_recommendations_by_career_analysis(
                 "siteName": row.get("site_name"),
                 "experience": row.get("experience"),
                 "matchScore": match_score,
-                "matchReason": f"추천 직업({', '.join(matched_careers)})과 관련된 채용공고입니다." if matched_careers else "최신 채용공고입니다.",
-                "matchedCareers": matched_careers,
+                "matchReason": match_reason,
+                "matchedCareers": [matched_career] if matched_career else [],
+                "requiredSkills": required_skills,  # 채용공고 요구 스킬
+                "skillMatch": skill_match,  # 직업과 매칭되는 스킬
                 "crawledAt": str(row.get("crawled_at")) if row.get("crawled_at") else None
             }
             recommendations.append(recommendation)
 
-        # 점수 높은 순으로 정렬
+        # 점수 높은 순으로 정렬 및 관련성 없는 항목 필터링
+        recommendations = [r for r in recommendations if r.get("matchScore", 0) >= 30]
         recommendations.sort(key=lambda x: x.get("matchScore", 0), reverse=True)
 
         return {
@@ -845,6 +974,8 @@ async def get_recommendations_by_career_analysis(
             "recommendations": recommendations,
             "totalCount": len(recommendations),
             "careerNames": career_names,
+            "aiGeneratedKeywords": unique_keywords,  # AI가 생성한 검색 키워드
+            "dataSource": data_source,  # job_recommendations 또는 career_analyses
             "cached": False
         }
 

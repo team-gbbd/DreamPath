@@ -4,6 +4,8 @@ Python FastAPI Microservice
 """
 
 import os
+from dotenv import load_dotenv
+load_dotenv()  # 🔥 FastAPI 시작 전에 .env 강제 로드
 import logging
 from dotenv import load_dotenv
 
@@ -40,11 +42,10 @@ from routers.user_embedding import router as user_embedding_router
 from routers.bigfive_router import router as bigfive_router
 from routers.mbti_router import router as mbti_router
 from routers.personality_profile_router import router as personality_profile_router
+from routers.personality_agent_router import router as personality_agent_router
 from routers.chatbot_router import router as chatbot_router
-from routers.chatbotassistant_router import router as chatbotassistant_router
 from routers.faq_router import router as faq_router
-from routers.inquiry_router import router as inquiry_router
-from routers.chatbotassistant_router import router as chatbotassistant_router
+from routers.assistant_router import router as assistant_router
 from routers.company_talent_router import router as company_talent_router
 from routers.application_router import router as application_router
 
@@ -67,7 +68,7 @@ from services.chat_service import ChatService
 # Environment Variables
 # =========================================
 api_key = os.getenv("OPENAI_API_KEY", "")
-model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+model = os.getenv("OPENAI_MODEL", "gpt-5-mini")
 
 # =========================================
 # Lifespan (Startup/Shutdown Events)
@@ -113,15 +114,15 @@ app.include_router(rag_router)
 app.include_router(profile_match_router, prefix="/api")
 app.include_router(qnet_router)             # Q-net 자격증 API
 app.include_router(job_agent_router)        # 채용공고 AI 에이전트 API
+app.include_router(personality_agent_router)  # Personality Agent #1 API
 app.include_router(user_document_router, prefix="/analysis", tags=["analysis"])
 app.include_router(user_embedding_router, prefix="/embedding", tags=["embedding"])
 app.include_router(bigfive_router, prefix="/api")
 app.include_router(personality_profile_router, prefix="/api")
 app.include_router(mbti_router, prefix='/api')
-app.include_router(chatbot_router)            # 챗봇/FAQ/문의 API
-app.include_router(faq_router)                # FAQ API (dev)
-app.include_router(inquiry_router)            # 문의 API (dev)
-app.include_router(chatbotassistant_router)   # 챗봇 어시스턴트 API (dev)
+app.include_router(chatbot_router)            # RAG 챗봇 API (메인페이지 - 비회원 + 회원)
+app.include_router(assistant_router)          # AI 비서 API (대시보드 - 회원 전용, Function Calling)
+app.include_router(faq_router)                # FAQ 관리 API
 app.include_router(company_talent_router)     # 목표 기업 인재상 분석 API
 app.include_router(application_router)        # AI 지원서 작성 도우미 API
 

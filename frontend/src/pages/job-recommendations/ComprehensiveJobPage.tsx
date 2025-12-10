@@ -205,7 +205,7 @@ export default function ComprehensiveJobPage() {
 
       // 3. 캐시된 추천 조회 시도 (빠른 응답)
       try {
-        const cachedResult = await jobRecommendationService.getCachedRecommendations(userId, 20);
+        const cachedResult = await jobRecommendationService.getRecommendationsByCareerAnalysis(userId, 20);
 
         if (cachedResult.success && cachedResult.recommendations && cachedResult.recommendations.length > 0) {
           // 캐시된 데이터가 있으면 바로 표시

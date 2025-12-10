@@ -39,6 +39,8 @@ public class CareerChatController {
     public ResponseEntity<?> chat(@RequestBody ChatRequest request) {
         log.info("대화 요청 받음: sessionId={}, message={}", request.getSessionId(), request.getMessage());
 
+        log.info("Incoming Chat Request sessionId={}, userMessage={}", request.getSessionId(), request.getMessage());
+
         // userId 필수 검증
         if (request.getUserId() == null || request.getUserId().isBlank()) {
             log.warn("로그인하지 않은 사용자의 대화 시도");
@@ -47,6 +49,7 @@ public class CareerChatController {
         }
 
         try {
+            log.info("Before chatService.chat, sessionId={}", request.getSessionId());
             // 채팅 응답 생성
             ChatResponse response = chatService.chat(request);
 
@@ -149,7 +152,6 @@ public class CareerChatController {
         response.put("sessionId", session.getSessionId());
         response.put("needsSurvey", surveyResponse.getNeedsSurvey());
         response.put("surveyQuestions", surveyResponse.getQuestions());
-
         if (surveyResponse.getNeedsSurvey()) {
             response.put("message", "안녕! 나는 너의 진로 정체성을 함께 찾아갈 상담사야. 먼저 간단한 설문조사를 진행해볼까? 😊");
         } else {

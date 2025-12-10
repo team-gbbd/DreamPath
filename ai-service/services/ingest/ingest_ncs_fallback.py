@@ -16,6 +16,7 @@ if PROJECT_ROOT not in sys.path:
 
 from openai import OpenAI
 
+from config import settings
 from services.ingest.careernet_client import CareerNetClient
 from services.rag.document_builder import DocumentBuilder
 from services.embedding.embedding_service import EmbeddingService
@@ -70,7 +71,7 @@ class NCSFallbackIngest:
     def _call_llm(self, prompt: str) -> dict:
         """Call OpenAI chat completion and parse JSON response."""
         response = _openai_client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=settings.OPENAI_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.0,
         )

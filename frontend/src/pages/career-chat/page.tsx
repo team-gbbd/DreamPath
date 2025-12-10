@@ -26,7 +26,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
@@ -37,11 +37,14 @@ import AgentCard, { type AgentAction } from '../../components/career/AgentCard';
 import { API_BASE_URL, PYTHON_AI_SERVICE_URL } from '@/lib/api';
 
 interface Message {
+  id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
   agentAction?: AgentAction;
   hideContent?: boolean;
+  ctaType?: 'personality-agent';
+  ctaResolved?: boolean;
 }
 
 interface IdentityTrait {
@@ -123,6 +126,11 @@ interface SearchStep {
   label: string;
   status: 'pending' | 'loading' | 'done';
 }
+
+const generateMessageId = () =>
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random()}`;
 
 function AISearchingState() {
   const [steps, setSteps] = useState<SearchStep[]>([
@@ -208,6 +216,14 @@ export default function CareerChatPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
   const [similarMentorLoading, setSimilarMentorLoading] = useState<string | null>(null);
+  const [personalityPromptDismissed, setPersonalityPromptDismissed] = useState(false);
+  const [personalityTriggered, setPersonalityTriggered] = useState(false);
+
+  const promptMessageText = [
+    '사용자님의 상담 내용을 기반으로',
+    '성향 분석을 생성할 수 있을 것 같아요.',
+    '지금 바로 확인해 보시겠어요?',
+  ].join('\n');
 
   const findSimilarMentors = async (panelId: string, currentSession: MentoringSession) => {
     setSimilarMentorLoading(panelId);
@@ -275,6 +291,53 @@ export default function CareerChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const handlePersonalityAgentResponse = (agentResult: any) => {
+    if (!agentResult || typeof agentResult !== 'object') return;
+    if (agentResult.status === 'not_triggered') return;
+
+    const hasPersonalityData =
+      Boolean(agentResult.summary) ||
+      Boolean(agentResult.big_five) ||
+      Boolean(agentResult.mbti) ||
+      Boolean(agentResult.embedding_document);
+
+    if (!hasPersonalityData) return;
+
+    setMessages(prev => {
+      const hasPendingPrompt = prev.some(
+        (message) => message.ctaType === 'personality-agent' && !message.ctaResolved
+      );
+      if (hasPendingPrompt) {
+        return prev;
+      }
+
+      const promptMessage: Message = {
+        id: generateMessageId(),
+        role: 'assistant',
+        content: promptMessageText,
+        timestamp: new Date(),
+        ctaType: 'personality-agent',
+        ctaResolved: false,
+      };
+
+      return [...prev, promptMessage];
+    });
+  };
+
+  const handlePersonalityPromptAction = (action: 'view' | 'later', messageId: string) => {
+    if (action === 'view') {
+      navigate('/profile/dashboard');
+    } else {
+      setPersonalityPromptDismissed(true);
+    }
+
+    setMessages(prev =>
+      prev.map(message =>
+        message.id === messageId ? { ...message, ctaResolved: true } : message
+      )
+    );
+  };
+
   const restoreSessionState = async (existingSessionId: string): Promise<boolean> => {
     try {
       const response = await fetch(`${API_BASE_URL}/chat/history/${existingSessionId}`);
@@ -283,6 +346,7 @@ export default function CareerChatPage() {
         if (history && history.length > 0) {
           setSessionId(existingSessionId);
           setMessages(history.map((msg: any) => ({
+            id: generateMessageId(),
             role: msg.role as 'user' | 'assistant',
             content: msg.message,
             timestamp: new Date(msg.timestamp),
@@ -380,7 +444,11 @@ export default function CareerChatPage() {
     await startNewSession(currentUserId);
   };
 
-  const startNewSession = async (currentUserId: number | null = null, forceNew: boolean = false) => {
+  const startNewSession = async (
+    currentUserId: number | null = null,
+    options?: { forceNew?: boolean; skipRestore?: boolean }
+  ) => {
+    const { forceNew = false, skipRestore = false } = options || {};
     try {
       let userIdFromStorage: number | null = null;
       try {
@@ -393,7 +461,7 @@ export default function CareerChatPage() {
         console.warn('localStorage에서 userId 가져오기 실패:', e);
       }
 
-      const userIdToUse = currentUserId || userIdFromStorage;
+      const userIdToUse = currentUserId ?? userIdFromStorage;
 
       const response = await fetch(`${API_BASE_URL}/chat/start`, {
         method: 'POST',
@@ -402,44 +470,44 @@ export default function CareerChatPage() {
         },
         body: JSON.stringify({
           userId: userIdToUse ? String(userIdToUse) : null,
-          forceNew: forceNew
+          forceNew,
         }),
       });
 
       const data = await response.json();
       setSessionId(data.sessionId);
+      setPersonalityPromptDismissed(false);
+      setPersonalityTriggered(false);
 
       localStorage.setItem('career_chat_session', JSON.stringify({
         sessionId: data.sessionId,
         userId: userIdToUse
       }));
 
-      // forceNew일 때는 기존 세션 복원하지 않음
-      if (!forceNew) {
-        const hasHistory = await restoreSessionState(data.sessionId);
-        if (hasHistory) {
-          console.log('기존 세션 복원 완료:', data.sessionId);
-          return;
-        }
-      }
+      const hasHistory = (!forceNew && !skipRestore)
+        ? await restoreSessionState(data.sessionId)
+        : false;
 
       if (data.needsSurvey && data.surveyQuestions) {
         setSurveyQuestions(data.surveyQuestions);
         setShowSurvey(true);
       }
 
-      // 새 세션이므로 정체성 상태 초기화
-      setIdentityStatus(null);
-      setMessages([{
-        role: 'assistant',
-        content: data.message,
-        timestamp: new Date(),
-      }]);
+      if (!hasHistory) {
+        setIdentityStatus(null);
+        setMessages([{
+          id: generateMessageId(),
+          role: 'assistant',
+          content: data.message,
+          timestamp: new Date(),
+        }]);
+      }
 
       console.log('새 세션 시작:', data.sessionId, 'userId:', userIdToUse, 'forceNew:', forceNew);
     } catch (error) {
       console.error('Failed to start session:', error);
       setMessages([{
+        id: generateMessageId(),
         role: 'assistant',
         content: '세션 시작에 실패했습니다. 나중에 다시 시도해주세요.',
         timestamp: new Date(),
@@ -543,6 +611,7 @@ export default function CareerChatPage() {
     }
 
     const userMessage: Message = {
+      id: generateMessageId(),
       role: 'user',
       content: inputMessage,
       timestamp: new Date(),
@@ -575,6 +644,7 @@ export default function CareerChatPage() {
 
       // 상담 응답 즉시 표시
       const assistantMessage: Message = {
+        id: generateMessageId(),
         role: 'assistant',
         content: data.message,
         timestamp: new Date(),
@@ -590,6 +660,7 @@ export default function CareerChatPage() {
         console.log(`[Chat] 에이전트 폴링 시작: task_id=${data.taskId}`);
         pollAgentResult(data.taskId);
       } else {
+        // 검색 작업이 아닐 경우 즉시 false 처리
         setIsSearching(false);
       }
 
@@ -602,9 +673,25 @@ export default function CareerChatPage() {
           console.warn('Failed to save identity status');
         }
       }
+
+      const personalityAgentPayload =
+        data?.personalityAgentResult ??
+        data?.personalityAgent ??
+        data?.personality_agent ??
+        data?.personality_agent_result;
+
+      if (
+        personalityAgentPayload &&
+        !personalityPromptDismissed &&
+        !messages.some(m => m.ctaType === 'personality-agent' && !m.ctaResolved)
+      ) {
+        setPersonalityTriggered(true);
+        handlePersonalityAgentResponse(personalityAgentPayload);
+      }
     } catch (error) {
       console.error('Failed to send message:', error);
       setMessages(prev => [...prev, {
+        id: generateMessageId(),
         role: 'assistant',
         content: '메시지 전송에 실패했습니다. 다시 시도해주세요.',
         timestamp: new Date(),
@@ -650,6 +737,7 @@ export default function CareerChatPage() {
             console.log('기존 분석 결과 발견, 대시보드로 이동');
 
             setMessages(prev => [...prev, {
+              id: generateMessageId(),
               role: 'assistant',
               content: '이미 분석이 완료되어 있습니다! 대시보드로 이동합니다.',
               timestamp: new Date(),
@@ -685,6 +773,7 @@ export default function CareerChatPage() {
       console.log('분석 완료:', analysisResult);
 
       setMessages(prev => [...prev, {
+        id: generateMessageId(),
         role: 'assistant',
         content: '분석이 완료되었습니다! 이제 대시보드에서 상세한 결과를 확인할 수 있어요.',
         timestamp: new Date(),
@@ -699,6 +788,7 @@ export default function CareerChatPage() {
       const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
 
       setMessages(prev => [...prev, {
+        id: generateMessageId(),
         role: 'assistant',
         content: `분석 중 오류가 발생했습니다: ${errorMessage}\n\n대화를 더 진행한 후 다시 시도해주세요.`,
         timestamp: new Date(),
@@ -718,12 +808,15 @@ export default function CareerChatPage() {
     setSurveyQuestions([]);
     setResearchPanels([]);
     setRightPanelTab('identity');
-    startNewSession(null, true);  // forceNew: true로 새 세션 강제 생성
+    setPersonalityPromptDismissed(false);
+    setPersonalityTriggered(false);
+    startNewSession(null, { forceNew: true, skipRestore: true });
   };
 
   const handleSurveyComplete = () => {
     setShowSurvey(false);
     setMessages(prev => [...prev, {
+      id: generateMessageId(),
       role: 'assistant',
       content: '설문조사가 완료되었습니다! 이제 진로 정체성 탐색을 시작해볼까요?',
       timestamp: new Date(),
@@ -754,13 +847,14 @@ export default function CareerChatPage() {
               }),
             });
 
-            if (response.ok) {
-              const booking = await response.json();
-              setMessages(prev => [...prev, {
-                role: 'assistant',
-                content: `멘토링 예약이 완료되었습니다! 예약 번호: ${booking.bookingId}`,
-                timestamp: new Date(),
-              }]);
+              if (response.ok) {
+                const booking = await response.json();
+                setMessages(prev => [...prev, {
+                  id: generateMessageId(),
+                  role: 'assistant',
+                  content: `멘토링 예약이 완료되었습니다! 예약 번호: ${booking.bookingId}`,
+                  timestamp: new Date(),
+                }]);
               if (messageIndex !== undefined) {
                 handleDismissAgentCard(messageIndex);
               }
@@ -822,6 +916,7 @@ export default function CareerChatPage() {
 
   const stageInfo = identityStatus ? getStageInfo(identityStatus.currentStage) : null;
   const StageIcon = stageInfo?.icon || Compass;
+  const shouldShowAnalyzeButton = messages.length >= 6 && (personalityTriggered || personalityPromptDismissed);
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -883,7 +978,7 @@ export default function CareerChatPage() {
               <ScrollArea className="flex-1 p-6">
                 <div className="space-y-4 max-w-2xl mx-auto">
                   {messages.map((message, index) => (
-                    <div key={index} className="animate-in">
+                    <div key={message.id ?? index} className="animate-in">
                       {!message.hideContent && (
                         <div className={cn(
                           "flex",
@@ -901,6 +996,24 @@ export default function CareerChatPage() {
                             )}>
                               {message.content}
                             </p>
+                            {message.ctaType === 'personality-agent' && !message.ctaResolved && (
+                              <div className="mt-4 flex flex-col gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handlePersonalityPromptAction('view', message.id)}
+                                  className="w-full rounded-xl bg-gradient-to-r from-primary to-violet-600 px-4 py-2 text-sm font-semibold text-white shadow hover:opacity-90 transition"
+                                >
+                                  네, 확인할래요
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handlePersonalityPromptAction('later', message.id)}
+                                  className="w-full rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 transition"
+                                >
+                                  조금 더 이야기할래요
+                                </button>
+                              </div>
+                            )}
                             <p className={cn(
                               "text-xs mt-2",
                               message.role === 'user' ? 'text-white/60' : 'text-gray-400'
@@ -934,11 +1047,12 @@ export default function CareerChatPage() {
 
               {/* 입력 영역 */}
               <div className="border-t border-gray-100 p-4 bg-gray-50/50">
-                {messages.length >= 6 && (
+                {shouldShowAnalyzeButton && (
                   <div className="mb-3 flex justify-center">
                     <Button
                       onClick={handleAnalyze}
                       className="rounded-full bg-gradient-to-r from-primary to-violet-600 hover:from-primary/90 hover:to-violet-600/90 shadow-lg shadow-primary/25"
+                      disabled={isLoading}
                     >
                       <BarChart3 className="h-4 w-4 mr-2" />
                       종합 분석하기

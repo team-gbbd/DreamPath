@@ -45,7 +45,7 @@ const MentorSessionsPage = lazy(() => import("../pages/mypage/mentor/MentorSessi
 const MentoringMeetingPage = lazy(() => import("../pages/mentoring/MentoringMeeting"));
 const JobAnalysisPage = lazy(() => import("../pages/job-analysis/JobAnalysisPage"));
 const PersonalizedInsightsPage = lazy(() => import("../pages/job-analysis/PersonalizedInsightsPage"));
-// 채용 추천은 종합분석(ComprehensiveJobPage)만 사용
+// 채용 추천?� 종합분석(JobRecommendationsPage)�??�용
 const JobRecommendationsPage = lazy(() => import("../pages/job-recommendations/ComprehensiveJobPage"));
 const CompanyTalentPage = lazy(() => import("../pages/company-talent/CompanyTalentPage"));
 
