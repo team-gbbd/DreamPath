@@ -116,7 +116,7 @@ export default function FaqManagementPage() {
     setFormData({
       category: faq.category,
       question: faq.question,
-      answer: faq.answer,
+      answer: faq.answer || "",
       user_type: faq.user_type,
       answer_type: faq.answer_type,
       function_name: faq.function_name || "",
@@ -185,7 +185,8 @@ export default function FaqManagementPage() {
       setValidationError("질문을 입력해주세요.");
       return;
     }
-    if (!formData.answer.trim()) {
+    // 정적 답변일 때만 답변 필수
+    if (formData.answer_type === "static" && !formData.answer.trim()) {
       setValidationError("답변을 입력해주세요.");
       return;
     }

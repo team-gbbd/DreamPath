@@ -16,12 +16,13 @@ from .tools import (
     career_analysis_tool,
     recommendation_tool,
     personality_tool,
-    learning_progress_tool,
     inquiry_tool,
     job_recommendation_tool,
     profile_tool,
     learning_path_tool,
-    payment_tool
+    payment_tool,
+    available_mentors_tool,
+    job_details_tool
 )
 
 # RAG 서비스 import (FAQ 유사도 검색용)
@@ -48,12 +49,13 @@ class AssistantService:
             "get_career_analysis": career_analysis_tool,
             "get_recommendations": recommendation_tool,
             "get_personality_test_results": personality_tool,
-            "get_learning_progress": learning_progress_tool,
             "get_my_inquiries": inquiry_tool,
             "get_job_postings": job_recommendation_tool,
             "get_my_profile": profile_tool,
             "get_learning_path": learning_path_tool,
-            "get_payment_history": payment_tool
+            "get_payment_history": payment_tool,
+            "get_available_mentors": available_mentors_tool,
+            "get_job_details": job_details_tool
         }
 
         # OpenAI Function Calling 스키마 (tools에서 자동 로드)
@@ -62,12 +64,13 @@ class AssistantService:
             career_analysis_tool.TOOL_SCHEMA,
             recommendation_tool.TOOL_SCHEMA,
             personality_tool.TOOL_SCHEMA,
-            learning_progress_tool.TOOL_SCHEMA,
             inquiry_tool.TOOL_SCHEMA,
             job_recommendation_tool.TOOL_SCHEMA,
             profile_tool.TOOL_SCHEMA,
             learning_path_tool.TOOL_SCHEMA,
-            payment_tool.TOOL_SCHEMA
+            payment_tool.TOOL_SCHEMA,
+            available_mentors_tool.TOOL_SCHEMA,
+            job_details_tool.TOOL_SCHEMA
         ]
 
     def execute_function(self, function_name: str, arguments: Dict[str, Any], db: DatabaseService = None) -> str:

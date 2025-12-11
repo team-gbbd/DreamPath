@@ -172,11 +172,13 @@ def format_result(data: Dict[str, Any]) -> str:
 
     # Big Five 성격 특성
     personality = results.get("personality")
+    print(f"[DEBUG format_result] personality: {personality}")
     if personality and isinstance(personality, dict):
         response += "### 📊 Big Five 성격 특성\n\n"
 
-        # traits 키가 있는 경우
-        traits = personality.get("traits", personality)
+        # bigFive 또는 traits 키가 있는 경우 (백엔드에서 bigFive로 저장)
+        traits = personality.get("bigFive") or personality.get("traits") or personality
+        print(f"[DEBUG format_result] traits: {traits}")
         if isinstance(traits, dict):
             trait_labels = {
                 "openness": "개방성",
@@ -187,14 +189,27 @@ def format_result(data: Dict[str, Any]) -> str:
                 "neuroticism": "신경성"
             }
 
+            has_traits = False
             for key, label in trait_labels.items():
                 if key in traits:
-                    score = traits[key]
+                    trait_value = traits[key]
+                    # score가 객체 안에 있는 경우 (예: {'score': 85, 'reason': '...'})
+                    if isinstance(trait_value, dict):
+                        score = trait_value.get('score')
+                        reason = trait_value.get('reason', '')
+                    else:
+                        score = trait_value
+                        reason = ''
+
                     if isinstance(score, (int, float)):
                         percent = int(score * 100) if score <= 1 else int(score)
                         response += f"- **{label}**: {percent}%\n"
+                        if reason:
+                            response += f"  - {reason}\n"
+                        has_traits = True
 
-            response += "\n"
+            if has_traits:
+                response += "\n"
 
         # 설명이 있는 경우
         description = personality.get("description")

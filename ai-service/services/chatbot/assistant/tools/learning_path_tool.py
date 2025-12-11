@@ -1,5 +1,5 @@
 """
-학습 경로 Tool - 사용자의 학습 경로/로드맵 조회
+학습 경로 및 진행 현황 Tool - 사용자의 학습 경로/로드맵 및 진행 현황 조회
 """
 from typing import Dict, Any, List
 from services.database_service import DatabaseService
@@ -10,7 +10,7 @@ TOOL_SCHEMA = {
     "type": "function",
     "function": {
         "name": "get_learning_path",
-        "description": "사용자의 학습 경로를 조회합니다. 학습 도메인, 진행률, 정답률 등을 확인할 수 있습니다.",
+        "description": "사용자의 학습 경로 및 진행 현황을 조회합니다. 학습 도메인, 진행률, 정답률, 주차별 학습 현황 등을 확인할 수 있습니다.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -62,7 +62,7 @@ def execute(user_id: int, db: DatabaseService = None, **kwargs) -> Dict[str, Any
         if not learning_paths or len(learning_paths) == 0:
             return {
                 "success": False,
-                "message": "등록된 학습 경로가 없습니다. 진로 분석을 완료하면 맞춤형 학습 경로가 생성됩니다."
+                "message": "진행중인 학습이 없습니다. 먼저 학습을 진행해주세요!"
             }
 
         return {
@@ -71,10 +71,10 @@ def execute(user_id: int, db: DatabaseService = None, **kwargs) -> Dict[str, Any
         }
 
     except Exception as e:
-        print(f"학습 경로 조회 오류: {str(e)}")
+        print(f"학습 조회 오류: {str(e)}")
         return {
             "success": False,
-            "message": f"학습 경로 조회 중 오류가 발생했습니다: {str(e)}"
+            "message": f"학습 조회 중 오류가 발생했습니다: {str(e)}"
         }
 
 
@@ -89,7 +89,7 @@ def format_result(data: Dict[str, Any]) -> str:
         포맷된 마크다운 문자열
     """
     if not data.get("success"):
-        return data.get("message", "학습 경로를 찾을 수 없습니다.")
+        return data.get("message", "학습을 찾을 수 없습니다.")
 
     learning_paths = data.get("data", [])
 
