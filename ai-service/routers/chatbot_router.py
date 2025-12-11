@@ -14,6 +14,7 @@ from services.chatbot import (
     RagSearchService,
     RagAnswerService,
 )
+from services.chatbot.shared.faq_service import FaqService
 from services.database_service import DatabaseService
 from dependencies import get_db
 
@@ -23,6 +24,7 @@ router = APIRouter(prefix="/api/rag", tags=["rag-chatbot"])
 embedding_service = RagEmbeddingService()
 search_service = RagSearchService()
 answer_service = RagAnswerService()
+faq_service = FaqService()
 db_service = DatabaseService()
 
 
