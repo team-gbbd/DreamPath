@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   MessageSquare,
@@ -16,6 +16,35 @@ import {
   User,
 } from "lucide-react";
 import FaqChatbot from "@/components/chatbot/FaqChatbot";
+
+// Typing animation hook
+function useTypingEffect(text: string, speed: number = 50, startDelay: number = 500) {
+  const [displayText, setDisplayText] = useState("");
+  const [isComplete, setIsComplete] = useState(false);
+
+  useEffect(() => {
+    setDisplayText("");
+    setIsComplete(false);
+
+    const startTimeout = setTimeout(() => {
+      let i = 0;
+      const timer = setInterval(() => {
+        if (i < text.length) {
+          setDisplayText(text.slice(0, i + 1));
+          i++;
+        } else {
+          setIsComplete(true);
+          clearInterval(timer);
+        }
+      }, speed);
+      return () => clearInterval(timer);
+    }, startDelay);
+
+    return () => clearTimeout(startTimeout);
+  }, [text, speed, startDelay]);
+
+  return { displayText, isComplete };
+}
 
 // Floating particles component
 function FloatingParticles({ darkMode }: { darkMode: boolean }) {
@@ -37,11 +66,11 @@ function FloatingParticles({ darkMode }: { darkMode: boolean }) {
             darkMode ? "bg-[#5A7BFF]" : "bg-[#8F5CFF]"
           }`}
           style={{
-            width: p.size,
-            height: p.size,
+            width: darkMode ? p.size : p.size + 1,
+            height: darkMode ? p.size : p.size + 1,
             left: `${p.x}%`,
             top: `${p.y}%`,
-            opacity: darkMode ? 0.3 : 0.2,
+            opacity: darkMode ? 0.3 : 0.5,
             animation: `float-particle ${p.duration}s ease-in-out ${p.delay}s infinite`,
           }}
         />
@@ -66,7 +95,7 @@ function NeuralNetwork({ darkMode }: { darkMode: boolean }) {
   return (
     <svg
       className="absolute inset-0 w-full h-full pointer-events-none"
-      style={{ opacity: darkMode ? 0.15 : 0.08 }}
+      style={{ opacity: darkMode ? 0.15 : 0.4 }}
     >
       <defs>
         <linearGradient
@@ -128,7 +157,7 @@ function getGreeting(): { title: string } {
     return {
       title: titles[Math.floor(random * titles.length)],
     };
-  } else if (hour >= 12 && hour < 20) {
+  } else if (hour >= 12 && hour < 18) {
     // 오후
     const titles = [
       "좋은 오후예요!",
@@ -165,6 +194,12 @@ export default function HomePage() {
   const [userRole, setUserRole] = useState("");
   const [greeting] = useState(getGreeting());
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const { displayText: typedTitle, isComplete: titleComplete } = useTypingEffect(
+    greeting.title,
+    40,
+    300
+  );
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("dreampath:theme");
@@ -277,17 +312,17 @@ export default function HomePage() {
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
           className={`absolute top-1/4 left-1/4 w-[600px] h-[600px] rounded-full blur-[120px] animate-blob ${
-            darkMode ? "bg-[#5A7BFF]/10" : "bg-[#5A7BFF]/5"
+            darkMode ? "bg-[#5A7BFF]/10" : "bg-[#5A7BFF]/25"
           }`}
         />
         <div
           className={`absolute bottom-1/4 right-1/4 w-[500px] h-[500px] rounded-full blur-[120px] animate-blob animation-delay-2000 ${
-            darkMode ? "bg-[#8F5CFF]/10" : "bg-[#8F5CFF]/5"
+            darkMode ? "bg-[#8F5CFF]/10" : "bg-[#8F5CFF]/25"
           }`}
         />
         <div
           className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] rounded-full blur-[150px] ${
-            darkMode ? "bg-[#5A7BFF]/[0.05]" : "bg-[#5A7BFF]/[0.02]"
+            darkMode ? "bg-[#5A7BFF]/[0.05]" : "bg-[#5A7BFF]/15"
           }`}
         />
       </div>
@@ -298,7 +333,7 @@ export default function HomePage() {
         style={{
           backgroundImage: darkMode
             ? "linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)"
-            : "linear-gradient(rgba(0,0,0,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.02) 1px, transparent 1px)",
+            : "linear-gradient(rgba(90,123,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(90,123,255,0.08) 1px, transparent 1px)",
           backgroundSize: "60px 60px",
         }}
       />
@@ -464,16 +499,22 @@ export default function HomePage() {
           {/* Welcome Message */}
           <div className="max-w-2xl w-full text-center mb-6 md:mb-8">
             <div
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border mb-6 ${theme.badge}`}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border mb-6 ${theme.badge} animate-fade-in`}
             >
-              <Sparkles className="w-4 h-4 text-[#8F5CFF]" />
+              <div className="relative">
+                <Sparkles className="w-4 h-4 text-[#8F5CFF]" />
+                <div className="absolute inset-0 text-[#8F5CFF] animate-ping">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+              </div>
               <span className="text-sm">안녕하세요, {userName}님!</span>
             </div>
 
             <h2
-              className={`text-3xl sm:text-4xl md:text-5xl font-bold mb-4 ${theme.title}`}
+              className={`text-3xl sm:text-4xl md:text-5xl font-bold mb-4 ${theme.title} min-h-[1.2em]`}
             >
-              {greeting.title}
+              {typedTitle}
+              {!titleComplete && <span className="animate-blink">|</span>}
             </h2>
           </div>
 
@@ -571,6 +612,22 @@ export default function HomePage() {
 
       {/* CSS for animations */}
       <style>{`
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+          animation: fade-in 0.6s ease-out;
+        }
+
+        @keyframes blink {
+          0%, 50% { opacity: 1; }
+          51%, 100% { opacity: 0; }
+        }
+        .animate-blink {
+          animation: blink 1s step-end infinite;
+        }
+
         @keyframes gradient-x {
           0%, 100% { background-position: 0% 50%; }
           50% { background-position: 100% 50%; }

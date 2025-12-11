@@ -289,13 +289,10 @@ export default function LandingPage() {
         <div className="px-3 mt-auto">
           <button
             onClick={() => navigate("/login")}
-            className="w-full flex items-center gap-4 px-3 py-4 rounded-xl bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white font-medium hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300 relative overflow-hidden group/login"
+            className={`w-full flex items-center gap-4 px-3 py-4 rounded-xl transition-all duration-300 ${theme.sidebarText} ${theme.sidebarHover}`}
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover/login:translate-x-[100%] transition-transform duration-700" />
-            <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-              <i className="ri-login-box-line text-sm"></i>
-            </div>
-            <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap relative z-10">
+            <i className="ri-login-box-line text-2xl flex-shrink-0"></i>
+            <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap font-medium text-sm">
               로그인
             </span>
           </button>

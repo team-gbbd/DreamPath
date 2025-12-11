@@ -16,7 +16,7 @@ let lastProcessedSocialQuery: string | null = null;
 
 // Floating particles component
 function FloatingParticles({ darkMode }: { darkMode: boolean }) {
-  const particles = Array.from({ length: 30 }, (_, i) => ({
+  const particles = Array.from({ length: 60 }, (_, i) => ({
     id: i,
     size: Math.random() * 3 + 1,
     x: Math.random() * 100,
@@ -32,11 +32,11 @@ function FloatingParticles({ darkMode }: { darkMode: boolean }) {
           key={p.id}
           className={`absolute rounded-full ${darkMode ? 'bg-[#5A7BFF]' : 'bg-[#8F5CFF]'}`}
           style={{
-            width: p.size,
-            height: p.size,
+            width: darkMode ? p.size : p.size + 2,
+            height: darkMode ? p.size : p.size + 2,
             left: `${p.x}%`,
             top: `${p.y}%`,
-            opacity: darkMode ? 0.3 : 0.2,
+            opacity: darkMode ? 0.3 : 0.5,
             animation: `float-particle ${p.duration}s ease-in-out ${p.delay}s infinite`,
           }}
         />
@@ -53,7 +53,7 @@ function NeuralNetwork({ darkMode }: { darkMode: boolean }) {
   ];
 
   return (
-    <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ opacity: darkMode ? 0.12 : 0.06 }}>
+    <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ opacity: darkMode ? 0.12 : 0.4 }}>
       <defs>
         <linearGradient id="lineGradientLogin" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#5A7BFF" />
@@ -215,8 +215,8 @@ export default function LoginPage() {
 
       {/* Animated gradient orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className={`absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full blur-[120px] animate-blob ${darkMode ? 'bg-[#5A7BFF]/10' : 'bg-[#5A7BFF]/5'}`} />
-        <div className={`absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full blur-[120px] animate-blob animation-delay-2000 ${darkMode ? 'bg-[#8F5CFF]/10' : 'bg-[#8F5CFF]/5'}`} />
+        <div className={`absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full blur-[120px] animate-blob ${darkMode ? 'bg-[#5A7BFF]/10' : 'bg-[#5A7BFF]/25'}`} />
+        <div className={`absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full blur-[120px] animate-blob animation-delay-2000 ${darkMode ? 'bg-[#8F5CFF]/10' : 'bg-[#8F5CFF]/25'}`} />
       </div>
 
       {/* Grid pattern overlay */}
@@ -225,7 +225,7 @@ export default function LoginPage() {
         style={{
           backgroundImage: darkMode
             ? 'linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)'
-            : 'linear-gradient(rgba(0,0,0,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.02) 1px, transparent 1px)',
+            : 'linear-gradient(rgba(90,123,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(90,123,255,0.08) 1px, transparent 1px)',
           backgroundSize: '60px 60px',
         }}
       />
