@@ -26,7 +26,7 @@
           "value": "https://ai.dreampathai.link"
         },
         {
-          "name": "APP_FRONTEND_URL",
+          "name": "APP_FRONTENDURL",
           "value": "https://dreampathai.link"
         }
       ],
