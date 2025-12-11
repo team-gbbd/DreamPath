@@ -707,6 +707,46 @@ class DatabaseService:
                     if not cursor.fetchone():
                         cursor.execute("ALTER TABLE job_listings ADD COLUMN applicant_count INTEGER DEFAULT 0")
                         print("✓ applicant_count 컬럼 추가됨")
+
+                    cursor.execute("""
+                        SELECT column_name FROM information_schema.columns
+                        WHERE table_name = 'job_listings' AND column_name = 'preferred_majors'
+                    """)
+                    if not cursor.fetchone():
+                        cursor.execute("ALTER TABLE job_listings ADD COLUMN preferred_majors TEXT")
+                        print("✓ preferred_majors 컬럼 추가됨")
+
+                    cursor.execute("""
+                        SELECT column_name FROM information_schema.columns
+                        WHERE table_name = 'job_listings' AND column_name = 'deadline'
+                    """)
+                    if not cursor.fetchone():
+                        cursor.execute("ALTER TABLE job_listings ADD COLUMN deadline TEXT")
+                        print("✓ deadline 컬럼 추가됨")
+
+                    cursor.execute("""
+                        SELECT column_name FROM information_schema.columns
+                        WHERE table_name = 'job_listings' AND column_name = 'work_location'
+                    """)
+                    if not cursor.fetchone():
+                        cursor.execute("ALTER TABLE job_listings ADD COLUMN work_location TEXT")
+                        print("✓ work_location 컬럼 추가됨")
+
+                    cursor.execute("""
+                        SELECT column_name FROM information_schema.columns
+                        WHERE table_name = 'job_listings' AND column_name = 'salary'
+                    """)
+                    if not cursor.fetchone():
+                        cursor.execute("ALTER TABLE job_listings ADD COLUMN salary TEXT")
+                        print("✓ salary 컬럼 추가됨")
+
+                    cursor.execute("""
+                        SELECT column_name FROM information_schema.columns
+                        WHERE table_name = 'job_listings' AND column_name = 'core_competencies'
+                    """)
+                    if not cursor.fetchone():
+                        cursor.execute("ALTER TABLE job_listings ADD COLUMN core_competencies TEXT")
+                        print("✓ core_competencies 컬럼 추가됨")
                     conn.commit()
                 except Exception as col_error:
                     print(f"컬럼 추가 중 오류 (무시 가능): {col_error}")
@@ -716,8 +756,10 @@ class DatabaseService:
                     INSERT INTO job_listings (
                         site_name, site_url, job_id, title, company,
                         location, description, url, reward, experience,
-                        search_keyword, crawled_at, tech_stack, required_skills, applicant_count
+                        search_keyword, crawled_at, tech_stack, required_skills, applicant_count,
+                        preferred_majors, deadline, work_location, salary, core_competencies
                     ) VALUES (
+                        %s, %s, %s, %s, %s,
                         %s, %s, %s, %s, %s,
                         %s, %s, %s, %s, %s,
                         %s, %s, %s, %s, %s
@@ -773,6 +815,31 @@ class DatabaseService:
                         # applicant_count 처리
                         applicant_count = job.get("applicant_count") or 0
 
+                        # preferred_majors 처리 (리스트 또는 문자열)
+                        preferred_majors = job.get("preferred_majors")
+                        if isinstance(preferred_majors, list):
+                            preferred_majors = ",".join(preferred_majors)
+                        elif preferred_majors is not None:
+                            preferred_majors = str(preferred_majors)
+
+                        # deadline 처리
+                        deadline = job.get("deadline") or ""
+
+                        # work_location 처리
+                        work_location = job.get("work_location") or ""
+
+                        # salary 처리
+                        salary = job.get("salary") or ""
+
+                        # core_competencies 처리 (리스트 또는 문자열)
+                        core_competencies = job.get("core_competencies")
+                        if isinstance(core_competencies, list):
+                            core_competencies = ",".join(core_competencies)
+                        elif core_competencies is not None:
+                            core_competencies = str(core_competencies)
+                        else:
+                            core_competencies = ""
+
                         cursor.execute(insert_sql, (
                             site_name,
                             site_url,
@@ -788,7 +855,12 @@ class DatabaseService:
                             datetime.now(),
                             tech_stack,
                             required_skills,
-                            applicant_count
+                            applicant_count,
+                            preferred_majors,
+                            deadline,
+                            work_location,
+                            salary,
+                            core_competencies
                         ))
                         conn.commit()  # 각 INSERT 후 즉시 커밋
                         saved_count += 1

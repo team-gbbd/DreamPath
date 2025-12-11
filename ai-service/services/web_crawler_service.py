@@ -413,6 +413,19 @@ class WebCrawlerService:
                                 job["tech_stack"] = ",".join(detail_info["tech_stack"])
                             if detail_info.get("requirements"):
                                 job["required_skills"] = detail_info["requirements"][:500]
+                            # 새 필드 추가
+                            if detail_info.get("company"):
+                                job["company"] = detail_info["company"]
+                            if detail_info.get("deadline"):
+                                job["deadline"] = detail_info["deadline"]
+                            if detail_info.get("salary"):
+                                job["salary"] = detail_info["salary"]
+                            if detail_info.get("work_location"):
+                                job["work_location"] = detail_info["work_location"]
+                            if detail_info.get("preferred_majors"):
+                                job["preferred_majors"] = detail_info["preferred_majors"]
+                            if detail_info.get("core_competencies"):
+                                job["core_competencies"] = detail_info["core_competencies"]
                             print(f"[원티드] ({i+1}/{total_jobs}) {job.get('title', '')[:30]}... 상세 정보 추가 완료")
 
                 print(f"[원티드] 상세 정보 가져오기 완료")
@@ -431,7 +444,7 @@ class WebCrawlerService:
         client: httpx.AsyncClient,
         job_id: str
     ) -> Optional[Dict]:
-        """원티드 채용 공고 상세 정보 API로 가져오기"""
+        """원티드 채용 공고 상세 정보 API로 가져오기 (2024년 구조)"""
         try:
             # 원티드 상세 API 엔드포인트
             detail_api_url = f"https://www.wanted.co.kr/api/v4/jobs/{job_id}"
@@ -463,6 +476,60 @@ class WebCrawlerService:
                         elif isinstance(tag, str):
                             tech_stack.append(tag)
 
+                # ===== 추가 정보 추출 (2024년 업데이트) =====
+
+                # 1. 회사명 추출
+                company = job_data.get("company", {})
+                company_name = company.get("name", "") if isinstance(company, dict) else ""
+
+                # 2. 마감일 추출
+                deadline = ""
+                due_time = job_data.get("due_time", "")
+                if due_time:
+                    # ISO 형식에서 날짜만 추출 (2025-02-20T...)
+                    deadline = due_time.split("T")[0] if "T" in due_time else due_time
+
+                # 3. 급여 추출 (annual_from, annual_to 사용 - 단위: 천만원)
+                salary = ""
+                annual_from = job_data.get("annual_from")
+                annual_to = job_data.get("annual_to")
+                if annual_from and annual_to:
+                    # 천만원 단위 -> 만원 단위로 변환
+                    from_val = int(annual_from) * 1000
+                    to_val = int(annual_to) * 1000
+                    if from_val == to_val:
+                        salary = f"연봉 {from_val:,}만원"
+                    else:
+                        salary = f"연봉 {from_val:,}~{to_val:,}만원"
+                elif annual_from:
+                    from_val = int(annual_from) * 1000
+                    salary = f"연봉 {from_val:,}만원 이상"
+                elif annual_to:
+                    to_val = int(annual_to) * 1000
+                    salary = f"연봉 ~{to_val:,}만원"
+
+                # 4. 근무지 추출
+                work_location = ""
+                address = job_data.get("address", {})
+                if isinstance(address, dict):
+                    full_location = address.get("full_location", "")
+                    location = address.get("location", "")
+                    work_location = full_location or location
+                elif isinstance(address, str):
+                    work_location = address
+
+                # 5. 경력 조건
+                career = ""
+                position = job_data.get("position", "")
+                if position:
+                    career = position
+
+                # 6. 우대전공 (원티드는 보통 없음)
+                preferred_majors = []
+
+                # 7. 핵심역량 (원티드는 보통 없음)
+                core_competencies = []
+
                 # 전체 설명 조합
                 description_parts = []
                 if main_tasks:
@@ -476,12 +543,23 @@ class WebCrawlerService:
 
                 full_description = "\n".join(description_parts)
 
-                return {
+                result = {
                     "description": full_description[:2000] if full_description else "",
                     "tech_stack": tech_stack,
                     "requirements": requirements,
-                    "preferred": preferred
+                    "preferred": preferred,
+                    "deadline": deadline,
+                    "salary": salary,
+                    "work_location": work_location,
+                    "preferred_majors": preferred_majors,
+                    "core_competencies": core_competencies
                 }
+
+                # 회사명이 있으면 추가
+                if company_name:
+                    result["company"] = company_name
+
+                return result
             else:
                 print(f"[원티드] 상세 API 호출 실패 (job_id: {job_id}): HTTP {response.status_code}")
 
@@ -496,7 +574,7 @@ class WebCrawlerService:
         client: httpx.AsyncClient,
         job_url: str
     ) -> Optional[Dict]:
-        """잡코리아 채용 공고 상세 페이지 크롤링"""
+        """잡코리아 채용 공고 상세 페이지 크롤링 (Next.js __NEXT_DATA__ 파싱)"""
         try:
             await self._wait_if_needed()  # IP 차단 방지
             response = await client.get(job_url)
@@ -505,53 +583,189 @@ class WebCrawlerService:
                 html = response.text
                 soup = BeautifulSoup(html, "lxml")
 
-                # 상세 내용 추출
-                description_parts = []
-
-                # 자격요건/우대사항 섹션 찾기
-                detail_sections = soup.find_all("div", class_=re.compile(r".*detail.*|.*desc.*|.*content.*", re.I))
-
-                for section in detail_sections:
-                    section_text = section.get_text(strip=True)
-                    if len(section_text) > 50:  # 의미있는 내용만
-                        description_parts.append(section_text[:500])
-
-                # 기술스택 추출 - 키워드 태그에서
-                tech_tags = soup.find_all("span", class_=re.compile(r".*skill.*|.*tech.*|.*tag.*", re.I))
+                # 결과 초기화
+                company_name = ""
                 tech_stack = []
-                for tag in tech_tags:
-                    tag_text = tag.get_text(strip=True)
-                    if tag_text and len(tag_text) < 30:  # 짧은 기술 키워드만
-                        tech_stack.append(tag_text)
-
-                # 자격요건 섹션
-                requirements_section = soup.find(string=re.compile(r"자격.*요건|지원.*자격|필수.*조건", re.I))
+                deadline = ""
+                work_location = ""
+                salary = ""
+                preferred_majors = []
+                core_competencies = []
+                description_parts = []
                 requirements = ""
-                if requirements_section:
-                    parent = requirements_section.find_parent()
-                    if parent:
-                        next_elem = parent.find_next_sibling()
-                        if next_elem:
-                            requirements = next_elem.get_text(strip=True)[:500]
-
-                # 우대사항 섹션
-                preferred_section = soup.find(string=re.compile(r"우대.*사항|우대.*조건|가점.*사항", re.I))
                 preferred = ""
-                if preferred_section:
-                    parent = preferred_section.find_parent()
-                    if parent:
-                        next_elem = parent.find_next_sibling()
-                        if next_elem:
-                            preferred = next_elem.get_text(strip=True)[:500]
+
+                # __NEXT_DATA__ JSON에서 데이터 추출 (Next.js 구조)
+                next_data_script = soup.find("script", id="__NEXT_DATA__")
+                if next_data_script and next_data_script.string:
+                    try:
+                        import json
+                        next_data = json.loads(next_data_script.string)
+
+                        # pageProps에서 채용정보 추출
+                        page_props = next_data.get("props", {}).get("pageProps", {})
+
+                        # React Server Component 형식: dehydratedState.queries에서 JOBS 찾기
+                        recruit_data = None
+                        dehydrated_state = page_props.get("dehydratedState", {})
+                        queries = dehydrated_state.get("queries", [])
+
+                        for query in queries:
+                            query_key = query.get("queryKey", [])
+                            if query_key and "JOBS" in str(query_key):
+                                query_state = query.get("state", {})
+                                recruit_data = query_state.get("data", {})
+                                break
+
+                        # 기존 방식 fallback
+                        if not recruit_data:
+                            recruit_data = page_props.get("recruitRead", {}) or page_props.get("data", {})
+
+                        if recruit_data:
+                            # 1. 회사명
+                            company_info = recruit_data.get("company", {})
+                            if isinstance(company_info, dict):
+                                company_name = company_info.get("name", "")
+
+                            # 2. 급여 정보
+                            pay_info = recruit_data.get("pay", {})
+                            if isinstance(pay_info, dict):
+                                pay_type = pay_info.get("payType", "")
+                                pay_range = pay_info.get("payRange", {})
+                                pay_options = pay_info.get("payOptionTypes", [])
+
+                                if pay_range and isinstance(pay_range, dict):
+                                    min_pay = pay_range.get("min", "")
+                                    max_pay = pay_range.get("max", "")
+                                    if min_pay and max_pay:
+                                        salary = f"{min_pay:,}~{max_pay:,}원"
+                                    elif min_pay:
+                                        salary = f"{min_pay:,}원 이상"
+                                elif pay_type == "COMPANY_POLICY":
+                                    salary = "회사 내규에 따름"
+                                elif "DECIDED_AFTER_INTERVIEW" in pay_options:
+                                    salary = "면접 후 결정"
+
+                            # 3. 근무지
+                            work_place = recruit_data.get("workPlace", {})
+                            if isinstance(work_place, dict):
+                                address = work_place.get("address", "")
+                                detail_address = work_place.get("detailAddress", "")
+                                if address:
+                                    work_location = f"{address} {detail_address}".strip()
+
+                            # 4. 마감일
+                            receipt_info = recruit_data.get("receiptInfo", {})
+                            if isinstance(receipt_info, dict):
+                                end_date = receipt_info.get("endDate", "")
+                                if end_date:
+                                    # ISO 형식 변환
+                                    deadline = end_date.split("T")[0] if "T" in end_date else end_date
+
+                            # 5. 기술스택/스킬 (skills 배열에서)
+                            skills = recruit_data.get("skills", [])
+                            if isinstance(skills, list):
+                                for skill in skills:
+                                    if isinstance(skill, dict):
+                                        skill_name = skill.get("name", "")
+                                        if skill_name:
+                                            tech_stack.append(skill_name)
+
+                            # 6. 자격요건/우대사항 (상세 내용에서)
+                            detail_content = recruit_data.get("detailContent", "")
+                            if detail_content:
+                                description_parts.append(detail_content[:1500])
+
+                            # 7. 우대전공
+                            majors = recruit_data.get("majors", [])
+                            if isinstance(majors, list):
+                                for major in majors:
+                                    if isinstance(major, dict):
+                                        major_name = major.get("name", "")
+                                        if major_name:
+                                            preferred_majors.append(major_name)
+                                    elif isinstance(major, str):
+                                        preferred_majors.append(major)
+
+                            # 8. 핵심역량 (competencies에서)
+                            competencies = recruit_data.get("competencies", [])
+                            if isinstance(competencies, list):
+                                for comp in competencies:
+                                    if isinstance(comp, dict):
+                                        comp_name = comp.get("name", "")
+                                        if comp_name:
+                                            core_competencies.append(comp_name)
+                                    elif isinstance(comp, str):
+                                        core_competencies.append(comp)
+                    except Exception as e:
+                        print(f"[잡코리아] __NEXT_DATA__ 파싱 실패: {str(e)}")
+
+                # JSON-LD 스키마에서 정보 추출 (가장 안정적)
+                script_tags = soup.find_all("script", type="application/ld+json")
+                for script in script_tags:
+                    try:
+                        import json
+                        json_data = json.loads(script.string)
+                        if isinstance(json_data, dict) and json_data.get("@type") == "JobPosting":
+                            # 마감일
+                            if not deadline:
+                                deadline = json_data.get("validThrough", "")
+                                if deadline:
+                                    deadline = deadline.split("T")[0] if "T" in deadline else deadline
+
+                            # 근무지 (addressLocality 사용)
+                            if not work_location:
+                                job_location = json_data.get("jobLocation", {})
+                                if isinstance(job_location, dict):
+                                    address = job_location.get("address", {})
+                                    if isinstance(address, dict):
+                                        # addressLocality에 전체 주소가 있음
+                                        work_location = address.get("addressLocality", "") or address.get("streetAddress", "")
+                                    elif isinstance(address, str):
+                                        work_location = address
+
+                            # 급여 (baseSalary.value 사용)
+                            if not salary:
+                                base_salary = json_data.get("baseSalary", {})
+                                if isinstance(base_salary, dict):
+                                    sal_value = base_salary.get("value", {})
+                                    if isinstance(sal_value, dict):
+                                        min_val = sal_value.get("minValue", "")
+                                        max_val = sal_value.get("maxValue", "")
+                                        if min_val and max_val:
+                                            salary = f"{min_val}~{max_val}원"
+                                        elif min_val:
+                                            salary = f"{min_val}원"
+                                    elif isinstance(sal_value, str) and sal_value:
+                                        salary = sal_value
+                            break
+                    except:
+                        pass
+
+                # 중복 제거
+                tech_stack = list(dict.fromkeys(tech_stack))
+                preferred_majors = list(dict.fromkeys(preferred_majors))
+                core_competencies = list(dict.fromkeys(core_competencies))
 
                 full_description = "\n".join(description_parts)[:2000]
 
-                return {
+                result = {
                     "description": full_description if full_description else "",
                     "tech_stack": tech_stack,
                     "requirements": requirements,
-                    "preferred": preferred
+                    "preferred": preferred,
+                    "preferred_majors": preferred_majors,
+                    "deadline": deadline,
+                    "work_location": work_location,
+                    "salary": salary,
+                    "core_competencies": core_competencies
                 }
+
+                # 회사명이 추출되었으면 추가
+                if company_name:
+                    result["company"] = company_name
+
+                return result
             else:
                 print(f"[잡코리아] 상세 페이지 호출 실패: HTTP {response.status_code}")
 
@@ -565,7 +779,7 @@ class WebCrawlerService:
         client: httpx.AsyncClient,
         job_url: str
     ) -> Optional[Dict]:
-        """사람인 채용 공고 상세 페이지 크롤링"""
+        """사람인 채용 공고 상세 페이지 크롤링 (2024년 구조)"""
         try:
             await self._wait_if_needed()  # IP 차단 방지
             response = await client.get(job_url)
@@ -574,14 +788,40 @@ class WebCrawlerService:
                 html = response.text
                 soup = BeautifulSoup(html, "lxml")
 
+                # ===== 사람인 2024년 구조 =====
+                # 메타태그: <meta name="description" content="회사명, 제목, 경력:XX, 학력:XX, 연봉:XX, 마감일:XX">
+
+                # 1. 메타 description에서 정보 추출
+                meta_desc = soup.find("meta", {"name": "description"})
+                meta_content = meta_desc.get("content", "") if meta_desc else ""
+
+                # 마감일 추출 (마감일:2025-02-06)
+                deadline = ""
+                deadline_match = re.search(r'마감일[:\s]*(\d{4}-\d{2}-\d{2})', meta_content)
+                if deadline_match:
+                    deadline = deadline_match.group(1)
+
+                # 급여 추출 (연봉:2,760 만원)
+                salary = ""
+                salary_match = re.search(r'연봉[:\s]*([\d,]+\s*만원)', meta_content)
+                if salary_match:
+                    salary = salary_match.group(1)
+
+                # 회사명 추출 (첫 번째 콤마 전)
+                company_name = ""
+                if meta_content:
+                    company_match = re.match(r'^([^,]+)', meta_content)
+                    if company_match:
+                        company_name = company_match.group(1).strip()
+
                 description_parts = []
 
-                # 채용 상세 내용 추출
+                # 2. 채용 상세 내용 추출
                 job_content = soup.find("div", class_=re.compile(r".*jv_cont.*|.*job_content.*|.*recruit_content.*", re.I))
                 if job_content:
                     description_parts.append(job_content.get_text(strip=True)[:1000])
 
-                # 자격요건 찾기
+                # 3. 자격요건 찾기
                 requirements_section = soup.find(string=re.compile(r"자격.*요건|지원.*자격|필수.*사항", re.I))
                 requirements = ""
                 if requirements_section:
@@ -591,7 +831,7 @@ class WebCrawlerService:
                         if next_elem:
                             requirements = next_elem.get_text(strip=True)[:500]
 
-                # 우대사항 찾기
+                # 4. 우대사항 찾기
                 preferred_section = soup.find(string=re.compile(r"우대.*사항|우대.*조건", re.I))
                 preferred = ""
                 if preferred_section:
@@ -601,7 +841,7 @@ class WebCrawlerService:
                         if next_elem:
                             preferred = next_elem.get_text(strip=True)[:500]
 
-                # 기술스택 추출
+                # 5. 기술스택 추출
                 tech_stack = []
                 skill_tags = soup.find_all("span", class_=re.compile(r".*skill.*|.*tech.*|.*stack.*|.*keyword.*", re.I))
                 for tag in skill_tags:
@@ -609,7 +849,24 @@ class WebCrawlerService:
                     if tag_text and len(tag_text) < 30:
                         tech_stack.append(tag_text)
 
-                # 지원자 수 추출
+                # 6. 근무지 추출
+                work_location = ""
+                # jv_cont 클래스 내 근무지 정보 찾기
+                location_section = soup.find(string=re.compile(r'근무지|근무.*지역|근무.*주소', re.I))
+                if location_section:
+                    parent = location_section.find_parent()
+                    if parent:
+                        # 다음 형제 또는 부모의 텍스트에서 주소 추출
+                        next_elem = parent.find_next_sibling()
+                        if next_elem:
+                            work_location = next_elem.get_text(strip=True)[:200]
+                        else:
+                            # 부모의 다음 요소
+                            parent_next = parent.parent.find_next_sibling() if parent.parent else None
+                            if parent_next:
+                                work_location = parent_next.get_text(strip=True)[:200]
+
+                # 7. 지원자 수 추출
                 applicant_count = 0
 
                 # 방법 1: "지원현황" 또는 "지원자" 텍스트 근처에서 숫자 찾기
@@ -617,13 +874,11 @@ class WebCrawlerService:
                 if applicant_section:
                     parent = applicant_section.find_parent()
                     if parent:
-                        # 부모 요소 전체 텍스트에서 숫자 추출
                         parent_text = parent.get_text(strip=True)
                         count_match = re.search(r'(\d{1,5})\s*명', parent_text)
                         if count_match:
                             applicant_count = int(count_match.group(1))
                         else:
-                            # "명" 없이 숫자만 있는 경우
                             count_match = re.search(r'지원[자현황]*\s*[:\s]*(\d{1,5})', parent_text)
                             if count_match:
                                 applicant_count = int(count_match.group(1))
@@ -652,15 +907,41 @@ class WebCrawlerService:
                             applicant_count = int(match.group(1))
                             break
 
+                # 8. 우대전공/학과 추출
+                preferred_majors = []
+                major_section = soup.find(string=re.compile(r'전공|학과|우대.*전공', re.I))
+                if major_section:
+                    parent = major_section.find_parent()
+                    if parent:
+                        next_elem = parent.find_next_sibling()
+                        if next_elem:
+                            major_text = next_elem.get_text(strip=True)
+                            if ',' in major_text:
+                                preferred_majors = [m.strip() for m in major_text.split(',') if m.strip()]
+
+                # 9. 핵심역량 추출 (사람인은 보통 명시적으로 없음, 빈 배열)
+                core_competencies = []
+
                 full_description = "\n".join(description_parts)[:2000]
 
-                return {
+                result = {
                     "description": full_description if full_description else "",
                     "tech_stack": tech_stack,
                     "requirements": requirements,
                     "preferred": preferred,
-                    "applicant_count": applicant_count
+                    "applicant_count": applicant_count,
+                    "deadline": deadline,
+                    "salary": salary,
+                    "work_location": work_location,
+                    "preferred_majors": preferred_majors,
+                    "core_competencies": core_competencies
                 }
+
+                # 회사명이 추출되었으면 추가
+                if company_name:
+                    result["company"] = company_name
+
+                return result
             else:
                 print(f"[사람인] 상세 페이지 호출 실패: HTTP {response.status_code}")
 
@@ -749,7 +1030,8 @@ class WebCrawlerService:
         try:
             base_search_url = ""
             if search_keyword:
-                base_search_url = f"https://www.jobkorea.co.kr/Search/?stext={quote(search_keyword)}"
+                # /Search/ URL은 SPA라서 파싱 불가, /recruit/joblist 사용
+                base_search_url = f"https://www.jobkorea.co.kr/recruit/joblist?menucode=duty&stext={quote(search_keyword)}"
             else:
                 # 검색어 없으면 전체 채용 공고 페이지 (menucode=local 추가)
                 base_search_url = "https://www.jobkorea.co.kr/recruit/joblist?menucode=local"
@@ -843,152 +1125,67 @@ class WebCrawlerService:
                     for item in job_items:
                         try:
                             item_count += 1
-                            # 제목 추출 - 잡코리아는 여러 구조를 사용
-                            title_elem = None
-                            
-                            # 1. data-gno를 가진 요소 내의 링크 찾기
-                            if not title_elem:
-                                title_elem = item.find("a", href=re.compile(r"/Recruit/GI_Read"))
-                            
-                            # 2. title 클래스를 가진 링크 찾기
-                            if not title_elem:
-                                title_elem = item.find("a", class_=re.compile(r".*title.*|.*subject.*|.*job.*title.*", re.I))
-                            
-                            # 3. strong 태그 내의 링크 찾기
-                            if not title_elem:
-                                strong = item.find("strong")
-                                if strong:
-                                    title_elem = strong.find("a")
-                            
-                            # 4. h2, h3 태그 찾기
-                            if not title_elem:
-                                title_elem = item.find("h2") or item.find("h3")
-                            
-                            # 5. 첫 번째 링크 사용
-                            if not title_elem:
-                                title_elem = item.find("a", href=True)
-                            
-                            # 회사명 추출 - 더 넓은 패턴 시도
-                            company_elem = (
-                                item.find("a", class_=re.compile(r".*company.*|.*corp.*", re.I)) or
-                                item.find("strong", class_=re.compile(r".*company.*", re.I)) or
-                                item.find("span", class_=re.compile(r".*company.*", re.I)) or
-                                item.find("div", class_=re.compile(r".*company.*", re.I)) or
-                                item.find("p", class_=re.compile(r".*company.*", re.I)) or
-                                # 추가 패턴: 기업명, 회사명 등
-                                item.find("a", class_=re.compile(r".*corp.*|.*name.*", re.I)) or
-                                item.find("span", attrs={"class": re.compile(r".*name.*", re.I)}) or
-                                # data-company 속성
-                                item.find(attrs={"data-company": True})
-                            )
 
-                            # 회사명이 없으면 전체 텍스트에서 추출 시도
-                            if not company_elem:
-                                # 제목이 아닌 다른 링크에서 회사명 찾기
-                                all_links = item.find_all("a", href=True)
-                                for link in all_links:
-                                    link_text = link.get_text(strip=True)
-                                    href = link.get("href", "")
-                                    # 채용공고 링크가 아니고, 회사 관련 링크면 회사명으로 추정
-                                    if link_text and "/Recruit/Co_" in href:
-                                        company_elem = link
-                                        break
-                            
-                            # 지역 추출
-                            location_elem = (
-                                item.find("span", class_=re.compile(r".*location.*|.*area.*|.*region.*|.*local.*", re.I)) or
-                                item.find("div", class_=re.compile(r".*location.*", re.I))
-                            )
-                            
-                            # URL 추출 - 잡코리아 상세 페이지 URL 형식: /Recruit/GI_Read/숫자
-                            job_url = ""
-                            
-                            # 1. data-gno가 있으면 URL 생성
-                            gno = item.get("data-gno")
-                            if gno:
-                                job_url = f"https://www.jobkorea.co.kr/Recruit/GI_Read/{gno}"
-                            
-                            # 2. item 내의 모든 링크에서 채용 공고 상세 페이지 링크 찾기
-                            if not job_url:
-                                all_links = item.find_all("a", href=True)
-                                for link in all_links:
-                                    href = link.get("href", "")
-                                    if href and ("/Recruit/GI_Read" in href or "/GI_Read" in href):
-                                        job_url = urljoin("https://www.jobkorea.co.kr", href)
-                                        break
-                            
-                            # 3. 제목 링크에서 URL 추출
-                            if not job_url and title_elem:
-                                try:
-                                    if hasattr(title_elem, 'get') and title_elem.name == 'a':
-                                        href = title_elem.get("href", "")
-                                        if href:
-                                            job_url = urljoin("https://www.jobkorea.co.kr", href)
-                                except:
-                                    pass
-                            
-                            # 4. 마지막으로 item 내의 첫 번째 링크 사용
-                            if not job_url:
-                                first_link = item.find("a", href=True)
-                                if first_link:
-                                    href = first_link.get("href", "")
-                                    if href and not href.startswith("#") and not href.startswith("javascript:") and not href.startswith("mailto:"):
-                                        job_url = urljoin("https://www.jobkorea.co.kr", href)
-                            
-                            # 회사명, 지역 추출
-                            company = company_elem.get_text(strip=True) if company_elem else ""
-                            location = location_elem.get_text(strip=True) if location_elem else ""
+                            # ===== 잡코리아 2024년 HTML 구조에 맞게 파싱 =====
+                            # 구조:
+                            # <li class="devloopArea">
+                            #   <div class="company">
+                            #     <span class="name">
+                            #       <a href="..."><span class="logo">...</span>회사명</a>
+                            #     </span>
+                            #     <button>관심기업 등록하기</button>
+                            #   </div>
+                            #   <div class="description">
+                            #     <a href="...">
+                            #       <span class="text">채용공고 제목</span>
+                            #       <span class="dday">...</span>
+                            #     </a>
+                            #   </div>
+                            # </li>
 
-                            # 제목 추출 - 잡코리아는 <div class="description"> 안의 <span class="text">에 제목이 있음
                             title = ""
+                            company = ""
+                            location = ""
+                            job_url = ""
 
-                            # 방법 1: description 영역에서 text 클래스 찾기
-                            desc_div = item.find("div", class_=re.compile(r".*description.*", re.I))
+                            # 1. 제목 추출: div.description > a > span.text
+                            desc_div = item.find("div", class_="description")
                             if desc_div:
-                                text_span = desc_div.find("span", class_=re.compile(r".*text.*", re.I))
+                                text_span = desc_div.find("span", class_="text")
                                 if text_span:
                                     title = text_span.get_text(strip=True)
 
-                            # 방법 2: item에서 직접 text 클래스 찾기
-                            if not title:
-                                text_span = item.find("span", class_=re.compile(r"^text$|.*job.*text.*", re.I))
-                                if text_span:
-                                    title = text_span.get_text(strip=True)
+                            # 2. 회사명 추출: div.company > span.name > a (logo span 제외)
+                            company_div = item.find("div", class_="company")
+                            if company_div:
+                                name_span = company_div.find("span", class_="name")
+                                if name_span:
+                                    company_link = name_span.find("a", href=True)
+                                    if company_link:
+                                        # logo span을 제외한 텍스트만 추출
+                                        logo_span = company_link.find("span", class_="logo")
+                                        if logo_span:
+                                            logo_span.decompose()  # logo span 제거
+                                        company = company_link.get_text(strip=True)
 
-                            # 방법 3: title_elem이 a 태그이고 title 속성이 있으면 사용
-                            if not title and title_elem and title_elem.get('title'):
-                                title = title_elem.get('title')
+                            # 3. URL 추출: description 영역의 링크 또는 data-info에서 추출
+                            # data-info 형식: "48212272|50048904|themaison|C|AM|04" (첫번째가 공고 ID)
+                            data_info = item.get("data-info", "")
+                            if data_info:
+                                recruit_no = data_info.split("|")[0] if "|" in data_info else data_info
+                                if recruit_no and recruit_no.isdigit():
+                                    job_url = f"https://www.jobkorea.co.kr/Recruit/GI_Read/{recruit_no}"
 
-                            # 방법 4: description 영역의 a 태그 텍스트
-                            if not title and desc_div:
-                                desc_link = desc_div.find("a", href=True)
-                                if desc_link:
-                                    # span.text 자식만 추출
-                                    text_child = desc_link.find("span", class_=re.compile(r".*text.*", re.I))
-                                    if text_child:
-                                        title = text_child.get_text(strip=True)
-                                    else:
-                                        # 자식 중 마감일/dday 제외하고 추출
-                                        for child in desc_link.children:
-                                            if isinstance(child, str):
-                                                title += child.strip() + " "
-                                            elif hasattr(child, 'name') and child.name == 'span':
-                                                child_class = child.get('class', [])
-                                                if child_class and not any(c in str(child_class).lower() for c in ['dday', 'deadline', 'date']):
-                                                    title += child.get_text(strip=True) + " "
-                                        title = title.strip()
+                            # URL이 없으면 링크에서 찾기
+                            if not job_url:
+                                all_links = item.find_all("a", href=re.compile(r"/Recruit/GI_Read"))
+                                if all_links:
+                                    job_url = urljoin("https://www.jobkorea.co.kr", all_links[0].get("href", ""))
 
-                            # 방법 5: 최후의 수단 - title_elem 전체에서 회사명/지역 패턴 제거
-                            if not title and title_elem:
-                                full_text = title_elem.get_text(strip=True)
-                                # 회사명이 이미 추출되었으면 제거
-                                if company and company in full_text:
-                                    full_text = full_text.replace(company, '')
-                                # 지역 패턴 제거
-                                title = re.sub(r'(서울|경기|인천|부산|대구|광주|대전|울산|세종|강원|충북|충남|전북|전남|경북|경남|제주)(전체|[가-힣]+구)?(\s*외)?', '', full_text)
-                                title = re.sub(r'지원\s*TOP\s*\d+', '', title)
-                                title = re.sub(r'/[가-힣·\s]+$', '', title)
-                                title = title.strip()
+                            # 4. 지역 추출 (있으면)
+                            location_elem = item.find("span", class_=re.compile(r"location|area|region", re.I))
+                            if location_elem:
+                                location = location_elem.get_text(strip=True)
 
                             # 전체 텍스트 추출 (item 전체에서 - 경력, 학력 등 추출용)
                             full_text = item.get_text(strip=True)
@@ -1069,9 +1266,16 @@ class WebCrawlerService:
                                     continue
                                 
                                 final_url = job_url if job_url else search_url
-                                
-                                # job_id 추출: gno가 없으면 URL에서 추출
-                                job_id = gno
+
+                                # job_id 추출: data-info 또는 URL에서 추출
+                                job_id = ""
+                                # data-info에서 recruit_no 추출
+                                data_info = item.get("data-info", "")
+                                if data_info and "|" in data_info:
+                                    recruit_no = data_info.split("|")[0]
+                                    if recruit_no.isdigit():
+                                        job_id = recruit_no
+
                                 if not job_id and final_url:
                                     # URL에서 GI_Read/숫자 패턴 또는 일반 숫자 ID 패턴 추출
                                     job_id_match = re.search(r'/GI_Read/(\d+)', final_url)
@@ -1083,7 +1287,7 @@ class WebCrawlerService:
                                 
                                 # job_id가 없으면 건너뛰기 (저장 불가)
                                 if not job_id:
-                                    print(f"[잡코리아] job_id 추출 실패 - gno: {gno}, URL: {final_url[:100]}")
+                                    print(f"[잡코리아] job_id 추출 실패 - data_info: {data_info}, URL: {final_url[:100]}")
                                     continue
                                 
                                 # 중복 체크 없이 모두 수집 (DB 저장 시에 중복 처리)
@@ -1198,6 +1402,19 @@ class WebCrawlerService:
                                     job["tech_stack"] = ",".join(detail_info["tech_stack"])
                                 if detail_info.get("requirements"):
                                     job["required_skills"] = detail_info["requirements"][:500]
+                                # 새 필드 추가
+                                if detail_info.get("company"):
+                                    job["company"] = detail_info["company"]
+                                if detail_info.get("deadline"):
+                                    job["deadline"] = detail_info["deadline"]
+                                if detail_info.get("salary"):
+                                    job["salary"] = detail_info["salary"]
+                                if detail_info.get("work_location"):
+                                    job["work_location"] = detail_info["work_location"]
+                                if detail_info.get("preferred_majors"):
+                                    job["preferred_majors"] = detail_info["preferred_majors"]
+                                if detail_info.get("core_competencies"):
+                                    job["core_competencies"] = detail_info["core_competencies"]
                                 print(f"[잡코리아] ({i+1}/{total_jobs}) {job.get('title', '')[:30]}... 상세 정보 추가 완료")
 
                     print(f"[잡코리아] 상세 정보 가져오기 완료")
@@ -1631,6 +1848,19 @@ class WebCrawlerService:
                                 job["required_skills"] = detail_info["requirements"][:500]
                             if detail_info.get("applicant_count"):
                                 job["applicant_count"] = detail_info["applicant_count"]
+                            # 새 필드 추가
+                            if detail_info.get("company"):
+                                job["company"] = detail_info["company"]
+                            if detail_info.get("deadline"):
+                                job["deadline"] = detail_info["deadline"]
+                            if detail_info.get("salary"):
+                                job["salary"] = detail_info["salary"]
+                            if detail_info.get("work_location"):
+                                job["work_location"] = detail_info["work_location"]
+                            if detail_info.get("preferred_majors"):
+                                job["preferred_majors"] = detail_info["preferred_majors"]
+                            if detail_info.get("core_competencies"):
+                                job["core_competencies"] = detail_info["core_competencies"]
                             print(f"[사람인] ({i+1}/{total_jobs}) {job.get('title', '')[:30]}... 상세 정보 추가 완료 (지원자: {detail_info.get('applicant_count', 0)}명)")
 
                 print(f"[사람인] 상세 정보 가져오기 완료")
