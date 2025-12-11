@@ -49,8 +49,12 @@ public class PersonalityAgentService {
         }
 
         String sessionId = incomingRequest.getSessionId();
-        CareerSession session = careerSessionRepository.findBySessionId(sessionId)
+        // findBySessionIdWithMessages로 메시지를 함께 조회 (REQUIRES_NEW 트랜잭션에서 lazy loading 문제 방지)
+        CareerSession session = careerSessionRepository.findBySessionIdWithMessages(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("세션을 찾을 수 없습니다."));
+
+        log.info("PersonalityAgent 세션 조회 완료 - sessionId: {}, 메시지 수: {}",
+                sessionId, session.getMessages() != null ? session.getMessages().size() : 0);
 
         List<Map<String, Object>> history = resolveConversationHistory(
                 incomingRequest.getConversationHistory(),
