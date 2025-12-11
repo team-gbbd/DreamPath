@@ -11,8 +11,6 @@ import ChatInput from "../shared/ChatInput";
 import InquiryForm, { InquiryData } from "../shared/InquiryForm";
 import { BACKEND_BASE_URL } from "@/lib/api";
 
-// sessionStorage는 탭을 닫을 때만 초기화됨 (새로고침/페이지 이동 시 유지)
-
 interface Message {
   role: "user" | "assistant";
   text: string;
@@ -32,89 +30,69 @@ function getUserId(): number | null {
   return null;
 }
 
+// 컴포넌트 외부에 상태 저장 (메모리에만 유지, 새로고침 시 초기화)
+let cachedSessionId: string | null = null;
+let cachedMessages: Message[] = [];
+let cachedSelectedCategory: string | null = null;
+let cachedUserId: number | null = null;
+
+// 캐시 초기화 함수
+function clearAssistantCache() {
+  cachedSessionId = null;
+  cachedMessages = [];
+  cachedSelectedCategory = null;
+}
+
 export default function AssistantChatbot({
   onClose,
 }: {
   onClose?: () => void;
 }) {
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  // 마운트 시 사용자 변경 감지
+  const currentUserId = getUserId();
+  if (currentUserId !== cachedUserId) {
+    clearAssistantCache();
+    cachedUserId = currentUserId;
+  }
+
+  const [sessionId, setSessionId] = useState<string | null>(cachedSessionId);
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>(cachedMessages);
   const [loading, setLoading] = useState(false);
   const [chunkedCategories, setChunkedCategories] = useState<string[][]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(cachedSelectedCategory);
   const [faqList, setFaqList] = useState<any[]>([]);
   const [showInquiryForm, setShowInquiryForm] = useState(false);
 
   const chatRef = useRef<HTMLDivElement>(null);
-  const lastUserIdRef = useRef<string | null>(null);
 
-  // 세션 및 대화 내용 복원
+  // 상태 변경 시 캐시 업데이트
   useEffect(() => {
-    const currentUserId = getUserId();
-    const lastUserId = localStorage.getItem("assistant_chatbot_last_user_id");
+    cachedSessionId = sessionId;
+  }, [sessionId]);
 
-    // 사용자 변경 감지
-    if (String(currentUserId) !== lastUserId) {
-      console.log("👤 사용자 변경 감지 - Assistant 챗봇 세션 초기화");
-      sessionStorage.removeItem("assistant_chatbot_session_id");
-      sessionStorage.removeItem("assistant_chatbot_messages");
-      setSessionId(null);
-      setMessages([]);
-      localStorage.setItem("assistant_chatbot_last_user_id", String(currentUserId));
-    } else {
-      const savedSessionId = sessionStorage.getItem(
-        "assistant_chatbot_session_id"
-      );
-      const savedMessages = sessionStorage.getItem(
-        "assistant_chatbot_messages"
-      );
-
-      if (savedSessionId) {
-        setSessionId(savedSessionId);
-      }
-      if (savedMessages) {
-        try {
-          setMessages(JSON.parse(savedMessages));
-        } catch (e) {
-          console.error("대화 내용 복원 실패:", e);
-        }
-      }
-    }
-
-    lastUserIdRef.current = String(currentUserId);
-  }, []);
-
-  // 대화 내용 변경 시 sessionStorage에 저장
   useEffect(() => {
-    if (messages.length > 0) {
-      sessionStorage.setItem(
-        "assistant_chatbot_messages",
-        JSON.stringify(messages)
-      );
-    }
+    cachedMessages = messages;
   }, [messages]);
+
+  useEffect(() => {
+    cachedSelectedCategory = selectedCategory;
+  }, [selectedCategory]);
 
   // 로그인/로그아웃 이벤트 감지 (즉시 반응)
   useEffect(() => {
     const handleAuthChange = () => {
-      const currentUserId = getUserId();
-      const currentUserIdStr = String(currentUserId);
-      const lastUserIdStr = lastUserIdRef.current;
-
-      // 사용자가 실제로 변경된 경우에만 초기화
-      if (lastUserIdStr !== null && lastUserIdStr !== currentUserIdStr) {
-        console.log("👤 로그인/로그아웃 감지 - Assistant 챗봇 세션 초기화", { from: lastUserIdStr, to: currentUserIdStr });
-        sessionStorage.removeItem("assistant_chatbot_session_id");
-        sessionStorage.removeItem("assistant_chatbot_messages");
-        setSessionId(null);
-        setMessages([]);
-        setSelectedCategory(null);
-        setFaqList([]);
-      }
-
-      localStorage.setItem("assistant_chatbot_last_user_id", currentUserIdStr);
-      lastUserIdRef.current = currentUserIdStr;
+      console.log("👤 로그인/로그아웃 감지 - Assistant 챗봇 세션 초기화");
+      // 캐시 초기화
+      cachedSessionId = null;
+      cachedMessages = [];
+      cachedSelectedCategory = null;
+      // 상태 초기화
+      setSessionId(null);
+      setMessages([]);
+      setSelectedCategory(null);
+      setFaqList([]);
+      setChunkedCategories([]);
     };
 
     window.addEventListener("dreampath-auth-change", handleAuthChange);
@@ -280,9 +258,6 @@ export default function AssistantChatbot({
 
   // X 버튼 클릭 시
   const handleClose = () => {
-    if (sessionId) {
-      sessionStorage.setItem("assistant_chatbot_session_id", sessionId);
-    }
     onClose?.();
   };
 

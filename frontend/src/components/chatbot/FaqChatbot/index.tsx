@@ -8,8 +8,6 @@ import ChatInput from "../shared/ChatInput";
 import InquiryForm, { InquiryData } from "../shared/InquiryForm";
 import { BACKEND_BASE_URL } from "@/lib/api";
 
-// sessionStorage는 탭을 닫을 때만 초기화됨 (새로고침/페이지 이동 시 유지)
-
 interface Message {
   role: "user" | "assistant";
   text: string;
@@ -42,18 +40,50 @@ function getGuestId(): string | null {
   return guestId;
 }
 
+// 컴포넌트 외부에 상태 저장 (메모리에만 유지, 새로고침 시 초기화)
+let cachedSessionId: string | null = null;
+let cachedMessages: Message[] = [];
+let cachedSelectedCategory: string | null = null;
+let cachedUserId: number | null = null;
+
+// 캐시 초기화 함수
+function clearFaqCache() {
+  cachedSessionId = null;
+  cachedMessages = [];
+  cachedSelectedCategory = null;
+}
+
 export default function FaqChatbot({ onClose }: { onClose?: () => void }) {
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  // 마운트 시 사용자 변경 감지
+  const currentUserId = getUserId();
+  if (currentUserId !== cachedUserId) {
+    clearFaqCache();
+    cachedUserId = currentUserId;
+  }
+
+  const [sessionId, setSessionId] = useState<string | null>(cachedSessionId);
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>(cachedMessages);
   const [loading, setLoading] = useState(false);
   const [chunkedCategories, setChunkedCategories] = useState<string[][]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(cachedSelectedCategory);
   const [faqList, setFaqList] = useState<any[]>([]);
   const [showInquiryForm, setShowInquiryForm] = useState(false);
 
   const chatRef = useRef<HTMLDivElement>(null);
-  const lastUserIdRef = useRef<string | null>(null);
+
+  // 상태 변경 시 캐시 업데이트
+  useEffect(() => {
+    cachedSessionId = sessionId;
+  }, [sessionId]);
+
+  useEffect(() => {
+    cachedMessages = messages;
+  }, [messages]);
+
+  useEffect(() => {
+    cachedSelectedCategory = selectedCategory;
+  }, [selectedCategory]);
 
   // FAQ 카테고리 로드 함수
   const loadFaqCategories = async () => {
@@ -68,74 +98,22 @@ export default function FaqChatbot({ onClose }: { onClose?: () => void }) {
     setChunkedCategories(chunked);
   };
 
-  // 세션 및 대화 내용 복원
-  useEffect(() => {
-    const currentUserId = getUserId();
-    const lastUserId = localStorage.getItem("faq_chatbot_last_user_id");
-
-    // 사용자 변경 감지 (회원 ID로만 비교)
-    const userIdChanged = String(currentUserId) !== lastUserId;
-
-    if (userIdChanged && lastUserId !== null) {
-      // 사용자가 변경됨 (로그아웃/다른계정 로그인)
-      console.log("👤 사용자 변경 감지 - FAQ 챗봇 세션 초기화");
-      sessionStorage.removeItem("faq_chatbot_session_id");
-      sessionStorage.removeItem("faq_chatbot_messages");
-      setSessionId(null);
-      setMessages([]);
-      setSelectedCategory(null);
-      setFaqList([]);
-    } else {
-      // 사용자 동일 - 대화 복원
-      const savedSessionId = sessionStorage.getItem("faq_chatbot_session_id");
-      const savedMessages = sessionStorage.getItem("faq_chatbot_messages");
-
-      if (savedSessionId) {
-        setSessionId(savedSessionId);
-      }
-      if (savedMessages) {
-        try {
-          setMessages(JSON.parse(savedMessages));
-        } catch (e) {
-          console.error("대화 내용 복원 실패:", e);
-        }
-      }
-    }
-
-    // 현재 사용자 ID 저장
-    localStorage.setItem("faq_chatbot_last_user_id", String(currentUserId));
-    lastUserIdRef.current = String(currentUserId);
-  }, []);
-
-  // 대화 내용 변경 시 sessionStorage에 저장
-  useEffect(() => {
-    if (messages.length > 0) {
-      sessionStorage.setItem(
-        "faq_chatbot_messages",
-        JSON.stringify(messages)
-      );
-    }
-  }, [messages]);
-
   // 로그인/로그아웃 이벤트 감지 (즉시 반응)
   useEffect(() => {
     const handleAuthChange = () => {
-      const currentUserId = getUserId();
-      const currentUserIdStr = String(currentUserId);
-
       console.log("👤 로그인/로그아웃 감지 - FAQ 챗봇 세션 초기화");
-      sessionStorage.removeItem("faq_chatbot_session_id");
-      sessionStorage.removeItem("faq_chatbot_messages");
+      // 캐시 초기화
+      cachedSessionId = null;
+      cachedMessages = [];
+      cachedSelectedCategory = null;
+      // 상태 초기화
       setSessionId(null);
       setMessages([]);
       setSelectedCategory(null);
       setFaqList([]);
-      setChunkedCategories([]);  // FAQ 카테고리도 초기화
+      setChunkedCategories([]);
 
-      localStorage.setItem("faq_chatbot_last_user_id", currentUserIdStr);
-      lastUserIdRef.current = currentUserIdStr;
-
-      // FAQ 카테고리 다시 로드 (사용자 타입에 맞게)
+      // FAQ 카테고리 다시 로드
       loadFaqCategories();
     };
 
@@ -235,9 +213,6 @@ export default function FaqChatbot({ onClose }: { onClose?: () => void }) {
 
   // X 버튼 클릭 시
   const handleClose = () => {
-    if (sessionId) {
-      sessionStorage.setItem("faq_chatbot_session_id", sessionId);
-    }
     onClose?.();
   };
 
