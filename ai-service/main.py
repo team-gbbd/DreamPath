@@ -349,30 +349,30 @@ async def identity_progress(req: ProgressRequest):
 
 
 # =========================================
-# Chat API
+# Chat API (임시 복원 - 디버깅용)
 # =========================================
 
-class ChatRequest(BaseModel):
+class ChatRequestMain(BaseModel):
     sessionId: str
     userMessage: str
     currentStage: str
     conversationHistory: List[ConversationMessage]
     surveyData: Optional[dict] = None
 
-class ChatRes(BaseModel):
+class ChatResMain(BaseModel):
     sessionId: str
     message: str
 
 
-@app.post("/api/chat", response_model=ChatRes)
-async def chat(req: ChatRequest):
-
+@app.post("/api/chat/test", response_model=ChatResMain)
+async def chat_test(req: ChatRequestMain):
+    """디버깅용 테스트 엔드포인트"""
     if not chat_service:
         raise HTTPException(status_code=500, detail="OpenAI API Key 필요")
 
     history = [{"role": m.role, "content": m.content} for m in req.conversationHistory]
 
-    msg = await chat_service.generate_response(
+    result = await chat_service.generate_response(
         session_id=req.sessionId,
         user_message=req.userMessage,
         current_stage=req.currentStage,
@@ -380,7 +380,8 @@ async def chat(req: ChatRequest):
         survey_data=req.surveyData
     )
 
-    return ChatRes(sessionId=req.sessionId, message=msg)
+    # result는 {"message": "..."} dict
+    return ChatResMain(sessionId=req.sessionId, message=result["message"])
 
 
 # =========================================

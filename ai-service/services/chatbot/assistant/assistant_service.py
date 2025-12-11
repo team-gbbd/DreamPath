@@ -16,9 +16,13 @@ from .tools import (
     career_analysis_tool,
     recommendation_tool,
     personality_tool,
-    learning_progress_tool,
     inquiry_tool,
-    job_recommendation_tool
+    job_recommendation_tool,
+    profile_tool,
+    learning_path_tool,
+    payment_tool,
+    available_mentors_tool,
+    job_details_tool
 )
 
 # RAG 서비스 import (FAQ 유사도 검색용)
@@ -45,9 +49,13 @@ class AssistantService:
             "get_career_analysis": career_analysis_tool,
             "get_recommendations": recommendation_tool,
             "get_personality_test_results": personality_tool,
-            "get_learning_progress": learning_progress_tool,
             "get_my_inquiries": inquiry_tool,
-            "get_job_postings": job_recommendation_tool
+            "get_job_postings": job_recommendation_tool,
+            "get_my_profile": profile_tool,
+            "get_learning_path": learning_path_tool,
+            "get_payment_history": payment_tool,
+            "get_available_mentors": available_mentors_tool,
+            "get_job_details": job_details_tool
         }
 
         # OpenAI Function Calling 스키마 (tools에서 자동 로드)
@@ -56,9 +64,13 @@ class AssistantService:
             career_analysis_tool.TOOL_SCHEMA,
             recommendation_tool.TOOL_SCHEMA,
             personality_tool.TOOL_SCHEMA,
-            learning_progress_tool.TOOL_SCHEMA,
             inquiry_tool.TOOL_SCHEMA,
-            job_recommendation_tool.TOOL_SCHEMA
+            job_recommendation_tool.TOOL_SCHEMA,
+            profile_tool.TOOL_SCHEMA,
+            learning_path_tool.TOOL_SCHEMA,
+            payment_tool.TOOL_SCHEMA,
+            available_mentors_tool.TOOL_SCHEMA,
+            job_details_tool.TOOL_SCHEMA
         ]
 
     def execute_function(self, function_name: str, arguments: Dict[str, Any], db: DatabaseService = None) -> str:
@@ -174,22 +186,34 @@ class AssistantService:
         except Exception as e:
             return None, None, 0
 
-    def chat(self, user_id: int, message: str, conversation_history: List[Dict[str, str]] = None, db: DatabaseService = None) -> str:
+    def chat(self, user_id: int, message: str, conversation_history: List[Dict[str, str]] = None, db: DatabaseService = None, function_name: str = None) -> str:
         """
         회원용 챗봇 비서 - FAQ 직접 호출 + Function Calling 폴백
 
         흐름:
-        1. FAQ 유사도 검색
-        2. 유사도 >= 0.85 & function_name 있음 → 직접 함수 실행 (OpenAI 스킵)
-        3. 그 외 → OpenAI Function Calling 사용
+        1. function_name이 직접 전달되면 바로 실행 (FAQ 버튼 클릭)
+        2. FAQ 유사도 검색
+        3. 유사도 >= 0.85 & function_name 있음 → 직접 함수 실행 (OpenAI 스킵)
+        4. 그 외 → OpenAI Function Calling 사용
         """
         try:
+            # ========== 0. function_name 직접 전달된 경우 바로 실행 ==========
+            if function_name and function_name in self.tool_registry:
+                print(f"[AssistantService] FAQ 버튼 직접 호출: {function_name}")
+                result = self.execute_and_format(function_name, user_id, db)
+                return result
+
             # ========== 1. FAQ 검색 (키워드 → 벡터 순서) ==========
-            function_name, faq_question, score = self.search_faq(message, db)
+            matched_function, faq_question, score = self.search_faq(message, db)
+
+            # 디버그 로그
+            print(f"[AssistantService] 메시지: {message}")
+            print(f"[AssistantService] FAQ 매칭 결과: function={matched_function}, question={faq_question}, score={score}")
 
             # ========== 2. FAQ 매칭 & function_name 있으면 직접 실행 ==========
-            if function_name and function_name in self.tool_registry:
-                result = self.execute_and_format(function_name, user_id, db)
+            if matched_function and matched_function in self.tool_registry:
+                print(f"[AssistantService] FAQ 직접 실행: {matched_function}")
+                result = self.execute_and_format(matched_function, user_id, db)
                 return result
 
             # ========== 3. FAQ 매칭 안됨 → OpenAI Function Calling ==========

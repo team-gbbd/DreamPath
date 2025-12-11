@@ -154,6 +154,6 @@ def get_conversation_context(state: AgentState, max_turns: int = 5) -> str:
 
 # ===== 상수 정의 =====
 
-MAX_STEPS = 3  # 최대 ReAct 스텝 수
+MAX_STEPS = 2  # 최대 ReAct 스텝 수 (속도 개선)
 TIMEOUT_SECONDS = 30  # 전체 타임아웃
 TOOL_TIMEOUT_SECONDS = 10  # 개별 도구 타임아웃

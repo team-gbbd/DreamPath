@@ -8,6 +8,7 @@ export interface AssistantChatRequest {
   sessionId?: string | null;
   message: string;
   conversationTitle?: string;
+  functionName?: string;  // FAQ 직접 호출용
 }
 
 export interface AssistantChatResponse {

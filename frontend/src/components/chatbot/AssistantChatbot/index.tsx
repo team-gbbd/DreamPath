@@ -11,11 +11,6 @@ import ChatInput from "../shared/ChatInput";
 import InquiryForm, { InquiryData } from "../shared/InquiryForm";
 import { BACKEND_BASE_URL } from "@/lib/api";
 
-// 페이지 로드 시 sessionStorage 초기화
-if (typeof window !== "undefined") {
-  sessionStorage.removeItem("assistant_chatbot_session_id");
-}
-
 interface Message {
   role: "user" | "assistant";
   text: string;
@@ -35,30 +30,73 @@ function getUserId(): number | null {
   return null;
 }
 
+// 컴포넌트 외부에 상태 저장 (메모리에만 유지, 새로고침 시 초기화)
+let cachedSessionId: string | null = null;
+let cachedMessages: Message[] = [];
+let cachedSelectedCategory: string | null = null;
+let cachedUserId: number | null = null;
+
+// 캐시 초기화 함수
+function clearAssistantCache() {
+  cachedSessionId = null;
+  cachedMessages = [];
+  cachedSelectedCategory = null;
+}
+
 export default function AssistantChatbot({
   onClose,
 }: {
   onClose?: () => void;
 }) {
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  // 마운트 시 사용자 변경 감지
+  const currentUserId = getUserId();
+  if (currentUserId !== cachedUserId) {
+    clearAssistantCache();
+    cachedUserId = currentUserId;
+  }
+
+  const [sessionId, setSessionId] = useState<string | null>(cachedSessionId);
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>(cachedMessages);
   const [loading, setLoading] = useState(false);
   const [chunkedCategories, setChunkedCategories] = useState<string[][]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(cachedSelectedCategory);
   const [faqList, setFaqList] = useState<any[]>([]);
   const [showInquiryForm, setShowInquiryForm] = useState(false);
 
   const chatRef = useRef<HTMLDivElement>(null);
 
-  // 세션 초기화 및 복원
+  // 상태 변경 시 캐시 업데이트
   useEffect(() => {
-    const savedSessionId = sessionStorage.getItem(
-      "assistant_chatbot_session_id"
-    );
-    if (savedSessionId) {
-      setSessionId(savedSessionId);
-    }
+    cachedSessionId = sessionId;
+  }, [sessionId]);
+
+  useEffect(() => {
+    cachedMessages = messages;
+  }, [messages]);
+
+  useEffect(() => {
+    cachedSelectedCategory = selectedCategory;
+  }, [selectedCategory]);
+
+  // 로그인/로그아웃 이벤트 감지 (즉시 반응)
+  useEffect(() => {
+    const handleAuthChange = () => {
+      console.log("👤 로그인/로그아웃 감지 - Assistant 챗봇 세션 초기화");
+      // 캐시 초기화
+      cachedSessionId = null;
+      cachedMessages = [];
+      cachedSelectedCategory = null;
+      // 상태 초기화
+      setSessionId(null);
+      setMessages([]);
+      setSelectedCategory(null);
+      setFaqList([]);
+      setChunkedCategories([]);
+    };
+
+    window.addEventListener("dreampath-auth-change", handleAuthChange);
+    return () => window.removeEventListener("dreampath-auth-change", handleAuthChange);
   }, []);
 
   // 자동 스크롤
@@ -119,7 +157,7 @@ export default function AssistantChatbot({
   }, [selectedCategory]);
 
   // 메시지 전송
-  const handleSend = async (text?: string) => {
+  const handleSend = async (text?: string, functionName?: string) => {
     const userMsg = text ?? input.trim();
     if (!userMsg) return;
 
@@ -139,6 +177,7 @@ export default function AssistantChatbot({
         sessionId,
         message: userMsg,
         conversationTitle: sessionId ? undefined : userMsg.slice(0, 20),
+        functionName,  // FAQ 직접 호출용
       });
 
       if (!sessionId) setSessionId(res.session);
@@ -160,9 +199,9 @@ export default function AssistantChatbot({
     }
   };
 
-  // FAQ 클릭 시
-  const sendFaq = async (question: string) => {
-    await handleSend(question);
+  // FAQ 클릭 시 (function_name 포함)
+  const sendFaq = async (question: string, functionName?: string) => {
+    await handleSend(question, functionName);
   };
 
   // 문의하기 버튼 클릭
@@ -219,9 +258,6 @@ export default function AssistantChatbot({
 
   // X 버튼 클릭 시
   const handleClose = () => {
-    if (sessionId) {
-      sessionStorage.setItem("assistant_chatbot_session_id", sessionId);
-    }
     onClose?.();
   };
 
@@ -235,9 +271,9 @@ export default function AssistantChatbot({
       <div className="flex items-center justify-between px-4 py-3 bg-white border-b">
         <div className="flex items-center gap-2">
           <span className="text-xl">✨</span>
-          <span className="font-semibold">AI 비서와 대화 중 ···</span>
+          <span className="font-semibold">AI 챗봇 비서와 대화 중 ···</span>
           <span className="text-xs bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-0.5 rounded-full">
-            회원 전용
+            Assistant
           </span>
         </div>
         <button
@@ -252,7 +288,7 @@ export default function AssistantChatbot({
       <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-2">
         {/* 인사말 */}
         <div className="max-w-[78%] bg-white text-gray-1000 px-4 py-2 rounded-2xl rounded-bl-none shadow-sm text-[14px] leading-relaxed">
-          <p>안녕하세요! DreamPath AI 비서입니다✨</p>
+          <p>안녕하세요! DreamPath AI 챗봇 비서입니다✨</p>
           <p>
             멘토링 예약, 진로 추천 결과 등 서비스 관련 궁금한 내용을 모두
             물어보세요!
@@ -289,7 +325,7 @@ export default function AssistantChatbot({
             {faqList.map((q) => (
               <button
                 key={q.id}
-                onClick={() => sendFaq(q.question)}
+                onClick={() => sendFaq(q.question, q.function_name)}
                 className="bg-white inline-flex items-center py-3 px-3 text-sm rounded-xl shadow hover:bg-gray-100"
               >
                 {q.question}

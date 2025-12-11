@@ -106,7 +106,7 @@ class AnswerEvaluatorService:
                     {"role": "system", "content": "공정하고 친절한 교육 평가자"},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.3,
+                temperature=1,
                 response_format={"type": "json_object"}
             )
 

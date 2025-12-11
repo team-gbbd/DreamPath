@@ -64,7 +64,8 @@ export default function MentorsPage() {
     }
   };
 
-  const getTotalAvailableSlots = (availableTime: Record<string, string[]>) => {
+  const getTotalAvailableSlots = (availableTime: Record<string, string[]> | null | undefined) => {
+    if (!availableTime) return 0;
     return Object.values(availableTime).reduce((sum, times) => sum + times.length, 0);
   };
 
@@ -196,7 +197,7 @@ export default function MentorsPage() {
                 <div className="mb-4">
                   <p className="text-xs text-gray-500 mb-2">가능 시간</p>
                   <div className="flex flex-wrap gap-1">
-                    {Object.entries(mentor.availableTime).slice(0, 4).map(([day, times]) => (
+                    {mentor.availableTime && Object.entries(mentor.availableTime).slice(0, 4).map(([day, times]) => (
                       <span
                         key={day}
                         className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-medium"
@@ -204,10 +205,13 @@ export default function MentorsPage() {
                         {DAY_LABELS[day]} {times.length}개
                       </span>
                     ))}
-                    {Object.keys(mentor.availableTime).length > 4 && (
+                    {mentor.availableTime && Object.keys(mentor.availableTime).length > 4 && (
                       <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">
                         +{Object.keys(mentor.availableTime).length - 4}
                       </span>
+                    )}
+                    {!mentor.availableTime && (
+                      <span className="text-gray-400 text-xs">시간 정보 없음</span>
                     )}
                   </div>
                   <p className="text-xs text-gray-500 mt-2">

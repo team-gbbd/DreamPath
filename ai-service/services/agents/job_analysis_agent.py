@@ -368,8 +368,8 @@ class JobAnalysisAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.3,
-                max_tokens=800
+                temperature=1,
+                max_completion_tokens=800
             )
 
             import re
@@ -429,8 +429,8 @@ class JobAnalysisAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.3,
-                max_tokens=1000
+                temperature=1,
+                max_completion_tokens=1000
             )
 
             import re
@@ -493,8 +493,8 @@ class JobAnalysisAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.3,
-                max_tokens=600
+                temperature=1,
+                max_completion_tokens=600
             )
 
             import re
@@ -563,8 +563,8 @@ class JobAnalysisAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.3,
-                max_tokens=700
+                temperature=1,
+                max_completion_tokens=700
             )
 
             import re
@@ -620,8 +620,8 @@ class JobAnalysisAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.5,
-                max_tokens=300
+                temperature=1,
+                max_completion_tokens=300
             )
 
             return response.choices[0].message.content.strip()
@@ -664,8 +664,8 @@ class JobAnalysisAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.3,
-                max_tokens=1000
+                temperature=1,
+                max_completion_tokens=1000
             )
 
             import re

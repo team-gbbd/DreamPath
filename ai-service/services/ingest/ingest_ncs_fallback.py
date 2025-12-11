@@ -73,7 +73,7 @@ class NCSFallbackIngest:
         response = _openai_client.chat.completions.create(
             model=settings.OPENAI_MODEL,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.0,
+            temperature=1,
         )
         content = response.choices[0].message.content.strip()
         

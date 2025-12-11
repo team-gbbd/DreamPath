@@ -44,7 +44,8 @@ async def search_mentoring_sessions(career_interest: str) -> dict:
             response.raise_for_status()
             sessions = response.json()
 
-            career_lower = career_interest.lower()
+            # 검색어를 공백으로 분리 (예: "python 파이썬 개발" → ["python", "파이썬", "개발"])
+            keywords = [k.strip().lower() for k in career_interest.split() if k.strip()]
             matched = []
 
             for s in sessions:
@@ -54,7 +55,8 @@ async def search_mentoring_sessions(career_interest: str) -> dict:
                 username = (s.get("mentorUsername") or "").lower()
                 searchable = f"{title} {desc} {job} {username}"
 
-                if career_lower in searchable:
+                # 키워드 중 하나라도 매칭되면 포함
+                if any(kw in searchable for kw in keywords):
                     matched.append({
                         "sessionId": s.get("sessionId"),
                         "mentorName": s.get("mentorName"),
@@ -67,11 +69,8 @@ async def search_mentoring_sessions(career_interest: str) -> dict:
             if matched:
                 return {"success": True, "sessions": matched[:3], "total": len(matched)}
 
-            return {
-                "success": False,
-                "sessions": [],
-                "message": f"'{career_interest}' 분야의 멘토를 찾지 못했습니다. 다른 방법으로 도움을 드릴게요."
-            }
+            # 매칭 없음 → 조용히 스킵 (보조 에이전트는 결과 없으면 말 안함)
+            return {"success": True, "sessions": []}
 
     except Exception as e:
         logger.error(f"[Tools] 멘토링 검색 오류: {e}")
