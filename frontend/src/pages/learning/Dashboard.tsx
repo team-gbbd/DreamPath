@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { learningPathService } from "@/lib/api";
 import Header from "@/components/feature/Header";
 
@@ -65,6 +65,7 @@ interface DashboardStats {
 
 export default function Dashboard() {
     const navigate = useNavigate();
+    const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
 
     const [learningPaths, setLearningPaths] = useState<LearningPath[]>([]);
@@ -88,30 +89,59 @@ export default function Dashboard() {
             // career 파라미터가 있으면 학습 경로 생성 시도
             createLearningPathFromCareer(userId, careerParam);
         } else {
-            loadLearningPaths(userId);
+            // state로 selectPathId가 전달되면 해당 경로 선택
+            const state = location.state as { selectPathId?: number } | null;
+            const selectId = state?.selectPathId;
+
+            loadLearningPaths(userId).then(() => {
+                if (selectId) {
+                    handlePathSelect(selectId);
+                    // state 초기화
+                    window.history.replaceState({}, document.title);
+                }
+            });
         }
     }, []);
 
     const createLearningPathFromCareer = async (userId: number, career: string) => {
         setCreating(true);
         try {
-            // 학습 경로 생성
+            // 먼저 기존 학습 경로 조회
+            const existingPaths = await learningPathService.getUserLearningPaths(userId);
+
+            // 같은 도메인의 기존 학습 경로가 있는지 확인
+            const careerLower = career.toLowerCase();
+            const existingPath = existingPaths.find(
+                (p: LearningPath) => p.domain.toLowerCase() === careerLower ||
+                    p.domain.toLowerCase().includes(careerLower) ||
+                    careerLower.includes(p.domain.toLowerCase())
+            );
+
+            if (existingPath) {
+                // 기존 경로가 있으면 바로 상세 페이지로 이동
+                console.log("기존 학습 경로 발견:", existingPath.domain);
+                navigate(`/learning/${existingPath.pathId}`);
+                return;
+            }
+
+            // 기존 경로가 없으면 새로 생성
             const newPath = await learningPathService.createLearningPath({
                 userId,
                 domain: career,
             });
 
-            // URL에서 career 파라미터 제거
-            setSearchParams({});
-
-            // 목록 새로고침 후 새로 생성된 경로 선택
-            await loadLearningPaths(userId);
+            // 생성 성공 시 바로 상세 페이지로 이동
             if (newPath.pathId) {
-                handlePathSelect(newPath.pathId);
+                navigate(`/learning/${newPath.pathId}`);
+            } else {
+                // pathId가 없으면 대시보드에서 목록 새로고침
+                setSearchParams({});
+                await loadLearningPaths(userId);
             }
         } catch (error) {
             console.error("학습 경로 생성 실패:", error);
             // 실패해도 기존 목록은 로드
+            setSearchParams({});
             await loadLearningPaths(userId);
         } finally {
             setCreating(false);
@@ -469,37 +499,51 @@ export default function Dashboard() {
                                         {learningPaths.map((p) => (
                                             <div
                                                 key={p.pathId}
-                                                onClick={() => handlePathSelect(p.pathId)}
-                                                className={`px-4 py-3 cursor-pointer transition-colors ${
+                                                className={`px-4 py-3 transition-colors ${
                                                     selectedPathId === p.pathId
                                                         ? "bg-pink-50 border-l-2 border-l-pink-500"
                                                         : "hover:bg-pink-50/30 border-l-2 border-l-transparent"
                                                 }`}
                                             >
-                                                <p className={`text-sm truncate ${
-                                                    selectedPathId === p.pathId ? "text-pink-700 font-medium" : "text-gray-700"
-                                                }`}>
-                                                    {p.domain}
-                                                </p>
-                                                {p.subDomain && (
-                                                    <p className="text-xs text-gray-400 truncate mt-0.5">{p.subDomain}</p>
-                                                )}
-                                                <div className="flex items-center justify-between mt-2">
-                                                    <span className="text-xs text-gray-400">{p.currentWeek ?? 1}/4주차</span>
-                                                    <span className={`text-xs font-medium ${
-                                                        selectedPathId === p.pathId ? "text-pink-600" : "text-gray-500"
+                                                <div
+                                                    onClick={() => handlePathSelect(p.pathId)}
+                                                    className="cursor-pointer"
+                                                >
+                                                    <p className={`text-sm truncate ${
+                                                        selectedPathId === p.pathId ? "text-pink-700 font-medium" : "text-gray-700"
                                                     }`}>
-                                                        {p.overallProgress ?? 0}%
-                                                    </span>
+                                                        {p.domain}
+                                                    </p>
+                                                    {p.subDomain && (
+                                                        <p className="text-xs text-gray-400 truncate mt-0.5">{p.subDomain}</p>
+                                                    )}
+                                                    <div className="flex items-center justify-between mt-2">
+                                                        <span className="text-xs text-gray-400">{p.currentWeek ?? 1}/4주차</span>
+                                                        <span className={`text-xs font-medium ${
+                                                            selectedPathId === p.pathId ? "text-pink-600" : "text-gray-500"
+                                                        }`}>
+                                                            {p.overallProgress ?? 0}%
+                                                        </span>
+                                                    </div>
+                                                    <div className="mt-1.5 h-1 bg-pink-100 rounded-full overflow-hidden">
+                                                        <div
+                                                            className={`h-full rounded-full ${
+                                                                selectedPathId === p.pathId ? "bg-pink-500" : "bg-pink-300"
+                                                            }`}
+                                                            style={{ width: `${p.overallProgress ?? 0}%` }}
+                                                        />
+                                                    </div>
                                                 </div>
-                                                <div className="mt-1.5 h-1 bg-pink-100 rounded-full overflow-hidden">
-                                                    <div
-                                                        className={`h-full rounded-full ${
-                                                            selectedPathId === p.pathId ? "bg-pink-500" : "bg-pink-300"
-                                                        }`}
-                                                        style={{ width: `${p.overallProgress ?? 0}%` }}
-                                                    />
-                                                </div>
+                                                {/* 학습하기 버튼 */}
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        navigate(`/learning/${p.pathId}`);
+                                                    }}
+                                                    className="mt-3 w-full py-2 bg-pink-500 hover:bg-pink-600 text-white text-xs font-medium rounded transition-colors"
+                                                >
+                                                    문제 풀기
+                                                </button>
                                             </div>
                                         ))}
                                     </div>

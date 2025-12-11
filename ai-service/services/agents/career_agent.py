@@ -12,7 +12,7 @@ from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
 
 from .state import AgentState, MAX_STEPS, TOOL_TIMEOUT_SECONDS
-from .tools import TOOL_MAP
+from .career_tools import TOOL_MAP
 from .prompts import (
     REACT_SYSTEM_PROMPT,
     ANSWER_SYSTEM_PROMPT,
@@ -28,11 +28,11 @@ logger = logging.getLogger(__name__)
 # ============================================================
 
 def get_llm():
-    """LLM 인스턴스 반환"""
+    """LLM 인스턴스 반환 (팩트 기반 에이전트 - temperature=0)"""
     return ChatOpenAI(
         api_key=os.getenv("OPENAI_API_KEY"),
         model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
-        temperature=1,
+        temperature=0,
     )
 
 
@@ -141,10 +141,16 @@ async def action_node(state: AgentState) -> dict:
 
     # 도구 실행 (타임아웃 적용)
     try:
+        # LangChain @tool 도구의 입력 포맷: 단일 인자면 값만, 복수면 dict
+        # arun()은 문자열/dict 입력을 받아 내부에서 파싱
+        logger.info(f"[Agent] 도구 호출: {action}, 입력: {action_input}")
+
         result = await asyncio.wait_for(
             tool_func.ainvoke(action_input),
             timeout=TOOL_TIMEOUT_SECONDS
         )
+
+        logger.info(f"[Agent] 도구 결과 타입: {type(result)}, 값: {result}")
 
         logger.info(f"[Agent] 도구 실행 완료: {action}")
 
@@ -259,32 +265,59 @@ async def answer_node(state: AgentState) -> dict:
 # ============================================================
 
 # action → reason 루프 or answer로 종료 결정
-def should_continue(state: AgentState) -> Literal["continue", "finish"]:
+def should_continue(state: AgentState) -> Literal["continue", "answer", "end"]:
     """
     계속 추론할지 종료할지 결정
 
-    ReAct 원칙: LLM이 스스로 판단하도록 함
-    - 강제 종료 로직 없음
-    - MAX_STEPS는 안전망으로만 사용
-    - FINISH 액션은 LLM이 결정
+    분기 로직:
+    - FINISH + 도구 사용함 → "answer" (answer_node에서 결과 요약)
+    - FINISH + 도구 안 씀 → "end" (바로 종료, LLM 호출 절약)
+    - 도구 성공 + 결과 있음 → "answer" (바로 답변 생성)
+    - 도구 성공 + 결과 없음 → "continue" (broader term으로 재시도)
+    - 도구 실패 → "continue" (다른 도구 시도)
     """
-    # Fallback 필요 (에러 상황)
-    if state.get("should_fallback"):
-        logger.info("[Agent] should_continue -> finish (fallback)")
-        return "finish"
-
-    # MAX_STEPS 도달 (안전망)
-    if state["current_step"] >= MAX_STEPS:
-        logger.info("[Agent] should_continue -> finish (max steps)")
-        return "finish"
+    action = state.get("action")
+    has_tools = bool(state.get("tool_history"))
+    observation = state.get("observation") or {}
 
     # FINISH 액션 (LLM이 결정)
-    if state.get("action") == "FINISH":
-        logger.info("[Agent] should_continue -> finish (FINISH action)")
-        return "finish"
+    if action == "FINISH":
+        if has_tools:
+            logger.info("[Agent] should_continue -> answer (도구 결과 요약 필요)")
+            return "answer"
+        else:
+            logger.info("[Agent] should_continue -> end (도구 없이 종료)")
+            return "end"
 
-    # LLM이 계속 추론하도록 허용
-    logger.info("[Agent] should_continue -> continue")
+    # 도구 실행 성공한 경우
+    if action != "FINISH" and observation.get("success"):
+        # 멘토링/학습경로 검색: 결과가 비어있으면 broader term으로 재시도
+        if action == "search_mentoring_sessions":
+            sessions = observation.get("sessions", [])
+            if not sessions and state["current_step"] < MAX_STEPS:
+                logger.info("[Agent] should_continue -> continue (멘토링 결과 없음, broader term 재시도)")
+                return "continue"
+
+        elif action == "get_learning_path":
+            if not observation.get("exists") and not observation.get("canCreate"):
+                if state["current_step"] < MAX_STEPS:
+                    logger.info("[Agent] should_continue -> continue (학습경로 결과 없음, broader term 재시도)")
+                    return "continue"
+
+        # 결과 있음 → 바로 답변 생성
+        logger.info("[Agent] should_continue -> answer (도구 성공, 바로 답변 생성)")
+        return "answer"
+
+    # Fallback 또는 MAX_STEPS (안전망)
+    if state.get("should_fallback") or state["current_step"] >= MAX_STEPS:
+        if has_tools:
+            logger.info("[Agent] should_continue -> answer (안전망, 도구 결과 있음)")
+            return "answer"
+        logger.info("[Agent] should_continue -> end (안전망, 도구 없음)")
+        return "end"
+
+    # 도구 실패 → 다시 reason으로 (다른 도구 시도)
+    logger.info("[Agent] should_continue -> continue (도구 실패, 재시도)")
     return "continue"
 
 
@@ -394,6 +427,12 @@ def create_career_agent():
 
     Returns:
         컴파일된 LangGraph 에이전트
+
+    그래프 구조:
+        reason → action → [continue/answer/end]
+        - continue: 다시 reason으로 (도구 추가 사용)
+        - answer: answer_node로 (도구 결과 요약)
+        - end: 바로 종료 (도구 없이 FINISH, LLM 절약)
     """
     graph = StateGraph(AgentState)
 
@@ -409,8 +448,9 @@ def create_career_agent():
         "action",
         should_continue,
         {
-            "continue": "reason",
-            "finish": "answer",
+            "continue": "reason",  # 도구 사용 후 계속 추론
+            "answer": "answer",    # 도구 결과 요약 필요
+            "end": END,            # 도구 없이 종료 (answer_node 스킵)
         }
     )
     graph.add_edge("answer", END)
@@ -465,16 +505,37 @@ async def run_career_agent(
         result = await career_agent.ainvoke(initial_state)
 
         total_tokens = result.get("total_tokens", 0)
-        logger.info(f"[Agent] 에이전트 실행 완료, 도구 {len(result.get('tool_history', []))}개 사용, 토큰 {total_tokens}개")
+        tool_history = result.get("tool_history", [])
+        final_answer = result.get("final_answer")
+
+        logger.info(f"[Agent] 에이전트 실행 완료, 도구 {len(tool_history)}개 사용, 토큰 {total_tokens}개")
+
+        # FINISH + 도구 없음 → 에이전트가 필요 없다고 판단, 아무것도 표시 안함
+        if not tool_history and final_answer is None:
+            logger.info("[Agent] 에이전트 액션 불필요 (FINISH without tools)")
+            return {
+                "answer": None,
+                "tools_used": [],
+                "tool_results": [],
+                "success": True,
+                "no_action": True,  # 프론트엔드에서 아무것도 표시 안함
+                "token_usage": {
+                    "total": total_tokens,
+                    "prompt": result.get("prompt_tokens", 0),
+                    "completion": result.get("completion_tokens", 0),
+                },
+                "steps": [],
+            }
 
         # ReAct 단계 정보 구성
         steps = _build_steps_info(result)
 
         return {
-            "answer": result.get("final_answer", "답변을 생성하지 못했습니다."),
-            "tools_used": [t["tool_name"] for t in result.get("tool_history", [])],
-            "tool_results": result.get("tool_history", []),
+            "answer": final_answer or "답변을 생성하지 못했습니다.",
+            "tools_used": [t["tool_name"] for t in tool_history],
+            "tool_results": tool_history,
             "success": not result.get("should_fallback", False),
+            "no_action": False,
             "token_usage": {
                 "total": total_tokens,
                 "prompt": result.get("prompt_tokens", 0),
