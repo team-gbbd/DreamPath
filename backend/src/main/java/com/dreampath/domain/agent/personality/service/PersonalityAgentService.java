@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
@@ -41,7 +42,7 @@ public class PersonalityAgentService {
     private final UserProfileSyncService userProfileSyncService;
     private final RecommendationStorageService recommendationStorageService;
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public PersonalityAgentResponse run(PersonalityAgentRequest incomingRequest) {
         if (incomingRequest.getSessionId() == null || incomingRequest.getSessionId().isBlank()) {
             throw new IllegalArgumentException("sessionId는 필수입니다.");
