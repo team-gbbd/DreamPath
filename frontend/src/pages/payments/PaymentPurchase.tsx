@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { paymentService } from '@/lib/api';
 import Header from '@/components/feature/Header';
 import { loadPaymentWidget, PaymentWidgetInstance } from '@tosspayments/payment-widget-sdk';
@@ -68,6 +68,7 @@ const PACKAGES = [
 
 export default function PaymentPurchasePage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [selectedPackage, setSelectedPackage] = useState<string | null>('FIVE');
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +93,12 @@ export default function PaymentPurchasePage() {
       alert('로그인이 필요합니다.');
       navigate('/login');
       return;
+    }
+
+    // returnUrl이 있으면 localStorage에 저장 (결제 완료 후 돌아가기 위해)
+    const returnUrl = searchParams.get('returnUrl');
+    if (returnUrl) {
+      localStorage.setItem('payment_return_url', returnUrl);
     }
 
     // 토스페이먼츠 위젯 초기화만 수행 (렌더링은 나중에)

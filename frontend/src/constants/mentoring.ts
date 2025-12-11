@@ -56,7 +56,7 @@ export const MENTOR_STATUS = {
   PENDING: 'PENDING',
   APPROVED: 'APPROVED',
   REJECTED: 'REJECTED',
-  INACTIVE: 'INACTIVE',
+
 } as const;
 
 export const SESSION_PACKAGE = {

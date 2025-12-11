@@ -19,8 +19,8 @@ class IdentityAnalysisService:
         self.llm = ChatOpenAI(
             api_key=api_key,
             model=model,
-            temperature=0.7,
-            max_tokens=2000
+            temperature=1,
+            max_completion_tokens=2000
         )
         self._db_service = None
 

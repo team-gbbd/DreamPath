@@ -290,8 +290,8 @@ class JobRecommendationAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.3,
-                max_tokens=500
+                temperature=1,
+                max_completion_tokens=500
             )
 
             result_text = response.choices[0].message.content
@@ -497,8 +497,8 @@ class JobRecommendationAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.3,
-                max_tokens=500
+                temperature=1,
+                max_completion_tokens=500
             )
 
             result_text = response.choices[0].message.content
@@ -1030,8 +1030,8 @@ class JobRecommendationAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.3,
-                max_tokens=1000
+                temperature=1,
+                max_completion_tokens=1000
             )
 
             result_text = response.choices[0].message.content
@@ -1572,8 +1572,8 @@ class JobRecommendationAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.4,
-                max_tokens=3000
+                temperature=1,
+                max_completion_tokens=3000
             )
 
             result_text = response.choices[0].message.content
@@ -1660,8 +1660,8 @@ class JobRecommendationAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.5,
-                max_tokens=500
+                temperature=1,
+                max_completion_tokens=500
             )
 
             result_text = response.choices[0].message.content

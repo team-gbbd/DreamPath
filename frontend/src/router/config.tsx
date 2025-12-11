@@ -31,6 +31,8 @@ const AdminDashboardPage = lazy(() => import("../pages/admin/AdminDashboard"));
 const MentorApplicationsPage = lazy(() => import("../pages/admin/MentorApplications"));
 const FaqManagementPage = lazy(() => import("../pages/admin/FaqManagement"));
 const InquiriesManagementPage = lazy(() => import("../pages/admin/InquiriesManagement"));
+const UserManagementPage = lazy(() => import("../pages/admin/UserManagement"));
+const MentorManagementPage = lazy(() => import("../pages/admin/MentorManagement"));
 const AdminPage = lazy(() => import("../pages/admin/AdminPage.tsx"));
 const MentorsListPage = lazy(() => import("../pages/mentors/MentorsList"));
 const MentorDetailPage = lazy(() => import("../pages/mentors/MentorDetail"));
@@ -277,6 +279,14 @@ const routes: RouteObject[] = [
   {
     path: "/admin/inquiries",
     element: <InquiriesManagementPage />,
+  },
+  {
+    path: "/admin/users",
+    element: <UserManagementPage />,
+  },
+  {
+    path: "/admin/mentors",
+    element: <MentorManagementPage />,
   },
 
   /* ----------------------

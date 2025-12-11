@@ -46,3 +46,19 @@ export async function getChatHistory(sessionId: string): Promise<any[]> {
   const data = await res.json();
   return data.history || [];
 }
+
+/**
+ * FAQ 챗봇 메시지 전송 (비회원/회원 공통) - RAG 챗봇과 동일 엔드포인트 사용
+ */
+export async function sendFaqMessage(
+  body: RagChatRequest
+): Promise<ChatResponse> {
+  return sendChatMessage(body);
+}
+
+/**
+ * FAQ 챗봇 대화 히스토리 조회 - RAG 챗봇과 동일 엔드포인트 사용
+ */
+export async function getFaqHistory(sessionId: string): Promise<any[]> {
+  return getChatHistory(sessionId);
+}

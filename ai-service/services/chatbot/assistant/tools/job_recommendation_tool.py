@@ -11,22 +11,13 @@ TOOL_SCHEMA = {
     "type": "function",
     "function": {
         "name": "get_job_postings",
-        "description": "사용자에게 맞는 최신 채용 공고를 추천합니다. 키워드가 없으면 진로 분석 결과를 기반으로 추천합니다.",
+        "description": "사용자에게 맞는 채용 공고를 추천합니다. 진로 분석 결과의 추천 직업을 기반으로 검색합니다.",
         "parameters": {
             "type": "object",
             "properties": {
                 "user_id": {
                     "type": "integer",
                     "description": "조회할 사용자의 ID"
-                },
-                "keywords": {
-                    "type": "string",
-                    "description": "검색 키워드 (예: '백엔드 개발자', '마케팅'). 없으면 자동으로 추천됩니다."
-                },
-                "limit": {
-                    "type": "integer",
-                    "description": "추천 결과 개수 (기본: 5)",
-                    "default": 5
                 }
             },
             "required": ["user_id"]
@@ -38,7 +29,7 @@ TOOL_SCHEMA = {
 def execute(
     user_id: int,
     keywords: Optional[str] = None,
-    limit: int = 5,
+    limit: int = 3,
     db: DatabaseService = None,
     **kwargs
 ) -> Dict[str, Any]:
@@ -83,7 +74,19 @@ def execute(
                                 careers = json.loads(recommended_careers)
                                 if careers and len(careers) > 0:
                                     # 첫 번째 추천 직업을 키워드로 사용
-                                    keywords = careers[0].get("careerName", "")
+                                    career_name = careers[0].get("careerName", "")
+                                    # 키워드 단순화: 괄호 제거, 첫 단어만 추출
+                                    # "전문 화가(현대 회화·수채화 작가)" → "화가"
+                                    if career_name:
+                                        # 괄호 앞부분만 추출
+                                        import re
+                                        simple_name = re.split(r'[\(\[]', career_name)[0].strip()
+                                        # 공백으로 분리 후 마지막 단어 (핵심 직업명)
+                                        words = simple_name.split()
+                                        if len(words) > 1:
+                                            keywords = words[-1]  # "전문 화가" → "화가"
+                                        else:
+                                            keywords = simple_name
                             except:
                                 pass
             except Exception as e:
@@ -102,33 +105,33 @@ def execute(
             """
             params = (limit,)
         else:
-            # 키워드 기반 검색
+            # 키워드 기반 검색 (title만 검색 - 더 정확한 매칭)
             query = """
                 SELECT
                     id, title, company, location, url, description,
                     site_name, crawled_at
                 FROM job_listings
                 WHERE
-                    (title ILIKE %s OR description ILIKE %s OR company ILIKE %s)
+                    title ILIKE %s
                     AND crawled_at >= NOW() - INTERVAL '7 days'
                 ORDER BY crawled_at DESC
                 LIMIT %s
             """
             keyword_pattern = f"%{keywords}%"
-            params = (keyword_pattern, keyword_pattern, keyword_pattern, limit)
+            params = (keyword_pattern, limit)
 
         job_postings = db.execute_query(query, params)
 
         if not job_postings or len(job_postings) == 0:
             return {
                 "success": False,
-                "message": f"검색 조건에 맞는 채용 공고가 없습니다. (키워드: {keywords or '없음'})"
+                "message": f"'{keywords or '최신'}' 관련 채용 공고를 찾을 수 없습니다."
             }
 
         return {
             "success": True,
             "data": {
-                "keywords": keywords or "최신 공고",
+                "keywords": keywords,
                 "job_postings": job_postings
             }
         }
@@ -181,12 +184,19 @@ def format_result(data: Dict[str, Any]) -> str:
         if site_name:
             response += f"- **출처**: {site_name}\n"
 
+        # 링크를 마크다운 형식으로 (클릭 가능하게)
         if url:
-            response += f"- **링크**: {url}\n"
+            response += f"- [🔗 이동하기]({url})\n"
 
-        # 설명 (마감일, 학력 정보 포함)
+        # 설명 ([주요업무] 내용만 표시, 없으면 표시 안함)
         if description:
-            response += f"- {description}\n"
+            import re
+            # [주요업무] 다음 내용만 추출 (다음 [ 전까지)
+            match = re.search(r'\[주요업무\]\s*([^\[]+)', description)
+            if match:
+                main_duties_content = match.group(1).strip()
+                if main_duties_content:
+                    response += f"- **[주요업무]** {main_duties_content}\n"
 
         response += "\n"
 

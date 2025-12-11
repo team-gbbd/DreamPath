@@ -133,6 +133,7 @@ async def get_faq_by_category(
     """카테고리별 FAQ 조회 (사용자 타입별 필터링)"""
     try:
         if user_type == "guest":
+            # 비회원: guest + both FAQ 모두 조회
             query = """
                 SELECT * FROM faq
                 WHERE category = %s
@@ -141,6 +142,7 @@ async def get_faq_by_category(
                 ORDER BY priority DESC, id ASC
             """
         elif user_type == "member":
+            # 회원: member + both FAQ 모두 조회
             query = """
                 SELECT * FROM faq
                 WHERE category = %s
@@ -148,7 +150,17 @@ async def get_faq_by_category(
                   AND is_active = true
                 ORDER BY priority DESC, id ASC
             """
+        elif user_type == "both":
+            # 공통: both만 조회
+            query = """
+                SELECT * FROM faq
+                WHERE category = %s
+                  AND user_type = 'both'
+                  AND is_active = true
+                ORDER BY priority DESC, id ASC
+            """
         elif user_type == "assistant":
+            # 챗봇 비서: assistant만 조회
             query = """
                 SELECT * FROM faq
                 WHERE category = %s
