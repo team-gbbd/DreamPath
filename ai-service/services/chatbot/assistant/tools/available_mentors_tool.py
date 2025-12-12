@@ -79,7 +79,7 @@ def execute(user_id: int, job_field: str = None, db: DatabaseService = None, **k
                 return {
                     "success": False,
                     "need_analysis": True,
-                    "message": "아직 진로분석을 진행하지 않으셨네요! 진로분석을 먼저 진행하시면 맞춤 멘토를 추천해드릴 수 있어요."
+                    "message": "아직 진로 분석을 진행하지 않으셨네요! 진로 분석을 진행하시면 맞춤 멘토를 추천해드릴 수 있어요."
                 }
 
             # JSON 파싱
@@ -94,7 +94,7 @@ def execute(user_id: int, job_field: str = None, db: DatabaseService = None, **k
                 return {
                     "success": False,
                     "need_analysis": True,
-                    "message": "아직 진로분석을 진행하지 않으셨네요! 진로분석을 먼저 진행하시면 맞춤 멘토를 추천해드릴 수 있어요."
+                    "message": "아직 진로 분석을 진행하지 않으셨네요! 진로 분석을 진행하시면 맞춤 멘토를 추천해드릴 수 있어요."
                 }
 
             # 2. 추천 직업명 추출
@@ -115,7 +115,7 @@ def execute(user_id: int, job_field: str = None, db: DatabaseService = None, **k
                 return {
                     "success": False,
                     "need_analysis": True,
-                    "message": "아직 진로분석을 진행하지 않으셨네요! 진로분석을 먼저 진행하시면 맞춤 멘토를 추천해드릴 수 있어요."
+                    "message": "아직 진로 분석을 진행하지 않으셨네요! 진로 분석을 진행하시면 맞춤 멘토를 추천해드릴 수 있어요."
                 }
 
             # 3. 추천 직업과 매칭되는 멘토 검색

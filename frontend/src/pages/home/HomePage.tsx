@@ -14,6 +14,7 @@ import {
   Bot,
   LogOut,
   User,
+  BookOpen,
 } from "lucide-react";
 import FaqChatbot from "@/components/chatbot/FaqChatbot";
 
@@ -230,12 +231,14 @@ export default function HomePage() {
     navigate("/");
   };
 
-  const handleSidebarClick = (type: "career" | "job" | "mentoring") => {
+  const handleSidebarClick = (type: "career" | "job" | "mentoring" | "learning") => {
     setSidebarOpen(false);
     if (type === "career") {
       navigate("/career-chat");
     } else if (type === "job") {
       navigate("/job-recommendations");
+    } else if (type === "learning") {
+      navigate("/learning");
     } else {
       navigate("/mentoring");
     }
@@ -258,6 +261,7 @@ export default function HomePage() {
     { type: "career" as const, icon: MessageSquare, label: "진로 상담" },
     { type: "job" as const, icon: Briefcase, label: "채용 추천" },
     { type: "mentoring" as const, icon: Users, label: "멘토링" },
+    { type: "learning" as const, icon: BookOpen, label: "학습" },
   ];
 
   const theme = {
