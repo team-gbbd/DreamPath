@@ -28,7 +28,7 @@ const roomOptions: RoomOptions = {
     simulcast: true,
   },
   rtcConfig: {
-    iceTransportPolicy: 'all', // 'relay'가 아닌 'all' 사용
+    iceTransportPolicy: 'all',
     iceServers: [
       {
         urls: 'stun:stun.l.google.com:19302',
@@ -46,17 +46,21 @@ interface ChatMessage {
   timestamp: number;
 }
 
-// 모던 라이트 테마 미팅 UI 컴포넌트
+// 모던 미팅 UI 컴포넌트
 function ProfessionalMeetingUI({
   onLeave,
   onComplete,
   isMentor,
-  showToast
+  showToast,
+  darkMode,
+  theme,
 }: {
   onLeave: () => void;
   onComplete: () => void;
   isMentor: boolean;
   showToast: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
+  darkMode: boolean;
+  theme: any;
 }) {
   const participants = useParticipants();
   const { localParticipant } = useLocalParticipant();
@@ -67,6 +71,7 @@ function ProfessionalMeetingUI({
   const [elapsedTime, setElapsedTime] = useState(0);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [messageInput, setMessageInput] = useState('');
+  const [showChat, setShowChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // 비디오 트랙 가져오기
@@ -151,11 +156,9 @@ function ProfessionalMeetingUI({
 
     try {
       if (isScreenSharing) {
-        // 화면 공유 중지
         await room.localParticipant.setScreenShareEnabled(false);
         setIsScreenSharing(false);
       } else {
-        // 화면 공유 시작
         await room.localParticipant.setScreenShareEnabled(true);
         setIsScreenSharing(true);
       }
@@ -166,75 +169,76 @@ function ProfessionalMeetingUI({
   };
 
   return (
-    <div className="relative w-full h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-50 overflow-hidden flex">
-      {/* 좌측 세로 네비게이션 바 */}
-      <div className="w-20 bg-white/80 backdrop-blur-sm border-r border-gray-200 flex flex-col items-center py-6 space-y-4 z-20">
-        <button
-          onClick={() => onLeave()}
-          className="w-12 h-12 rounded-full bg-blue-500 hover:bg-blue-600 flex items-center justify-center transition-all shadow-md"
-        >
-          <i className="ri-arrow-left-line text-white text-xl"></i>
-        </button>
-
-        <div className="w-12 h-12 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center cursor-pointer transition-all">
-          <i className="ri-layout-grid-line text-gray-600 text-xl"></i>
-        </div>
-
-        <div className="w-12 h-12 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center cursor-pointer transition-all">
-          <i className="ri-group-line text-gray-600 text-xl"></i>
-        </div>
-
-        <div className="w-12 h-12 rounded-lg bg-blue-500 flex items-center justify-center cursor-pointer shadow-md">
-          <i className="ri-vidicon-line text-white text-xl"></i>
-        </div>
-
-        <div className="w-12 h-12 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center cursor-pointer transition-all">
-          <i className="ri-calendar-line text-gray-600 text-xl"></i>
-        </div>
-
-        <div className="w-12 h-12 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center cursor-pointer transition-all">
-          <i className="ri-line-chart-line text-gray-600 text-xl"></i>
-        </div>
-
-        <div className="flex-1"></div>
-
-        <div className="w-12 h-12 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center cursor-pointer transition-all">
-          <i className="ri-settings-3-line text-gray-600 text-xl"></i>
-        </div>
+    <div className={`relative w-full h-[calc(100vh-64px)] overflow-hidden flex ${darkMode ? 'bg-[#0B0D14]' : 'bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-50'}`}>
+      {/* Background Effects */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className={`absolute top-0 right-1/4 w-[500px] h-[500px] rounded-full blur-[120px] ${darkMode ? "bg-[#5A7BFF]/10" : "bg-[#5A7BFF]/20"}`} />
+        <div className={`absolute bottom-1/4 left-1/4 w-[400px] h-[400px] rounded-full blur-[120px] ${darkMode ? "bg-[#8F5CFF]/10" : "bg-[#8F5CFF]/20"}`} />
       </div>
 
+      {/* Grid Pattern */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: darkMode
+            ? "linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)"
+            : "linear-gradient(rgba(90,123,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(90,123,255,0.05) 1px, transparent 1px)",
+          backgroundSize: "60px 60px",
+        }}
+      />
+
       {/* 메인 컨텐츠 영역 */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col relative z-10">
         {/* 상단 헤더 */}
-        <div className="px-6 py-4 flex items-center justify-end">
+        <div className="px-4 md:px-6 py-3 md:py-4 flex items-center justify-between">
+          {/* 뒤로가기 */}
+          <button
+            onClick={() => onLeave()}
+            className="w-10 h-10 rounded-full bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] flex items-center justify-center"
+          >
+            <i className="ri-arrow-left-line text-white text-lg"></i>
+          </button>
+
           <div className="flex items-center space-x-3">
-            <span className="text-gray-700 text-sm font-medium">{localParticipant.name || '나'}</span>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-purple-400 flex items-center justify-center">
+            <span className={`text-sm font-medium ${theme.text}`}>{localParticipant.name || '나'}</span>
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#5A7BFF] to-[#8F5CFF] flex items-center justify-center">
               <i className="ri-user-line text-white text-lg"></i>
             </div>
           </div>
         </div>
 
         {/* 비디오 영역과 우측 패널 */}
-        <div className="flex-1 flex px-6 pb-6 space-x-4 overflow-hidden">
+        <div className="flex-1 flex px-3 md:px-6 pb-3 md:pb-6 space-x-0 md:space-x-4 overflow-hidden">
           {/* 메인 비디오 영역 */}
           <div className="flex-1 relative">
             {/* 타이머 */}
-            <div className="absolute top-4 left-4 flex items-center space-x-2 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md z-10">
-              <i className="ri-time-line text-blue-500"></i>
-              <span className="text-gray-700 text-sm font-medium">{formatTime(elapsedTime)}</span>
+            <div className={`absolute top-3 md:top-4 left-3 md:left-4 flex items-center space-x-2 ${darkMode ? 'bg-white/[0.1]' : 'bg-white/90'} backdrop-blur-sm px-3 py-2 rounded-lg shadow-md z-10`}>
+              <i className="ri-time-line text-[#5A7BFF]"></i>
+              <span className={`text-sm font-medium ${theme.text}`}>{formatTime(elapsedTime)}</span>
             </div>
 
-            {/* 메인 원격 참가자 비디오 (화면공유 우선) */}
-            <div className="w-full h-full bg-white/60 backdrop-blur-sm rounded-2xl shadow-xl overflow-hidden relative">
+            {/* 모바일 채팅 토글 버튼 */}
+            <button
+              onClick={() => setShowChat(!showChat)}
+              className={`md:hidden absolute top-3 right-3 z-10 w-10 h-10 rounded-lg ${darkMode ? 'bg-white/[0.1]' : 'bg-white/90'} backdrop-blur-sm flex items-center justify-center shadow-md`}
+            >
+              <i className={`ri-chat-3-line text-lg ${showChat ? 'text-[#5A7BFF]' : theme.textMuted}`}></i>
+              {messages.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center">
+                  {messages.length > 9 ? '9+' : messages.length}
+                </span>
+              )}
+            </button>
+
+            {/* 메인 원격 참가자 비디오 */}
+            <div className={`w-full h-full ${darkMode ? 'bg-white/[0.03]' : 'bg-white/60'} backdrop-blur-sm rounded-2xl shadow-xl overflow-hidden relative`}>
               {remoteScreenShare ? (
-                /* 상대방 화면 공유가 있으면 우선 표시 */
                 <div className="w-full h-full relative">
                   <VideoTrack
                     trackRef={remoteScreenShare}
                     className="w-full h-full object-contain bg-gray-900"
                   />
-                  <div className="absolute top-4 right-4 bg-blue-500 px-3 py-1.5 rounded-lg flex items-center space-x-2">
+                  <div className="absolute top-4 right-4 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] px-3 py-1.5 rounded-lg flex items-center space-x-2">
                     <i className="ri-computer-line text-white"></i>
                     <span className="text-white text-sm font-medium">화면 공유 중</span>
                   </div>
@@ -262,16 +266,16 @@ function ProfessionalMeetingUI({
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <div className="text-center">
-                    <div className="w-24 h-24 bg-gradient-to-br from-blue-400 to-purple-400 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-                      <i className="ri-user-line text-5xl text-white"></i>
+                    <div className="w-20 h-20 md:w-24 md:h-24 bg-gradient-to-br from-[#5A7BFF] to-[#8F5CFF] rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                      <i className="ri-user-line text-4xl md:text-5xl text-white"></i>
                     </div>
-                    <p className="text-gray-600 text-lg font-medium">참가자 대기 중...</p>
+                    <p className={`text-base md:text-lg font-medium ${theme.textMuted}`}>참가자 대기 중...</p>
                   </div>
                 </div>
               )}
 
               {/* 하단 컨트롤 버튼들 */}
-              <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex items-center space-x-2 bg-white/90 backdrop-blur-md px-4 py-3 rounded-full shadow-2xl">
+              <div className={`absolute bottom-4 md:bottom-8 left-1/2 transform -translate-x-1/2 flex items-center space-x-1 md:space-x-2 ${darkMode ? 'bg-white/[0.1]' : 'bg-white/90'} backdrop-blur-md px-3 md:px-4 py-2 md:py-3 rounded-full shadow-2xl`}>
                 {/* 음소거 토글 */}
                 <button
                   onClick={async () => {
@@ -280,16 +284,13 @@ function ProfessionalMeetingUI({
                       setIsMicOn(!isMicOn);
                     }
                   }}
-                  className={`group relative w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 ${
+                  className={`group relative w-11 h-11 md:w-14 md:h-14 rounded-full flex items-center justify-center transition-all duration-200 ${
                     isMicOn
-                      ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      ? darkMode ? 'bg-white/[0.1] hover:bg-white/[0.2] text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                       : 'bg-red-500 hover:bg-red-600 text-white'
                   }`}
                 >
-                  <i className={`${isMicOn ? 'ri-mic-line' : 'ri-mic-off-line'} text-2xl`}></i>
-                  <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                    {isMicOn ? '음소거' : '음소거 해제'}
-                  </div>
+                  <i className={`${isMicOn ? 'ri-mic-line' : 'ri-mic-off-line'} text-xl md:text-2xl`}></i>
                 </button>
 
                 {/* 비디오 토글 */}
@@ -300,35 +301,29 @@ function ProfessionalMeetingUI({
                       setIsCameraOn(!isCameraOn);
                     }
                   }}
-                  className={`group relative w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 ${
+                  className={`group relative w-11 h-11 md:w-14 md:h-14 rounded-full flex items-center justify-center transition-all duration-200 ${
                     isCameraOn
-                      ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      ? darkMode ? 'bg-white/[0.1] hover:bg-white/[0.2] text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                       : 'bg-red-500 hover:bg-red-600 text-white'
                   }`}
                 >
-                  <i className={`${isCameraOn ? 'ri-vidicon-line' : 'ri-vidicon-off-line'} text-2xl`}></i>
-                  <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                    {isCameraOn ? '비디오 끄기' : '비디오 켜기'}
-                  </div>
+                  <i className={`${isCameraOn ? 'ri-vidicon-line' : 'ri-vidicon-off-line'} text-xl md:text-2xl`}></i>
                 </button>
 
-                {/* 화면 공유 */}
+                {/* 화면 공유 - 데스크톱만 */}
                 <button
                   onClick={toggleScreenShare}
-                  className={`group relative w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 ${
+                  className={`hidden md:flex group relative w-14 h-14 rounded-full items-center justify-center transition-all duration-200 ${
                     isScreenSharing
-                      ? 'bg-blue-500 hover:bg-blue-600 text-white'
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      ? 'bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white'
+                      : darkMode ? 'bg-white/[0.1] hover:bg-white/[0.2] text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                   }`}
                 >
                   <i className={`${isScreenSharing ? 'ri-stop-circle-line' : 'ri-computer-line'} text-2xl`}></i>
-                  <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                    {isScreenSharing ? '공유 중지' : '화면 공유'}
-                  </div>
                 </button>
 
                 {/* 구분선 */}
-                <div className="w-px h-8 bg-gray-300 mx-1"></div>
+                <div className={`w-px h-6 md:h-8 ${darkMode ? 'bg-white/20' : 'bg-gray-300'} mx-1`}></div>
 
                 {/* 멘토링 완료 버튼 (멘토만 표시) */}
                 {isMentor && (
@@ -338,34 +333,28 @@ function ProfessionalMeetingUI({
                         onComplete();
                       }
                     }}
-                    className="group relative w-14 h-14 rounded-full bg-green-500 hover:bg-green-600 text-white flex items-center justify-center transition-all duration-200 shadow-lg"
+                    className="group relative w-11 h-11 md:w-14 md:h-14 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center transition-all duration-200 shadow-lg"
                   >
-                    <i className="ri-checkbox-circle-line text-2xl"></i>
-                    <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                      멘토링 완료
-                    </div>
+                    <i className="ri-checkbox-circle-line text-xl md:text-2xl"></i>
                   </button>
                 )}
 
-                {/* 나가기 (빨간색) */}
+                {/* 나가기 */}
                 <button
                   onClick={() => {
                     if (confirm('미팅을 종료하시겠습니까?')) {
                       onLeave();
                     }
                   }}
-                  className="group relative w-14 h-14 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-all duration-200 shadow-lg"
+                  className="group relative w-11 h-11 md:w-14 md:h-14 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-all duration-200 shadow-lg"
                 >
-                  <i className="ri-phone-line text-2xl"></i>
-                  <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                    나가기
-                  </div>
+                  <i className="ri-phone-line text-xl md:text-2xl"></i>
                 </button>
               </div>
             </div>
 
             {/* 우측 하단 로컬 참가자 PIP */}
-            <div className="absolute bottom-24 right-4 w-64 h-48 rounded-xl overflow-hidden shadow-2xl bg-gradient-to-br from-pink-300 to-pink-200 z-10">
+            <div className={`absolute bottom-20 md:bottom-24 right-3 md:right-4 w-32 h-24 md:w-64 md:h-48 rounded-xl overflow-hidden shadow-2xl z-10 ${darkMode ? 'bg-gradient-to-br from-[#5A7BFF]/30 to-[#8F5CFF]/30' : 'bg-gradient-to-br from-pink-300 to-pink-200'}`}>
               {isCameraOn && localCameraTrack ? (
                 <VideoTrack
                   trackRef={localCameraTrack}
@@ -374,101 +363,115 @@ function ProfessionalMeetingUI({
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
-                  <i className="ri-user-line text-5xl text-white"></i>
+                  <i className="ri-user-line text-3xl md:text-5xl text-white"></i>
                 </div>
               )}
-              <div className="absolute bottom-3 left-3 bg-black/70 px-3 py-1.5 rounded-lg flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-white text-sm font-medium">나</span>
+              <div className="absolute bottom-2 md:bottom-3 left-2 md:left-3 bg-black/70 px-2 md:px-3 py-1 md:py-1.5 rounded-lg flex items-center space-x-1 md:space-x-2">
+                <div className="w-1.5 md:w-2 h-1.5 md:h-2 bg-green-500 rounded-full"></div>
+                <span className="text-white text-xs md:text-sm font-medium">나</span>
                 {!isMicOn && (
-                  <i className="ri-mic-off-fill text-red-400 text-sm ml-1"></i>
+                  <i className="ri-mic-off-fill text-red-400 text-xs md:text-sm ml-1"></i>
                 )}
               </div>
             </div>
           </div>
 
-          {/* 우측 채팅 패널 */}
-          <div className="w-96 bg-white/60 backdrop-blur-sm rounded-2xl shadow-xl p-4 flex flex-col">
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-200">
-              <h3 className="text-gray-800 font-semibold text-lg flex items-center space-x-2">
-                <i className="ri-chat-3-line text-blue-500"></i>
-                <span>채팅</span>
-              </h3>
-              <div className="flex items-center space-x-2 text-xs text-gray-500">
-                <i className="ri-group-line"></i>
-                <span>{participants.length}명 참가 중</span>
-              </div>
-            </div>
+          {/* 우측 채팅 패널 - 데스크톱: 항상 표시, 모바일: 토글 */}
+          <div className={`${showChat ? 'fixed inset-0 z-50 md:relative md:inset-auto' : 'hidden'} md:block md:w-80 lg:w-96`}>
+            {/* 모바일 오버레이 배경 */}
+            <div className={`md:hidden absolute inset-0 bg-black/50 ${showChat ? '' : 'hidden'}`} onClick={() => setShowChat(false)} />
 
-            {/* 채팅 메시지 영역 */}
-            <div className="flex-1 overflow-y-auto space-y-3 mb-4">
-              {messages.length === 0 ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center">
-                    <i className="ri-chat-smile-3-line text-4xl text-gray-300 mb-2"></i>
-                    <p className="text-gray-400 text-sm">아직 메시지가 없습니다</p>
-                    <p className="text-gray-400 text-xs mt-1">첫 메시지를 보내보세요!</p>
+            <div className={`${showChat ? 'absolute bottom-0 left-0 right-0 h-[70vh] md:h-auto md:relative' : ''} ${darkMode ? 'bg-white/[0.03] border-white/[0.08]' : 'bg-white/60 border-white/20'} backdrop-blur-sm rounded-t-2xl md:rounded-2xl shadow-xl p-4 flex flex-col md:h-full border md:border-0`}>
+              <div className={`flex items-center justify-between mb-4 pb-3 border-b ${darkMode ? 'border-white/10' : 'border-gray-200'}`}>
+                <h3 className={`font-semibold text-lg flex items-center space-x-2 ${theme.text}`}>
+                  <i className="ri-chat-3-line text-[#5A7BFF]"></i>
+                  <span>채팅</span>
+                </h3>
+                <div className="flex items-center space-x-3">
+                  <div className={`flex items-center space-x-2 text-xs ${theme.textMuted}`}>
+                    <i className="ri-group-line"></i>
+                    <span>{participants.length}명</span>
                   </div>
+                  <button onClick={() => setShowChat(false)} className="md:hidden">
+                    <i className={`ri-close-line text-xl ${theme.textMuted}`}></i>
+                  </button>
                 </div>
-              ) : (
-                <>
-                  {messages.map((msg) => {
-                    const isMe = msg.sender === localParticipant.identity;
-                    return (
-                      <div key={msg.id} className={`flex items-start space-x-2 ${isMe ? 'flex-row-reverse space-x-reverse' : ''}`}>
-                        {/* 아바타 */}
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                          isMe ? 'bg-gradient-to-br from-pink-400 to-purple-400' : 'bg-gradient-to-br from-blue-400 to-indigo-400'
-                        }`}>
-                          <i className="ri-user-line text-white text-sm"></i>
-                        </div>
+              </div>
 
-                        {/* 메시지 버블 */}
-                        <div className={`max-w-[70%] ${isMe ? 'items-end' : 'items-start'} flex flex-col`}>
-                          <p className={`text-xs text-gray-500 mb-1 ${isMe ? 'text-right' : ''}`}>
-                            {isMe ? '나' : msg.senderName}
-                          </p>
-                          <div className={`rounded-lg px-3 py-2 ${
-                            isMe
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-white/80 text-gray-800'
+              {/* 채팅 메시지 영역 */}
+              <div
+                className="flex-1 overflow-y-auto space-y-3 mb-4 pr-1"
+                style={{
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: darkMode ? 'rgba(255,255,255,0.2) transparent' : 'rgba(0,0,0,0.15) transparent',
+                }}
+              >
+                {messages.length === 0 ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <i className={`ri-chat-smile-3-line text-4xl ${darkMode ? 'text-white/20' : 'text-gray-300'} mb-2`}></i>
+                      <p className={`text-sm ${theme.textMuted}`}>아직 메시지가 없습니다</p>
+                      <p className={`text-xs mt-1 ${theme.textSubtle}`}>첫 메시지를 보내보세요!</p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {messages.map((msg) => {
+                      const isMe = msg.sender === localParticipant.identity;
+                      return (
+                        <div key={msg.id} className={`flex items-start space-x-2 ${isMe ? 'flex-row-reverse space-x-reverse' : ''}`}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            isMe ? 'bg-gradient-to-br from-[#5A7BFF] to-[#8F5CFF]' : 'bg-gradient-to-br from-emerald-400 to-teal-400'
                           }`}>
-                            <p className="text-sm break-words">{msg.message}</p>
-                            <p className={`text-xs mt-1 ${isMe ? 'text-blue-100' : 'text-gray-400'}`}>
-                              {new Date(msg.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                            <i className="ri-user-line text-white text-sm"></i>
+                          </div>
+
+                          <div className={`max-w-[70%] ${isMe ? 'items-end' : 'items-start'} flex flex-col`}>
+                            <p className={`text-xs mb-1 ${isMe ? 'text-right' : ''} ${theme.textMuted}`}>
+                              {isMe ? '나' : msg.senderName}
                             </p>
+                            <div className={`rounded-lg px-3 py-2 ${
+                              isMe
+                                ? 'bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white'
+                                : darkMode ? 'bg-white/[0.1] text-white' : 'bg-white/80 text-gray-800'
+                            }`}>
+                              <p className="text-sm break-words">{msg.message}</p>
+                              <p className={`text-xs mt-1 ${isMe ? 'text-white/70' : theme.textSubtle}`}>
+                                {new Date(msg.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                  <div ref={messagesEndRef} />
-                </>
-              )}
-            </div>
+                      );
+                    })}
+                    <div ref={messagesEndRef} />
+                  </>
+                )}
+              </div>
 
-            {/* 하단 메시지 입력 */}
-            <div className="flex items-center space-x-2 pt-3 border-t border-gray-200">
-              <input
-                type="text"
-                value={messageInput}
-                onChange={(e) => setMessageInput(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    sendMessage();
-                  }
-                }}
-                placeholder="메시지를 입력하세요..."
-                className="flex-1 px-4 py-2 bg-white/80 border border-gray-200 rounded-lg text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-              />
-              <button
-                onClick={sendMessage}
-                disabled={!messageInput.trim()}
-                className="w-10 h-10 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-lg flex items-center justify-center transition-all shadow-md"
-              >
-                <i className="ri-send-plane-fill text-white"></i>
-              </button>
+              {/* 하단 메시지 입력 */}
+              <div className={`flex items-center space-x-2 pt-3 border-t ${darkMode ? 'border-white/10' : 'border-gray-200'}`}>
+                <input
+                  type="text"
+                  value={messageInput}
+                  onChange={(e) => setMessageInput(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      sendMessage();
+                    }
+                  }}
+                  placeholder="메시지를 입력하세요..."
+                  className={`flex-1 px-4 py-2 ${darkMode ? 'bg-white/[0.05] border-white/10 text-white placeholder-white/30' : 'bg-white/80 border-gray-200 text-gray-800 placeholder-gray-400'} border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#5A7BFF]/50`}
+                />
+                <button
+                  onClick={sendMessage}
+                  disabled={!messageInput.trim()}
+                  className="w-10 h-10 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed rounded-lg flex items-center justify-center transition-all shadow-md"
+                >
+                  <i className="ri-send-plane-fill text-white"></i>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -485,6 +488,37 @@ export default function MentoringMeetingPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [isMentor, setIsMentor] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
+
+  // Theme 객체
+  const theme = {
+    text: darkMode ? "text-white" : "text-slate-900",
+    textMuted: darkMode ? "text-white/60" : "text-slate-600",
+    textSubtle: darkMode ? "text-white/40" : "text-slate-500",
+    card: darkMode
+      ? "bg-white/[0.03] border-white/[0.08]"
+      : "bg-white border-slate-200 shadow-sm",
+  };
+
+  useEffect(() => {
+    // 테마 로드
+    const savedTheme = localStorage.getItem('dreampath:theme');
+    if (savedTheme) {
+      setDarkMode(savedTheme === 'dark');
+    }
+
+    // 테마 변경 이벤트 리스너
+    const handleThemeChange = () => {
+      const theme = localStorage.getItem('dreampath:theme');
+      setDarkMode(theme === 'dark');
+    };
+
+    window.addEventListener('dreampath-theme-change', handleThemeChange);
+
+    return () => {
+      window.removeEventListener('dreampath-theme-change', handleThemeChange);
+    };
+  }, []);
 
   useEffect(() => {
     const loadToken = async () => {
@@ -499,16 +533,13 @@ export default function MentoringMeetingPage() {
         const user = JSON.parse(userStr);
         const userId = user.userId;
 
-        // 사용자 역할 확인
         setIsMentor(user.role === 'MENTOR');
 
-        // LiveKit 토큰 가져오기
         const tokenData = await bookingService.getLiveKitToken(
           Number(bookingId),
           userId
         );
 
-        // 토큰이 문자열이면 그대로, 객체면 추출
         const actualToken = typeof tokenData === 'string' ? tokenData : tokenData.token || tokenData;
 
         setToken(actualToken);
@@ -546,10 +577,15 @@ export default function MentoringMeetingPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-50 flex items-center justify-center">
-        <div className="text-center">
-          <i className="ri-loader-4-line text-5xl text-[#5A7BFF] animate-spin"></i>
-          <p className="mt-4 text-gray-600">미팅 준비 중...</p>
+      <div className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-[#0B0D14]' : 'bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-50'}`}>
+        {/* Background Effects */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className={`absolute top-0 right-1/4 w-[500px] h-[500px] rounded-full blur-[120px] ${darkMode ? "bg-[#5A7BFF]/10" : "bg-[#5A7BFF]/20"}`} />
+          <div className={`absolute bottom-1/4 left-1/4 w-[400px] h-[400px] rounded-full blur-[120px] ${darkMode ? "bg-[#8F5CFF]/10" : "bg-[#8F5CFF]/20"}`} />
+        </div>
+        <div className="text-center relative z-10">
+          <div className="w-12 h-12 border-4 border-[#5A7BFF]/30 border-t-[#5A7BFF] rounded-full animate-spin mx-auto"></div>
+          <p className={`mt-4 ${theme.textMuted}`}>미팅 준비 중...</p>
         </div>
       </div>
     );
@@ -557,11 +593,16 @@ export default function MentoringMeetingPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-50 flex items-center justify-center">
-        <div className="text-center bg-white rounded-2xl shadow-xl p-8 max-w-md">
-          <i className="ri-error-warning-line text-6xl text-red-500 mb-4"></i>
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">입장 실패</h2>
-          <p className="text-gray-600 mb-6">{error}</p>
+      <div className={`min-h-screen flex items-center justify-center px-4 ${darkMode ? 'bg-[#0B0D14]' : 'bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-50'}`}>
+        {/* Background Effects */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className={`absolute top-0 right-1/4 w-[500px] h-[500px] rounded-full blur-[120px] ${darkMode ? "bg-[#5A7BFF]/10" : "bg-[#5A7BFF]/20"}`} />
+          <div className={`absolute bottom-1/4 left-1/4 w-[400px] h-[400px] rounded-full blur-[120px] ${darkMode ? "bg-[#8F5CFF]/10" : "bg-[#8F5CFF]/20"}`} />
+        </div>
+        <div className={`text-center rounded-2xl shadow-xl p-6 md:p-8 max-w-md relative z-10 ${darkMode ? 'bg-white/[0.03] border border-white/[0.08]' : 'bg-white'}`}>
+          <i className="ri-error-warning-line text-5xl md:text-6xl text-red-500 mb-4"></i>
+          <h2 className={`text-xl md:text-2xl font-bold mb-4 ${theme.text}`}>입장 실패</h2>
+          <p className={`mb-6 ${theme.textMuted}`}>{error}</p>
           <button
             onClick={() => navigate('/mentoring')}
             className="px-6 py-3 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white rounded-xl font-medium hover:opacity-90 transition-opacity"
@@ -574,7 +615,7 @@ export default function MentoringMeetingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-50">
+    <div className={`h-[calc(100vh-64px)] overflow-hidden ${darkMode ? 'bg-[#0B0D14]' : 'bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-50'}`}>
       <ToastContainer />
       <LiveKitRoom
         video={true}
@@ -583,7 +624,7 @@ export default function MentoringMeetingPage() {
         serverUrl={LIVEKIT_URL}
         options={roomOptions}
         data-lk-theme="default"
-        style={{ height: '100vh' }}
+        style={{ height: '100%' }}
         connect={true}
       >
         <ProfessionalMeetingUI
@@ -591,6 +632,8 @@ export default function MentoringMeetingPage() {
           onComplete={handleComplete}
           isMentor={isMentor}
           showToast={showToast}
+          darkMode={darkMode}
+          theme={theme}
         />
         <RoomAudioRenderer />
       </LiveKitRoom>

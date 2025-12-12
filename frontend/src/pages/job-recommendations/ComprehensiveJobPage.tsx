@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { jobRecommendationService, jobSiteService, BACKEND_BASE_URL } from "@/lib/api";
-import Header from "../../components/feature/Header";
-import Footer from "../../components/feature/Footer";
 import ApplicationWriterModal from "../../components/application/ApplicationWriterModal";
 
 // localStorage에서 userId 가져오기
@@ -336,7 +334,7 @@ export default function ComprehensiveJobPage() {
   if (notLoggedIn) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header />
+        
         <div className="max-w-7xl mx-auto px-4 py-12">
           <div className="bg-white rounded-lg shadow p-12 text-center">
             <div className="text-6xl mb-4">🔐</div>
@@ -352,7 +350,6 @@ export default function ComprehensiveJobPage() {
             </button>
           </div>
         </div>
-        <Footer />
       </div>
     );
   }
@@ -361,7 +358,7 @@ export default function ComprehensiveJobPage() {
   if (noAnalysis) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header />
+        
         <div className="max-w-7xl mx-auto px-4 py-12">
           <div className="bg-white rounded-lg shadow p-12 text-center">
             <div className="text-6xl mb-4">📋</div>
@@ -377,7 +374,6 @@ export default function ComprehensiveJobPage() {
             </button>
           </div>
         </div>
-        <Footer />
       </div>
     );
   }
@@ -386,7 +382,7 @@ export default function ComprehensiveJobPage() {
   if (loading || calculating) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header />
+        
         <div className="max-w-7xl mx-auto px-4 py-12">
           <div className="bg-white rounded-lg shadow p-12 text-center">
             <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
@@ -402,7 +398,6 @@ export default function ComprehensiveJobPage() {
             )}
           </div>
         </div>
-        <Footer />
       </div>
     );
   }
@@ -411,7 +406,7 @@ export default function ComprehensiveJobPage() {
   if (!result) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header />
+        
         <div className="max-w-7xl mx-auto px-4 py-12">
           <div className="bg-white rounded-lg shadow p-12 text-center">
             <div className="text-4xl mb-4">⏳</div>
@@ -430,14 +425,13 @@ export default function ComprehensiveJobPage() {
             </button>
           </div>
         </div>
-        <Footer />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      
 
       <main className="max-w-7xl mx-auto px-4 py-8">
         {/* 헤더 */}
@@ -870,8 +864,6 @@ export default function ComprehensiveJobPage() {
           </div>
         </div>
       </main>
-
-      <Footer />
 
       {/* 지원서 작성 모달 */}
       {selectedJob && (

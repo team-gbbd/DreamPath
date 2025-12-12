@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "@/components/feature/Header";
 import { useToast } from "@/components/common/Toast";
 import { userService } from "@/lib/api";
 
@@ -289,9 +288,9 @@ export default function UserManagementPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50/30 via-indigo-50/20 to-blue-50/30">
       <ToastContainer />
-      <Header />
+      
 
-      <div className="pt-24 pb-8 min-h-screen">
+      <div className="py-8 pb-8 min-h-screen">
         <div className="max-w-7xl mx-auto px-6">
           {/* Title Section */}
           <div className="mb-8 flex items-center justify-between">

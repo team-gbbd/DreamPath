@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import Button from '../../components/base/Button';
 import { useToast } from '../../components/common/Toast';
-import Header from '@/components/feature/Header';
 import styles from './dashboard.module.css';
 
 // Dashboard Logic Imports
@@ -1414,7 +1413,7 @@ export default function NewDashboard() {
       <ToastContainer />
 
       {/* Main Page Header */}
-      <Header />
+      
 
       {/* Main Dashboard Container */}
       <div className={styles['glass-container']}>

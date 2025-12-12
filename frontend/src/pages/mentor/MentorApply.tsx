@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { mentorService } from '@/lib/api';
-import Header from '@/components/feature/Header';
 
 export default function MentorApplyPage() {
   const navigate = useNavigate();
@@ -96,7 +95,7 @@ export default function MentorApplyPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      
 
       <div className="pt-16 min-h-screen">
         <div className="max-w-4xl mx-auto px-6 py-8">

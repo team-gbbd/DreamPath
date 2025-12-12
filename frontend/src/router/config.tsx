@@ -5,6 +5,7 @@ import JobRecommend from "@/pages/profile/JobRecommend";
 import RecruitRecommend from "@/pages/profile/RecruitRecommend";
 import MajorRecommend from "@/pages/profile/MajorRecommend";
 import SchoolRecommend from "@/pages/profile/SchoolRecommend";
+import MainLayout from "@/components/layout/MainLayout";
 
 const ProfileDashboardPage = lazy(() => import("../pages/profile/Dashboard"));
 const HomePage = lazy(() => import("../pages/home/page"));
@@ -27,7 +28,6 @@ const CompanyListPage = lazy(() => import("../pages/company/CompanyListPage"));
 const CompanyDetailPage = lazy(() => import("../pages/company/CompanyDetailPage"));
 const CrawlerPage = lazy(() => import("../pages/admin/CrawlerPage"));
 const MentorApplyPage = lazy(() => import("../pages/mentors/MentorApply"));
-const AdminDashboardPage = lazy(() => import("../pages/admin/AdminDashboard"));
 const MentorApplicationsPage = lazy(() => import("../pages/admin/MentorApplications"));
 const FaqManagementPage = lazy(() => import("../pages/admin/FaqManagement"));
 const InquiriesManagementPage = lazy(() => import("../pages/admin/InquiriesManagement"));
@@ -47,26 +47,21 @@ const MentorSessionsPage = lazy(() => import("../pages/mypage/mentor/MentorSessi
 const MentoringMeetingPage = lazy(() => import("../pages/mentoring/MentoringMeeting"));
 const JobAnalysisPage = lazy(() => import("../pages/job-analysis/JobAnalysisPage"));
 const PersonalizedInsightsPage = lazy(() => import("../pages/job-analysis/PersonalizedInsightsPage"));
-// 채용 추천?� 종합분석(JobRecommendationsPage)�??�용
+// 채용 추천?� 종합분석(JobRecommendationsPage)�??�용
 const JobRecommendationsPage = lazy(() => import("../pages/job-recommendations/ComprehensiveJobPage"));
 const CompanyTalentPage = lazy(() => import("../pages/company-talent/CompanyTalentPage"));
 
 const routes: RouteObject[] = [
+  /* ----------------------
+     NO LAYOUT (Landing, Home, Auth)
+     ---------------------- */
   {
     path: "/",
     element: <HomePage />,
   },
   {
-    path: "/career-chat",
-    element: <CareerChatPage />,
-  },
-  {
-    path: "/analysis/:sessionId",
-    element: <AnalysisResultPage />,
-  },
-  {
-    path: "/job-listings",
-    element: <JobListingsPage />,
+    path: "/home",
+    element: <HomePage />,
   },
   {
     path: "/login",
@@ -76,13 +71,29 @@ const routes: RouteObject[] = [
     path: "/register",
     element: <RegisterPage />,
   },
+
+  /* ----------------------
+     WITH MAIN LAYOUT
+     ---------------------- */
+  {
+    path: "/career-chat",
+    element: <MainLayout showFooter={false}><CareerChatPage /></MainLayout>,
+  },
+  {
+    path: "/analysis/:sessionId",
+    element: <MainLayout><AnalysisResultPage /></MainLayout>,
+  },
+  {
+    path: "/job-listings",
+    element: <MainLayout><JobListingsPage /></MainLayout>,
+  },
   {
     path: "/mentoring",
-    element: <MentoringPage />,
+    element: <MainLayout><MentoringPage /></MainLayout>,
   },
   {
     path: "/chatbot",
-    element: <ChatbotPage />,
+    element: <MainLayout showFooter={false}><ChatbotPage /></MainLayout>,
   },
 
   /* ----------------------
@@ -90,27 +101,27 @@ const routes: RouteObject[] = [
      ---------------------- */
   {
     path: "/profile/dashboard",
-    element: <ProfileDashboardPage />,
+    element: <MainLayout><ProfileDashboardPage /></MainLayout>,
   },
   {
     path: "/profile/vector-status",
-    element: <VectorStatusPage />,
+    element: <MainLayout><VectorStatusPage /></MainLayout>,
   },
   {
     path: "/profile/recommend",
-    element: <JobRecommend />,
+    element: <MainLayout><JobRecommend /></MainLayout>,
   },
   {
     path: "/profile/recommend/worknet",
-    element: <RecruitRecommend />,
+    element: <MainLayout><RecruitRecommend /></MainLayout>,
   },
   {
     path: "/profile/recommend/majors",
-    element: <MajorRecommend />,
+    element: <MainLayout><MajorRecommend /></MainLayout>,
   },
   {
     path: "/profile/recommend/schools",
-    element: <SchoolRecommend />,
+    element: <MainLayout><SchoolRecommend /></MainLayout>,
   },
 
   /* ----------------------
@@ -118,15 +129,15 @@ const routes: RouteObject[] = [
      ---------------------- */
   {
     path: "/learning",
-    element: <LearningDashboardPage />,
+    element: <MainLayout><LearningDashboardPage /></MainLayout>,
   },
   {
     path: "/learning/:pathId",
-    element: <LearningPathDetailPage />,
+    element: <MainLayout><LearningPathDetailPage /></MainLayout>,
   },
   {
     path: "/learning/:pathId/week/:weeklyId",
-    element: <WeeklyQuizPage />,
+    element: <MainLayout showFooter={false}><WeeklyQuizPage /></MainLayout>,
   },
 
   /* ----------------------
@@ -134,15 +145,15 @@ const routes: RouteObject[] = [
      ---------------------- */
   {
     path: "/career-simulation/developer",
-    element: <DeveloperExperiencePage />,
+    element: <MainLayout><DeveloperExperiencePage /></MainLayout>,
   },
   {
     path: "/career-simulation/result",
-    element: <CareerSimulationResultPage />,
+    element: <MainLayout><CareerSimulationResultPage /></MainLayout>,
   },
   {
     path: "/career-simulation/coding-test",
-    element: <CodingTestPage />,
+    element: <MainLayout showFooter={false}><CodingTestPage /></MainLayout>,
   },
 
   /* ----------------------
@@ -150,7 +161,7 @@ const routes: RouteObject[] = [
      ---------------------- */
   {
     path: "/ai-agent",
-    element: <AIAgentDashboardPage />,
+    element: <MainLayout><AIAgentDashboardPage /></MainLayout>,
   },
 
   /* ----------------------
@@ -158,11 +169,11 @@ const routes: RouteObject[] = [
      ---------------------- */
   {
     path: "/company-list",
-    element: <CompanyListPage />,
+    element: <MainLayout><CompanyListPage /></MainLayout>,
   },
   {
     path: "/company/:id",
-    element: <CompanyDetailPage />,
+    element: <MainLayout><CompanyDetailPage /></MainLayout>,
   },
 
   /* ----------------------
@@ -170,15 +181,15 @@ const routes: RouteObject[] = [
      ---------------------- */
   {
     path: "/job-analysis",
-    element: <JobAnalysisPage />,
+    element: <MainLayout><JobAnalysisPage /></MainLayout>,
   },
   {
     path: "/job-analysis/personalized",
-    element: <PersonalizedInsightsPage />,
+    element: <MainLayout><PersonalizedInsightsPage /></MainLayout>,
   },
   {
     path: "/job-recommendations",
-    element: <JobRecommendationsPage />,
+    element: <MainLayout><JobRecommendationsPage /></MainLayout>,
   },
 
   /* ----------------------
@@ -186,7 +197,7 @@ const routes: RouteObject[] = [
      ---------------------- */
   {
     path: "/company-talent",
-    element: <CompanyTalentPage />,
+    element: <MainLayout><CompanyTalentPage /></MainLayout>,
   },
 
   /* ----------------------
@@ -194,15 +205,15 @@ const routes: RouteObject[] = [
      ---------------------- */
   {
     path: "/mypage/bookings",
-    element: <MyBookingsPage />,
+    element: <MainLayout><MyBookingsPage /></MainLayout>,
   },
   {
     path: "/mypage/mentor/sessions",
-    element: <MentorSessionsPage />,
+    element: <MainLayout><MentorSessionsPage /></MainLayout>,
   },
   {
     path: "/mypage/mentor/edit",
-    element: <MentorEditPage />,
+    element: <MainLayout><MentorEditPage /></MainLayout>,
   },
 
   /* ----------------------
@@ -210,15 +221,15 @@ const routes: RouteObject[] = [
      ---------------------- */
   {
     path: "/mentors",
-    element: <MentorsListPage />,
+    element: <MainLayout><MentorsListPage /></MainLayout>,
   },
   {
     path: "/mentors/:id",
-    element: <MentorDetailPage />,
+    element: <MainLayout><MentorDetailPage /></MainLayout>,
   },
   {
     path: "/mentors/apply",
-    element: <MentorApplyPage />,
+    element: <MainLayout><MentorApplyPage /></MainLayout>,
   },
 
   /* ----------------------
@@ -226,11 +237,11 @@ const routes: RouteObject[] = [
      ---------------------- */
   {
     path: "/mentoring/book/:sessionId",
-    element: <BookMentoringPage />,
+    element: <MainLayout><BookMentoringPage /></MainLayout>,
   },
   {
     path: "/mentoring/meeting/:bookingId",
-    element: <MentoringMeetingPage />,
+    element: <MainLayout showFooter={false}><MentoringMeetingPage /></MainLayout>,
   },
 
   /* ----------------------
@@ -238,19 +249,19 @@ const routes: RouteObject[] = [
      ---------------------- */
   {
     path: "/payments/purchase",
-    element: <PaymentPurchasePage />,
+    element: <MainLayout><PaymentPurchasePage /></MainLayout>,
   },
   {
     path: "/payments/history",
-    element: <PaymentHistoryPage />,
+    element: <MainLayout><PaymentHistoryPage /></MainLayout>,
   },
   {
     path: "/payments/success",
-    element: <PaymentSuccessPage />,
+    element: <MainLayout><PaymentSuccessPage /></MainLayout>,
   },
   {
     path: "/payments/fail",
-    element: <PaymentFailPage />,
+    element: <MainLayout><PaymentFailPage /></MainLayout>,
   },
 
   /* ----------------------
@@ -258,35 +269,31 @@ const routes: RouteObject[] = [
      ---------------------- */
   {
     path: "/admin",
-    element: <AdminPage />,
-  },
-  {
-    path: "/admin/dashboard",
-    element: <AdminDashboardPage />,
+    element: <MainLayout><AdminPage /></MainLayout>,
   },
   {
     path: "/admin/mentor-applications",
-    element: <MentorApplicationsPage />,
+    element: <MainLayout><MentorApplicationsPage /></MainLayout>,
   },
   {
     path: "/admin/crawler",
-    element: <CrawlerPage />,
+    element: <MainLayout><CrawlerPage /></MainLayout>,
   },
   {
     path: "/admin/faq",
-    element: <FaqManagementPage />,
+    element: <MainLayout><FaqManagementPage /></MainLayout>,
   },
   {
     path: "/admin/inquiries",
-    element: <InquiriesManagementPage />,
+    element: <MainLayout><InquiriesManagementPage /></MainLayout>,
   },
   {
     path: "/admin/users",
-    element: <UserManagementPage />,
+    element: <MainLayout><UserManagementPage /></MainLayout>,
   },
   {
     path: "/admin/mentors",
-    element: <MentorManagementPage />,
+    element: <MainLayout><MentorManagementPage /></MainLayout>,
   },
 
   /* ----------------------

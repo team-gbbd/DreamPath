@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { learningPathService } from "@/lib/api";
-import Header from "@/components/feature/Header";
 
 import {
     BarChart,
@@ -214,9 +213,7 @@ export default function Dashboard() {
 
     return (
         <div className="min-h-screen bg-[#FFF5F7]">
-            <Header />
-
-            <div className="max-w-[1600px] mx-auto px-6 pt-24 pb-8">
+            <div className="max-w-[1600px] mx-auto px-6 py-8">
                 {/* 상단 헤더 */}
                 <div className="flex items-center justify-between mb-5 pb-4 border-b border-pink-100">
                     <div className="flex items-center gap-4">

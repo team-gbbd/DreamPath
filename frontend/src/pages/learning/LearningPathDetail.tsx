@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { learningPathService } from '@/lib/api';
 import type { LearningPath, WeeklySessionInfo } from '@/types';
-import Header from '@/components/feature/Header';
 import { useToast } from '@/components/common/Toast';
 
 export default function LearningPathDetail() {
@@ -114,8 +113,8 @@ export default function LearningPathDetail() {
   return (
     <div className="min-h-screen bg-[#FFF5F7]">
       <ToastContainer />
-      <Header />
-      <div className="max-w-4xl mx-auto px-6 pt-24 pb-8">
+      
+      <div className="max-w-4xl mx-auto px-6 py-8 pb-8">
         {/* 상단 네비게이션 */}
         <div className="flex items-center justify-between mb-6 pb-4 border-b border-pink-100">
           <button
