@@ -14,15 +14,19 @@ public class VectorClient {
 
     private final RestTemplate restTemplate;
 
-    @Value("${python.vector.service.url:http://localhost:8000/api/vectors/analyze}")
-    private String vectorServiceUrl;
+    @Value("${python.ai.service.url:http://localhost:8000}")
+    private String pythonAiServiceUrl;
+
+    private String getVectorServiceUrl() {
+        return pythonAiServiceUrl + "/api/vectors/analyze";
+    }
 
     public VectorAnalyzeResponse analyzeVector(Long profileId, String document) {
         return RetryUtil.retry(() -> {
             VectorAnalyzeRequest req = new VectorAnalyzeRequest();
             req.setUserId(profileId);
             req.setDocument(document);
-            return restTemplate.postForObject(vectorServiceUrl, req, VectorAnalyzeResponse.class);
+            return restTemplate.postForObject(getVectorServiceUrl(), req, VectorAnalyzeResponse.class);
         }, 3);
     }
 }

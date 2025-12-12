@@ -19,7 +19,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
@@ -27,6 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Service
@@ -42,7 +42,7 @@ public class PersonalityAgentService {
     private final UserProfileSyncService userProfileSyncService;
     private final RecommendationStorageService recommendationStorageService;
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(readOnly = true)
     public PersonalityAgentResponse run(PersonalityAgentRequest incomingRequest) {
         if (incomingRequest.getSessionId() == null || incomingRequest.getSessionId().isBlank()) {
             throw new IllegalArgumentException("sessionId는 필수입니다.");
@@ -71,7 +71,16 @@ public class PersonalityAgentService {
                 .build();
 
         Map<String, Object> pythonResponse = pythonAgentService.callPersonalityAgent(payload.toPythonPayload());
-        persistAnalysis(session.getUserId(), pythonResponse);
+
+        // 비동기로 프로필 저장 및 추천 생성 (응답 지연 방지)
+        String userIdForAsync = session.getUserId();
+        CompletableFuture.runAsync(() -> {
+            try {
+                persistAnalysis(userIdForAsync, pythonResponse);
+            } catch (Exception e) {
+                log.error("❌ 비동기 프로필 저장 실패. userId: {}", userIdForAsync, e);
+            }
+        });
 
         return PersonalityAgentResponse.builder()
                 .sessionId(sessionId)
@@ -171,7 +180,8 @@ public class PersonalityAgentService {
         return map;
     }
 
-    private void persistAnalysis(String userIdRaw, Map<String, Object> pythonResponse) {
+    @Transactional
+    public void persistAnalysis(String userIdRaw, Map<String, Object> pythonResponse) {
         Optional<Long> userId = parseUserId(userIdRaw);
         if (userId.isEmpty()) {
             return;
@@ -196,13 +206,25 @@ public class PersonalityAgentService {
         profileAnalysisRepository.save(analysis);
         log.info("✅ ProfileAnalysis 저장 완료. userId: {}", userId.get());
 
-        // 2. UserProfile 동기화 및 벡터 재생성
+        // 2. UserProfile 동기화
         try {
             UserProfile updatedProfile = userProfileSyncService.syncFromAnalysis(userId.get(), analysis);
-            log.info("✅ UserProfile 동기화 및 벡터 재생성 완료. profileId: {}", updatedProfile.getProfileId());
+            log.info("✅ UserProfile 동기화 완료. profileId: {}", updatedProfile.getProfileId());
 
-            // 3. 추천 결과 저장
-            saveRecommendations(userId.get(), updatedProfile.getProfileId());
+            // 3. 벡터 재생성과 추천 저장을 병렬로 실행
+            Long userIdValue = userId.get();
+            Long profileId = updatedProfile.getProfileId();
+
+            CompletableFuture<Void> recommendationFuture = CompletableFuture.runAsync(() -> {
+                try {
+                    saveRecommendations(userIdValue, profileId);
+                } catch (Exception e) {
+                    log.error("❌ 추천 저장 실패. userId: {}", userIdValue, e);
+                }
+            });
+
+            // 추천 저장 완료 대기 (벡터는 syncFromAnalysis에서 이미 처리됨)
+            recommendationFuture.join();
         } catch (Exception e) {
             log.error("❌ UserProfile 동기화 실패. userId: {}", userId.get(), e);
         }
