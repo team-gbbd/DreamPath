@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { paymentService } from '@/lib/api';
-import Header from '@/components/feature/Header';
 
 export default function PaymentSuccessPage() {
   const navigate = useNavigate();
@@ -9,7 +8,39 @@ export default function PaymentSuccessPage() {
   const [isProcessing, setIsProcessing] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [paymentInfo, setPaymentInfo] = useState<any>(null);
-  const hasProcessed = useRef(false); // 중복 실행 방지
+  const hasProcessed = useRef(false);
+  const [darkMode, setDarkMode] = useState(true);
+
+  // Theme 객체
+  const theme = {
+    bg: darkMode ? "bg-[#0B0D14]" : "bg-gradient-to-br from-slate-50 via-white to-slate-100",
+    text: darkMode ? "text-white" : "text-slate-900",
+    textMuted: darkMode ? "text-white/60" : "text-slate-600",
+    textSubtle: darkMode ? "text-white/40" : "text-slate-500",
+    card: darkMode
+      ? "bg-white/[0.03] border-white/[0.08]"
+      : "bg-white border-slate-200 shadow-lg",
+    detailBg: darkMode
+      ? "bg-white/[0.05]"
+      : "bg-slate-50",
+  };
+
+  useEffect(() => {
+    // 테마 로드
+    const savedTheme = localStorage.getItem('dreampath:theme');
+    if (savedTheme) {
+      setDarkMode(savedTheme === 'dark');
+    }
+
+    // 테마 변경 이벤트 리스너
+    const handleThemeChange = () => {
+      const t = localStorage.getItem('dreampath:theme');
+      setDarkMode(t === 'dark');
+    };
+
+    window.addEventListener('dreampath-theme-change', handleThemeChange);
+    return () => window.removeEventListener('dreampath-theme-change', handleThemeChange);
+  }, []);
 
   const getLoggedInUserId = (): number | null => {
     try {
@@ -23,7 +54,6 @@ export default function PaymentSuccessPage() {
   };
 
   useEffect(() => {
-    // 이미 처리 중이면 중복 실행 방지
     if (hasProcessed.current) return;
     hasProcessed.current = true;
 
@@ -35,7 +65,6 @@ export default function PaymentSuccessPage() {
         return;
       }
 
-      // URL 쿼리 파라미터에서 결제 정보 추출
       const paymentKey = searchParams.get('paymentKey');
       const orderId = searchParams.get('orderId');
       const amount = searchParams.get('amount');
@@ -47,7 +76,6 @@ export default function PaymentSuccessPage() {
       }
 
       try {
-        // 백엔드에 결제 완료 요청
         const response = await paymentService.completePayment(
           userId,
           paymentKey,
@@ -57,10 +85,9 @@ export default function PaymentSuccessPage() {
 
         setPaymentInfo(response);
         setIsProcessing(false);
-      } catch (err) {
+      } catch (err: any) {
         console.error('결제 완료 처리 실패:', err);
 
-        // 에러 메시지 추출
         let errorMessage = '결제 완료 처리 중 오류가 발생했습니다.';
         if (err.response?.data?.message) {
           errorMessage = err.response.data.message;
@@ -80,37 +107,78 @@ export default function PaymentSuccessPage() {
     processPayment();
   }, []);
 
+  // 로딩 화면
   if (isProcessing) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-xl text-gray-700 font-medium">결제 완료 처리 중...</p>
-          <p className="text-sm text-gray-500 mt-2">잠시만 기다려주세요.</p>
+      <div className={`min-h-full flex flex-col ${theme.bg} relative`}>
+        {/* Background Effects */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className={`absolute top-0 right-1/4 w-[500px] h-[500px] rounded-full blur-[120px] ${darkMode ? "bg-[#5A7BFF]/10" : "bg-[#5A7BFF]/20"}`} />
+          <div className={`absolute bottom-1/4 left-1/4 w-[400px] h-[400px] rounded-full blur-[120px] ${darkMode ? "bg-[#8F5CFF]/10" : "bg-[#8F5CFF]/20"}`} />
+        </div>
+
+        {/* Grid Pattern */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: darkMode
+              ? "linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)"
+              : "linear-gradient(rgba(90,123,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(90,123,255,0.05) 1px, transparent 1px)",
+            backgroundSize: "60px 60px",
+          }}
+        />
+
+        <div className="flex-1 flex items-center justify-center relative z-10">
+          <div className="text-center">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 border-4 border-[#5A7BFF] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+            <p className={`text-base sm:text-lg font-medium ${theme.text}`}>결제 완료 처리 중...</p>
+            <p className={`text-xs sm:text-sm ${theme.textMuted} mt-1`}>잠시만 기다려주세요.</p>
+          </div>
         </div>
       </div>
     );
   }
 
+  // 에러 화면
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
+      <div className={`min-h-full flex flex-col ${theme.bg} relative`}>
+        {/* Background Effects */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className={`absolute top-0 right-1/4 w-[500px] h-[500px] rounded-full blur-[120px] ${darkMode ? "bg-red-500/10" : "bg-red-500/20"}`} />
+          <div className={`absolute bottom-1/4 left-1/4 w-[400px] h-[400px] rounded-full blur-[120px] ${darkMode ? "bg-[#8F5CFF]/10" : "bg-[#8F5CFF]/20"}`} />
+        </div>
 
-        <div className="pt-16 min-h-screen flex items-center justify-center px-6">
-          <div className="max-w-md w-full bg-white rounded-2xl shadow-lg border-2 border-dashed border-red-300 p-8">
+        {/* Grid Pattern */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: darkMode
+              ? "linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)"
+              : "linear-gradient(rgba(90,123,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(90,123,255,0.05) 1px, transparent 1px)",
+            backgroundSize: "60px 60px",
+          }}
+        />
+
+        <div className="flex-1 flex items-center justify-center px-4 sm:px-6 py-6 relative z-10">
+          <div className={`max-w-md w-full rounded-2xl border-2 border-dashed p-4 sm:p-5 ${
+            darkMode ? 'bg-white/[0.03] border-red-500/30' : 'bg-white border-red-300 shadow-lg'
+          }`}>
             <div className="text-center">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <i className="ri-close-line text-4xl text-red-500"></i>
+              <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 ${
+                darkMode ? 'bg-red-500/20' : 'bg-red-100'
+              }`}>
+                <i className={`ri-close-line text-3xl sm:text-4xl ${darkMode ? 'text-red-400' : 'text-red-500'}`}></i>
               </div>
 
-              <h1 className="text-2xl font-bold text-gray-800 mb-2">결제 처리 실패</h1>
-              <p className="text-gray-600 mb-6">{error}</p>
+              <h1 className={`text-xl sm:text-2xl font-bold ${theme.text} mb-1`}>결제 처리 실패</h1>
+              <p className={`${theme.textMuted} mb-4 text-xs sm:text-sm`}>{error}</p>
 
               <button
                 onClick={() => navigate('/payments/purchase')}
-                className="w-full bg-pink-500 text-white py-3 rounded-lg font-bold hover:bg-pink-600 transition-colors"
+                className="w-full bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white py-2.5 rounded-xl font-bold hover:shadow-lg hover:shadow-purple-500/30 transition-all text-sm"
               >
+                <i className="ri-refresh-line mr-2"></i>
                 다시 시도하기
               </button>
             </div>
@@ -120,47 +188,65 @@ export default function PaymentSuccessPage() {
     );
   }
 
+  // 성공 화면
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
+    <div className={`min-h-full flex flex-col ${theme.bg} relative`}>
+      {/* Background Effects */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className={`absolute top-0 right-1/4 w-[500px] h-[500px] rounded-full blur-[120px] ${darkMode ? "bg-green-500/10" : "bg-green-500/20"}`} />
+        <div className={`absolute bottom-1/4 left-1/4 w-[400px] h-[400px] rounded-full blur-[120px] ${darkMode ? "bg-[#5A7BFF]/10" : "bg-[#5A7BFF]/20"}`} />
+      </div>
 
-      <div className="pt-16 min-h-screen flex items-center justify-center px-6">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-lg border-2 border-dashed border-pink-300 p-8">
+      {/* Grid Pattern */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: darkMode
+            ? "linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)"
+            : "linear-gradient(rgba(90,123,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(90,123,255,0.05) 1px, transparent 1px)",
+          backgroundSize: "60px 60px",
+        }}
+      />
+
+      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 py-6 relative z-10">
+        <div className={`max-w-md w-full rounded-2xl border p-4 sm:p-5 ${theme.card}`}>
           <div className="text-center">
             {/* Success Icon */}
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <i className="ri-check-line text-5xl text-green-500"></i>
+            <div className={`w-16 h-16 sm:w-18 sm:h-18 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 ${
+              darkMode ? 'bg-green-500/20' : 'bg-green-100'
+            }`}>
+              <i className={`ri-check-line text-4xl sm:text-5xl ${darkMode ? 'text-green-400' : 'text-green-500'}`}></i>
             </div>
 
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">결제 완료!</h1>
-            <p className="text-gray-600 mb-8">이용권이 성공적으로 충전되었습니다.</p>
+            <h1 className={`text-xl sm:text-2xl font-bold ${theme.text} mb-1`}>결제 완료!</h1>
+            <p className={`${theme.textMuted} mb-3 sm:mb-4 text-xs sm:text-sm`}>이용권이 성공적으로 충전되었습니다.</p>
 
             {/* Payment Details */}
             {paymentInfo && (
-              <div className="bg-gray-50 rounded-lg p-6 mb-8 text-left">
-                <div className="space-y-3">
+              <div className={`rounded-xl p-3 sm:p-4 mb-3 sm:mb-4 text-left ${theme.detailBg}`}>
+                <div className="space-y-2 text-sm">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">구매 이용권</span>
-                    <span className="font-bold text-gray-800">
+                    <span className={`text-xs ${theme.textMuted}`}>구매 이용권</span>
+                    <span className={`font-bold text-sm ${theme.text}`}>
                       {paymentInfo.sessionsPurchased}회 이용권
                     </span>
                   </div>
 
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">결제 금액</span>
-                    <span className="font-bold text-pink-600">
+                    <span className={`text-xs ${theme.textMuted}`}>결제 금액</span>
+                    <span className="font-bold text-sm text-[#5A7BFF]">
                       {paymentInfo.amount.toLocaleString()}원
                     </span>
                   </div>
 
-                  <div className="flex justify-between items-center pt-3 border-t border-gray-200">
-                    <span className="text-gray-600">결제 방법</span>
-                    <span className="text-gray-800">{paymentInfo.paymentMethod}</span>
+                  <div className={`flex justify-between items-center pt-2 border-t ${darkMode ? 'border-white/10' : 'border-slate-200'}`}>
+                    <span className={`text-xs ${theme.textMuted}`}>결제 방법</span>
+                    <span className={`text-sm ${theme.text}`}>{paymentInfo.paymentMethod}</span>
                   </div>
 
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">결제 일시</span>
-                    <span className="text-gray-800 text-sm">
+                    <span className={`text-xs ${theme.textMuted}`}>결제 일시</span>
+                    <span className={`${theme.text} text-xs`}>
                       {new Date(paymentInfo.paidAt).toLocaleString('ko-KR')}
                     </span>
                   </div>
@@ -169,7 +255,7 @@ export default function PaymentSuccessPage() {
             )}
 
             {/* Action Buttons */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               {(() => {
                 const returnUrl = localStorage.getItem('payment_return_url');
                 if (returnUrl) {
@@ -179,7 +265,7 @@ export default function PaymentSuccessPage() {
                         localStorage.removeItem('payment_return_url');
                         navigate(returnUrl);
                       }}
-                      className="w-full bg-pink-500 text-white py-3 rounded-lg font-bold hover:bg-pink-600 transition-colors"
+                      className="w-full bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white py-2.5 rounded-xl font-bold hover:shadow-lg hover:shadow-purple-500/30 transition-all text-sm"
                     >
                       <i className="ri-arrow-go-back-line mr-2"></i>
                       이전 페이지로 돌아가기
@@ -190,7 +276,7 @@ export default function PaymentSuccessPage() {
                   <>
                     <button
                       onClick={() => navigate('/profile/dashboard')}
-                      className="w-full bg-pink-500 text-white py-3 rounded-lg font-bold hover:bg-pink-600 transition-colors"
+                      className="w-full bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white py-2.5 rounded-xl font-bold hover:shadow-lg hover:shadow-purple-500/30 transition-all text-sm"
                     >
                       <i className="ri-user-line mr-2"></i>
                       프로파일링 대시보드로 이동
@@ -198,7 +284,11 @@ export default function PaymentSuccessPage() {
 
                     <button
                       onClick={() => navigate('/mentoring')}
-                      className="w-full bg-white border-2 border-pink-500 text-pink-500 py-3 rounded-lg font-bold hover:bg-pink-50 transition-colors"
+                      className={`w-full py-2.5 rounded-xl font-bold transition-all text-sm border-2 ${
+                        darkMode
+                          ? 'border-[#5A7BFF] text-[#5A7BFF] hover:bg-[#5A7BFF]/10'
+                          : 'border-[#5A7BFF] text-[#5A7BFF] hover:bg-[#5A7BFF]/5'
+                      }`}
                     >
                       <i className="ri-calendar-check-line mr-2"></i>
                       멘토링 예약하러 가기

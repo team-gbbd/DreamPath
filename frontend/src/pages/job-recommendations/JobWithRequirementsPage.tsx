@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { jobRecommendationService, companyTalentService } from "@/lib/api";
-import Header from "../../components/feature/Header";
 import Footer from "../../components/feature/Footer";
 
 // 타입 정의
@@ -150,7 +149,7 @@ export default function JobWithRequirementsPage() {
   if (loading && mainTab === "jobs") {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header />
+        
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="bg-white rounded-lg shadow p-12 text-center">
             <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
@@ -169,7 +168,7 @@ export default function JobWithRequirementsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* 페이지 헤더 */}
         <div className="mb-6">

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { learningPathService } from '@/lib/api';
 import type { Question, StudentAnswer } from '@/types';
-import Header from '@/components/feature/Header';
 import { useToast } from '@/components/common/Toast';
 
 export default function WeeklyQuiz() {
@@ -217,8 +216,8 @@ export default function WeeklyQuiz() {
   return (
     <div className="min-h-screen bg-[#FFF5F7]">
       <ToastContainer />
-      <Header />
-      <div className="max-w-3xl mx-auto px-6 pt-24 pb-8">
+      
+      <div className="max-w-3xl mx-auto px-6 py-8 pb-8">
         {/* 상단 네비게이션 */}
         <div className="flex items-center justify-between mb-5 pb-4 border-b border-pink-100">
           <button

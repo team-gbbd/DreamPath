@@ -70,7 +70,7 @@ def execute(user_id: int, db: DatabaseService = None, **kwargs) -> Dict[str, Any
         if not results or len(results) == 0:
             return {
                 "success": False,
-                "message": "아직 진로 분석 결과가 없습니다. 진로 분석을 먼저 진행해주세요."
+                "message": "아직 진로 분석을 진행하지 않으셨네요! 진로 분석을 진행하시면 결과를 조회할 수 있어요."
             }
 
         analysis = results[0]

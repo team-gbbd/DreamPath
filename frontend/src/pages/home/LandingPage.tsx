@@ -348,7 +348,10 @@ export default function LandingPage() {
             <Menu className="w-6 h-6" />
           </button>
 
-          <div className="flex items-center gap-3">
+          <div
+            className="flex items-center gap-3 cursor-pointer"
+            onClick={() => window.location.reload()}
+          >
             <img
               src="https://static.readdy.ai/image/b6e15883c9875312b01889a8e71bf8cf/ccfcaec324d8c4883819f9f330e8ceab.png"
               alt="DreamPath Logo"

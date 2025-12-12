@@ -10,7 +10,7 @@ TOOL_SCHEMA = {
     "type": "function",
     "function": {
         "name": "get_learning_path",
-        "description": "사용자의 학습 경로 및 진행 현황을 조회합니다. 학습 도메인, 진행률, 정답률, 주차별 학습 현황 등을 확인할 수 있습니다.",
+        "description": "사용자의 학습 진행 현황을 조회합니다. 학습 도메인, 진행률, 정답률, 주차별 학습 현황 등을 확인할 수 있습니다.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -41,21 +41,23 @@ def execute(user_id: int, db: DatabaseService = None, **kwargs) -> Dict[str, Any
         if db is None:
             db = DatabaseService()
 
-        # 학습 경로 조회
+        # 학습 경로 조회 (주차별 세션 정보 포함)
         query = """
             SELECT
-                path_id,
-                domain,
-                status,
-                total_questions,
-                correct_count,
-                correct_rate,
-                weakness_tags,
-                created_at,
-                updated_at
-            FROM learning_paths
-            WHERE user_id = %s
-            ORDER BY updated_at DESC
+                lp.path_id,
+                lp.domain,
+                lp.status,
+                lp.total_questions,
+                lp.correct_count,
+                lp.correct_rate,
+                lp.created_at,
+                lp.updated_at,
+                (SELECT MAX(ws.week_number) FROM weekly_sessions ws
+                 WHERE ws.path_id = lp.path_id AND ws.status != 'LOCKED') as current_week,
+                (SELECT COUNT(*) FROM weekly_sessions ws WHERE ws.path_id = lp.path_id) as total_weeks
+            FROM learning_paths lp
+            WHERE lp.user_id = %s
+            ORDER BY lp.updated_at DESC
         """
         learning_paths = db.execute_query(query, (user_id,))
 
@@ -93,7 +95,7 @@ def format_result(data: Dict[str, Any]) -> str:
 
     learning_paths = data.get("data", [])
 
-    response = "## 📚 내 학습 경로\n\n"
+    response = "## 📚 내 학습 현황\n\n"
 
     for idx, path in enumerate(learning_paths, 1):
         domain = path.get('domain', 'N/A')
@@ -107,6 +109,15 @@ def format_result(data: Dict[str, Any]) -> str:
 
         response += f"### {idx}. {domain}\n"
         response += f"- **상태**: {status_badge}\n"
+
+        # 주차 정보
+        current_week = path.get('current_week')
+        total_weeks = path.get('total_weeks', 0)
+        if current_week and total_weeks:
+            response += f"- **진행 주차**: {current_week}주차 / 총 {total_weeks}주차\n"
+        elif total_weeks:
+            response += f"- **진행 주차**: 시작 전 / 총 {total_weeks}주차\n"
+
         response += f"- **총 문제 수**: {total_questions}문제\n"
         response += f"- **맞은 문제**: {correct_count}문제\n"
 
@@ -118,18 +129,6 @@ def format_result(data: Dict[str, Any]) -> str:
             rate_percent = (correct_count / total_questions) * 100
             response += f"- **정답률**: {rate_percent:.1f}%\n"
 
-        # 취약점 태그
-        weakness_tags = path.get('weakness_tags')
-        if weakness_tags:
-            import json
-            if isinstance(weakness_tags, str):
-                try:
-                    tags = json.loads(weakness_tags)
-                    if tags:
-                        response += f"- **보완 필요 영역**: {', '.join(tags)}\n"
-                except:
-                    pass
-
         # 최근 학습일
         updated_at = str(path.get('updated_at', 'N/A'))
         if updated_at and updated_at != 'N/A':
@@ -138,6 +137,6 @@ def format_result(data: Dict[str, Any]) -> str:
 
         response += "\n"
 
-    response += f"*총 {len(learning_paths)}개의 학습 경로가 있습니다.*"
+    response += f"*총 {len(learning_paths)}개의 학습이 있습니다.*"
 
     return response

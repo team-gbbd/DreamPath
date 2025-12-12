@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mentorService, bookingService, mentoringSessionService } from '@/lib/api';
-import Header from '@/components/feature/Header';
+import { mentorService, mentoringSessionService } from '@/lib/api';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import EmptyState from '@/components/common/EmptyState';
 import { useToast } from '@/components/common/Toast';
-import { DAYS_OF_WEEK, TIME_SLOTS, SPECIALIZATIONS, BOOKING_STATUS_LABELS } from '@/constants/mentoring';
-import { formatKoreanDate, formatKoreanDateTime, getTodayString } from '@/utils/dateUtils';
+import { SPECIALIZATIONS } from '@/constants/mentoring';
+import { getTodayString } from '@/utils/dateUtils';
 import { validateSessionForm, type SessionFormData, type ValidationErrors } from '@/utils/validation';
+import { Search, Calendar, Clock, User as UserIcon, X, Plus } from 'lucide-react';
 
 interface Mentor {
   mentorId: number;
@@ -30,35 +30,24 @@ interface User {
   role: string;
 }
 
-interface Booking {
-  bookingId: number;
-  mentorId: number;
-  menteeId: number;
-  menteeName: string;
-  menteeUsername: string;
-  bookingDate: string;
-  timeSlot: string;
-  message?: string;
-  status: string;
-  meetingUrl?: string;
-  rejectionReason?: string;
-  createdAt: string;
-}
-
 interface MentoringSession {
   sessionId: number;
   mentorId: number;
   mentorName: string;
+  mentorUsername?: string;
   title: string;
   description: string;
   sessionDate: string;
   durationMinutes: number;
   status: string;
+  isFull?: boolean;
+  availableSlots?: number;
 }
 
 export default function MentoringPage() {
   const navigate = useNavigate();
   const { showToast, ToastContainer } = useToast();
+  const [darkMode, setDarkMode] = useState(true);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isMentor, setIsMentor] = useState(false);
   const [myMentorInfo, setMyMentorInfo] = useState<Mentor | null>(null);
@@ -80,7 +69,53 @@ export default function MentoringPage() {
     durationMinutes: 60,
   });
 
+  // Theme 객체
+  const theme = {
+    bg: darkMode
+      ? "bg-[#0a0a0f]"
+      : "bg-gradient-to-br from-slate-50 via-white to-slate-100",
+    text: darkMode ? "text-white" : "text-slate-900",
+    textMuted: darkMode ? "text-white/60" : "text-slate-600",
+    textSubtle: darkMode ? "text-white/40" : "text-slate-500",
+    card: darkMode
+      ? "bg-white/[0.03] border-white/[0.08] hover:bg-white/[0.06] hover:border-[#5A7BFF]/30"
+      : "bg-white/80 border-slate-200 hover:bg-white hover:shadow-lg",
+    cardSolid: darkMode
+      ? "bg-white/[0.05] border-white/[0.08]"
+      : "bg-white border-slate-200 shadow-sm",
+    input: darkMode
+      ? "bg-white/[0.05] border-white/[0.1] text-white placeholder-white/30 focus:border-[#5A7BFF]/50"
+      : "bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-[#5A7BFF]/50 shadow-sm",
+    button: darkMode
+      ? "bg-white/[0.05] hover:bg-white/[0.1] border-white/[0.1] text-white/70 hover:text-white"
+      : "bg-white hover:bg-slate-50 border-slate-200 text-slate-600 hover:text-slate-900 shadow-sm",
+    buttonActive: "bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white shadow-lg",
+    modal: darkMode
+      ? "bg-[#12121a] border-white/[0.1]"
+      : "bg-white border-slate-200",
+    modalHeader: darkMode
+      ? "border-white/[0.08]"
+      : "border-slate-200",
+    hero: darkMode
+      ? "bg-gradient-to-b from-[#5A7BFF]/10 via-[#8F5CFF]/5 to-transparent"
+      : "bg-gradient-to-b from-[#5A7BFF]/10 via-[#8F5CFF]/5 to-transparent",
+  };
+
   useEffect(() => {
+    // 테마 로드
+    const savedTheme = localStorage.getItem('dreampath:theme');
+    if (savedTheme) {
+      setDarkMode(savedTheme === 'dark');
+    }
+
+    // 테마 변경 이벤트 리스너
+    const handleThemeChange = () => {
+      const theme = localStorage.getItem('dreampath:theme');
+      setDarkMode(theme === 'dark');
+    };
+
+    window.addEventListener('dreampath-theme-change', handleThemeChange);
+
     const userStr = localStorage.getItem('dreampath:user');
     if (!userStr) {
       showToast('로그인이 필요합니다.', 'warning');
@@ -91,12 +126,15 @@ export default function MentoringPage() {
     const user = JSON.parse(userStr);
     setCurrentUser(user);
     checkMentorStatus(user.userId);
+
+    return () => {
+      window.removeEventListener('dreampath-theme-change', handleThemeChange);
+    };
   }, [navigate]);
 
   useEffect(() => {
     let filtered = sessions;
 
-    // 검색어 필터
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -107,7 +145,6 @@ export default function MentoringPage() {
       );
     }
 
-    // 분야 필터
     if (selectedSpecializations.length > 0) {
       filtered = filtered.filter((session) =>
         selectedSpecializations.some((spec) =>
@@ -123,7 +160,6 @@ export default function MentoringPage() {
     try {
       setIsLoading(true);
 
-      // 내가 멘토인지 확인
       try {
         const myMentor = await mentorService.getMyApplication(userId);
         if (myMentor && myMentor.status === 'APPROVED') {
@@ -131,11 +167,9 @@ export default function MentoringPage() {
           setMyMentorInfo(myMentor);
         }
       } catch (err) {
-        // 멘토가 아닌 경우
         setIsMentor(false);
       }
 
-      // 활성화된 세션 목록 가져오기
       const availableSessions = await mentoringSessionService.getAvailableSessions();
       setSessions(availableSessions);
       setFilteredSessions(availableSessions);
@@ -152,7 +186,6 @@ export default function MentoringPage() {
   };
 
   const handleSaveSession = async () => {
-    // 유효성 검사
     const errors = validateSessionForm(sessionForm);
     setValidationErrors(errors);
 
@@ -168,8 +201,6 @@ export default function MentoringPage() {
 
     try {
       setIsSaving(true);
-
-      // 날짜와 시간 합치기
       const sessionDateTime = `${sessionForm.sessionDate}T${sessionForm.sessionTime}:00`;
 
       await mentoringSessionService.createSession({
@@ -182,8 +213,6 @@ export default function MentoringPage() {
 
       showToast('멘토링 세션이 성공적으로 등록되었습니다!', 'success');
       setShowScheduleModal(false);
-
-      // 폼 초기화
       setSessionForm({
         title: '',
         description: '',
@@ -193,7 +222,6 @@ export default function MentoringPage() {
       });
       setValidationErrors({});
 
-      // 세션 목록 다시 불러오기
       if (currentUser) {
         checkMentorStatus(currentUser.userId);
       }
@@ -232,268 +260,232 @@ export default function MentoringPage() {
 
   if (isLoading) {
     return (
-      <>
-        <Header />
-        <LoadingSpinner fullScreen message="멘토링 정보를 불러오는 중..." />
-      </>
+      <div className="min-h-[50vh] flex items-center justify-center">
+        <LoadingSpinner message="멘토링 정보를 불러오는 중..." />
+      </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="relative">
       <ToastContainer />
-      <Header />
-      <div className="pt-16"> {/* Header 높이만큼 패딩 */}
-      {/* 멘토 전용 버튼 - 우측 상단 고정 */}
+
+      {/* Background Effects */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div
+          className={`absolute top-0 left-1/4 w-[600px] h-[600px] rounded-full blur-[120px] ${
+            darkMode ? "bg-[#5A7BFF]/10" : "bg-[#5A7BFF]/20"
+          }`}
+        />
+        <div
+          className={`absolute bottom-1/4 right-1/4 w-[500px] h-[500px] rounded-full blur-[120px] ${
+            darkMode ? "bg-[#8F5CFF]/10" : "bg-[#8F5CFF]/20"
+          }`}
+        />
+      </div>
+
+      {/* Grid Pattern */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: darkMode
+            ? "linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)"
+            : "linear-gradient(rgba(90,123,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(90,123,255,0.05) 1px, transparent 1px)",
+          backgroundSize: "60px 60px",
+        }}
+      />
+
+      {/* 멘토 전용 버튼 */}
       {isMentor && (
         <div className="fixed top-20 right-6 z-40">
           <button
             onClick={() => setShowScheduleModal(true)}
-            className="px-6 py-3 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl flex items-center"
+            className="px-5 py-3 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] hover:shadow-lg hover:shadow-purple-500/30 text-white rounded-xl font-semibold transition-all flex items-center gap-2"
           >
-            <i className="ri-add-circle-line mr-2 text-xl"></i>
-            멘토링 일정 등록하기
+            <Plus className="w-5 h-5" />
+            <span className="hidden sm:inline">멘토링 일정 등록</span>
           </button>
         </div>
       )}
 
-      {false ? (
-        // 멘토 뷰 (기존 그대로 유지)
-        <div className="max-w-7xl mx-auto px-6 py-8">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">멘토 대시보드</h1>
-            <p className="text-gray-600">멘토링 일정과 예약을 관리하세요</p>
+      {/* Hero Section */}
+      <div className={`relative ${theme.hero} pt-12 pb-12 md:pt-20 md:pb-16`}>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 text-center relative z-10">
+          <h1 className={`text-2xl sm:text-3xl md:text-4xl font-bold ${theme.text} mb-3 md:mb-4 leading-relaxed`}>
+            나에게 맞는 멘토와 함께
+            <br className="sm:hidden" />
+            <span className="hidden sm:inline"> </span>
+            성장해요
+          </h1>
+          <p className={`text-sm sm:text-base ${theme.textMuted} mb-6 md:mb-8`}>
+            어려운 공부도, 진로 고민도
+            <br className="sm:hidden" />
+            <span className="hidden sm:inline"> </span>
+            멘토가 옆에서 도와줄게요
+          </p>
+
+          {/* 검색창 */}
+          <div className="max-w-xl mx-auto mb-6">
+            <div className={`relative flex items-center border rounded-2xl transition-all ${theme.input}`}>
+              <Search className={`absolute left-4 w-5 h-5 ${theme.textMuted}`} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="어떤 분야의 멘토를 찾으시나요?"
+                className={`w-full pl-12 pr-4 py-3.5 bg-transparent focus:outline-none text-sm sm:text-base ${
+                  darkMode ? "text-white placeholder-white/40" : "text-slate-900 placeholder-slate-400"
+                }`}
+              />
+            </div>
           </div>
 
-          {/* 일정 등록 버튼 */}
-          <button
-            onClick={() => setShowScheduleModal(true)}
-            className="mb-6 px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-all"
-          >
-            <i className="ri-calendar-check-line mr-2"></i>
-            멘토링 일정 {myMentorInfo?.availableTime && Object.keys(myMentorInfo.availableTime).length > 0 ? '수정하기' : '등록하기'}
-          </button>
-
-          {/* 예약 목록 */}
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">예약 현황</h2>
-            {myBookings.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">예약된 멘토링이 없습니다.</p>
-            ) : (
-              <div className="space-y-4">
-                {myBookings.map((booking) => {
-                  const statusInfo = getStatusInfo(booking.status);
-                  return (
-                    <div key={booking.bookingId} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-bold text-gray-900">
-                          {booking.menteeName} (@{booking.menteeUsername})
-                        </h3>
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusInfo.className}`}>
-                          {statusInfo.label}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-2">
-                        {booking.bookingDate} {booking.timeSlot}
-                      </p>
-                      {booking.message && (
-                        <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded mb-2">{booking.message}</p>
-                      )}
-                      {booking.status === 'PENDING' && (
-                        <div className="flex gap-2 mt-2">
-                          <button
-                            onClick={() => handleConfirmBooking(booking.bookingId)}
-                            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded font-medium"
-                          >
-                            승인
-                          </button>
-                          <button
-                            onClick={() => handleRejectBooking(booking.bookingId)}
-                            className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded font-medium"
-                          >
-                            거절
-                          </button>
-                        </div>
-                      )}
-                      {booking.status === 'CONFIRMED' && booking.meetingUrl && (
-                        <button
-                          onClick={() => navigate(`/mentoring/meeting/${booking.bookingId}`)}
-                          className="mt-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded font-medium"
-                        >
-                          미팅 입장하기
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+          {/* 분야별 필터 */}
+          <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
+            {SPECIALIZATIONS.map((spec) => (
+              <button
+                key={spec}
+                onClick={() => handleSpecializationToggle(spec)}
+                className={`px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all border ${
+                  selectedSpecializations.includes(spec)
+                    ? theme.buttonActive
+                    : theme.button
+                }`}
+              >
+                {spec}
+              </button>
+            ))}
           </div>
         </div>
-      ) : (
-        // 일반 유저 뷰 - 부드럽고 친근한 느낌
-        <div className="bg-gradient-to-b from-blue-50 to-purple-50 min-h-screen">
-          {/* 히어로 섹션 */}
-          <div className="bg-gradient-to-r from-blue-100 via-purple-100 to-pink-100 py-16">
-            <div className="max-w-6xl mx-auto px-6 text-center">
-              <h1 className="text-3xl md:text-4xl font-medium text-gray-700 mb-4 leading-relaxed font-rounded">
-                나에게 맞는 멘토와 함께<br />
-                편하게 배우고 성장해요
-              </h1>
-              <p className="text-base text-gray-600 leading-normal mb-8">
-                어려운 공부도, 진로 고민도<br />
-                멘토가 옆에서 차근차근 도와줄게요
-              </p>
+      </div>
 
-              {/* 검색창 */}
-              <div className="max-w-2xl mx-auto mb-6">
-                <div className="relative">
-                  <i className="ri-search-line absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 text-xl"></i>
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="어떤 분야의 멘토를 찾으시나요?"
-                    className="w-full pl-14 pr-6 py-4 rounded-3xl text-gray-700 text-base focus:outline-none focus:ring-4 focus:ring-purple-200 shadow-lg bg-white border-2 border-white"
-                  />
-                </div>
-              </div>
-
-              {/* 분야별 필터 */}
-              <div className="flex flex-wrap justify-center gap-3">
-                {SPECIALIZATIONS.map((spec) => (
-                  <button
-                    key={spec}
-                    onClick={() => handleSpecializationToggle(spec)}
-                    className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all ${
-                      selectedSpecializations.includes(spec)
-                        ? 'bg-gradient-to-r from-blue-400 to-purple-400 text-white shadow-lg scale-105'
-                        : 'bg-white text-gray-700 hover:bg-gray-50 shadow-md'
-                    }`}
-                  >
-                    {spec}
-                  </button>
-                ))}
-              </div>
-            </div>
+      {/* Card Section */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 md:py-12 relative z-10">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6 md:mb-8">
+          <div>
+            <h2 className={`text-xl sm:text-2xl font-bold ${theme.text} mb-1`}>
+              멘토링 세션
+            </h2>
+            <p className={theme.textMuted}>
+              총 <span className="font-bold text-[#8F5CFF]">{filteredSessions.length}개</span>의 세션
+            </p>
           </div>
+        </div>
 
-          {/* 카드 섹션 */}
-          <div className="max-w-7xl mx-auto px-6 py-12">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-1">
-                  멘토링 세션
-                </h2>
-                <p className="text-gray-600">
-                  총 <span className="font-bold text-purple-600">{filteredSessions.length}개</span>의 멘토링 세션이 있어요
-                </p>
-              </div>
-            </div>
+        {filteredSessions.length === 0 ? (
+          <div className={`rounded-2xl border p-8 md:p-12 text-center ${theme.cardSolid}`}>
+            <Calendar className={`w-12 h-12 mx-auto mb-4 ${theme.textMuted}`} />
+            <h3 className={`text-lg font-semibold ${theme.text} mb-2`}>
+              등록된 멘토링 세션이 없어요
+            </h3>
+            <p className={theme.textMuted}>
+              {searchQuery || selectedSpecializations.length > 0
+                ? "다른 검색어나 분야를 선택해보세요"
+                : "곧 새로운 멘토링 세션이 등록될 예정이에요"}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            {filteredSessions.map((session) => (
+              <div
+                key={session.sessionId}
+                className={`rounded-2xl border p-5 md:p-6 transition-all duration-300 flex flex-col h-full ${theme.card}`}
+              >
+                {/* 제목 - 고정 높이 */}
+                <h3 className={`font-bold text-base sm:text-lg mb-2 line-clamp-2 h-[48px] sm:h-[56px] ${theme.text}`}>
+                  {session.title}
+                </h3>
 
-            {filteredSessions.length === 0 ? (
-              <EmptyState
-                icon="ri-calendar-line"
-                title="등록된 멘토링 세션이 없어요"
-                description={
-                  searchQuery || selectedSpecializations.length > 0
-                    ? "다른 검색어나 분야를 선택해보세요"
-                    : "곧 새로운 멘토링 세션이 등록될 예정이에요"
-                }
-              />
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredSessions.map((session) => (
-                  <div
-                    key={session.sessionId}
-                    className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-200 overflow-hidden border border-gray-200"
-                  >
-                    <div className="p-6">
-                      {/* 제목 */}
-                      <h3 className="font-bold text-gray-900 text-lg mb-2 line-clamp-2 min-h-[56px]">
-                        {session.title}
-                      </h3>
+                {/* 설명 - 고정 높이 */}
+                <div className="h-[40px] mb-4">
+                  {session.description && (
+                    <p className={`text-sm line-clamp-2 ${theme.textMuted}`}>
+                      {session.description}
+                    </p>
+                  )}
+                </div>
 
-                      {/* 설명 */}
-                      {session.description && (
-                        <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-                          {session.description}
-                        </p>
-                      )}
+                {/* 멘토 정보 - 고정 높이 */}
+                <div className={`flex items-center mb-4 p-3 rounded-xl h-[64px] ${
+                  darkMode ? "bg-white/[0.03]" : "bg-slate-50"
+                }`}>
+                  <div className="w-10 h-10 bg-gradient-to-br from-[#5A7BFF] to-[#8F5CFF] rounded-full flex items-center justify-center text-white font-bold text-sm mr-3 flex-shrink-0">
+                    {session.mentorName.charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium truncate ${theme.text}`}>{session.mentorName}</p>
+                    {session.mentorUsername && (
+                      <p className={`text-xs truncate ${theme.textSubtle}`}>@{session.mentorUsername}</p>
+                    )}
+                  </div>
+                </div>
 
-                      {/* 멘토 정보 */}
-                      <div className="flex items-center mb-4 p-3 bg-gray-50 rounded-lg">
-                        <div className="w-10 h-10 bg-gradient-to-br from-pink-400 to-purple-400 rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
-                          {session.mentorName.charAt(0)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-700 truncate">{session.mentorName}</p>
-                          <p className="text-xs text-gray-500 truncate">@{session.mentorUsername}</p>
-                        </div>
-                      </div>
+                {/* 날짜/시간 - 고정 높이 */}
+                <div className="space-y-2 mb-4 h-[52px]">
+                  <div className={`flex items-center text-sm ${theme.textMuted}`}>
+                    <Calendar className="w-4 h-4 mr-2 text-[#8F5CFF]" />
+                    <span>{formatSessionDate(session.sessionDate)}</span>
+                  </div>
+                  <div className={`flex items-center text-sm ${theme.textMuted}`}>
+                    <Clock className="w-4 h-4 mr-2 text-[#8F5CFF]" />
+                    <span>{formatSessionTime(session.sessionDate)} ({session.durationMinutes}분)</span>
+                  </div>
+                </div>
 
-                      {/* 날짜/시간 */}
-                      <div className="space-y-2 mb-4">
-                        <div className="flex items-center text-sm text-gray-700">
-                          <i className="ri-calendar-line mr-2 text-pink-500"></i>
-                          <span className="font-medium">{formatSessionDate(session.sessionDate)}</span>
-                        </div>
-                        <div className="flex items-center text-sm text-gray-700">
-                          <i className="ri-time-line mr-2 text-pink-500"></i>
-                          <span className="font-medium">{formatSessionTime(session.sessionDate)} ({session.durationMinutes}분)</span>
-                        </div>
-                      </div>
-
-                      {/* 예약 상태 */}
-                      <div className="pt-4 border-t border-gray-100 mb-4">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs text-gray-500">예약 상태</p>
-                          <p className={`text-lg font-bold ${session.availableSlots > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {session.isFull ? '마감' : '예약 가능'}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* 예약 버튼 */}
-                      <button
-                        onClick={() => handleBookSession(session.sessionId)}
-                        disabled={session.isFull}
-                        className={`w-full py-3 rounded-xl text-sm font-semibold transition-all ${
-                          session.isFull
-                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                            : 'bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white shadow-md hover:shadow-lg'
-                        }`}
-                      >
-                        {session.isFull ? '예약 마감' : '예약하기'}
-                      </button>
+                {/* 하단 영역 - mt-auto로 항상 하단에 배치 */}
+                <div className="mt-auto">
+                  {/* 예약 상태 */}
+                  <div className={`pt-4 border-t mb-4 ${darkMode ? "border-white/[0.08]" : "border-slate-100"}`}>
+                    <div className="flex items-center justify-between">
+                      <p className={`text-xs ${theme.textSubtle}`}>예약 상태</p>
+                      <p className={`text-sm font-bold ${
+                        session.isFull ? "text-red-500" : "text-emerald-500"
+                      }`}>
+                        {session.isFull ? '마감' : '예약 가능'}
+                      </p>
                     </div>
                   </div>
-                ))}
+
+                  {/* 예약 버튼 */}
+                  <button
+                    onClick={() => handleBookSession(session.sessionId)}
+                    disabled={session.isFull}
+                    className={`w-full py-3 rounded-xl text-sm font-semibold transition-all ${
+                      session.isFull
+                        ? darkMode
+                          ? 'bg-white/[0.05] text-white/30 cursor-not-allowed'
+                          : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] hover:shadow-lg hover:shadow-purple-500/30 text-white'
+                    }`}
+                  >
+                    {session.isFull ? '예약 마감' : '예약하기'}
+                  </button>
+                </div>
               </div>
-            )}
+            ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* 세션 등록 모달 */}
       {showScheduleModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-800">멘토링 세션 등록</h2>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className={`rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border ${theme.modal}`}>
+            <div className={`sticky top-0 ${theme.modal} border-b ${theme.modalHeader} p-4 sm:p-6 flex items-center justify-between`}>
+              <h2 className={`text-xl sm:text-2xl font-bold ${theme.text}`}>멘토링 세션 등록</h2>
               <button
                 onClick={() => setShowScheduleModal(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className={`p-2 rounded-lg transition-colors ${theme.button}`}
               >
-                <i className="ri-close-line text-2xl"></i>
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               <div className="space-y-5">
                 {/* 제목 */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className={`block text-sm font-semibold mb-2 ${theme.text}`}>
                     제목 <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -501,10 +493,10 @@ export default function MentoringPage() {
                     value={sessionForm.title}
                     onChange={(e) => setSessionForm({ ...sessionForm, title: e.target.value })}
                     placeholder="예: 백엔드 면접 준비 멘토링"
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:outline-none ${
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#5A7BFF]/30 focus:outline-none transition-all ${
                       validationErrors.title
-                        ? 'border-red-500 focus:border-red-500 focus:ring-red-200'
-                        : 'border-gray-300 focus:border-pink-400 focus:ring-pink-200'
+                        ? 'border-red-500'
+                        : theme.input
                     }`}
                   />
                   {validationErrors.title && (
@@ -514,7 +506,7 @@ export default function MentoringPage() {
 
                 {/* 설명 */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className={`block text-sm font-semibold mb-2 ${theme.text}`}>
                     설명 <span className="text-red-500">*</span>
                   </label>
                   <textarea
@@ -522,10 +514,10 @@ export default function MentoringPage() {
                     onChange={(e) => setSessionForm({ ...sessionForm, description: e.target.value })}
                     placeholder="멘토링 세션에 대한 설명을 입력해주세요 (최소 10자)"
                     rows={4}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:outline-none resize-none ${
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#5A7BFF]/30 focus:outline-none resize-none transition-all ${
                       validationErrors.description
-                        ? 'border-red-500 focus:border-red-500 focus:ring-red-200'
-                        : 'border-gray-300 focus:border-pink-400 focus:ring-pink-200'
+                        ? 'border-red-500'
+                        : theme.input
                     }`}
                   />
                   {validationErrors.description && (
@@ -534,9 +526,9 @@ export default function MentoringPage() {
                 </div>
 
                 {/* 날짜 & 시간 */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className={`block text-sm font-semibold mb-2 ${theme.text}`}>
                       날짜 <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -544,10 +536,10 @@ export default function MentoringPage() {
                       value={sessionForm.sessionDate}
                       min={getTodayString()}
                       onChange={(e) => setSessionForm({ ...sessionForm, sessionDate: e.target.value })}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:outline-none ${
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#5A7BFF]/30 focus:outline-none transition-all ${
                         validationErrors.sessionDate
-                          ? 'border-red-500 focus:border-red-500 focus:ring-red-200'
-                          : 'border-gray-300 focus:border-pink-400 focus:ring-pink-200'
+                          ? 'border-red-500'
+                          : theme.input
                       }`}
                     />
                     {validationErrors.sessionDate && (
@@ -555,22 +547,22 @@ export default function MentoringPage() {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className={`block text-sm font-semibold mb-2 ${theme.text}`}>
                       시간 <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="time"
                       value={sessionForm.sessionTime}
                       onChange={(e) => setSessionForm({ ...sessionForm, sessionTime: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-pink-400 focus:ring-2 focus:ring-pink-200 focus:outline-none"
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#5A7BFF]/30 focus:outline-none transition-all ${theme.input}`}
                     />
                   </div>
                 </div>
 
-                {/* 소요 시간 & 가격 */}
-                <div className="grid grid-cols-2 gap-4">
+                {/* 소요 시간 */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className={`block text-sm font-semibold mb-2 ${theme.text}`}>
                       소요 시간 (분)
                     </label>
                     <input
@@ -579,31 +571,35 @@ export default function MentoringPage() {
                       onChange={(e) => setSessionForm({ ...sessionForm, durationMinutes: parseInt(e.target.value) || 60 })}
                       min="30"
                       step="30"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-pink-400 focus:ring-2 focus:ring-pink-200 focus:outline-none"
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#5A7BFF]/30 focus:outline-none transition-all ${theme.input}`}
                     />
                   </div>
                 </div>
 
                 {/* 1:1 멘토링 안내 */}
-                <div className="bg-pink-50 border border-pink-200 rounded-lg p-4">
+                <div className={`rounded-xl p-4 ${
+                  darkMode ? "bg-[#5A7BFF]/10 border border-[#5A7BFF]/20" : "bg-[#5A7BFF]/5 border border-[#5A7BFF]/20"
+                }`}>
                   <div className="flex items-center">
-                    <i className="ri-user-line text-pink-500 mr-2"></i>
-                    <p className="text-sm text-pink-700">1:1 멘토링으로 진행됩니다</p>
+                    <UserIcon className="w-5 h-5 text-[#5A7BFF] mr-2" />
+                    <p className={`text-sm ${darkMode ? "text-[#5A7BFF]" : "text-[#5A7BFF]"}`}>
+                      1:1 멘토링으로 진행됩니다
+                    </p>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-6 flex gap-4">
+              <div className="mt-6 flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={() => setShowScheduleModal(false)}
-                  className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                  className={`flex-1 py-3 rounded-xl font-medium transition-all border ${theme.button}`}
                 >
                   취소
                 </button>
                 <button
                   onClick={handleSaveSession}
                   disabled={isSaving}
-                  className="flex-1 py-3 bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-lg font-semibold hover:from-pink-600 hover:to-purple-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 py-3 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSaving ? '등록 중...' : '등록하기'}
                 </button>
@@ -612,7 +608,6 @@ export default function MentoringPage() {
           </div>
         </div>
       )}
-      </div> {/* pt-16 닫기 */}
     </div>
   );
 }
