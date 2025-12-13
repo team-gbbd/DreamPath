@@ -155,15 +155,15 @@ export default function LearningPathDetail() {
             </div>
             <div className="text-center p-3 bg-gray-50 rounded">
               <p className="text-2xl font-bold text-gray-900">
-                {path.correctRate?.toFixed(0) || 0}%
+                {path.scoreRate?.toFixed(0) || 0}%
               </p>
-              <p className="text-xs text-gray-500 mt-1">정답률</p>
+              <p className="text-xs text-gray-500 mt-1">득점률</p>
             </div>
             <div className="text-center p-3 bg-gray-50 rounded">
               <p className="text-2xl font-bold text-gray-900">
-                {path.correctCount}<span className="text-sm font-normal text-gray-400">/{path.totalQuestions}</span>
+                {path.earnedScore}<span className="text-sm font-normal text-gray-400">/{path.totalMaxScore}점</span>
               </p>
-              <p className="text-xs text-gray-500 mt-1">맞춘 문제</p>
+              <p className="text-xs text-gray-500 mt-1">획득 점수</p>
             </div>
           </div>
         </div>
@@ -176,8 +176,8 @@ export default function LearningPathDetail() {
               const difficultyBadge = getDifficultyBadge(session.weekNumber);
               const statusBadge = getStatusBadge(session.status);
               const isGenerating = generatingWeek === session.weekNumber;
-              const correctRate = session.questionCount > 0
-                ? ((session.correctCount / session.questionCount) * 100).toFixed(0)
+              const scoreRate = session.totalScore > 0
+                ? ((session.earnedScore / session.totalScore) * 100).toFixed(0)
                 : 0;
 
               return (
@@ -212,9 +212,9 @@ export default function LearningPathDetail() {
                             {session.questionCount > 0 && (
                               <>
                                 <span>•</span>
-                                <span>{session.correctCount}/{session.questionCount} 정답</span>
+                                <span>{session.earnedScore}/{session.totalScore}점</span>
                                 <span>•</span>
-                                <span className={Number(correctRate) >= 70 ? 'text-pink-600' : ''}>{correctRate}%</span>
+                                <span className={Number(scoreRate) >= 70 ? 'text-pink-600' : ''}>{scoreRate}%</span>
                               </>
                             )}
                           </div>

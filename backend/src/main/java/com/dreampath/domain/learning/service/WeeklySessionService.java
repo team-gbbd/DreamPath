@@ -67,7 +67,7 @@ public class WeeklySessionService {
     }
 
     /**
-     * WeeklySession의 correctCount를 실제 정답 개수로 업데이트
+     * WeeklySession의 점수 통계를 업데이트
      */
     @Transactional
     public void updateCorrectCount(WeeklySession session) {
@@ -76,17 +76,34 @@ public class WeeklySessionService {
         // 해당 주차의 모든 문제 가져오기
         var questions = weeklyQuestionRepository.findByWeeklySessionWeeklyId(session.getWeeklyId());
 
-        // 각 문제에 대해 만점을 받은 답변 개수 세기
-        long correctCount = questions.stream()
-            .filter(question -> {
-                var answer = studentAnswerRepository.findByQuestionQuestionIdAndUserUserId(
-                    question.getQuestionId(), userId
-                );
-                return answer.isPresent() && answer.get().getScore() == question.getMaxScore();
-            })
-            .count();
+        int totalScore = 0;
+        int earnedScore = 0;
+        int correctCount = 0;
 
-        session.setCorrectCount((int) correctCount);
+        for (var question : questions) {
+            totalScore += question.getMaxScore();
+
+            var answer = studentAnswerRepository.findByQuestionQuestionIdAndUserUserId(
+                question.getQuestionId(), userId
+            );
+
+            if (answer.isPresent() && answer.get().getScore() != null) {
+                earnedScore += answer.get().getScore();
+
+                // 60% 이상 득점하면 정답으로 카운트
+                if (question.getMaxScore() > 0) {
+                    float scoreRate = (float) answer.get().getScore() / question.getMaxScore();
+                    if (scoreRate >= 0.6f) {
+                        correctCount++;
+                    }
+                }
+            }
+        }
+
+        session.setTotalScore(totalScore);
+        session.setEarnedScore(earnedScore);
+        session.setCorrectCount(correctCount);
+        weeklySessionRepository.save(session);
     }
 
     @Transactional

@@ -229,14 +229,18 @@ public class LearningPathController {
 
         int totalQuestions = 0;
         int totalCorrect = 0;
+        int totalEarnedScore = 0;
+        int totalMaxScore = 0;
 
         for (WeeklySession session : path.getWeeklySessions()) {
             List<WeeklyQuestion> questions = weeklyQuestionRepository.findByWeeklySessionWeeklyId(session.getWeeklyId());
             totalQuestions += questions.size();
             totalCorrect += session.getCorrectCount() != null ? session.getCorrectCount() : 0;
+            totalEarnedScore += session.getEarnedScore() != null ? session.getEarnedScore() : 0;
+            totalMaxScore += session.getTotalScore() != null ? session.getTotalScore() : 0;
         }
 
-        learningPathService.updateStatistics(pathId, totalQuestions, totalCorrect);
+        learningPathService.updateStatistics(pathId, totalQuestions, totalCorrect, totalEarnedScore, totalMaxScore);
     }
 
     /**

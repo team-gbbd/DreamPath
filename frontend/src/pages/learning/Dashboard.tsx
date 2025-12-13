@@ -27,6 +27,9 @@ interface WeeklyProgress {
     status: string;
     questionCount: number;
     correctCount: number;
+    earnedScore: number;
+    totalScore: number;
+    scoreRate: number;
     correctRate: number;
 }
 
@@ -55,6 +58,9 @@ interface FeedbackItem {
 interface DashboardStats {
     correctRate: number;
     correctCount: number;
+    earnedScore: number;
+    totalMaxScore: number;
+    scoreRate: number;
     totalQuestions: number;
     answeredQuestions: number;
     weeklyProgress: WeeklyProgress[];
@@ -196,20 +202,20 @@ export default function Dashboard() {
 
     const weeklyProgressData = stats?.weeklyProgress?.map((w) => ({
         name: `${w.weekNumber}주차`,
-        정답률: w.correctRate,
+        득점률: w.scoreRate,
     })) ?? [];
 
     const typeAccuracyData = stats?.typeAccuracy?.map((t) => ({
         name: getTypeLabel(t.questionType),
-        정답률: t.accuracy,
+        득점률: t.accuracy,
     })) ?? [];
 
     const selectedPath = learningPaths.find(p => p.pathId === selectedPathId);
 
-    // 계산된 값들
-    const totalQ = stats ? calcTotalQuestions(stats) : 0;
-    const correctC = stats ? calcCorrectCount(stats) : 0;
-    const correctRate = safePercent(correctC, totalQ);
+    // 계산된 값들 - 득점률 사용
+    const scoreRate = stats?.scoreRate ?? 0;
+    const earnedScore = stats?.earnedScore ?? 0;
+    const totalMaxScore = stats?.totalMaxScore ?? 0;
 
     return (
         <div className="min-h-screen bg-[#FFF5F7]">
@@ -237,14 +243,14 @@ export default function Dashboard() {
                         {stats && (
                             <div className="grid grid-cols-4 gap-4">
                                 <div className="bg-white border border-gray-200 rounded p-4">
-                                    <p className="text-xs text-gray-500 mb-1">전체 정답률</p>
-                                    <p className="text-2xl font-bold text-gray-900">{safeNumber(correctRate)}%</p>
-                                    <p className="text-xs text-gray-400 mt-1">{correctC} / {totalQ}</p>
+                                    <p className="text-xs text-gray-500 mb-1">전체 득점률</p>
+                                    <p className="text-2xl font-bold text-gray-900">{safeNumber(scoreRate)}%</p>
+                                    <p className="text-xs text-gray-400 mt-1">{earnedScore} / {totalMaxScore}점</p>
                                 </div>
                                 <div className="bg-white border border-gray-200 rounded p-4">
                                     <p className="text-xs text-gray-500 mb-1">완료한 문제</p>
                                     <p className="text-2xl font-bold text-gray-900">{stats.answeredQuestions}</p>
-                                    <p className="text-xs text-gray-400 mt-1">/ {totalQ} 문제</p>
+                                    <p className="text-xs text-gray-400 mt-1">/ {stats.totalQuestions} 문제</p>
                                 </div>
                                 <div className="bg-white border border-gray-200 rounded p-4">
                                     <p className="text-xs text-gray-500 mb-1">완료 주차</p>
@@ -270,14 +276,14 @@ export default function Dashboard() {
                         {/* 차트 영역 */}
                         {stats && (
                             <div className="grid grid-cols-2 gap-4">
-                                {/* 주차별 정답률 */}
+                                {/* 주차별 득점률 */}
                                 <div className="bg-white border border-gray-200 rounded p-4">
                                     <div className="flex items-center justify-between mb-4">
-                                        <p className="text-sm font-medium text-gray-900">주차별 정답률</p>
+                                        <p className="text-sm font-medium text-gray-900">주차별 득점률</p>
                                         <div className="flex items-center gap-3 text-xs text-gray-400">
                                             <span className="flex items-center gap-1">
                                                 <span className="w-2 h-2 rounded-full bg-pink-500"></span>
-                                                정답률
+                                                득점률
                                             </span>
                                         </div>
                                     </div>
@@ -296,7 +302,7 @@ export default function Dashboard() {
                                             />
                                             <Line
                                                 type="monotone"
-                                                dataKey="정답률"
+                                                dataKey="득점률"
                                                 stroke="#ec4899"
                                                 strokeWidth={2}
                                                 dot={{ fill: '#ec4899', r: 3 }}
@@ -305,9 +311,9 @@ export default function Dashboard() {
                                     </ResponsiveContainer>
                                 </div>
 
-                                {/* 유형별 정답률 */}
+                                {/* 유형별 득점률 */}
                                 <div className="bg-white border border-gray-200 rounded p-4">
-                                    <p className="text-sm font-medium text-gray-900 mb-4">유형별 정답률</p>
+                                    <p className="text-sm font-medium text-gray-900 mb-4">유형별 득점률</p>
                                     <ResponsiveContainer width="100%" height={180}>
                                         <BarChart data={typeAccuracyData} layout="vertical">
                                             <CartesianGrid strokeDasharray="3 3" stroke="#fce7f3" horizontal={false} />
@@ -321,7 +327,7 @@ export default function Dashboard() {
                                                     boxShadow: 'none'
                                                 }}
                                             />
-                                            <Bar dataKey="정답률" fill="#f472b6" radius={[0, 2, 2, 0]} barSize={20} />
+                                            <Bar dataKey="득점률" fill="#f472b6" radius={[0, 2, 2, 0]} barSize={20} />
                                         </BarChart>
                                     </ResponsiveContainer>
                                 </div>
@@ -340,8 +346,8 @@ export default function Dashboard() {
                                             <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">주차</th>
                                             <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">상태</th>
                                             <th className="text-right px-4 py-2.5 text-xs font-medium text-gray-500">문제 수</th>
-                                            <th className="text-right px-4 py-2.5 text-xs font-medium text-gray-500">정답 수</th>
-                                            <th className="text-right px-4 py-2.5 text-xs font-medium text-gray-500">정답률</th>
+                                            <th className="text-right px-4 py-2.5 text-xs font-medium text-gray-500">획득 점수</th>
+                                            <th className="text-right px-4 py-2.5 text-xs font-medium text-gray-500">득점률</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -358,10 +364,10 @@ export default function Dashboard() {
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-2.5 text-right text-gray-600">{w.questionCount}</td>
-                                                <td className="px-4 py-2.5 text-right text-gray-600">{w.correctCount}</td>
+                                                <td className="px-4 py-2.5 text-right text-gray-600">{w.earnedScore}/{w.totalScore}</td>
                                                 <td className="px-4 py-2.5 text-right">
-                                                    <span className={w.correctRate >= 70 ? "text-pink-600" : w.correctRate >= 40 ? "text-amber-600" : "text-rose-600"}>
-                                                        {safeNumber(w.correctRate)}%
+                                                    <span className={w.scoreRate >= 70 ? "text-pink-600" : w.scoreRate >= 40 ? "text-amber-600" : "text-rose-600"}>
+                                                        {safeNumber(w.scoreRate)}%
                                                     </span>
                                                 </td>
                                             </tr>
