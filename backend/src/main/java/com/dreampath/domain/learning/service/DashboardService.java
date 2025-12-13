@@ -44,7 +44,10 @@ public class DashboardService {
         dashboard.totalQuestions = path.getTotalQuestions();
         dashboard.answeredQuestions = answers.size();
         dashboard.correctCount = path.getCorrectCount();
-        dashboard.correctRate = path.getCorrectRate() != null ? path.getCorrectRate() : 0.0f;
+        dashboard.earnedScore = path.getEarnedScore() != null ? path.getEarnedScore() : 0;
+        dashboard.totalMaxScore = path.getTotalMaxScore() != null ? path.getTotalMaxScore() : 0;
+        dashboard.scoreRate = path.getScoreRate();  // 득점률 (earnedScore / totalMaxScore * 100)
+        dashboard.correctRate = path.getCorrectRate() != null ? path.getCorrectRate() : 0.0f;  // 기존 호환
 
         // 주차별 진행률
         dashboard.weeklyProgress = calculateWeeklyProgress(sessions, answers);
@@ -75,23 +78,22 @@ public class DashboardService {
                             .anyMatch(q -> q.getQuestionId().equals(a.getQuestion().getQuestionId())))
                     .collect(Collectors.toList());
 
-            // 정답 개수 계산
-            int correctAnswers = 0;
-            if (progress.questionCount > 0) {
-                int totalScore = questions.stream().mapToInt(WeeklyQuestion::getMaxScore).sum();
-                int earnedScore = weekAnswers.stream()
-                        .mapToInt(a -> a.getScore() != null ? a.getScore() : 0)
-                        .sum();
-                progress.correctRate = totalScore > 0 ? (float) earnedScore / totalScore * 100 : 0.0f;
+            // 점수 계산
+            int totalScore = questions.stream().mapToInt(WeeklyQuestion::getMaxScore).sum();
+            int earnedScore = weekAnswers.stream()
+                    .mapToInt(a -> a.getScore() != null ? a.getScore() : 0)
+                    .sum();
 
-                // 60% 이상이면 정답으로 간주
-                correctAnswers = (int) weekAnswers.stream()
-                        .filter(a -> a.getScore() != null && a.getQuestion().getMaxScore() > 0
-                                && (float) a.getScore() / a.getQuestion().getMaxScore() >= 0.6f)
-                        .count();
-            } else {
-                progress.correctRate = 0.0f;
-            }
+            progress.totalScore = totalScore;
+            progress.earnedScore = earnedScore;
+            progress.scoreRate = totalScore > 0 ? (float) earnedScore / totalScore * 100 : 0.0f;
+            progress.correctRate = progress.scoreRate;  // 기존 호환용
+
+            // 60% 이상이면 정답으로 간주
+            int correctAnswers = (int) weekAnswers.stream()
+                    .filter(a -> a.getScore() != null && a.getQuestion().getMaxScore() > 0
+                            && (float) a.getScore() / a.getQuestion().getMaxScore() >= 0.6f)
+                    .count();
             progress.correctCount = correctAnswers;
 
             progressList.add(progress);
@@ -186,7 +188,10 @@ public class DashboardService {
         public Integer totalQuestions;
         public Integer answeredQuestions;
         public Integer correctCount;
-        public Float correctRate;
+        public Integer earnedScore;      // 총 획득 점수
+        public Integer totalMaxScore;    // 총 배점
+        public Float scoreRate;          // 득점률 (%)
+        public Float correctRate;        // 기존 호환용
         public List<WeeklyProgress> weeklyProgress;
         public List<TypeAccuracy> typeAccuracy;
         public WeaknessAnalysis weaknessAnalysis;
@@ -197,7 +202,10 @@ public class DashboardService {
         public String status;
         public Integer questionCount;
         public Integer correctCount;
-        public Float correctRate;
+        public Integer earnedScore;
+        public Integer totalScore;
+        public Float scoreRate;      // 득점률 (%)
+        public Float correctRate;    // 기존 호환용
     }
 
     public static class TypeAccuracy {

@@ -156,6 +156,9 @@ export interface LearningPath {
   status: 'ACTIVE' | 'COMPLETED';
   totalQuestions: number;
   correctCount: number;
+  earnedScore: number;
+  totalMaxScore: number;
+  scoreRate: number;
   correctRate: number;
   weaknessTags: string[];
   createdAt: string;
@@ -171,6 +174,9 @@ export interface WeeklySessionInfo {
   status: 'LOCKED' | 'UNLOCKED' | 'COMPLETED';
   questionCount: number;
   correctCount: number;
+  earnedScore: number;
+  totalScore: number;
+  scoreRate: number;
   aiSummary: string | null;
   createdAt: string;
 }
