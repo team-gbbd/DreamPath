@@ -37,17 +37,28 @@ public class DashboardService {
         List<WeeklySession> sessions = sessionRepository.findByLearningPathPathIdOrderByWeekNumberAsc(pathId);
         List<StudentAnswer> answers = answerRepository.findByLearningPathIdAndUserId(pathId, userId);
 
+        // 실시간으로 총 문제 수, 점수 계산
+        int totalQuestions = 0;
+        int totalEarnedScore = 0;
+        int totalMaxScore = 0;
+        for (WeeklySession session : sessions) {
+            List<WeeklyQuestion> questions = questionRepository.findByWeeklySessionWeeklyId(session.getWeeklyId());
+            totalQuestions += questions.size();
+            totalEarnedScore += session.getEarnedScore() != null ? session.getEarnedScore() : 0;
+            totalMaxScore += session.getTotalScore() != null ? session.getTotalScore() : 0;
+        }
+
         DashboardData dashboard = new DashboardData();
         dashboard.pathId = pathId;
         dashboard.domain = path.getDomain();
         dashboard.status = path.getStatus().name();
-        dashboard.totalQuestions = path.getTotalQuestions();
+        dashboard.totalQuestions = totalQuestions;
         dashboard.answeredQuestions = answers.size();
-        dashboard.correctCount = path.getCorrectCount();
-        dashboard.earnedScore = path.getEarnedScore() != null ? path.getEarnedScore() : 0;
-        dashboard.totalMaxScore = path.getTotalMaxScore() != null ? path.getTotalMaxScore() : 0;
-        dashboard.scoreRate = path.getScoreRate();  // 득점률 (earnedScore / totalMaxScore * 100)
-        dashboard.correctRate = path.getCorrectRate() != null ? path.getCorrectRate() : 0.0f;  // 기존 호환
+        dashboard.correctCount = path.getCorrectCount() != null ? path.getCorrectCount() : 0;
+        dashboard.earnedScore = totalEarnedScore;
+        dashboard.totalMaxScore = totalMaxScore;
+        dashboard.scoreRate = totalMaxScore > 0 ? (float) totalEarnedScore / totalMaxScore * 100 : 0.0f;
+        dashboard.correctRate = path.getCorrectRate() != null ? path.getCorrectRate() : 0.0f;
 
         // 주차별 진행률
         dashboard.weeklyProgress = calculateWeeklyProgress(sessions, answers);
