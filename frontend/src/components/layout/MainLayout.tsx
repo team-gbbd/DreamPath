@@ -337,8 +337,8 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
         )}
       </div>
 
-      {/* Floating Chatbot Button */}
-      {isLoggedIn && (
+      {/* Floating Chatbot Button - Profile 페이지에서는 자체 AssistantChatbot 사용 */}
+      {isLoggedIn && !location.pathname.startsWith('/profile') && (
         <button
           onClick={() => setChatbotOpen(!chatbotOpen)}
           className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white rounded-full shadow-lg shadow-purple-500/30 flex items-center justify-center hover:scale-110 transition-all duration-300 z-50 animate-bounce-slow"
@@ -348,7 +348,7 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
       )}
 
       {/* Chatbot Overlay */}
-      {chatbotOpen && (
+      {chatbotOpen && !location.pathname.startsWith('/profile') && (
         <div
           className="fixed inset-0 z-50"
           onClick={() => setChatbotOpen(false)}
@@ -356,7 +356,7 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
       )}
 
       {/* Chatbot Panel */}
-      {chatbotOpen && (
+      {chatbotOpen && !location.pathname.startsWith('/profile') && (
         <div className="fixed bottom-28 right-8 w-[400px] h-[550px] bg-white rounded-3xl shadow-2xl z-50 overflow-hidden border border-gray-200 transform transition-all duration-300 animate-slide-up">
           <FaqChatbot onClose={() => setChatbotOpen(false)} />
         </div>
