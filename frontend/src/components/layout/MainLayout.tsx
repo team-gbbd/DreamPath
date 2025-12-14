@@ -154,7 +154,7 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
   };
 
   return (
-    <div className={`min-h-screen ${theme.bg} flex relative w-full`} style={{ maxWidth: '100%', overflowX: 'hidden' }}>
+    <div className={`h-screen ${theme.bg} flex relative w-full overflow-hidden`}>
       {/* Mobile Menu Overlay */}
       {sidebarOpen && (
         <div
@@ -237,7 +237,7 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
           </button>
         </div>
 
-        <nav className="flex-1 px-3 space-y-2">
+        <nav className="flex-1 px-3 space-y-2 overflow-y-auto min-h-0">
           {sidebarItems.map((item) => (
             <button
               key={item.type}
@@ -250,19 +250,31 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
           ))}
         </nav>
 
-        <div className="px-3">
+        <div className="px-3 pt-2 flex-shrink-0 space-y-2">
+          {isLoggedIn && (
+            <button
+              onClick={() => {
+                setSidebarOpen(false);
+                navigate(userRole === 'ADMIN' ? "/admin" : "/profile/dashboard");
+              }}
+              className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 ${theme.sidebarText} ${theme.sidebarHover}`}
+            >
+              <User className="w-5 h-5 flex-shrink-0" />
+              <span className="font-medium text-sm">{userRole === 'ADMIN' ? '대시보드' : '프로파일링'}</span>
+            </button>
+          )}
           {isLoggedIn ? (
             <button
               onClick={handleLogout}
-              className={`w-full flex items-center justify-center gap-2 px-4 py-4 rounded-xl transition-all duration-200 ${theme.sidebarText} ${theme.sidebarHover}`}
+              className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 ${theme.sidebarText} ${theme.sidebarHover}`}
             >
-              <LogOut className="w-5 h-5" />
-              로그아웃
+              <LogOut className="w-5 h-5 flex-shrink-0" />
+              <span className="font-medium text-sm">로그아웃</span>
             </button>
           ) : (
             <button
               onClick={() => navigate("/login")}
-              className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-xl bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white font-medium"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white font-medium"
             >
               로그인
             </button>

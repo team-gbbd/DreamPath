@@ -192,6 +192,7 @@ export default function HomePage() {
   const [chatbotOpen, setChatbotOpen] = useState(false);
   const [userName, setUserName] = useState("");
   const [userRole, setUserRole] = useState("");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [greeting] = useState(getGreeting());
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -214,7 +215,12 @@ export default function HomePage() {
         const user = JSON.parse(userStr);
         setUserName(user.name || "");
         setUserRole(user.role || "");
-      } catch (e) {}
+        setIsLoggedIn(true);
+      } catch (e) {
+        setIsLoggedIn(false);
+      }
+    } else {
+      setIsLoggedIn(false);
     }
   }, []);
 
@@ -362,7 +368,7 @@ export default function HomePage() {
 
       {/* Left Sidebar - Desktop */}
       <div
-        className={`hidden lg:flex w-20 hover:w-64 transition-all duration-300 border-r flex-col py-8 group ${theme.sidebar}`}
+        className={`hidden lg:flex sticky top-0 h-screen w-20 hover:w-64 transition-all duration-300 border-r flex-col py-8 group ${theme.sidebar}`}
       >
         <div className="px-4 mb-12">
           <div className="w-12 h-12 bg-gradient-to-br from-[#5A7BFF] to-[#8F5CFF] rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/20 relative overflow-hidden group/logo">
@@ -451,14 +457,35 @@ export default function HomePage() {
           ))}
         </nav>
 
-        <div className="px-3">
-          <button
-            onClick={handleLogout}
-            className={`w-full flex items-center justify-center gap-2 px-4 py-4 rounded-xl transition-all duration-200 ${theme.sidebarText} ${theme.sidebarHover}`}
-          >
-            <LogOut className="w-5 h-5" />
-            로그아웃
-          </button>
+        <div className="px-3 space-y-2">
+          {isLoggedIn && (
+            <button
+              onClick={() => {
+                setSidebarOpen(false);
+                navigate(userRole === 'ADMIN' ? "/admin" : "/profile/dashboard");
+              }}
+              className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 ${theme.sidebarText} ${theme.sidebarHover}`}
+            >
+              <User className="w-5 h-5 flex-shrink-0" />
+              <span className="font-medium text-sm">{userRole === 'ADMIN' ? '대시보드' : '프로파일링'}</span>
+            </button>
+          )}
+          {isLoggedIn ? (
+            <button
+              onClick={handleLogout}
+              className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 ${theme.sidebarText} ${theme.sidebarHover}`}
+            >
+              <LogOut className="w-5 h-5 flex-shrink-0" />
+              <span className="font-medium text-sm">로그아웃</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate("/login")}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white font-medium"
+            >
+              로그인
+            </button>
+          )}
         </div>
       </div>
 

@@ -277,7 +277,7 @@ export default function LandingPage() {
       )}
 
       {/* Left Sidebar - Desktop */}
-      <div className={`hidden lg:flex w-20 hover:w-64 transition-all duration-300 border-r flex-col py-8 group ${theme.sidebar}`}>
+      <div className={`hidden lg:flex sticky top-0 h-screen w-20 hover:w-64 transition-all duration-300 border-r flex-col py-8 group ${theme.sidebar}`}>
         <div className="px-4 mb-12">
           <div className="w-12 h-12 bg-gradient-to-br from-[#5A7BFF] to-[#8F5CFF] rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/20 relative overflow-hidden group/logo">
             <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover/logo:opacity-100 transition-opacity" />
