@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { UserProfile } from '@/types';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, authFetch } from '@/lib/api';
 
 type UseProfileResult = {
   data: UserProfile | null;
@@ -34,7 +34,7 @@ export default function useProfile(userId?: number | null): UseProfileResult {
       setError(null);
       try {
         // 성향 분석 API 호출 (프로필 입력 폼 대신 분석 결과 사용)
-        const response = await fetch(`${API_BASE_URL}/profiles/${userId}/analysis`);
+        const response = await authFetch(`${API_BASE_URL}/profiles/${userId}/analysis`);
         if (!response.ok) {
           const message = await response.text();
           throw new Error(message || '성향 분석 결과를 불러오지 못했습니다.');
@@ -68,7 +68,7 @@ export default function useProfile(userId?: number | null): UseProfileResult {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/profiles/${userId}/analysis`);
+      const response = await authFetch(`${API_BASE_URL}/profiles/${userId}/analysis`);
       if (!response.ok) {
         const message = await response.text();
         throw new Error(message || '성향 분석 결과를 불러오지 못했습니다.');

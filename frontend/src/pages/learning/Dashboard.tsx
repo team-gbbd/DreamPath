@@ -270,14 +270,38 @@ export default function Dashboard() {
         }
     };
 
-    const weeklyProgressData = stats?.weeklyProgress?.map((w) => ({
-        name: `${w.weekNumber}주차`,
-        점수: w.scoreRate,
-    })) ?? [];
+    // 안전한 계산 함수들
+    const safePercent = (part: number, total: number): number => {
+        if (!total || total === 0) return 0;
+        return (part / total) * 100;
+    };
+
+    const safeNumber = (value: number, decimals: number = 1): string => {
+        if (isNaN(value) || !isFinite(value)) return "0";
+        return value.toFixed(decimals);
+    };
+
+    const calcTotalQuestions = (s: DashboardStats): number => {
+        if (s.totalQuestions > 0) return s.totalQuestions;
+        return s.weeklyProgress?.reduce((sum, w) => sum + w.questionCount, 0) || 0;
+    };
+
+    const calcCorrectCount = (s: DashboardStats): number => {
+        if (s.correctCount > 0) return s.correctCount;
+        return s.weeklyProgress?.reduce((sum, w) => sum + w.correctCount, 0) || 0;
+    };
+
+    // 완료되거나 진행 중인 주차만 차트에 표시 (LOCKED 제외, 문제 푼 적 있는 주차만)
+    const weeklyProgressData = stats?.weeklyProgress
+        ?.filter((w) => w.status === 'COMPLETED' || (w.status === 'UNLOCKED' && w.questionCount > 0))
+        ?.map((w) => ({
+            name: `${w.weekNumber}주차`,
+            점수: Math.round(w.scoreRate),
+        })) ?? [];
 
     const typeAccuracyData = stats?.typeAccuracy?.map((t) => ({
         name: getTypeLabel(t.questionType),
-        점수: t.accuracy,
+        점수: Math.round(t.accuracy),
     })) ?? [];
 
     const selectedPath = learningPaths.find(p => p.pathId === selectedPathId);

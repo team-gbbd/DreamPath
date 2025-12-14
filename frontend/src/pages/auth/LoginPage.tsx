@@ -145,7 +145,15 @@ export default function LoginPage() {
           const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
           const decoded = new TextDecoder().decode(bytes);
           const user = JSON.parse(decoded);
-          localStorage.setItem("dreampath:user", JSON.stringify(user));
+          // 민감 정보 제외하고 필수 정보만 저장
+          const safeUser = {
+            userId: user.userId,
+            username: user.username,
+            name: user.name,
+            role: user.role,
+            accessToken: user.accessToken
+          };
+          localStorage.setItem("dreampath:user", JSON.stringify(safeUser));
           window.dispatchEvent(new Event("dreampath-auth-change"));
           displayToast(`${user.name}님 환영합니다!`);
           setTimeout(() => navigate("/", { replace: true }), 1500);
@@ -171,7 +179,15 @@ export default function LoginPage() {
     try {
       setIsSubmitting(true);
       const res = await axios.post(`${API_BASE_URL}/auth/login`, { username, password });
-      localStorage.setItem("dreampath:user", JSON.stringify(res.data));
+      // 민감 정보 제외하고 필수 정보만 저장
+      const safeUser = {
+        userId: res.data.userId,
+        username: res.data.username,
+        name: res.data.name,
+        role: res.data.role,
+        accessToken: res.data.accessToken
+      };
+      localStorage.setItem("dreampath:user", JSON.stringify(safeUser));
       window.dispatchEvent(new Event("dreampath-auth-change"));
       displayToast(`${res.data.name}님 환영합니다!`);
       setTimeout(() => navigate("/", { replace: true }), 1500);

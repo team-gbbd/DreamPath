@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/common/Toast';
-import axios from 'axios';
+import { backendApi } from '@/lib/api';
 
 interface Inquiry {
   id: number;
@@ -19,7 +19,6 @@ interface Inquiry {
   createdAt: string;
 }
 
-const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080';
 
 export default function InquiriesManagementPage() {
   const navigate = useNavigate();
@@ -93,7 +92,7 @@ export default function InquiriesManagementPage() {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await axios.get(`${API_BASE_URL}/api/inquiry/all`);
+      const response = await backendApi.get('/inquiry/all');
       setInquiries(response.data);
     } catch (err: any) {
       console.error('문의 로딩 실패:', err);
@@ -147,7 +146,7 @@ export default function InquiriesManagementPage() {
 
     try {
       setIsSending(true);
-      const response = await axios.post(`${API_BASE_URL}/api/inquiry/reply`, {
+      const response = await backendApi.post('/inquiry/reply', {
         inquiryId: selectedInquiry.id,
         recipientEmail: selectedInquiry.email,
         recipientName: selectedInquiry.name,

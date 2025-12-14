@@ -139,7 +139,7 @@ class JobRecommendationAgent:
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.3,
-                max_tokens=2000
+                max_completion_tokens=2000
             )
 
             result_text = response.choices[0].message.content
@@ -1222,7 +1222,7 @@ class JobRecommendationAgent:
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.4,
-                max_tokens=4000
+                max_completion_tokens=4000
             )
 
             result_text = response.choices[0].message.content
