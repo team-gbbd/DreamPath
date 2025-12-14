@@ -69,10 +69,27 @@ class SupabaseVectorRepository:
         if not job_ids:
             return []
         try:
+            # Convert job_ids from "job_10117" format to integer 10117
+            numeric_ids = []
+            for job_id in job_ids:
+                if isinstance(job_id, str):
+                    # Extract number from "job_10117" or just use "10117"
+                    numeric_part = job_id.replace("job_", "")
+                    try:
+                        numeric_ids.append(int(numeric_part))
+                    except ValueError:
+                        print(f"Warning: Could not convert job_id '{job_id}' to integer")
+                        continue
+                else:
+                    numeric_ids.append(job_id)
+            
+            if not numeric_ids:
+                return []
+            
             response = (
                 self.supabase.table('job_details')
                 .select('*')
-                .in_('job_id', job_ids)
+                .in_('job_id', numeric_ids)
                 .execute()
             )
             return response.data
@@ -87,13 +104,47 @@ class SupabaseVectorRepository:
         if not major_ids:
             return []
         try:
+            # Convert major_ids from "major_123" format to integer 123
+            numeric_ids = []
+            for major_id in major_ids:
+                if isinstance(major_id, str):
+                    numeric_part = major_id.replace("major_", "").replace("dept_", "")
+                    try:
+                        numeric_ids.append(int(numeric_part))
+                    except ValueError:
+                        print(f"Warning: Could not convert major_id '{major_id}' to integer")
+                        continue
+                else:
+                    numeric_ids.append(major_id)
+            
+            if not numeric_ids:
+                return []
+            
             response = (
                 self.supabase.table('major_details')
                 .select('*')
-                .in_('major_id', major_ids)
+                .in_('major_id', numeric_ids)
                 .execute()
             )
             return response.data
         except Exception as e:
             print(f"Error fetching major details: {e}")
+            return []
+
+    def search_keyword(self, table: str, column: str, keyword: str, limit: int = 5):
+        """
+        Perform a simple text search (ilike) on a specific table and column.
+        Useful for "Hard Keyword Injection" (e.g., finding exact job titles).
+        """
+        try:
+            response = (
+                self.supabase.table(table)
+                .select('*')
+                .ilike(column, f"%{keyword}%")
+                .limit(limit)
+                .execute()
+            )
+            return response.data
+        except Exception as e:
+            print(f"Error searching keyword in {table}.{column}: {e}")
             return []

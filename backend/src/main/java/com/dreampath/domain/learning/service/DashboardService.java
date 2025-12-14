@@ -70,20 +70,25 @@ public class DashboardService {
         // 약점 분석 (기존 피드백 기반)
         dashboard.weaknessAnalysis = analyzeWeaknesses(answers);
 
-        // AI 약점 분석 (오답이 3개 이상일 때만)
+        // AI 약점 분석 - DB에서 먼저 조회
         List<StudentAnswer> wrongAnswers = answers.stream()
                 .filter(a -> a.getScore() != null && a.getQuestion().getMaxScore() != null
                         && (float) a.getScore() / a.getQuestion().getMaxScore() < 0.6f)
                 .collect(Collectors.toList());
 
         if (wrongAnswers.size() >= 3) {
-            try {
-                WeaknessAnalysisService.WeaknessAnalysisResult aiAnalysis =
-                        weaknessAnalysisService.analyzeWeaknesses(path.getDomain(), wrongAnswers);
-                dashboard.aiWeaknessAnalysis = convertToAIAnalysis(aiAnalysis);
-            } catch (Exception e) {
-                log.warn("AI 약점 분석 실패: {}", e.getMessage());
+            // DB에서 저장된 분석 결과 조회
+            Optional<WeaknessAnalysisService.WeaknessAnalysisResult> savedAnalysis =
+                    weaknessAnalysisService.getSavedAnalysis(pathId);
+
+            if (savedAnalysis.isPresent()) {
+                dashboard.aiWeaknessAnalysis = convertToAIAnalysis(savedAnalysis.get());
+                log.info("저장된 약점 분석 결과 사용 - pathId: {}", pathId);
+            } else {
+                // 저장된 결과가 없으면 기본값 표시 (분석은 퀴즈 완료 시에만)
                 dashboard.aiWeaknessAnalysis = getDefaultAIAnalysis();
+                dashboard.aiWeaknessAnalysis.overallAnalysis =
+                        "아직 분석이 완료되지 않았습니다. 퀴즈를 완료하면 상세 분석이 제공됩니다.";
             }
         } else {
             dashboard.aiWeaknessAnalysis = getDefaultAIAnalysis();

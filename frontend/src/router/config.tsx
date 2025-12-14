@@ -1,11 +1,5 @@
 import { lazy } from "react";
 import type { RouteObject } from "react-router-dom";
-import VectorStatusPage from "@/pages/profile/VectorStatusPage";
-import JobRecommend from "@/pages/profile/JobRecommend";
-import RecruitRecommend from "@/pages/profile/RecruitRecommend";
-import MajorRecommend from "@/pages/profile/MajorRecommend";
-import SchoolRecommend from "@/pages/profile/SchoolRecommend";
-import MainLayout from "@/components/layout/MainLayout";
 
 const ProfileDashboardPage = lazy(() => import("../pages/profile/Dashboard"));
 const HomePage = lazy(() => import("../pages/home/page"));
@@ -37,14 +31,11 @@ const BookMentoringPage = lazy(() => import("../pages/mentoring/BookMentoring"))
 const MentoringMeetingPage = lazy(() => import("../pages/mentoring/MentoringMeeting"));
 const JobAnalysisPage = lazy(() => import("../pages/job-analysis/JobAnalysisPage"));
 const PersonalizedInsightsPage = lazy(() => import("../pages/job-analysis/PersonalizedInsightsPage"));
-// 채용 추천?� 종합분석(JobRecommendationsPage)�??�용
 const JobRecommendationsPage = lazy(() => import("../pages/job-recommendations/ComprehensiveJobPage"));
 const CompanyTalentPage = lazy(() => import("../pages/company-talent/CompanyTalentPage"));
+const MainLayout = lazy(() => import("../components/layout/MainLayout"));
 
 const routes: RouteObject[] = [
-  /* ----------------------
-     NO LAYOUT (Landing, Home, Auth)
-     ---------------------- */
   {
     path: "/",
     element: <HomePage />,
@@ -89,26 +80,6 @@ const routes: RouteObject[] = [
     path: "/profile/dashboard",
     element: <MainLayout><ProfileDashboardPage /></MainLayout>,
   },
-  {
-    path: "/profile/vector-status",
-    element: <MainLayout><VectorStatusPage /></MainLayout>,
-  },
-  {
-    path: "/profile/recommend",
-    element: <MainLayout><JobRecommend /></MainLayout>,
-  },
-  {
-    path: "/profile/recommend/worknet",
-    element: <MainLayout><RecruitRecommend /></MainLayout>,
-  },
-  {
-    path: "/profile/recommend/majors",
-    element: <MainLayout><MajorRecommend /></MainLayout>,
-  },
-  {
-    path: "/profile/recommend/schools",
-    element: <MainLayout><SchoolRecommend /></MainLayout>,
-  },
 
   /* ----------------------
      LEARNING PATH
@@ -134,9 +105,6 @@ const routes: RouteObject[] = [
     element: <MainLayout><AIAgentDashboardPage /></MainLayout>,
   },
 
-  /* ----------------------
-     COMPANY INFO
-     ---------------------- */
   {
     path: "/company-list",
     element: <MainLayout><CompanyListPage /></MainLayout>,
@@ -146,9 +114,6 @@ const routes: RouteObject[] = [
     element: <MainLayout><CompanyDetailPage /></MainLayout>,
   },
 
-  /* ----------------------
-     JOB ANALYSIS & RECOMMENDATIONS
-     ---------------------- */
   {
     path: "/job-analysis",
     element: <MainLayout><JobAnalysisPage /></MainLayout>,
@@ -182,9 +147,6 @@ const routes: RouteObject[] = [
     element: <MainLayout showFooter={false}><MentoringMeetingPage /></MainLayout>,
   },
 
-  /* ----------------------
-     PAYMENTS
-     ---------------------- */
   {
     path: "/payments/purchase",
     element: <MainLayout><PaymentPurchasePage /></MainLayout>,
@@ -202,9 +164,6 @@ const routes: RouteObject[] = [
     element: <MainLayout><PaymentFailPage /></MainLayout>,
   },
 
-  /* ----------------------
-     ADMIN
-     ---------------------- */
   {
     path: "/admin",
     element: <MainLayout><AdminPage /></MainLayout>,
@@ -234,9 +193,6 @@ const routes: RouteObject[] = [
     element: <MainLayout><MentorManagementPage /></MainLayout>,
   },
 
-  /* ----------------------
-     NOT FOUND
-     ---------------------- */
   {
     path: "*",
     element: <NotFoundPage />,

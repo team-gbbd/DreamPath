@@ -60,7 +60,43 @@ export interface MajorDetailData {
   job?: string | null;
   salary?: string | null;
   employment?: string | null;
-  rawData?: Record<string, any>;
+  rawData?: {
+    // Basic info
+    major?: string;
+    summary?: string;
+    major_summary?: string;
+    interest?: string;
+    property?: string;
+    characteristics?: string;
+    job?: string;
+    salary?: string;
+    employment?: string;
+    relateQualf?: string; // 관련 자격
+    lClass?: string; // 대분류
+    mClass?: string; // 중분류
+    // Chart data - can be object or array
+    chartData?: {
+      gender?: Array<{ item: string; data: number }>;
+      field?: Array<{ item: string; data: number }>;
+      after_graduation?: Array<{ item: string; data: number }>;
+      employment_rate?: Array<{ item: string; data: number }>;
+      [key: string]: any;
+    } | Array<any>;
+    // Department list (universities offering this major)
+    department?: Array<{
+      univ_NM?: string;
+      campus_NM?: string;
+      [key: string]: any;
+    }>;
+    // Curriculum data
+    highSchoolSubjects?: Array<{ subject_DESCRIPTION?: string }>;
+    careerActivities?: Array<{ act_NAME?: string; act_DESCRIPTION?: string }>;
+    majorSubjects?: Array<{ subject_NAME?: string; subject_DESCRIPTION?: string }>;
+    // Career paths
+    graduateAfter?: Array<{ graduate_AFTER_NAME?: string; graduate_AFTER_DESCRIPTION?: string }>;
+    relatedJobs?: Array<{ relate_JOB_NAME?: string }>;
+    [key: string]: any;
+  };
 }
 
 export const fetchJobDetail = async (jobId: number | string): Promise<JobDetailData> => {

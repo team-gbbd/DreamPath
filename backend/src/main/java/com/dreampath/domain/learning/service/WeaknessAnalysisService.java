@@ -1,11 +1,17 @@
 package com.dreampath.domain.learning.service;
 
+import com.dreampath.domain.learning.entity.LearningPath;
 import com.dreampath.domain.learning.entity.StudentAnswer;
+import com.dreampath.domain.learning.entity.WeaknessAnalysis;
+import com.dreampath.domain.learning.repository.WeaknessAnalysisRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
@@ -16,6 +22,8 @@ import java.util.*;
 public class WeaknessAnalysisService {
 
     private final RestTemplate restTemplate;
+    private final WeaknessAnalysisRepository weaknessAnalysisRepository;
+    private final ObjectMapper objectMapper;
 
     @Value("${python.ai.service.url:http://localhost:8000}")
     private String pythonServiceUrl;
@@ -180,6 +188,99 @@ public class WeaknessAnalysisService {
             data.add(item);
         }
         return data;
+    }
+
+    /**
+     * DB에서 저장된 약점 분석 결과 조회
+     */
+    public Optional<WeaknessAnalysisResult> getSavedAnalysis(Long pathId) {
+        return weaknessAnalysisRepository.findByLearningPathPathId(pathId)
+                .map(this::entityToResult);
+    }
+
+    /**
+     * 약점 분석 실행 후 DB에 저장
+     */
+    @Transactional
+    public WeaknessAnalysisResult analyzeAndSave(LearningPath learningPath, List<StudentAnswer> wrongAnswers) {
+        WeaknessAnalysisResult result = analyzeWeaknesses(learningPath.getDomain(), wrongAnswers);
+        saveAnalysis(learningPath, result, wrongAnswers.size());
+        return result;
+    }
+
+    /**
+     * 분석 결과를 DB에 저장
+     */
+    @Transactional
+    public void saveAnalysis(LearningPath learningPath, WeaknessAnalysisResult result, int wrongCount) {
+        WeaknessAnalysis analysis = weaknessAnalysisRepository
+                .findByLearningPathPathId(learningPath.getPathId())
+                .orElse(new WeaknessAnalysis(learningPath));
+
+        try {
+            analysis.setWeaknessTags(objectMapper.writeValueAsString(result.weaknessTags));
+            analysis.setRadarData(objectMapper.writeValueAsString(result.radarData));
+            analysis.setRecommendations(objectMapper.writeValueAsString(result.recommendations));
+            analysis.setOverallAnalysis(result.overallAnalysis);
+            analysis.setAnalyzedWrongCount(wrongCount);
+
+            weaknessAnalysisRepository.save(analysis);
+            log.info("약점 분석 결과 저장 완료 - pathId: {}", learningPath.getPathId());
+        } catch (JsonProcessingException e) {
+            log.error("약점 분석 결과 JSON 변환 실패: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 재분석이 필요한지 확인 (새 오답이 추가된 경우)
+     */
+    public boolean needsReanalysis(Long pathId, int currentWrongCount) {
+        return weaknessAnalysisRepository.findByLearningPathPathId(pathId)
+                .map(analysis -> analysis.getAnalyzedWrongCount() < currentWrongCount)
+                .orElse(true); // 저장된 분석이 없으면 분석 필요
+    }
+
+    /**
+     * DB 엔티티를 결과 DTO로 변환
+     */
+    @SuppressWarnings("unchecked")
+    private WeaknessAnalysisResult entityToResult(WeaknessAnalysis entity) {
+        WeaknessAnalysisResult result = new WeaknessAnalysisResult();
+        result.overallAnalysis = entity.getOverallAnalysis();
+
+        try {
+            if (entity.getWeaknessTags() != null) {
+                List<Map<String, Object>> tagsData = objectMapper.readValue(entity.getWeaknessTags(), List.class);
+                for (Map<String, Object> tagData : tagsData) {
+                    WeaknessTag tag = new WeaknessTag();
+                    tag.tag = (String) tagData.get("tag");
+                    tag.count = ((Number) tagData.get("count")).intValue();
+                    tag.severity = (String) tagData.get("severity");
+                    tag.description = (String) tagData.get("description");
+                    result.weaknessTags.add(tag);
+                }
+            }
+
+            if (entity.getRecommendations() != null) {
+                List<String> recs = objectMapper.readValue(entity.getRecommendations(), List.class);
+                result.recommendations.addAll(recs);
+            }
+
+            if (entity.getRadarData() != null) {
+                List<Map<String, Object>> radarData = objectMapper.readValue(entity.getRadarData(), List.class);
+                for (Map<String, Object> rd : radarData) {
+                    RadarDataItem item = new RadarDataItem();
+                    item.category = (String) rd.get("category");
+                    item.score = ((Number) rd.get("score")).intValue();
+                    item.fullMark = ((Number) rd.get("fullMark")).intValue();
+                    result.radarData.add(item);
+                }
+            }
+        } catch (JsonProcessingException e) {
+            log.error("약점 분석 결과 JSON 파싱 실패: {}", e.getMessage());
+        }
+
+        return result;
     }
 
     // 결과 DTO 클래스들

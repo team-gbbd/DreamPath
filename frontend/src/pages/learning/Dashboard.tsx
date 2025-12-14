@@ -63,7 +63,7 @@ interface FeedbackItem {
 interface WeaknessTagItem {
     tag: string;
     count: number;
-    severity: string;
+    severity: string;  // high, medium, low
     description: string;
 }
 
@@ -400,6 +400,12 @@ export default function Dashboard() {
         </div>
     );
 
+    // 평균 점수 계산 (완료된 주차 기준)
+    const completedWeeks = stats?.weeklyProgress?.filter((w: any) => w.status === 'COMPLETED') ?? [];
+    const avgScore = completedWeeks.length > 0
+        ? Math.round(completedWeeks.reduce((sum: number, w: any) => sum + (w.earnedScore || 0), 0) / completedWeeks.length)
+        : 0;
+
     return (
         <div className={`min-h-screen ${theme.bg} relative`}>
             <BackgroundEffects />
@@ -435,11 +441,11 @@ export default function Dashboard() {
                     <div className="lg:col-span-9 space-y-5">
                         {/* 상단 KPI */}
                         {stats && (
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                                <div className={`rounded-xl border backdrop-blur-sm p-4 ${theme.card}`}>
-                                    <p className={`text-xs ${theme.textSubtle} mb-1`}>평균 점수</p>
-                                    <p className={`text-2xl font-bold ${theme.text}`}>
-                                        {totalMaxScore > 0 ? `${Math.floor(scoreRate)}점` : '-'}
+                            <div className="grid grid-cols-4 gap-4">
+                                <div className="bg-white border border-gray-200 rounded p-4">
+                                    <p className="text-xs text-gray-500 mb-1">평균 점수</p>
+                                    <p className="text-2xl font-bold text-gray-900">
+                                        {completedWeeks.length > 0 ? `${avgScore}점` : '-'}
                                     </p>
                                 </div>
                                 <div className={`rounded-xl border backdrop-blur-sm p-4 ${theme.card}`}>
