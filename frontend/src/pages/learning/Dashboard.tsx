@@ -226,10 +226,13 @@ export default function Dashboard() {
         return s.weeklyProgress?.reduce((sum, w) => sum + w.correctCount, 0) || 0;
     };
 
-    const weeklyProgressData = stats?.weeklyProgress?.map((w) => ({
-        name: `${w.weekNumber}주차`,
-        점수: Math.round(w.scoreRate),
-    })) ?? [];
+    // 완료되거나 진행 중인 주차만 차트에 표시 (LOCKED 제외, 문제 푼 적 있는 주차만)
+    const weeklyProgressData = stats?.weeklyProgress
+        ?.filter((w) => w.status === 'COMPLETED' || (w.status === 'UNLOCKED' && w.questionCount > 0))
+        ?.map((w) => ({
+            name: `${w.weekNumber}주차`,
+            점수: Math.round(w.scoreRate),
+        })) ?? [];
 
     const typeAccuracyData = stats?.typeAccuracy?.map((t) => ({
         name: getTypeLabel(t.questionType),

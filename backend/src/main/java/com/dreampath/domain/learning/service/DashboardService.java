@@ -157,11 +157,10 @@ public class DashboardService {
                             .anyMatch(q -> q.getQuestionId().equals(a.getQuestion().getQuestionId())))
                     .collect(Collectors.toList());
 
-            // 점수 계산
-            int totalScore = questions.stream().mapToInt(WeeklyQuestion::getMaxScore).sum();
-            int earnedScore = weekAnswers.stream()
-                    .mapToInt(a -> a.getScore() != null ? a.getScore() : 0)
-                    .sum();
+            // 점수 계산 - DB에 저장된 값 사용 (WeeklySession이 source of truth)
+            int totalScore = session.getTotalScore() != null ? session.getTotalScore() :
+                    questions.stream().mapToInt(WeeklyQuestion::getMaxScore).sum();
+            int earnedScore = session.getEarnedScore() != null ? session.getEarnedScore() : 0;
 
             progress.totalScore = totalScore;
             progress.earnedScore = earnedScore;

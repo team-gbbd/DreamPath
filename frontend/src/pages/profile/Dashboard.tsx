@@ -969,8 +969,99 @@ export default function NewDashboard() {
       : null;
     const bestPathAvgScore = bestPath ? getAvgScore(bestPath) : 0;
 
+    // AI 코치 메시지 생성 (가장 잘하는 학습 + 그 안의 약점 보완 조언)
+    const getCoachMessage = () => {
+      if (learningPaths.length === 0) {
+        return {
+          message: "아직 시작한 학습이 없네요! 프로필 분석 결과를 바탕으로 당신에게 딱 맞는 진로를 찾아볼까요?",
+          tip: "💡 관심 직업을 선택하면 해당 분야의 체계적인 학습 경로를 제공해드려요.",
+          action: "/learning",
+          actionLabel: "학습 시작하기"
+        };
+      }
+
+      // 가장 잘하는 학습의 약점 태그
+      const bestWeakTags = bestPath?.weaknessTags || [];
+      const hasWeakness = bestWeakTags.length > 0;
+      const topWeakness = bestWeakTags.slice(0, 2).join(', ');
+
+      // 가장 잘하는 학습 기반 + 약점 보완 조언
+      if (bestPath && bestPathAvgScore >= 80) {
+        return {
+          message: `'${bestPath.domain}' 분야에서 평균 ${bestPathAvgScore}점! 이 분야에 확실한 적성이 보여요 ⭐`,
+          tip: hasWeakness
+            ? `💡 더 완벽해지려면: '${topWeakness}' 부분을 보완하면 전문가 수준이 될 수 있어요!`
+            : `💡 ${bestPath.domain} 관련 자격증이나 포트폴리오를 준비해보세요.`,
+          action: `/learning/${bestPath.pathId}`,
+          actionLabel: "강점 분야 이어가기"
+        };
+      }
+
+      if (bestPath && bestPathAvgScore >= 60) {
+        return {
+          message: `'${bestPath.domain}' 분야에서 좋은 성과를 보이고 있어요! 이 방향이 잘 맞는 것 같아요.`,
+          tip: hasWeakness
+            ? `💡 점수 UP 포인트: '${topWeakness}' 개념을 다시 정리하면 80점대도 가능해요!`
+            : `💡 꾸준히 학습하면 곧 고득점에 도달할 수 있어요!`,
+          action: `/learning/${bestPath.pathId}`,
+          actionLabel: "학습 계속하기"
+        };
+      }
+
+      if (bestPath && bestPathAvgScore > 0) {
+        return {
+          message: `'${bestPath.domain}' 학습을 시작했네요! 기초를 탄탄히 다지고 있어요.`,
+          tip: hasWeakness
+            ? `💡 집중 포인트: '${topWeakness}' 부분을 먼저 이해하면 전체 학습이 수월해져요!`
+            : `💡 처음엔 누구나 어려워요. 지금 쌓는 기초가 나중에 큰 자산이 됩니다!`,
+          action: `/learning/${bestPath.pathId}`,
+          actionLabel: "이어서 학습하기"
+        };
+      }
+
+      // 학습은 있지만 아직 점수가 없는 경우
+      return {
+        message: `${activeCount}개의 학습이 진행 중이에요! 문제를 풀어보면서 나에게 맞는 분야를 찾아봐요.`,
+        tip: "💡 다양한 분야를 경험해보는 것도 진로 탐색의 좋은 방법이에요!",
+        action: "/learning",
+        actionLabel: "학습하러 가기"
+      };
+    };
+
+    const coachData = getCoachMessage();
+
     return (
       <div className="space-y-6">
+        {/* AI 학습 코치 카드 */}
+        <div className="bg-gradient-to-r from-pink-50 to-purple-50 border border-pink-200 rounded-2xl p-5">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-purple-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
+              <Bot size={24} className="text-white" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <p className="text-sm font-bold text-slate-800">AI 학습 코치</p>
+                <span className="text-xs bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full">맞춤 조언</span>
+              </div>
+              <p className="text-sm text-slate-600 leading-relaxed mb-2">
+                {coachData.message}
+              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-pink-600 bg-pink-50 px-3 py-1.5 rounded-lg">
+                  {coachData.tip}
+                </p>
+                <Link
+                  to={coachData.action}
+                  className="text-xs bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded-full transition-colors flex items-center gap-1"
+                >
+                  {coachData.actionLabel}
+                  <ChevronRight size={14} />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* 통계 카드 그리드 */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className={styles['glass-card']}>
