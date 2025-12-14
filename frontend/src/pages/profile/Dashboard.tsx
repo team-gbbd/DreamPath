@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   LayoutGrid, MessageSquare, Bell, User, Settings, LogOut,
-  Sun, Moon, Search, BookOpen, GraduationCap, Briefcase, Map, FileText,
+  BookOpen, GraduationCap, Briefcase, FileText,
   PieChart, Heart, Target, ChevronRight, Menu, X, Send, Check, AlertCircle, Bot
 } from 'lucide-react';
 import Button from '../../components/base/Button';
@@ -10,7 +10,7 @@ import { useToast } from '../../components/common/Toast';
 import styles from './dashboard.module.css';
 
 // Dashboard Logic Imports
-import ValuesSummaryCard from '@/components/profile/ValuesSummaryCard';
+
 import ValueDetailCard from '@/components/profile/ValueDetailCard';
 import HybridJobRecommendPanel from '@/components/profile/HybridJobRecommendPanel';
 import AssistantChatbot from "@/components/chatbot/AssistantChatbot";
@@ -18,6 +18,8 @@ import MajorRecommendPanel from '@/components/profile/MajorRecommendPanel';
 import CounselRecommendPanel from '@/components/profile/CounselRecommendPanel';
 import { BACKEND_BASE_URL, backendApi, bookingService, paymentService, mentorService } from '@/lib/api';
 import { fetchHybridJobs, fetchMajors } from '@/pages/profile/recommendApi';
+import { runRecommendation } from '@/api/recommendationApi';
+import { normalizeRecommendationData } from '@/lib/recommendationUtils';
 import { Bar, BarChart, CartesianGrid, Cell, PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer, Tooltip, XAxis, YAxis, } from 'recharts';
 
 // --- Types & Constants from Dashboard.tsx ---
@@ -26,19 +28,18 @@ const PROFILE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 type TabKey =
   | 'dashboard' // mapped from 'overview'
-  | 'profile'   // new
   | 'personality'
   | 'values'
   | 'jobs'      // mapped from 'jobRecommend'
   | 'majors'    // mapped from 'departmentRecommend'
-  | 'roadmap'   // new
-  | 'counsel'   // mapped from 'counselCase'
   | 'learning'
   | 'mentoring'
   | 'settings';
 
 interface ProfileData {
   profileId?: number;
+  userId?: number;
+  updatedAt?: string;
   values?: string | Record<string, number> | null;
   emotions?: string | Record<string, number | string> | null;
 }
@@ -58,6 +59,15 @@ interface AnalysisData {
 }
 
 type ProfileCache = Record<string, { timestamp: number; profile: ProfileData }>;
+
+interface RecommendationResult {
+  jobs?: Array<Record<string, any>>;
+  jobExplanations?: string[];
+  job_explanations?: string[];
+  majors?: Array<Record<string, any>>;
+  majorExplanations?: string[];
+  major_explanations?: string[];
+}
 
 interface FetchOptions {
   signal?: AbortSignal;
@@ -177,6 +187,22 @@ const safeParseJson = <T,>(value: string | T | null | undefined): T | null => {
   }
 };
 
+const normalizePersonalityScores = (data: Record<string, any> | null | undefined): Record<string, number> => {
+  if (!data) return {};
+  const normalized: Record<string, number> = {};
+  Object.entries(data).forEach(([key, value]) => {
+    if (typeof value === 'number') {
+      normalized[key] = value;
+    } else if (value && typeof value === 'object') {
+      const candidate = (value as Record<string, any>)?.score;
+      if (typeof candidate === 'number') {
+        normalized[key] = candidate;
+      }
+    }
+  });
+  return normalized;
+};
+
 interface ProgressBarProps {
   label: string;
   value: number | string | null | undefined;
@@ -198,6 +224,17 @@ const ProgressBar = ({ label, value, color = 'bg-indigo-500' }: ProgressBarProps
   );
 };
 
+const toMatchPercent = (value: unknown): number => {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return 0;
+    return value > 0 && value <= 1 ? Math.round(value * 100) : Math.round(value);
+  }
+  const parsed = parseFloat(String(value));
+  if (Number.isNaN(parsed)) return 0;
+  return parsed > 0 && parsed <= 1 ? Math.round(parsed * 100) : Math.round(parsed);
+};
+
 // 날짜 포맷 함수
 const formatDate = (dateStr: string | undefined): string => {
   if (!dateStr) return '-';
@@ -209,7 +246,6 @@ const formatDate = (dateStr: string | undefined): string => {
 export default function NewDashboard() {
   const navigate = useNavigate();
   const { showToast, ToastContainer } = useToast();
-  const [darkMode, setDarkMode] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showMentorModal, setShowMentorModal] = useState(false);
@@ -242,6 +278,12 @@ export default function NewDashboard() {
   // Top Recommendations State for Overview
   const [topJobs, setTopJobs] = useState<any[]>([]);
   const [topMajors, setTopMajors] = useState<any[]>([]);
+  const [recommendationResult, setRecommendationResult] = useState<RecommendationResult | null>(null);
+  const [recommendationLoading, setRecommendationLoading] = useState(false);
+  const [recommendationError, setRecommendationError] = useState<string | null>(null);
+
+  // Majors are still used in the 'majors' tab section below (check lines 1764)
+  const recommendationMajors = useMemo(() => recommendationResult?.majors ?? [], [recommendationResult]);
 
   // Mentoring State
   const [myBookings, setMyBookings] = useState<any[]>([]);
@@ -270,48 +312,98 @@ export default function NewDashboard() {
     [],
   );
 
-  const fetchTopRecommendations = useCallback(async (profileId: number) => {
+  const fetchLegacyTopRecommendations = useCallback(async (profileId: number) => {
     try {
-      // 1. Get Vector ID
       const statusRes = await backendApi.get(`/vector/status/${profileId}`);
-      if (statusRes.data?.ready && statusRes.data?.vectorId) {
-        const vectorId = statusRes.data.vectorId;
-
-        // 2. Fetch Jobs
-        const jobs = await fetchHybridJobs(vectorId, 3);
-        if (Array.isArray(jobs)) {
-          setTopJobs(jobs.slice(0, 3).map((job: any, index: number) => ({
-            rank: index + 1,
-            title: job.title || job.metadata?.jobName || '직업',
-            match: Math.round((job.score || 0) * 100),
-            tag: job.metadata?.job_category || '직업',
-            color: index === 0 ? 'from-indigo-500 to-indigo-600' : index === 1 ? 'from-purple-500 to-purple-600' : 'from-blue-500 to-blue-600'
-          })));
-        }
-
-        // 3. Fetch Majors
-        const majors = await fetchMajors(vectorId);
-        const majorsList = Array.isArray(majors) ? majors : (majors?.items || []);
-
-        if (Array.isArray(majorsList)) {
-          setTopMajors(majorsList.slice(0, 3).map((major: any, index: number) => ({
-            rank: index + 1,
-            title: major.title
-              || major.metadata?.deptName
-              || major.metadata?.mClass
-              || major.metadata?.majorName
-              || major.metadata?.department
-              || '학과',
-            match: Math.round((major.score || 0) * 100),
-            tag: major.metadata?.lClass || major.metadata?.field || major.metadata?.category || '학과',
-            color: index === 0 ? 'from-green-500 to-green-600' : index === 1 ? 'from-emerald-500 to-emerald-600' : 'from-teal-500 to-teal-600'
-          })));
-        }
+      if (!(statusRes.data?.ready && statusRes.data?.vectorId)) {
+        return;
       }
-    } catch (e) {
-      console.error("Failed to fetch top recommendations", e);
+      const vectorId = statusRes.data.vectorId;
+
+      const jobs = await fetchHybridJobs(vectorId, 3);
+      if (Array.isArray(jobs)) {
+        setTopJobs(jobs.slice(0, 3).map((job: any, index: number) => ({
+          rank: index + 1,
+          title: job.title || job.metadata?.jobName || '직업',
+          match: Math.round((job.score || 0) * 100),
+          tag: job.metadata?.job_category || '직업',
+          color: index === 0 ? 'from-indigo-500 to-indigo-600' : index === 1 ? 'from-purple-500 to-purple-600' : 'from-blue-500 to-blue-600'
+        })));
+      }
+
+      const majors = await fetchMajors(vectorId);
+      const majorsList = Array.isArray(majors) ? majors : (majors?.items || []);
+      if (Array.isArray(majorsList)) {
+        setTopMajors(majorsList.slice(0, 3).map((major: any, index: number) => ({
+          rank: index + 1,
+          title: major.title
+            || major.metadata?.deptName
+            || major.metadata?.mClass
+            || major.metadata?.majorName
+            || major.metadata?.department
+            || '학과',
+          match: Math.round((major.score || 0) * 100),
+          tag: major.metadata?.lClass || major.metadata?.field || major.metadata?.category || '학과',
+          color: index === 0 ? 'from-green-500 to-green-600' : index === 1 ? 'from-emerald-500 to-emerald-600' : 'from-teal-500 to-teal-600'
+        })));
+      }
+    } catch (legacyError) {
+      console.error("Legacy top recommendations failed", legacyError);
     }
   }, []);
+
+  const fetchTopRecommendations = useCallback(async (profile: ProfileData, analysis?: AnalysisData | null) => {
+    if (!analysis) return;
+    try {
+      setRecommendationLoading(true);
+      setRecommendationError(null);
+      const rawPersonality = safeParseJson<Record<string, any>>(analysis.personality);
+      const personalityData = normalizePersonalityScores(rawPersonality);
+      const payload = {
+        userId: profile?.userId,
+        profileUpdatedAt: profile?.updatedAt,
+        summary: analysis.summary ?? '',
+        goals: analysis.goals ?? [],
+        values: analysis.valuesList ?? [],
+        personality: personalityData,
+        strengths: analysis.strengths ?? [],
+        risks: analysis.risks ?? [],
+      };
+
+      const result = await runRecommendation(payload);
+      console.log("[DEBUG] Recommendation API Response:", result);
+
+      // Normalize Data (Standardize Title, Score, Explanation)
+      const normalizedResult = normalizeRecommendationData(result);
+      const { jobs, majors } = normalizedResult;
+
+      // Set Full Result (for Panels)
+      setRecommendationResult(normalizedResult);
+
+      // Set Top 3 (for Dashboard UI)
+      setTopJobs(jobs.slice(0, 3).map((job: any, index: number) => ({
+        rank: index + 1,
+        title: job.title,
+        match: toMatchPercent(job.matchScore ?? job.match ?? job.score ?? job.metadata?.matchScore ?? job.metadata?.match ?? job.metadata?.score),
+        tag: job.tag || job.category || job.metadata?.job_category || '직업',
+        color: index === 0 ? 'from-indigo-500 to-indigo-600' : index === 1 ? 'from-purple-500 to-purple-600' : 'from-blue-500 to-blue-600',
+      })));
+
+      setTopMajors(majors.slice(0, 3).map((major: any, index: number) => ({
+        rank: index + 1,
+        title: major.title,
+        match: toMatchPercent(major.matchScore ?? major.match ?? major.score ?? major.metadata?.matchScore ?? major.metadata?.match ?? major.metadata?.score),
+        tag: major.tag || major.category || major.metadata?.lClass || major.metadata?.field || major.metadata?.category || '학과',
+        color: index === 0 ? 'from-green-500 to-green-600' : index === 1 ? 'from-emerald-500 to-emerald-600' : 'from-teal-500 to-teal-600',
+      })));
+
+    } catch (e) {
+      console.error("Failed to fetch top recommendations", e);
+      setRecommendationError("추천 데이터를 불러오지 못했습니다.");
+    } finally {
+      setRecommendationLoading(false);
+    }
+  }, [fetchLegacyTopRecommendations]);
 
   const fetchInitialData = useCallback(
     async (targetUserId: number, options: FetchOptions = {}) => {
@@ -324,7 +416,7 @@ export default function NewDashboard() {
       setAnalysisData(analysis);
 
       if (profile.profileId) {
-        fetchTopRecommendations(profile.profileId);
+        fetchTopRecommendations(profile, analysis);
       }
     },
     [fetchProfileData, fetchAnalysisData, fetchTopRecommendations],
@@ -423,20 +515,40 @@ export default function NewDashboard() {
 
   const personalityChartData = useMemo(() => {
     if (!personalityJson) return null;
-    const traitSource =
-      (personalityJson as Record<string, unknown>).traits &&
-        typeof (personalityJson as Record<string, unknown>).traits === 'object'
-        ? ((personalityJson as Record<string, unknown>).traits as Record<string, unknown>)
-        : personalityJson;
 
-    const entries = Object.entries(traitSource).filter(([, value]) => typeof value === 'number');
+    // Handle both direct key-value pairs and nested "bigFive" structure
+    const traitSource = (personalityJson as Record<string, unknown>).big_five ||
+      (personalityJson as Record<string, unknown>).bigFive ||
+      (personalityJson as Record<string, unknown>).traits ||
+      personalityJson;
+
+    const entries = Object.entries(traitSource as Record<string, unknown>);
     if (!entries.length) return null;
 
-    return entries.map(([key, value]) => ({
-      key,
-      trait: traitLabels[key] || key,
-      score: Number(value) || 0,
-    }));
+    // Filter relevant Big5 keys
+    const validKeys = ['openness', 'conscientiousness', 'extraversion', 'agreeableness', 'neuroticism', 'stability'];
+    const filteredEntries = entries.filter(([key]) => validKeys.includes(key));
+
+    if (!filteredEntries.length) return null;
+
+    return filteredEntries.map(([key, value]) => {
+      let score = 0;
+      if (typeof value === 'number') {
+        score = value;
+      } else if (typeof value === 'object' && value !== null && 'score' in value) {
+        score = Number((value as { score: unknown }).score) || 0;
+      }
+
+      // 0-1 range vs 0-100 range normalization
+      if (score > 1) score = score / 100;
+
+      return {
+        key,
+        trait: traitLabels[key] || key,
+        score: score * 100, // Display as 0-100 on chart
+        fullMark: 100,
+      };
+    });
   }, [personalityJson]);
 
   const personalityNarrative = useMemo(() => {
@@ -468,6 +580,7 @@ export default function NewDashboard() {
         : valuesJson;
 
     const entries = Object.entries(valueSource).filter(([, value]) => typeof value === 'number');
+    // If no numeric scores extracted, hide the chart by returning null
     if (!entries.length) return null;
 
     return entries.map(([key, value]) => ({
@@ -509,12 +622,28 @@ export default function NewDashboard() {
   }, [valuesChartData]);
 
   const mbtiTraits = useMemo(() => {
-    const personality = safeParseJson<Record<string, number>>(analysisData?.personality);
+    const personality = safeParseJson<Record<string, unknown>>(analysisData?.personality);
     if (!personality) return null;
-    const extraversion = Number(personality.extraversion ?? 0.5);
-    const openness = Number(personality.openness ?? 0.5);
-    const agreeableness = Number(personality.agreeableness ?? 0.5);
-    const conscientiousness = Number(personality.conscientiousness ?? 0.5);
+
+    // Handle nested structure from Agent
+    const source = (personality.big_five || personality.bigFive || personality) as Record<string, any>;
+
+    // Helper to extract numeric score (0-100)
+    const getScore = (key: string): number => {
+      const val = source[key];
+      let s = 50;
+      if (typeof val === 'number') s = val;
+      else if (val && typeof val === 'object' && 'score' in val) s = Number(val.score);
+
+      // Normalize to 0-1 range for this specific logic
+      return s > 1 ? s / 100 : s;
+    };
+
+    const extraversion = getScore('extraversion');
+    const openness = getScore('openness');
+    const agreeableness = getScore('agreeableness');
+    const conscientiousness = getScore('conscientiousness');
+
     return [
       {
         pair: 'E / I',
@@ -599,9 +728,6 @@ export default function NewDashboard() {
           <button onClick={() => setActiveTab('personality')} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-colors shadow-lg">
             상세 리포트 보기
           </button>
-          <button onClick={() => setActiveTab('roadmap')} className="px-5 py-2.5 bg-white/80 text-slate-700 rounded-xl text-sm font-bold hover:bg-white transition-colors border border-slate-200 shadow-sm">
-            로드맵 생성하기
-          </button>
         </div>
       </div>
 
@@ -678,26 +804,6 @@ export default function NewDashboard() {
         </div>
       </div>
 
-      {/* Roadmap CTA */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-        <div className="relative z-10">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-xl font-bold mb-2">나만의 진로 로드맵을 만들어보세요</h3>
-              <p className="text-indigo-100 mb-4 max-w-2xl text-sm">
-                AI가 현재 상태를 분석하여 목표 달성을 위한 단계별 가이드를 제공합니다. 지금 바로 시작해보세요.
-              </p>
-              <button onClick={() => setActiveTab('roadmap')} className="px-5 py-2.5 bg-white text-indigo-600 rounded-xl text-sm font-bold hover:bg-indigo-50 transition-colors shadow-lg">
-                로드맵 생성 시작하기
-              </button>
-            </div>
-            <div className="hidden lg:block">
-              <Map size={100} className="opacity-30" strokeWidth={1.5} />
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 
@@ -729,9 +835,13 @@ export default function NewDashboard() {
             {personalityNarrative.type && (
               <p className="mt-1 text-sm text-indigo-600 font-semibold">{personalityNarrative.type}</p>
             )}
-            {personalityNarrative.description && (
+            {personalityNarrative.description ? (
               <p className="mt-3 text-sm text-gray-700 whitespace-pre-line">{personalityNarrative.description}</p>
+            ) : (
+              // If no description, show summary as fallback or just the goals/strengths
+              analysisData?.summary && <p className="mt-3 text-sm text-gray-700 whitespace-pre-line leading-relaxed">{analysisData.summary}</p>
             )}
+
             {(personalityNarrative.strengths.length > 0 || personalityNarrative.growthAreas.length > 0) && (
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 {personalityNarrative.strengths.length > 0 && (
@@ -763,9 +873,9 @@ export default function NewDashboard() {
           </div>
         )}
 
-        <div className={styles['glass-card']}>
-          <h3 className="text-lg font-semibold text-gray-800">감정 반응 지표</h3>
-          {emotionProgressData ? (
+        {emotionProgressData && emotionProgressData.length > 0 && (
+          <div className={styles['glass-card']}>
+            <h3 className="text-lg font-semibold text-gray-800">감정 반응 지표</h3>
             <div className="mt-4 space-y-4">
               {emotionProgressData.map((item, index) => (
                 <ProgressBar
@@ -776,10 +886,8 @@ export default function NewDashboard() {
                 />
               ))}
             </div>
-          ) : (
-            <p className="mt-4 text-sm text-gray-500">감정 데이터가 없습니다.</p>
-          )}
-        </div>
+          </div>
+        )}
 
         <div className={`${styles['glass-card']} bg-indigo-50/50`}>
           <h3 className="text-lg font-semibold text-indigo-700">MBTI Insights</h3>
@@ -836,32 +944,37 @@ export default function NewDashboard() {
           </div>
         ) : null}
 
-        {mbtiTraits && (
-          <div className={styles['glass-card']}>
-            <h3 className="text-lg font-semibold text-gray-800">MBTI 결정 근거</h3>
-            <div className="mt-4 space-y-3">
-              {mbtiTraits.map((trait) => (
-                <div key={trait.pair} className="rounded-lg border bg-gray-50/50 px-4 py-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-700">{trait.pair}</span>
-                    <span className="text-sm text-gray-500">{(trait.score * 100).toFixed(0)}%</span>
+        {/* --- Merged Values Section Content --- */}
+        {renderValuesSection()}
+
+        {
+          mbtiTraits && (
+            <div className={styles['glass-card']}>
+              <h3 className="text-lg font-semibold text-gray-800">MBTI 결정 근거</h3>
+              <div className="mt-4 space-y-3">
+                {mbtiTraits.map((trait) => (
+                  <div key={trait.pair} className="rounded-lg border bg-gray-50/50 px-4 py-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-gray-700">{trait.pair}</span>
+                      <span className="text-sm text-gray-500">{(trait.score * 100).toFixed(0)}%</span>
+                    </div>
+                    <p className="mt-1 text-sm text-gray-600">{trait.explanation}</p>
                   </div>
-                  <p className="mt-1 text-sm text-gray-600">{trait.explanation}</p>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )
+        }
+      </div >
     );
   };
 
   const renderValuesSection = () => (
     <div className="space-y-6">
-      <ValuesSummaryCard valuesJSON={analysisData?.values ?? profileData?.values} />
-      <div className={styles['glass-card']}>
-        <h3 className="text-lg font-semibold text-gray-800">가치관 집중도 (차트)</h3>
-        {valuesChartData ? (
+
+      {valuesChartData && (
+        <div className={styles['glass-card']}>
+          <h3 className="text-lg font-semibold text-gray-800">가치관 집중도 (차트)</h3>
           <div className="mt-4 h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={valuesChartData}>
@@ -877,10 +990,8 @@ export default function NewDashboard() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-        ) : (
-          <p className="mt-4 text-sm text-gray-500">가치관 데이터가 없습니다.</p>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Values Text List Card */}
       {analysisData?.valuesList && analysisData.valuesList.length > 0 && (
@@ -998,174 +1109,84 @@ export default function NewDashboard() {
     const isMentor = mentorInfo && mentorInfo.status === 'APPROVED';
 
     return (
-    <div className="space-y-6">
-      {/* Mentoring Stats Grid - 멘티용 */}
-      {!isMentor && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* 잔여 횟수 */}
-          <div className={styles['glass-card']}>
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-yellow-100 to-yellow-200 rounded-xl flex items-center justify-center">
-                <MessageSquare size={20} className="text-yellow-600" />
+      <div className="space-y-6">
+        {/* Mentoring Stats Grid - 멘티용 */}
+        {!isMentor && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* 잔여 횟수 */}
+            <div className={styles['glass-card']}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-yellow-100 to-yellow-200 rounded-xl flex items-center justify-center">
+                  <MessageSquare size={20} className="text-yellow-600" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-700">잔여 횟수</h3>
               </div>
-              <h3 className="text-sm font-bold text-slate-700">잔여 횟수</h3>
+              <p className="text-3xl font-bold text-yellow-600 mb-1">{remainingSessions}회</p>
             </div>
-            <p className="text-3xl font-bold text-yellow-600 mb-1">{remainingSessions}회</p>
-          </div>
 
-          {/* 멘토 찾기 */}
-          <div className={styles['glass-card']}>
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl flex items-center justify-center">
-                <Search size={20} className="text-purple-600" />
+            {/* 멘토 찾기 */}
+            <div className={styles['glass-card']}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl flex items-center justify-center">
+                  <Search size={20} className="text-purple-600" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-700">멘토 찾기</h3>
               </div>
-              <h3 className="text-sm font-bold text-slate-700">멘토 찾기</h3>
-            </div>
-            <button onClick={() => navigate('/mentoring')} className="text-sm text-purple-600 font-semibold hover:underline">
-              세션 둘러보기
-            </button>
-          </div>
-
-          {/* 내 예약 */}
-          <div className={styles['glass-card']}>
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-pink-100 to-pink-200 rounded-xl flex items-center justify-center">
-                <Heart size={20} className="text-pink-600" />
-              </div>
-              <h3 className="text-sm font-bold text-slate-700">내 예약</h3>
-            </div>
-            <p className="text-3xl font-bold text-pink-600 mb-1">{myBookings.length}건</p>
-          </div>
-        </div>
-      )}
-
-      {/* My Reservations - 멘티용 */}
-      {!isMentor && (
-        <div className={styles['glass-card']}>
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-pink-500 rounded-xl flex items-center justify-center">
-              <Heart size={24} className="text-white" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-slate-800">나의 예약</h3>
-              <p className="text-sm text-slate-500">예약한 멘토링 세션</p>
-            </div>
-          </div>
-
-          {myBookings.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
-                <Heart size={32} className="text-slate-400" />
-              </div>
-              <p className="text-slate-600 text-sm mb-6">예약한 세션이 없습니다</p>
-              <button onClick={() => navigate('/mentoring')} className="px-6 py-3 bg-gradient-to-r from-pink-400 to-pink-500 text-white rounded-xl text-sm font-bold hover:opacity-90 transition-opacity shadow-lg">
-                세션 찾아보기
+              <button onClick={() => navigate('/mentoring')} className="text-sm text-purple-600 font-semibold hover:underline">
+                세션 둘러보기
               </button>
             </div>
-          ) : (
-            <div className="space-y-4">
-              {myBookings.map((booking) => {
-                const status = getBookingStatusStyle(booking.status);
-                return (
-                  <div key={booking.bookingId} className={`border ${status.border} rounded-xl p-4 ${status.bg}`}>
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-pink-400 to-pink-500 rounded-full flex items-center justify-center">
-                          <User size={20} className="text-white" />
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-semibold text-slate-800">{booking.mentorName}</h4>
-                          <p className="text-xs text-slate-500">멘토</p>
-                        </div>
-                      </div>
-                      <span className={`text-xs px-2 py-1 rounded-lg ${status.bg} ${status.text} border ${status.border}`}>
-                        {status.label}
-                      </span>
-                    </div>
 
-                    <p className="text-sm font-medium text-slate-800 mb-2">{booking.sessionTitle}</p>
-
-                    {booking.rejectionReason && (
-                      <div className="bg-white/50 rounded-lg p-2 mb-2">
-                        <p className="text-xs text-rose-600">거절 사유: {booking.rejectionReason}</p>
-                      </div>
-                    )}
-
-                    <p className="text-xs text-slate-500 mb-3">
-                      예약일: {booking.bookingDate} {booking.timeSlot}
-                    </p>
-
-                    {booking.status === 'CONFIRMED' && (
-                      <button
-                        onClick={() => navigate(`/mentoring/meeting/${booking.bookingId}`)}
-                        className="w-full py-2 bg-gradient-to-r from-emerald-400 to-emerald-500 text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
-                      >
-                        세션 입장하기
-                      </button>
-                    )}
-                    {booking.status === 'PENDING' && (
-                      <button
-                        onClick={async () => {
-                          if (confirm('예약을 취소하시겠습니까?')) {
-                            try {
-                              await bookingService.cancelBooking(booking.bookingId);
-                              showToast('예약이 취소되었습니다.', 'success');
-                              const bookings = await bookingService.getMyBookings(userId!);
-                              setMyBookings(bookings || []);
-                            } catch (e) {
-                              showToast('취소 실패', 'error');
-                            }
-                          }
-                        }}
-                        className="w-full py-2 bg-gradient-to-r from-gray-400 to-gray-500 text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
-                      >
-                        예약 취소
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Mentor's Sessions (only for approved mentors) */}
-      {mentorInfo && mentorInfo.status === 'APPROVED' && (
-        <div className={styles['glass-card']}>
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 bg-gradient-to-br from-violet-400 to-violet-500 rounded-xl flex items-center justify-center">
-              <User size={24} className="text-white" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-slate-800">멘토링 세션</h3>
-              <p className="text-sm text-slate-500">내가 진행하는 멘토링</p>
+            {/* 내 예약 */}
+            <div className={styles['glass-card']}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-pink-100 to-pink-200 rounded-xl flex items-center justify-center">
+                  <Heart size={20} className="text-pink-600" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-700">내 예약</h3>
+              </div>
+              <p className="text-3xl font-bold text-pink-600 mb-1">{myBookings.length}건</p>
             </div>
           </div>
+        )}
 
-          {mentorBookings.filter(b => b.status === 'CONFIRMED' || b.status === 'PENDING').length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
-                <User size={32} className="text-slate-400" />
+        {/* My Reservations - 멘티용 */}
+        {!isMentor && (
+          <div className={styles['glass-card']}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-pink-500 rounded-xl flex items-center justify-center">
+                <Heart size={24} className="text-white" />
               </div>
-              <p className="text-slate-600 text-sm mb-6">예약된 멘토링이 없습니다</p>
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">나의 예약</h3>
+                <p className="text-sm text-slate-500">예약한 멘토링 세션</p>
+              </div>
             </div>
-          ) : (
-            <div className="space-y-4">
-              {mentorBookings
-                .filter(b => b.status === 'CONFIRMED' || b.status === 'PENDING')
-                .map((booking) => {
+
+            {myBookings.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
+                  <Heart size={32} className="text-slate-400" />
+                </div>
+                <p className="text-slate-600 text-sm mb-6">예약한 세션이 없습니다</p>
+                <button onClick={() => navigate('/mentoring')} className="px-6 py-3 bg-gradient-to-r from-pink-400 to-pink-500 text-white rounded-xl text-sm font-bold hover:opacity-90 transition-opacity shadow-lg">
+                  세션 찾아보기
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {myBookings.map((booking) => {
                   const status = getBookingStatusStyle(booking.status);
                   return (
                     <div key={booking.bookingId} className={`border ${status.border} rounded-xl p-4 ${status.bg}`}>
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-violet-400 to-violet-500 rounded-full flex items-center justify-center">
+                          <div className="w-10 h-10 bg-gradient-to-br from-pink-400 to-pink-500 rounded-full flex items-center justify-center">
                             <User size={20} className="text-white" />
                           </div>
                           <div>
-                            <h4 className="text-sm font-semibold text-slate-800">{booking.menteeName}</h4>
-                            <p className="text-xs text-slate-500">멘티</p>
+                            <h4 className="text-sm font-semibold text-slate-800">{booking.mentorName}</h4>
+                            <p className="text-xs text-slate-500">멘토</p>
                           </div>
                         </div>
                         <span className={`text-xs px-2 py-1 rounded-lg ${status.bg} ${status.text} border ${status.border}`}>
@@ -1175,6 +1196,12 @@ export default function NewDashboard() {
 
                       <p className="text-sm font-medium text-slate-800 mb-2">{booking.sessionTitle}</p>
 
+                      {booking.rejectionReason && (
+                        <div className="bg-white/50 rounded-lg p-2 mb-2">
+                          <p className="text-xs text-rose-600">거절 사유: {booking.rejectionReason}</p>
+                        </div>
+                      )}
+
                       <p className="text-xs text-slate-500 mb-3">
                         예약일: {booking.bookingDate} {booking.timeSlot}
                       </p>
@@ -1182,77 +1209,161 @@ export default function NewDashboard() {
                       {booking.status === 'CONFIRMED' && (
                         <button
                           onClick={() => navigate(`/mentoring/meeting/${booking.bookingId}`)}
-                          className="w-full py-2 bg-gradient-to-r from-violet-400 to-violet-500 text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
+                          className="w-full py-2 bg-gradient-to-r from-emerald-400 to-emerald-500 text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
                         >
                           세션 입장하기
                         </button>
                       )}
                       {booking.status === 'PENDING' && (
-                        <div className="flex gap-2">
-                          <button
-                            onClick={async () => {
+                        <button
+                          onClick={async () => {
+                            if (confirm('예약을 취소하시겠습니까?')) {
                               try {
-                                await bookingService.confirmBooking(booking.bookingId);
-                                showToast('예약이 승인되었습니다.', 'success');
-                                // Refresh bookings
-                                const mBookings = await bookingService.getMentorBookings(mentorInfo.mentorId);
-                                setMentorBookings(mBookings || []);
+                                await bookingService.cancelBooking(booking.bookingId);
+                                showToast('예약이 취소되었습니다.', 'success');
+                                const bookings = await bookingService.getMyBookings(userId!);
+                                setMyBookings(bookings || []);
                               } catch (e) {
-                                showToast('승인 실패', 'error');
+                                showToast('취소 실패', 'error');
                               }
-                            }}
-                            className="flex-1 py-2 bg-gradient-to-r from-emerald-400 to-emerald-500 text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
-                          >
-                            승인
-                          </button>
-                          <button
-                            onClick={async () => {
-                              const reason = prompt('거절 사유를 입력하세요:');
-                              if (reason) {
-                                try {
-                                  await bookingService.rejectBooking(booking.bookingId, reason);
-                                  showToast('예약이 거절되었습니다.', 'success');
-                                  const mBookings = await bookingService.getMentorBookings(mentorInfo.mentorId);
-                                  setMentorBookings(mBookings || []);
-                                } catch (e) {
-                                  showToast('거절 실패', 'error');
-                                }
-                              }
-                            }}
-                            className="flex-1 py-2 bg-gradient-to-r from-rose-400 to-rose-500 text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
-                          >
-                            거절
-                          </button>
-                        </div>
+                            }
+                          }}
+                          className="w-full py-2 bg-gradient-to-r from-gray-400 to-gray-500 text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
+                        >
+                          예약 취소
+                        </button>
                       )}
                     </div>
                   );
                 })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Become a Mentor CTA - 멘토가 아닐 때만 표시 */}
-      {!isMentor && (
-        <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-          <div className="relative z-10 flex flex-col items-center text-center">
-            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4">
-              <User size={32} className="text-white" />
-            </div>
-            <h3 className="text-2xl font-bold mb-2">멘토가 되어보세요!</h3>
-            <p className="text-purple-100 mb-6 max-w-md">
-              후배들의 성장을 도와주실 멘토를 모집합니다.
-            </p>
-            <button onClick={() => setShowMentorModal(true)} className="px-6 py-3 bg-white text-purple-600 rounded-xl text-sm font-bold hover:bg-purple-50 transition-colors shadow-lg">
-              멘토 신청하기
-            </button>
+              </div>
+            )}
           </div>
-        </div>
-      )}
-    </div>
-  );
+        )}
+
+        {/* Mentor's Sessions (only for approved mentors) */}
+        {mentorInfo && mentorInfo.status === 'APPROVED' && (
+          <div className={styles['glass-card']}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 bg-gradient-to-br from-violet-400 to-violet-500 rounded-xl flex items-center justify-center">
+                <User size={24} className="text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">멘토링 세션</h3>
+                <p className="text-sm text-slate-500">내가 진행하는 멘토링</p>
+              </div>
+            </div>
+
+            {mentorBookings.filter(b => b.status === 'CONFIRMED' || b.status === 'PENDING').length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
+                  <User size={32} className="text-slate-400" />
+                </div>
+                <p className="text-slate-600 text-sm mb-6">예약된 멘토링이 없습니다</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {mentorBookings
+                  .filter(b => b.status === 'CONFIRMED' || b.status === 'PENDING')
+                  .map((booking) => {
+                    const status = getBookingStatusStyle(booking.status);
+                    return (
+                      <div key={booking.bookingId} className={`border ${status.border} rounded-xl p-4 ${status.bg}`}>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-violet-400 to-violet-500 rounded-full flex items-center justify-center">
+                              <User size={20} className="text-white" />
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-semibold text-slate-800">{booking.menteeName}</h4>
+                              <p className="text-xs text-slate-500">멘티</p>
+                            </div>
+                          </div>
+                          <span className={`text-xs px-2 py-1 rounded-lg ${status.bg} ${status.text} border ${status.border}`}>
+                            {status.label}
+                          </span>
+                        </div>
+
+                        <p className="text-sm font-medium text-slate-800 mb-2">{booking.sessionTitle}</p>
+
+                        <p className="text-xs text-slate-500 mb-3">
+                          예약일: {booking.bookingDate} {booking.timeSlot}
+                        </p>
+
+                        {booking.status === 'CONFIRMED' && (
+                          <button
+                            onClick={() => navigate(`/mentoring/meeting/${booking.bookingId}`)}
+                            className="w-full py-2 bg-gradient-to-r from-violet-400 to-violet-500 text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
+                          >
+                            세션 입장하기
+                          </button>
+                        )}
+                        {booking.status === 'PENDING' && (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await bookingService.confirmBooking(booking.bookingId);
+                                  showToast('예약이 승인되었습니다.', 'success');
+                                  // Refresh bookings
+                                  const mBookings = await bookingService.getMentorBookings(mentorInfo.mentorId);
+                                  setMentorBookings(mBookings || []);
+                                } catch (e) {
+                                  showToast('승인 실패', 'error');
+                                }
+                              }}
+                              className="flex-1 py-2 bg-gradient-to-r from-emerald-400 to-emerald-500 text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
+                            >
+                              승인
+                            </button>
+                            <button
+                              onClick={async () => {
+                                const reason = prompt('거절 사유를 입력하세요:');
+                                if (reason) {
+                                  try {
+                                    await bookingService.rejectBooking(booking.bookingId, reason);
+                                    showToast('예약이 거절되었습니다.', 'success');
+                                    const mBookings = await bookingService.getMentorBookings(mentorInfo.mentorId);
+                                    setMentorBookings(mBookings || []);
+                                  } catch (e) {
+                                    showToast('거절 실패', 'error');
+                                  }
+                                }
+                              }}
+                              className="flex-1 py-2 bg-gradient-to-r from-rose-400 to-rose-500 text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
+                            >
+                              거절
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Become a Mentor CTA - 멘토가 아닐 때만 표시 */}
+        {!isMentor && (
+          <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+            <div className="relative z-10 flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4">
+                <User size={32} className="text-white" />
+              </div>
+              <h3 className="text-2xl font-bold mb-2">멘토가 되어보세요!</h3>
+              <p className="text-purple-100 mb-6 max-w-md">
+                후배들의 성장을 도와주실 멘토를 모집합니다.
+              </p>
+              <button onClick={() => setShowMentorModal(true)} className="px-6 py-3 bg-white text-purple-600 rounded-xl text-sm font-bold hover:bg-purple-50 transition-colors shadow-lg">
+                멘토 신청하기
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   const renderSettingsSection = () => (
@@ -1459,14 +1570,11 @@ export default function NewDashboard() {
                   </h3>
                 )}
                 <nav className="space-y-1">
-                  <SidebarItem icon={<User size={20} />} label="프로필" active={activeTab === 'profile'} onClick={() => setActiveTab('profile')} collapsed={!sidebarOpen} />
                   <SidebarItem icon={<LayoutGrid size={20} />} label="대시보드" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} collapsed={!sidebarOpen} />
-                  <SidebarItem icon={<PieChart size={20} />} label="성향 분석" active={activeTab === 'personality'} onClick={() => setActiveTab('personality')} collapsed={!sidebarOpen} />
-                  <SidebarItem icon={<Heart size={20} />} label="가치관 분석" active={activeTab === 'values'} onClick={() => setActiveTab('values')} collapsed={!sidebarOpen} />
+                  <SidebarItem icon={<PieChart size={20} />} label="성향 및 가치관 분석" active={activeTab === 'personality'} onClick={() => setActiveTab('personality')} collapsed={!sidebarOpen} />
+                  {/* <SidebarItem icon={<Heart size={20} />} label="가치관 분석" active={activeTab === 'values'} onClick={() => setActiveTab('values')} collapsed={!sidebarOpen} /> */}
                   <SidebarItem icon={<Briefcase size={20} />} label="직업 추천" active={activeTab === 'jobs'} onClick={() => setActiveTab('jobs')} collapsed={!sidebarOpen} />
                   <SidebarItem icon={<GraduationCap size={20} />} label="학과 추천" active={activeTab === 'majors'} onClick={() => setActiveTab('majors')} collapsed={!sidebarOpen} />
-                  <SidebarItem icon={<Map size={20} />} label="진로 로드맵" active={activeTab === 'roadmap'} onClick={() => setActiveTab('roadmap')} badge="AI" collapsed={!sidebarOpen} />
-                  <SidebarItem icon={<FileText size={20} />} label="상담 사례" active={activeTab === 'counsel'} onClick={() => setActiveTab('counsel')} collapsed={!sidebarOpen} />
                 </nav>
               </div>
 
@@ -1510,48 +1618,7 @@ export default function NewDashboard() {
           <div className="flex-1 flex flex-col overflow-hidden">
 
             {/* Header - Completely Transparent */}
-            <header className="h-20 flex items-center justify-between px-8 border-b border-white/10">
-              <div>
-                <h1 className="text-2xl font-bold text-slate-800">
-                  {activeTab === 'dashboard' && 'Dashboard'}
-                  {activeTab === 'personality' && '성향 분석'}
-                  {activeTab === 'values' && '가치관 분석'}
-                  {activeTab === 'jobs' && '직업 추천'}
-                  {activeTab === 'majors' && '학과 추천'}
-                  {activeTab === 'counsel' && '상담 사례'}
-                  {activeTab === 'roadmap' && '진로 로드맵'}
-                  {activeTab === 'profile' && '프로필'}
-                </h1>
-                <p className="text-sm text-slate-600">Welcome back! Here is your AI career analysis.</p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <input
-                    type="text"
-                    placeholder="Search"
-                    className={styles['glass-input']}
-                  />
-                </div>
-
-                <button className="w-10 h-10 bg-blue-500 text-white rounded-xl flex items-center justify-center hover:bg-blue-600 transition-colors shadow-md">
-                  <Search size={18} />
-                </button>
-
-                <button className={styles['glass-button']}>
-                  <Bell size={18} className="text-slate-600" />
-                </button>
-
-                <button
-                  onClick={() => setDarkMode(!darkMode)}
-                  className={styles['glass-button']}
-                >
-                  {darkMode ? <Sun size={18} className="text-slate-600" /> : <Moon size={18} className="text-slate-600" />}
-                </button>
-
-              </div>
-            </header>
+            <header className="h-20 border-b border-white/10 px-8" />
 
             {/* Scrollable Content */}
             <main className="flex-1 overflow-y-auto px-8 py-6">
@@ -1562,38 +1629,28 @@ export default function NewDashboard() {
                   <>
                     {activeTab === 'dashboard' && renderOverviewSection()}
                     {activeTab === 'personality' && renderPersonalitySection()}
-                    {activeTab === 'values' && renderValuesSection()}
                     {activeTab === 'jobs' && (
                       <div className="space-y-4">
                         <h2 className="text-xl font-bold text-slate-800">AI 직업 추천</h2>
-                        <HybridJobRecommendPanel embedded profileId={profileData?.profileId} />
+                        {/* Integrated Hybrid Panel (Search + Top 10 Results + Details) */}
+                        <HybridJobRecommendPanel
+                          embedded={true}
+                          // profileId and analysisData removed
+                          jobs={recommendationResult?.jobs}
+                          isLoading={recommendationLoading}
+                        />
                       </div>
                     )}
                     {activeTab === 'majors' && (
                       <div className="space-y-4">
                         <h2 className="text-xl font-bold text-slate-800">AI 학과 추천</h2>
-                        <MajorRecommendPanel embedded profileId={profileData?.profileId} />
-                      </div>
-                    )}
-                    {activeTab === 'counsel' && (
-                      <div className="space-y-4">
-                        <h2 className="text-xl font-bold text-slate-800">진로 상담 사례</h2>
-                        <CounselRecommendPanel embedded profileId={profileData?.profileId} />
-                      </div>
-                    )}
-                    {activeTab === 'profile' && (
-                      <div className={styles['glass-card']}>
-                        <h2 className="text-xl font-bold text-slate-800 mb-4">프로필 정보</h2>
-                        <p className="text-gray-600">프로필 수정 기능은 준비 중입니다.</p>
-                        {/* <Button className="mt-4" onClick={() => navigate('/profile/input')}>
-                                                    프로필 다시 입력하기
-                                                </Button> */}
-                      </div>
-                    )}
-                    {activeTab === 'roadmap' && (
-                      <div className={styles['glass-card']}>
-                        <h2 className="text-xl font-bold text-slate-800 mb-4">진로 로드맵</h2>
-                        <p className="text-gray-600">로드맵 생성 기능은 준비 중입니다.</p>
+
+                        <MajorRecommendPanel
+                          embedded={true}
+                          majors={recommendationMajors}
+                          isLoading={recommendationLoading}
+                          errorMessage={recommendationError}
+                        />
                       </div>
                     )}
                     {activeTab === 'learning' && renderLearningSection()}
@@ -1629,11 +1686,10 @@ export default function NewDashboard() {
       {/* Chat Panel */}
       {showAssistantChat && (
         <div
-          className={`fixed bottom-32 right-9 w-[420px] h-[600px] bg-white rounded-3xl shadow-xl z-50 p-0 overflow-hidden border border-gray-200 transform transition-all duration-300 ${
-            showAssistantChat
-              ? "scale-100 opacity-100"
-              : "scale-90 opacity-0 pointer-events-none"
-          }`}
+          className={`fixed bottom-32 right-9 w-[420px] h-[600px] bg-white rounded-3xl shadow-xl z-50 p-0 overflow-hidden border border-gray-200 transform transition-all duration-300 ${showAssistantChat
+            ? "scale-100 opacity-100"
+            : "scale-90 opacity-0 pointer-events-none"
+            }`}
         >
           <AssistantChatbot onClose={() => setShowAssistantChat(false)} />
         </div>

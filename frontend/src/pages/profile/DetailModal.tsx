@@ -1,5 +1,8 @@
-import React from 'react';
-import { JobDetailData, MajorDetailData } from '@/lib/api';
+import React, { useEffect, useState } from 'react';
+import type { JobDetailData, MajorDetailData } from '@/lib/api';
+import { formatWageText } from '@/utils/formatWageText';
+import { CompetencyBarChart, TabButton } from './JobDetailComponents';
+import type { CompetencyItem } from './JobDetailComponents';
 
 interface DetailModalProps {
   type: 'job' | 'major';
@@ -42,36 +45,14 @@ const ModalContainer = ({
 );
 
 const SectionTitle = ({ children }: { children: React.ReactNode }) => (
-  <h3 className="text-base font-semibold text-gray-900">{children}</h3>
+  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+    <span className="h-6 w-1 rounded-full bg-indigo-500 block"></span>
+    {children}
+  </h3>
 );
 
 const cleanText = (value: string) =>
   value.replace(/<\/?[^>]+(>|$)/g, '').replace(/\s+/g, ' ').trim();
-
-export const formatWageText = (value?: string | null) => {
-  const text = value ? cleanText(value) : '';
-  if (!text) return null;
-  const containsThousand = /천/.test(text);
-  const containsHundredMillion = /억/.test(text);
-  const numericString = text.replace(/[^\d]/g, '');
-  if (!numericString) {
-    return text;
-  }
-  let numericValue = parseInt(numericString, 10);
-  if (Number.isNaN(numericValue) || numericValue <= 0) {
-    return text;
-  }
-  if (containsHundredMillion) {
-    numericValue *= 10000; // 1억 = 10,000만원
-  } else if (containsThousand && numericValue < 1000) {
-    numericValue *= 1000;
-  }
-  if (numericValue >= 1000) {
-    const roundedThousands = Math.round(numericValue / 1000);
-    return `${roundedThousands}천만원`;
-  }
-  return `${numericValue.toLocaleString()}만원`;
-};
 
 const toText = (value: unknown): string | null => {
   if (value == null) return null;
@@ -82,42 +63,23 @@ const toText = (value: unknown): string | null => {
   if (typeof value === 'number' || typeof value === 'boolean') {
     return String(value);
   }
-  if (Array.isArray(value)) {
-    const joined = value
-      .map((item) => (typeof item === 'string' ? cleanText(item) : String(item ?? '')))
-      .filter(Boolean)
-      .join(', ');
-    return joined || null;
-  }
-  if (typeof value === 'object') {
-    const values = Object.values(value as Record<string, unknown>)
-      .map((item) => (typeof item === 'string' ? cleanText(item) : String(item ?? '')))
-      .filter(Boolean);
-    return values.join(', ') || null;
-  }
   return null;
 };
 
-const toList = (value: unknown, allowSingle = false): string[] => {
-  if (value == null) return [];
-  if (Array.isArray(value)) {
-    const arr = value
-      .map((item) => (typeof item === 'string' ? cleanText(item) : String(item ?? '')))
-      .filter(Boolean);
-    return arr.length > 1 || allowSingle ? arr : [];
+const toPercentText = (value: unknown): string | null => {
+  const text = toText(value);
+  if (!text) return null;
+  const match = text.match(/(\d+(?:\.\d+)?)/);
+  if (match) {
+    return `${match[1]}%`;
   }
-  if (typeof value === 'string') {
-    const base = cleanText(value);
-    if (!base) return [];
-    const parts = base
-      .split(/[\n\r]+|[·•]|,/)
-      .map((part) => part.replace(/^[0-9.]+\s*/, '').trim())
-      .filter(Boolean);
-    if (parts.length > 1 || allowSingle) {
-      return parts;
-    }
-    return [];
-  }
+  return text.replace(/\s+%/g, '%');
+};
+
+// ... existing helper functions (toList, splitLines, toRecordList, mergeText) kept simple or inlined if trivial ...
+const toList = (value: unknown): string[] => {
+  if (Array.isArray(value)) return value.map(String);
+  if (typeof value === 'string') return value.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
   return [];
 };
 
@@ -129,100 +91,11 @@ const splitLines = (value?: string | null): string[] => {
     .filter(Boolean);
 };
 
-const toRecordList = (value?: Array<GenericRecord> | null, keys: string[] = ['name']) => {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => {
-      for (const key of keys) {
-        const result = toText(item?.[key]);
-        if (result) return result;
-      }
-      return null;
-    })
-    .filter(Boolean) as string[];
-};
-
-const mergeText = (values: Array<string | null | undefined>) => {
-  const filtered = values.map((value) => (value ? cleanText(value) : '')).filter(Boolean);
-  return filtered.length ? filtered.join(' / ') : null;
-};
-
-const getContent = (value: unknown, { allowListSingle = false } = {}) => {
-  const list = toList(value, allowListSingle);
-  if (list.length > 1 || (allowListSingle && list.length === 1)) {
-    return { list, text: null };
-  }
-  return { list: [], text: toText(value) };
-};
-
-const TagPill = ({ label, value }: { label: string; value?: string | null }) => {
-  if (!value) return null;
-  return (
-    <span className="inline-flex items-center rounded-full border border-gray-200 bg-white/80 px-3 py-1 text-xs font-medium text-gray-700">
-      <span className="text-gray-500">{label}</span>
-      <span className="ml-1 text-gray-900">{value}</span>
-    </span>
-  );
-};
-
-const DetailCard = ({
-  title,
-  value,
-  allowListSingle = false
-}: {
-  title: string;
-  value: unknown;
-  allowListSingle?: boolean;
-}) => {
-  const { text, list } = getContent(value, { allowListSingle });
-  return (
-    <div className="rounded-2xl border border-gray-100 bg-white/80 p-4 shadow-sm shadow-indigo-100/40">
-      <p className="text-sm font-semibold text-gray-900">{title}</p>
-      {list.length > 0 ? (
-        <ul className="mt-3 list-disc space-y-1 pl-4 text-sm text-gray-600">
-          {list.map((item, index) => (
-            <li key={`${title}-${index}`}>{item}</li>
-          ))}
-        </ul>
-      ) : (
-        <p className="mt-3 text-sm text-gray-600">
-          {text || '관련 정보가 아직 제공되지 않았습니다.'}
-        </p>
-      )}
-    </div>
-  );
-};
-
-const DescriptionRow = ({ children }: { children: React.ReactNode }) => (
-  <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-700">
-    {children}
+const EmptyState = ({ message }: { message: string }) => (
+  <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-400">
+    {message}
   </div>
 );
-
-const StatusBanner = ({
-  loading,
-  error
-}: {
-  loading?: boolean;
-  error?: string | null;
-}) => {
-  if (!loading && !error) return null;
-  return (
-    <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm">
-      {loading && (
-        <p className="flex items-center gap-2 text-indigo-600">
-          <span className="h-3 w-3 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
-          상세 정보를 불러오는 중입니다...
-        </p>
-      )}
-      {error && (
-        <p className="mt-2 text-sm text-red-500">
-          {error}
-        </p>
-      )}
-    </div>
-  );
-};
 
 export default function DetailModal({
   type,
@@ -234,264 +107,728 @@ export default function DetailModal({
   errorMessage
 }: DetailModalProps) {
   const isJob = type === 'job';
+  const [activeTab, setActiveTab] = useState(0);
 
-  if (!open) return null;
+  useEffect(() => {
+    if (!open) {
+      setActiveTab(0);
+      return;
+    }
 
-  const jobDetail = isJob ? (detailData as JobDetailData | null | undefined) : null;
-  const majorDetail = !isJob ? (detailData as MajorDetailData | null | undefined) : null;
-  const fallbackData: GenericRecord =
-    fallback && typeof fallback === 'object' ? (fallback as GenericRecord) : {};
-  const fallbackMetadata: GenericRecord =
-    fallbackData?.metadata && typeof fallbackData.metadata === 'object'
-      ? (fallbackData.metadata as GenericRecord)
-      : {};
+    const maxIndex = isJob ? 2 : 2;
+    setActiveTab((prev) => (prev > maxIndex ? 0 : prev));
+  }, [open, isJob]);
 
-  const jobRaw = (jobDetail?.rawData ?? {}) as GenericRecord;
-  const jobBaseInfo = (jobRaw?.baseInfo ?? jobRaw?.baseinfo ?? {}) as GenericRecord;
-  const majorRaw = (majorDetail?.rawData ?? {}) as GenericRecord;
+  if (!open) {
+    return null;
+  }
 
-  const jobAbilities = toRecordList(jobDetail?.abilities, ['name', 'ability_name', 'ability']);
-  const jobMajors = toRecordList(jobDetail?.majors, ['curriculum', 'major', 'name']);
-  const jobCertifications = toRecordList(jobDetail?.certifications, ['certificate', 'name']);
-  const jobWorkList = Array.isArray(jobRaw?.workList)
-    ? (jobRaw.workList as Array<GenericRecord>)
-      .map((work) => toText(work?.work ?? work?.description))
-      .filter(Boolean) as string[]
-    : splitLines(jobDetail?.summary);
-  const majorCurriculum = Array.isArray(majorRaw?.curriculum)
-    ? (majorRaw.curriculum as Array<GenericRecord>)
-      .map((item) => toText(item?.curriculum ?? item?.subject ?? item))
-      .filter(Boolean) as string[]
-    : splitLines(majorDetail?.summary);
-  const majorInterest = splitLines(majorDetail?.interest);
-  const majorProperty = splitLines(majorDetail?.propertyText);
-  const majorCareer = splitLines(majorDetail?.job);
+  // --------------------------------------------------------------------------
+  // Data Parsing
+  // --------------------------------------------------------------------------
+  const jobDetail = isJob ? (detailData as JobDetailData | null) : null;
+  const majorDetail = !isJob ? (detailData as MajorDetailData | null) : null;
+  const rawData = (jobDetail?.rawData || majorDetail?.rawData || {}) as GenericRecord;
+  const baseInfo = (rawData.baseInfo || rawData.baseinfo || {}) as GenericRecord;
 
-  const fallbackTitle = toText(
-    fallbackData?.title ??
-    fallbackMetadata?.jobName ??
-    fallbackMetadata?.deptName ??
-    fallbackMetadata?.majorName ??
-    fallbackMetadata?.name
+  const fallbackData = (!isJob && fallback && typeof fallback === 'object')
+    ? (fallback as GenericRecord)
+    : {};
+
+  // Extract fallback metadata from recommendation item (for fields not in rawData)
+  const fallbackMetadata = (!isJob && fallback && typeof fallback === 'object' && 'metadata' in fallback)
+    ? (fallback.metadata as Record<string, any> || {})
+    : {};
+
+  console.log('=== DetailModal Data Debug ===');
+  console.log('fallback:', fallback);
+  console.log('fallbackMetadata:', fallbackMetadata);
+  console.log('fallbackMetadata.lClass:', fallbackMetadata.lClass);
+
+  // Title & Header Info
+  const title = toText(
+    baseInfo.job_nm || baseInfo.jobName || rawData.job_nm || rawData.jobName ||
+    majorDetail?.majorName || rawData.major || rawData.majorName ||
+    fallback?.title || fallback?.jobName || '이름 미확인'
   );
 
-  const detailTitle = isJob
-    ? toText(jobBaseInfo?.job_nm ?? jobBaseInfo?.jobName ?? jobRaw?.job_nm ?? jobRaw?.jobName)
-    : toText(majorDetail?.majorName ?? majorRaw?.major ?? majorRaw?.majorName);
+  const category = toText(baseInfo.job_ctg_nm || rawData.lClass || fallback?.category || '분류 미확인');
 
-  const title = detailTitle ?? fallbackTitle ?? (isJob ? '직업 이름 미확인' : '학과 이름 미확인');
+  // --------------------------------------------------------------------------
+  // Tabs Configuration
+  // --------------------------------------------------------------------------
+  const tabs = isJob
+    ? ['직업개요', '직업탐색 및 준비', '지식/업무']
+    : ['학과개요', '통계'];
 
-  const summaryFromDetail = isJob ? toText(jobDetail?.summary) : toText(majorDetail?.summary);
-  const fallbackSummary = isJob
-    ? toText(fallbackData?.reason ?? fallbackMetadata?.summary ?? fallbackMetadata?.description)
-    : toText(
-      fallbackData?.summary ??
-      fallbackMetadata?.summary ??
-      fallbackMetadata?.deptDesc ??
-      fallbackMetadata?.description
+  // --------------------------------------------------------------------------
+  // Content Rendering (JOB)
+  // --------------------------------------------------------------------------
+
+  // Tab 0: Overview
+  const renderJobOverview = () => {
+    const summary = toText(jobDetail?.summary || rawData.summary || fallback?.explanation);
+    const wage = formatWageText(jobDetail?.wageText || rawData.wage || baseInfo.wage);
+    // Prospect data is in forecastList array
+    const forecastList = rawData.forecastList || [];
+    const prospect = toText(Array.isArray(forecastList) && forecastList.length > 0 ? forecastList[0].forecast : null);
+    const aptitude = toText(jobDetail?.aptitudeText || baseInfo.aptit_name || rawData.aptitude);
+    const similarJobs = toText(rawData.similarJob || baseInfo.rel_job_nm);
+
+    // Additional fields
+    const workList = rawData.workList || [];
+    const interestList = rawData.interestList || [];
+    const aptitudeList = rawData.aptitudeList || [];
+    // Parse certifications (same logic as in Prep tab)
+    const parseList = (jsonOrString: any, key: string) => {
+      if (!jsonOrString) return [];
+      if (Array.isArray(jsonOrString)) return jsonOrString.map(i => i[key] || i.name || i).filter(Boolean);
+      try {
+        const parsed = JSON.parse(jsonOrString);
+        return parsed.map((i: any) => i[key] || i.name || i).filter(Boolean);
+      } catch {
+        return [];
+      }
+    };
+    const certs = parseList(rawData.certiList, 'certi');
+    const majors = parseList(rawData.departList, 'depart_name');
+
+    return (
+      <div className="space-y-8 animate-in fade-in duration-300">
+        <section>
+          <SectionTitle>직업 설명</SectionTitle>
+          <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6 text-base leading-relaxed text-gray-700">
+            {summary || <EmptyState message="직업 설명 정보가 없습니다." />}
+          </div>
+        </section>
+
+        {/* Work List - 주요 업무 */}
+        {workList.length > 0 && (
+          <section>
+            <SectionTitle>주요 업무</SectionTitle>
+            <div className="space-y-3">
+              {workList.map((item: any, i: number) => (
+                <div key={i} className="flex gap-3 rounded-xl bg-gray-50 px-4 py-3">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600">
+                    {i + 1}
+                  </div>
+                  <p className="text-sm text-gray-700 leading-relaxed">{item.work}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section>
+          <SectionTitle>핵심 정보</SectionTitle>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="rounded-2xl bg-indigo-50 p-4 text-center">
+              <p className="text-xs font-semibold text-indigo-500 mb-1">평균 연봉</p>
+              <p className="text-sm font-bold text-gray-900">{wage || '-'}</p>
+            </div>
+            <div className="rounded-2xl bg-indigo-50 p-4 text-center">
+              <p className="text-xs font-semibold text-indigo-500 mb-1">관련 학과</p>
+              <p className="text-sm font-bold text-gray-900 line-clamp-2">
+                {majors.length > 0 ? majors.join(', ') : '-'}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-indigo-50 p-4 text-center">
+              <p className="text-xs font-semibold text-indigo-500 mb-1">관련 직업</p>
+              <p className="text-sm font-bold text-gray-900 line-clamp-2">{similarJobs || '-'}</p>
+            </div>
+            <div className="rounded-2xl bg-indigo-50 p-4 text-center">
+              <p className="text-xs font-semibold text-indigo-500 mb-1">관련 자격증</p>
+              <p className="text-sm font-bold text-gray-900 line-clamp-2">
+                {certs.length > 0 ? certs.join(', ') : '-'}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Job Prospect - Full Text */}
+        {prospect && (
+          <section>
+            <SectionTitle>일자리 전망</SectionTitle>
+            <div className="rounded-2xl border border-gray-100 bg-gradient-to-br from-blue-50 to-indigo-50 p-6">
+              <p className="text-base leading-relaxed text-gray-700">{prospect}</p>
+            </div>
+          </section>
+        )}
+
+        {/* Aptitude List - 상세 적성 */}
+        {aptitudeList.length > 0 && (
+          <section>
+            <SectionTitle>필요 적성 (상세)</SectionTitle>
+            <div className="space-y-2">
+              {aptitudeList.map((item: any, i: number) => (
+                <div key={i} className="rounded-xl bg-blue-50 px-4 py-3 text-sm text-gray-700">
+                  • {item.aptitude}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Interest List */}
+        {interestList.length > 0 && (
+          <section>
+            <SectionTitle>어울리는 성향</SectionTitle>
+            <div className="space-y-2">
+              {interestList.map((item: any, i: number) => (
+                <div key={i} className="rounded-xl bg-green-50 px-4 py-3 text-sm text-gray-700">
+                  • {item.interest}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
     );
-  const summary = summaryFromDetail ?? fallbackSummary ?? null;
-
-  const summaryCaption = isJob
-    ? toText(jobBaseInfo?.job_ctg_nm ?? fallbackMetadata?.category ?? fallbackMetadata?.jobGroup)
-    : toText(majorRaw?.lClass ?? fallbackMetadata?.lClass ?? fallbackMetadata?.field);
-
-  const jobTagItems = [
-    {
-      label: '평균 연봉',
-      value: formatWageText(jobDetail?.wageText ?? jobBaseInfo?.wage ?? fallbackMetadata?.wage)
-    },
-    {
-      label: '일·생활균형',
-      value: toText(jobBaseInfo?.wlb ?? fallbackMetadata?.wlb)
-    },
-    {
-      label: '적성',
-      value: toText(jobDetail?.aptitudeText ?? jobBaseInfo?.aptit_name ?? fallbackMetadata?.aptitude)
-    },
-    {
-      label: '관련 직업',
-      value: toText(jobBaseInfo?.rel_job_nm ?? fallbackMetadata?.relatedJob)
-    }
-  ];
-
-  const majorTagItems = [
-    {
-      label: '계열',
-      value: toText(majorRaw?.lClass ?? fallbackMetadata?.lClass)
-    },
-    {
-      label: '취업률',
-      value: toText(majorDetail?.employment ?? fallbackMetadata?.employment)
-    },
-    {
-      label: '흥미',
-      value: toText(majorDetail?.interest ?? fallbackMetadata?.interest)
-    },
-    {
-      label: '진출 분야',
-      value: toText(majorDetail?.job ?? fallbackMetadata?.relatedJobs ?? fallbackMetadata?.job)
-    }
-  ];
-
-  const visibleTags = (isJob ? jobTagItems : majorTagItems).filter((tag) => Boolean(tag.value));
-
-  const detailCards = isJob
-    ? [
-      { title: '하는 일', value: jobWorkList.length ? jobWorkList : jobDetail?.summary },
-      { title: '필요 역량', value: jobAbilities.length ? jobAbilities : fallbackMetadata?.ability },
-      { title: '관련 학과', value: jobMajors.length ? jobMajors : fallbackMetadata?.relatedMajors },
-      { title: '자격증/준비', value: jobCertifications.length ? jobCertifications : fallbackMetadata?.certifications }
-    ]
-    : [
-      { title: '커리큘럼', value: majorCurriculum.length ? majorCurriculum : majorDetail?.summary },
-      { title: '적성 및 흥미', value: majorInterest.length ? majorInterest : majorDetail?.interest },
-      { title: '학과 특성', value: majorProperty.length ? majorProperty : majorDetail?.propertyText },
-      { title: '관련 직업', value: majorCareer.length ? majorCareer : fallbackMetadata?.relatedJobs }
-    ];
-
-  const descriptionList = isJob
-    ? jobWorkList.length
-      ? jobWorkList
-      : splitLines(summary)
-    : majorCurriculum.length
-      ? majorCurriculum
-      : splitLines(summary);
-
-  const relatedInfo = isJob
-    ? [
-      {
-        title: '연봉 정보',
-        value:
-          formatWageText(jobDetail?.wageText ?? jobBaseInfo?.wage ?? fallbackMetadata?.wage) ??
-          toText(jobDetail?.wageSource ?? fallbackMetadata?.wage)
-      },
-      { title: '관련 자격증', value: jobCertifications.length ? jobCertifications : null },
-      { title: '추천 학과', value: jobMajors.length ? jobMajors : null }
-    ]
-    : [
-      {
-        title: '취업/연봉',
-        value:
-          mergeText([
-            majorDetail?.employment ?? fallbackMetadata?.employment,
-            formatWageText(majorDetail?.salary ?? fallbackMetadata?.salary)
-          ]) ?? fallbackMetadata?.employment
-      },
-      { title: '관련 직업', value: majorCareer.length ? majorCareer : fallbackMetadata?.relatedJobs },
-      { title: '흥미 키워드', value: majorInterest.length ? majorInterest : fallbackMetadata?.interest }
-    ];
-
-  const handleOverlayClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (event.target === event.currentTarget) {
-      onClose();
-    }
   };
 
-  return (
-    <ModalOverlay onClick={handleOverlayClick}>
-      <ModalContainer>
-        <header className="flex items-start justify-between border-b border-gray-100 px-6 py-5">
-          <div>
-            <p className="text-sm font-medium uppercase tracking-wide text-indigo-500">
-              {isJob ? '직업 상세' : '학과 상세'}
+  // Tab 1: Preparation (Training, Certification, Majors)
+  const renderJobPrep = () => {
+    // jobReadyList contains training info
+    const jobReady = rawData.jobReadyList || {};
+    const trainings = Array.isArray(jobReady.training)
+      ? jobReady.training.map((t: any) => t.training).filter(Boolean)
+      : [];
+
+    // Additional fields
+    const researchList = rawData.researchList || [];
+    const eduChart = rawData.eduChart || [];
+    const majorChart = rawData.majorChart || [];
+    const jobRelOrgList = rawData.jobRelOrgList || [];
+    const relVideoList = rawData.relVideoList || [];
+
+    return (
+      <div className="space-y-8 animate-in fade-in duration-300">
+        {trainings.length > 0 && (
+          <section>
+            <SectionTitle>교육 및 훈련</SectionTitle>
+            <div className="space-y-2">
+              {trainings.map((t: string, i: number) => (
+                <div key={i} className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-700">
+                  • {t}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Research List - 탐색 방법 */}
+        {researchList.length > 0 && (
+          <section>
+            <SectionTitle>직업 탐색 방법</SectionTitle>
+            <div className="space-y-2">
+              {researchList.map((item: any, i: number) => (
+                <div key={i} className="rounded-xl bg-purple-50 px-4 py-3 text-sm text-gray-700">
+                  • {item.research}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Education Chart */}
+        {eduChart.length > 0 && eduChart[0].chart_data && (
+          <section>
+            <SectionTitle>학력 분포</SectionTitle>
+            <div className="rounded-2xl border border-gray-100 bg-white p-6">
+              {(() => {
+                const labels = eduChart[0].chart_name?.split(',') || [];
+                const values = eduChart[0].chart_data?.split(',').map(Number) || [];
+                return (
+                  <div className="space-y-3">
+                    {labels.map((label: string, i: number) => (
+                      values[i] > 0 && (
+                        <div key={i} className="flex items-center gap-3">
+                          <span className="text-sm text-gray-600 w-24">{label}</span>
+                          <div className="flex-1 h-8 bg-gray-100 rounded-lg overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-blue-400 to-blue-600 flex items-center justify-end pr-2"
+                              style={{ width: `${values[i]}%` }}
+                            >
+                              <span className="text-xs font-bold text-white">{values[i]}%</span>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    ))}
+                    <p className="text-xs text-gray-400 mt-2">{eduChart[0].source}</p>
+                  </div>
+                );
+              })()}
+            </div>
+          </section>
+        )}
+
+        {/* Major Chart */}
+        {majorChart.length > 0 && majorChart[0].major_data && (
+          <section>
+            <SectionTitle>전공 계열 분포</SectionTitle>
+            <div className="rounded-2xl border border-gray-100 bg-white p-6">
+              {(() => {
+                const labels = majorChart[0].major?.split(',') || [];
+                const values = majorChart[0].major_data?.split(',').map(Number) || [];
+                return (
+                  <div className="space-y-3">
+                    {labels.map((label: string, i: number) => (
+                      values[i] > 0 && (
+                        <div key={i} className="flex items-center gap-3">
+                          <span className="text-sm text-gray-600 w-24">{label}</span>
+                          <div className="flex-1 h-8 bg-gray-100 rounded-lg overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-green-400 to-green-600 flex items-center justify-end pr-2"
+                              style={{ width: `${values[i]}%` }}
+                            >
+                              <span className="text-xs font-bold text-white">{values[i]}%</span>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    ))}
+                    <p className="text-xs text-gray-400 mt-2">{majorChart[0].source}</p>
+                  </div>
+                );
+              })()}
+            </div>
+          </section>
+        )}
+
+        {/* Related Organizations */}
+        {jobRelOrgList.length > 0 && (
+          <section>
+            <SectionTitle>관련 기관</SectionTitle>
+            <div className="space-y-3">
+              {jobRelOrgList.map((org: any, i: number) => {
+                // Add http:// prefix if URL doesn't start with http/https
+                let url = org.rel_org_url;
+                if (url && !url.startsWith('http')) {
+                  url = 'http://' + url;
+                }
+                const hasValidUrl = !!url;
+
+                return hasValidUrl ? (
+                  <a
+                    key={i}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3 text-sm hover:bg-indigo-50 transition group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                        <i className="ri-building-line text-indigo-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{org.rel_org}</p>
+                        <p className="text-xs text-gray-500 group-hover:text-indigo-600 transition">{org.rel_org_url}</p>
+                      </div>
+                    </div>
+                    <i className="ri-external-link-line text-gray-400 group-hover:text-indigo-600 transition" />
+                  </a>
+                ) : (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3 text-sm"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                        <i className="ri-building-line text-gray-500" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-700">{org.rel_org}</p>
+                        <p className="text-xs text-gray-400">URL 정보 없음</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-xs text-gray-400 mt-3">
+              ⚠️ 일부 기관의 웹사이트 주소가 변경되었거나 접속이 불가능할 수 있습니다.
             </p>
-            <h2 className="mt-1 text-2xl font-bold text-gray-900">{title}</h2>
-            {summaryCaption && <p className="mt-1 text-sm text-gray-500">{summaryCaption}</p>}
+          </section>
+        )}
+
+        {/* Related Videos */}
+        {relVideoList.length > 0 && (
+          <section>
+            <SectionTitle>관련 영상</SectionTitle>
+            <div className="grid md:grid-cols-2 gap-4">
+              {relVideoList.slice(0, 4).map((video: any, i: number) => (
+                <a
+                  key={i}
+                  href={video.OUTPATH3}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg transition"
+                >
+                  <div className="aspect-video bg-gradient-to-br from-indigo-100 to-purple-100 relative overflow-hidden flex items-center justify-center">
+                    {video.THUMNAIL_PATH ? (
+                      <>
+                        <img
+                          src={`https://cdn.career.go.kr/cnet/real/upload/${video.THUMNAIL_PATH}`}
+                          alt={video.video_name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition"
+                          onError={(e) => {
+                            // Hide broken image and show fallback
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
+                          <i className="ri-video-line text-6xl text-indigo-300" />
+                        </div>
+                      </>
+                    ) : (
+                      <i className="ri-video-line text-6xl text-indigo-300" />
+                    )}
+                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                      <i className="ri-play-circle-line text-4xl text-white" />
+                    </div>
+                  </div>
+                  <div className="p-3 bg-white">
+                    <p className="text-sm font-medium text-gray-900 line-clamp-2">{video.video_name}</p>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+    );
+  };
+
+
+
+  // Tab 3: Competency (Bars)
+  const renderJobCompetency = () => {
+    // Database stores competency data in performList object with nested arrays
+    const performList = rawData.performList || {};
+    const perform = performList.perform as CompetencyItem[];
+    const knowledge = performList.knowledge as CompetencyItem[];
+
+    return (
+      <div className="space-y-12 animate-in fade-in duration-300">
+        <section>
+          <SectionTitle>중요 지식 (Knowledge)</SectionTitle>
+          <div className="rounded-3xl border border-gray-100 bg-white p-6">
+            <CompetencyBarChart data={knowledge || []} type="knowledge" />
+          </div>
+        </section>
+
+        <section>
+          <SectionTitle>주요 업무 수행 (Performance)</SectionTitle>
+          <div className="rounded-3xl border border-gray-100 bg-white p-6">
+            <CompetencyBarChart data={perform || []} type="perform" />
+          </div>
+        </section>
+      </div>
+    );
+  };
+
+
+  // --------------------------------------------------------------------------
+  // Content Rendering (MAJOR)
+  // --------------------------------------------------------------------------
+
+  // Tab 0: 학과개요 (Overview)
+  const renderMajorOverview = () => {
+    console.log('=== Major Overview Debug ===');
+    console.log('majorDetail:', majorDetail);
+    console.log('rawData:', rawData);
+    console.log('rawData.lClass:', rawData.lClass);
+    console.log('fallbackMetadata.lClass:', fallbackMetadata.lClass);
+
+    const summary = toText(majorDetail?.summary || rawData.summary || rawData.major_summary);
+    const characteristics = toText(rawData.characteristics || rawData.property || majorDetail?.propertyText);
+    const interest = toText(majorDetail?.interest || rawData.interest);
+    const relatedJobList = Array.isArray(rawData.relatedJobs)
+      ? (rawData.relatedJobs as Array<GenericRecord>)
+        .map((item) => toText(item?.relate_JOB_NAME ?? item?.job ?? item))
+        .filter(Boolean) as string[]
+      : splitLines(
+        majorDetail?.job ??
+        fallbackMetadata?.relatedJobs ??
+        fallbackMetadata?.job ??
+        fallbackData?.relatedJob
+      );
+
+    // Try rawData first, then fallback to metadata from recommendation item
+    const lClass = rawData.lClass || rawData.lclass || rawData.l_class ||
+      rawData.LCLASS || rawData.L_CLASS ||
+      fallbackMetadata.lClass || '분류 미확인';
+
+    console.log('Extracted lClass:', lClass);
+
+    return (
+      <div className="space-y-8 animate-in fade-in duration-300">
+        <section>
+          <SectionTitle>학과 설명</SectionTitle>
+          <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6 text-base leading-relaxed text-gray-700">
+            {summary || <EmptyState message="학과 설명 정보가 없습니다." />}
+          </div>
+        </section>
+
+        {characteristics && (
+          <section>
+            <SectionTitle>학과 특성</SectionTitle>
+            <div className="rounded-2xl border border-gray-100 bg-gradient-to-br from-purple-50 to-pink-50 p-6 text-base leading-relaxed text-gray-700">
+              {characteristics}
+            </div>
+          </section>
+        )}
+
+        {interest && (
+          <section>
+            <SectionTitle>흥미와 적성</SectionTitle>
+            <div className="rounded-2xl border border-gray-100 bg-gradient-to-br from-blue-50 to-indigo-50 p-6 text-base leading-relaxed text-gray-700">
+              {interest}
+            </div>
+          </section>
+        )}
+
+        <section>
+          <SectionTitle>핵심 정보</SectionTitle>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+            <div className="rounded-2xl bg-indigo-50 p-4 text-center">
+              <p className="text-xs font-semibold text-indigo-500 mb-1">계열</p>
+              <p className="text-sm font-bold text-gray-900">{lClass}</p>
+            </div>
+            <div className="rounded-2xl bg-green-50 p-4 text-center">
+              <p className="text-xs font-semibold text-green-500 mb-1">취업률</p>
+              <p className="text-sm font-bold text-gray-900">
+                {toPercentText(majorDetail?.employment || rawData.employment) || '-'}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-blue-50 p-4 text-center">
+              <p className="text-xs font-semibold text-blue-500 mb-1">관련 직업</p>
+              {relatedJobList.length > 0 ? (
+                <div className="flex flex-wrap gap-1 justify-center">
+                  {relatedJobList.map((job, idx) => (
+                    <span
+                      key={`${job}-${idx}`}
+                      className="text-xs font-semibold text-gray-800 bg-white/70 px-2 py-0.5 rounded-full border border-blue-100"
+                    >
+                      {job}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm font-bold text-gray-900">-</p>
+              )}
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  };
+
+  // Tab 1: 개설대학 및 통계 (Universities & Statistics)
+  const renderMajorStatistics = () => {
+    // Debug: Log the actual data structure
+    console.log('=== Major Statistics Debug ===');
+    console.log('rawData:', rawData);
+    console.log('rawData.chartData:', rawData.chartData);
+
+    // Parse chartData - handle both object and array formats
+    let chartDataDict: Record<string, any> = {};
+    const chartDataSrc = rawData.chartData;
+
+    if (chartDataSrc) {
+      if (typeof chartDataSrc === 'object' && !Array.isArray(chartDataSrc)) {
+        chartDataDict = chartDataSrc;
+      } else if (Array.isArray(chartDataSrc)) {
+        // Merge array of objects into single dict
+        chartDataSrc.forEach((item: any) => {
+          if (typeof item === 'object') {
+            Object.assign(chartDataDict, item);
+          }
+        });
+      }
+    }
+
+    console.log('chartDataDict:', chartDataDict);
+
+    const genderData = Array.isArray(chartDataDict.gender) ? chartDataDict.gender : [];
+    const fieldData = Array.isArray(chartDataDict.field) ? chartDataDict.field : [];
+    const employmentData = Array.isArray(chartDataDict.employment_rate) ? chartDataDict.employment_rate : [];
+    const graduationData = Array.isArray(chartDataDict.after_graduation) ? chartDataDict.after_graduation : [];
+    const salaryData = Array.isArray(chartDataDict.avg_salary) ? chartDataDict.avg_salary : [];
+
+    console.log('genderData:', genderData);
+    console.log('fieldData:', fieldData);
+    console.log('employmentData:', employmentData);
+    console.log('graduationData:', graduationData);
+    console.log('salaryData:', salaryData);
+
+    return (
+      <div className="space-y-8 animate-in fade-in duration-300">
+        {/* Gender Distribution Chart */}
+        {genderData.length > 0 && (
+          <section>
+            <SectionTitle>성별 분포</SectionTitle>
+            <div className="rounded-2xl border border-gray-100 bg-white p-6">
+              <div className="space-y-3">
+                {genderData.map((item: any, i: number) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <span className="text-sm text-gray-600 w-20">{item.item}</span>
+                    <div className="flex-1 h-10 bg-gray-100 rounded-lg overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-pink-400 to-purple-600 flex items-center justify-end pr-3"
+                        style={{ width: `${item.data}%` }}
+                      >
+                        <span className="text-xs font-bold text-white">{item.data}%</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Field Distribution Chart */}
+        {fieldData.length > 0 && (
+          <section>
+            <SectionTitle>계열 분포</SectionTitle>
+            <div className="rounded-2xl border border-gray-100 bg-white p-6">
+              <div className="space-y-3">
+                {fieldData.map((item: any, i: number) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <span className="text-sm text-gray-600 w-32 truncate">{item.item}</span>
+                    <div className="flex-1 h-10 bg-gray-100 rounded-lg overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-blue-400 to-cyan-600 flex items-center justify-end pr-3"
+                        style={{ width: `${item.data}%` }}
+                      >
+                        <span className="text-xs font-bold text-white">{item.data}%</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Employment Rate Chart */}
+        {employmentData.length > 0 && (
+          <section>
+            <SectionTitle>취업률</SectionTitle>
+            <div className="rounded-2xl border border-gray-100 bg-white p-6">
+              <div className="space-y-3">
+                {employmentData.map((item: any, i: number) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <span className="text-sm text-gray-600 w-24">{item.item}</span>
+                    <div className="flex-1 h-10 bg-gray-100 rounded-lg overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-green-400 to-emerald-600 flex items-center justify-end pr-3"
+                        style={{ width: `${item.data}%` }}
+                      >
+                        <span className="text-xs font-bold text-white">{item.data}%</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Graduation Path Chart */}
+        {graduationData.length > 0 && (
+          <section>
+            <SectionTitle>졸업 후 진로</SectionTitle>
+            <div className="rounded-2xl border border-gray-100 bg-white p-6">
+              <div className="space-y-3">
+                {graduationData.map((item: any, i: number) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <span className="text-sm text-gray-600 w-24">{item.item}</span>
+                    <div className="flex-1 h-10 bg-gray-100 rounded-lg overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-orange-400 to-red-600 flex items-center justify-end pr-3"
+                        style={{ width: `${item.data}%` }}
+                      >
+                        <span className="text-xs font-bold text-white">{item.data}%</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {genderData.length === 0 && fieldData.length === 0 &&
+          employmentData.length === 0 && graduationData.length === 0 && salaryData.length === 0 && (
+            <EmptyState message="통계 데이터가 없습니다." />
+          )}
+      </div>
+    );
+  };
+
+
+  // --------------------------------------------------------------------------
+  // Main Render
+  // --------------------------------------------------------------------------
+  if (!open) return null;
+
+  return (
+    <ModalOverlay onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <ModalContainer className="h-[85vh]">
+        {/* Header */}
+        <header className="flex-none flex items-start justify-between border-b border-gray-100 px-8 py-6 bg-white z-10">
+          <div>
+            <h2 className="text-3xl font-extrabold text-gray-900">{title}</h2>
           </div>
           <button
-            type="button"
             onClick={onClose}
-            className="rounded-full p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
-            aria-label="닫기"
+            className="rounded-full bg-gray-100 p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-700 transition"
           >
             <i className="ri-close-line text-2xl" />
           </button>
         </header>
 
-        <div className="custom-scroll flex-1 space-y-8 overflow-y-auto px-6 py-6">
-          <StatusBanner loading={loading} error={errorMessage} />
-
-          <section className="space-y-3 rounded-3xl border border-gray-100 bg-gradient-to-br from-white via-white to-indigo-50/70 p-6">
-            <SectionTitle>요약</SectionTitle>
-            <p className="text-sm leading-relaxed text-gray-700">
-              {summary || `${isJob ? '직업' : '학과'} 요약 정보가 아직 제공되지 않았습니다.`}
-            </p>
-          </section>
-
-          <section className="space-y-4">
-            <SectionTitle>핵심 태그</SectionTitle>
-            <div className="flex flex-wrap gap-2">
-              {visibleTags.length > 0 ? (
-                visibleTags.map((tag) => <TagPill key={tag.label} label={tag.label} value={tag.value} />)
-              ) : (
-                <p className="text-sm text-gray-500">태그 정보가 아직 연결되지 않았습니다.</p>
-              )}
-            </div>
-          </section>
-
-          <section className="space-y-4">
-            <SectionTitle>{isJob ? '업무 및 역할' : '커리큘럼/특성'}</SectionTitle>
-            <div className="grid gap-4 md:grid-cols-2">
-              {detailCards.map((card) => (
-                <DetailCard
-                  key={card.title}
-                  title={card.title}
-                  value={card.value}
-                  allowListSingle={card.title === '커리큘럼'}
-                />
-              ))}
-            </div>
-          </section>
-
-          <section className="space-y-4">
-            <SectionTitle>상세 설명</SectionTitle>
-            <div className="space-y-3 rounded-2xl border border-gray-100 bg-white/70 p-5">
-              {descriptionList.length > 0 ? (
-                descriptionList.map((item, index) => <DescriptionRow key={index}>{item}</DescriptionRow>)
-              ) : (
-                <DescriptionRow>상세 설명 데이터가 아직 준비되지 않았습니다.</DescriptionRow>
-              )}
-            </div>
-          </section>
-
-          <section className="space-y-4">
-            <SectionTitle>관련 정보</SectionTitle>
-            <div className="grid gap-4 md:grid-cols-2">
-              {relatedInfo.map((info) => (
-                <div key={info.title} className="rounded-2xl border border-gray-100 bg-gray-50/80 p-4">
-                  <p className="text-sm font-semibold text-gray-900">{info.title}</p>
-                  <p className="mt-2 text-sm text-gray-600">
-                    {Array.isArray(info.value)
-                      ? info.value.length
-                        ? info.value.join(', ')
-                        : '관련 데이터가 없습니다.'
-                      : toText(info.value) ?? '관련 데이터가 없습니다.'}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section>
+        {/* Tab Navigation (Sticky) */}
+        <div className="flex-none flex border-b border-gray-200 bg-white px-8">
+          {tabs.map((tab, idx) => (
+            <TabButton
+              key={idx}
+              label={tab}
+              isActive={activeTab === idx}
+              onClick={() => setActiveTab(idx)}
+            />
+          ))}
         </div>
 
-        <footer className="flex flex-col gap-3 border-t border-gray-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-gray-900">
-              {isJob ? '직업 정보' : '학과 정보'} 가이드
-            </p>
-            <p className="text-xs text-gray-500">
-              Supabase에 저장된 CareerNet 원본 데이터를 기반으로 세부 정보를 제공합니다. 데이터가 없을 경우 추천
-              메타데이터를 보조적으로 노출합니다.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-500 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:opacity-90"
-          >
-            닫기
-          </button>
+        {/* Content Scroll Area */}
+        <div className="flex-1 overflow-y-auto px-8 py-8 bg-white custom-scroll">
+          {loading ? (
+            <div className="flex h-full items-center justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+            </div>
+          ) : isJob ? (
+            <>
+              {activeTab === 0 && renderJobOverview()}
+              {activeTab === 1 && renderJobPrep()}
+              {activeTab === 2 && renderJobCompetency()}
+            </>
+          ) : (
+            <>
+              {activeTab === 0 && renderMajorOverview()}
+              {activeTab === 1 && renderMajorStatistics()}
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <footer className="flex-none border-t border-gray-50 px-8 py-4 bg-gray-50 flex justify-between items-center text-xs text-gray-400">
+          <p>Data Source: CareerNet (2025 Updated)</p>
+          <p>DreamPath AI Analysis</p>
         </footer>
+
       </ModalContainer>
     </ModalOverlay>
   );

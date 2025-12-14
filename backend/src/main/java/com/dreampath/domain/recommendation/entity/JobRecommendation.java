@@ -41,6 +41,9 @@ public class JobRecommendation {
     @Column(columnDefinition = "TEXT")
     private String metadata;
 
+    @Column(columnDefinition = "TEXT")
+    private String explanation;
+
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
 }

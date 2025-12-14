@@ -1,11 +1,5 @@
 import { lazy } from "react";
 import type { RouteObject } from "react-router-dom";
-import VectorStatusPage from "@/pages/profile/VectorStatusPage";
-import JobRecommend from "@/pages/profile/JobRecommend";
-import RecruitRecommend from "@/pages/profile/RecruitRecommend";
-import MajorRecommend from "@/pages/profile/MajorRecommend";
-import SchoolRecommend from "@/pages/profile/SchoolRecommend";
-
 const ProfileDashboardPage = lazy(() => import("../pages/profile/Dashboard"));
 const HomePage = lazy(() => import("../pages/home/page"));
 const NotFoundPage = lazy(() => import("../pages/NotFound"));
@@ -89,26 +83,6 @@ const routes: RouteObject[] = [
   {
     path: "/profile/dashboard",
     element: <ProfileDashboardPage />,
-  },
-  {
-    path: "/profile/vector-status",
-    element: <VectorStatusPage />,
-  },
-  {
-    path: "/profile/recommend",
-    element: <JobRecommend />,
-  },
-  {
-    path: "/profile/recommend/worknet",
-    element: <RecruitRecommend />,
-  },
-  {
-    path: "/profile/recommend/majors",
-    element: <MajorRecommend />,
-  },
-  {
-    path: "/profile/recommend/schools",
-    element: <SchoolRecommend />,
   },
 
   /* ----------------------

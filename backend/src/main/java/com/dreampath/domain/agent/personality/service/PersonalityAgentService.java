@@ -13,7 +13,7 @@ import com.dreampath.domain.profile.repository.ProfileAnalysisRepository;
 import com.dreampath.domain.profile.repository.ProfileVectorRepository;
 import com.dreampath.domain.profile.repository.UserProfileRepository;
 import com.dreampath.domain.profile.service.UserProfileSyncService;
-import com.dreampath.domain.recommendation.service.RecommendationStorageService;
+import com.dreampath.domain.agent.recommendation.service.RecommendationCacheService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -39,7 +39,7 @@ public class PersonalityAgentService {
     private final PythonAgentService pythonAgentService;
     private final ObjectMapper objectMapper;
     private final UserProfileSyncService userProfileSyncService;
-    private final RecommendationStorageService recommendationStorageService;
+    private final RecommendationCacheService recommendationCacheService;
 
     @Transactional
     public PersonalityAgentResponse run(PersonalityAgentRequest incomingRequest) {
@@ -204,25 +204,19 @@ public class PersonalityAgentService {
     }
 
     /**
-     * 직업/학과 추천 결과를 DB에 저장합니다.
+     * 직업/학과 추천 캐시를 무효화합니다.
+     * 새로운 분석 결과가 저장되었으므로, 다음 추천 조회 시 새로운 추천이 생성되도록 합니다.
      */
     private void saveRecommendations(Long userId, Long profileId) {
         try {
-            // ProfileVector에서 실제 vectorDbId 조회 (user-{profileId} 형식)
-            ProfileVector profileVector = profileVectorRepository.findByProfileId(profileId);
-            if (profileVector == null || profileVector.getVectorDbId() == null) {
-                log.warn("ProfileVector를 찾을 수 없어 추천 결과를 저장하지 않습니다. profileId: {}", profileId);
-                return;
-            }
+            // 캐시 무효화 (기존 추천 삭제)
+            recommendationCacheService.invalidateCache(userId);
+            log.info("✅ 추천 캐시 무효화 완료. userId: {}", userId);
 
-            String vectorId = profileVector.getVectorDbId();
-            log.info("🔮 VectorDbId 조회 완료: {}", vectorId);
-
-            // 추천 결과 저장
-            recommendationStorageService.updateRecommendations(userId, vectorId);
-            log.info("✅ 추천 결과 저장 완료. userId: {}, vectorId: {}", userId, vectorId);
+            // TODO: 필요 시 여기서 비동기로 RecommendationAgentService를 호출하여 미리 생성할 수 있음.
+            // 현재는 사용자가 대시보드에 접속할 때(On-Demand) 생성하도록 함.
         } catch (Exception e) {
-            log.error("❌ 추천 결과 저장 중 오류 발생. userId: {}, profileId: {}", userId, profileId, e);
+            log.error("❌ 추천 캐시 무효화 중 오류 발생. userId: {}", userId, e);
         }
     }
 
