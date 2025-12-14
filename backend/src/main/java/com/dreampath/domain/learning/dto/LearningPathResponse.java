@@ -84,6 +84,8 @@ public class LearningPathResponse {
         private Float scoreRate;
         private String aiSummary;
         private LocalDateTime createdAt;
+        private LocalDateTime completedAt;
+        private LocalDateTime unlockAt;
 
         public static WeeklySessionInfo from(WeeklySession session) {
             WeeklySessionInfo info = new WeeklySessionInfo();
@@ -106,6 +108,8 @@ public class LearningPathResponse {
             info.scoreRate = info.totalScore > 0 ? (float) info.earnedScore / info.totalScore * 100 : 0.0f;
             info.aiSummary = session.getAiSummary();
             info.createdAt = session.getCreatedAt();
+            info.completedAt = session.getCompletedAt();
+            info.unlockAt = session.getUnlockAt();
             return info;
         }
     }

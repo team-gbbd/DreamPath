@@ -243,6 +243,12 @@ export default function Dashboard() {
     const earnedScore = stats?.earnedScore ?? 0;
     const totalMaxScore = stats?.totalMaxScore ?? 0;
 
+    // 평균 점수 계산 (완료된 주차 기준)
+    const completedWeeks = stats?.weeklyProgress?.filter((w: any) => w.status === 'COMPLETED') ?? [];
+    const avgScore = completedWeeks.length > 0
+        ? Math.round(completedWeeks.reduce((sum: number, w: any) => sum + (w.earnedScore || 0), 0) / completedWeeks.length)
+        : 0;
+
     return (
         <div className="min-h-screen bg-[#FFF5F7]">
             <div className="max-w-[1600px] mx-auto px-6 py-8">
@@ -271,7 +277,7 @@ export default function Dashboard() {
                                 <div className="bg-white border border-gray-200 rounded p-4">
                                     <p className="text-xs text-gray-500 mb-1">평균 점수</p>
                                     <p className="text-2xl font-bold text-gray-900">
-                                        {totalMaxScore > 0 ? `${Math.floor(scoreRate)}점` : '-'}
+                                        {completedWeeks.length > 0 ? `${avgScore}점` : '-'}
                                     </p>
                                 </div>
                                 <div className="bg-white border border-gray-200 rounded p-4">

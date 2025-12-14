@@ -179,6 +179,8 @@ export interface WeeklySessionInfo {
   scoreRate: number;
   aiSummary: string | null;
   createdAt: string;
+  completedAt: string | null;
+  unlockAt: string | null;
 }
 
 export interface SubmittedAnswerInfo {

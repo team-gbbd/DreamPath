@@ -43,6 +43,10 @@ public class WeeklySession {
     @Column(nullable = false)
     private Integer totalScore = 0;   // 총 배점
 
+    private LocalDateTime completedAt;  // 완료 시간
+
+    private LocalDateTime unlockAt;     // 잠금 해제 예정 시간
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 
