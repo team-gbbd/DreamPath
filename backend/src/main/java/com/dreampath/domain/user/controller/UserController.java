@@ -5,12 +5,16 @@ import com.dreampath.domain.user.dto.user.UserProfileResponse;
 import com.dreampath.domain.user.entity.User;
 import com.dreampath.global.enums.Role;
 import com.dreampath.global.exception.ResourceNotFoundException;
+import com.dreampath.global.jwt.JwtUserPrincipal;
 import com.dreampath.domain.user.repository.UserRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
 
@@ -26,12 +30,16 @@ public class UserController {
     private final UserRepository userRepository;
 
     /**
-     * 사용자 프로필 조회
+     * 사용자 프로필 조회 (본인만 조회 가능)
      * GET /api/users/{userId}
      */
     @GetMapping("/{userId}")
-    public ResponseEntity<UserProfileResponse> getUserProfile(@PathVariable Long userId) {
+    public ResponseEntity<UserProfileResponse> getUserProfile(
+            @PathVariable Long userId,
+            @AuthenticationPrincipal JwtUserPrincipal principal) {
         log.info("사용자 프로필 조회 - userId: {}", userId);
+
+        validateOwnership(principal, userId);
 
         try {
             User user = userRepository.findById(userId)
@@ -49,12 +57,15 @@ public class UserController {
     }
 
     /**
-     * 모든 사용자 조회 (디버깅용)
+     * 모든 사용자 조회 (관리자 전용)
      * GET /api/users
      */
     @GetMapping
-    public ResponseEntity<?> getAllUsers() {
+    public ResponseEntity<?> getAllUsers(@AuthenticationPrincipal JwtUserPrincipal principal) {
         log.info("모든 사용자 조회");
+
+        validateAdmin(principal);
+
         try {
             var users = userRepository.findAll();
             log.info("사용자 수: {}", users.size());
@@ -66,14 +77,17 @@ public class UserController {
     }
 
     /**
-     * 사용자 정보 수정
+     * 사용자 정보 수정 (본인만 가능)
      * PUT /api/users/{userId}
      */
     @PutMapping("/{userId}")
     public ResponseEntity<UserProfileResponse> updateUserProfile(
             @PathVariable Long userId,
-            @Valid @RequestBody UpdateUserRequest request) {
+            @Valid @RequestBody UpdateUserRequest request,
+            @AuthenticationPrincipal JwtUserPrincipal principal) {
         log.info("사용자 정보 수정 - userId: {}", userId);
+
+        validateOwnership(principal, userId);
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
@@ -91,14 +105,17 @@ public class UserController {
     }
 
     /**
-     * 사용자 역할 변경 (관리자용)
+     * 사용자 역할 변경 (관리자 전용)
      * PATCH /api/users/{userId}/role
      */
     @PatchMapping("/{userId}/role")
     public ResponseEntity<?> updateUserRole(
             @PathVariable Long userId,
-            @RequestBody Map<String, String> request) {
+            @RequestBody Map<String, String> request,
+            @AuthenticationPrincipal JwtUserPrincipal principal) {
         log.info("사용자 역할 변경 - userId: {}, role: {}", userId, request.get("role"));
+
+        validateAdmin(principal);
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
@@ -116,14 +133,17 @@ public class UserController {
     }
 
     /**
-     * 사용자 활성화/비활성화 (관리자용)
+     * 사용자 활성화/비활성화 (관리자 전용)
      * PATCH /api/users/{userId}/status
      */
     @PatchMapping("/{userId}/status")
     public ResponseEntity<?> updateUserStatus(
             @PathVariable Long userId,
-            @RequestBody Map<String, Boolean> request) {
+            @RequestBody Map<String, Boolean> request,
+            @AuthenticationPrincipal JwtUserPrincipal principal) {
         log.info("사용자 상태 변경 - userId: {}, isActive: {}", userId, request.get("isActive"));
+
+        validateAdmin(principal);
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
@@ -138,5 +158,29 @@ public class UserController {
         log.info("사용자 상태 변경 완료 - userId: {}, isActive: {}", userId, isActive);
 
         return ResponseEntity.ok(updatedUser);
+    }
+
+    /**
+     * 본인 확인 헬퍼 메서드
+     */
+    private void validateOwnership(JwtUserPrincipal principal, Long userId) {
+        if (principal == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "인증이 필요합니다.");
+        }
+        if (!principal.getUserId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근 권한이 없습니다.");
+        }
+    }
+
+    /**
+     * 관리자 확인 헬퍼 메서드
+     */
+    private void validateAdmin(JwtUserPrincipal principal) {
+        if (principal == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "인증이 필요합니다.");
+        }
+        if (!"ADMIN".equals(principal.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "관리자 권한이 필요합니다.");
+        }
     }
 }

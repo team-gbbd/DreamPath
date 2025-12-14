@@ -228,12 +228,12 @@ export default function Dashboard() {
 
     const weeklyProgressData = stats?.weeklyProgress?.map((w) => ({
         name: `${w.weekNumber}주차`,
-        점수: w.scoreRate,
+        점수: Math.round(w.scoreRate),
     })) ?? [];
 
     const typeAccuracyData = stats?.typeAccuracy?.map((t) => ({
         name: getTypeLabel(t.questionType),
-        점수: t.accuracy,
+        점수: Math.round(t.accuracy),
     })) ?? [];
 
     const selectedPath = learningPaths.find(p => p.pathId === selectedPathId);

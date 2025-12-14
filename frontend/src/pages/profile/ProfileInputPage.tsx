@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, authFetch } from '@/lib/api';
 
 const PROFILE_CACHE_KEY = 'dreampath:profile-cache';
 
@@ -93,7 +93,7 @@ export default function ProfileInputPage() {
 
     const loadProfile = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/profiles/${userId}`, {
+        const res = await authFetch(`${API_BASE_URL}/profiles/${userId}`, {
           signal: controller.signal,
         });
         if (res.ok) {
@@ -213,7 +213,7 @@ export default function ProfileInputPage() {
         : `${API_BASE_URL}/profiles`;
       const method = isEditMode ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
+      const res = await authFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

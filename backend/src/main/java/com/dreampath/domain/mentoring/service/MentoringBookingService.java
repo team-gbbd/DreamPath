@@ -8,6 +8,7 @@ import com.dreampath.domain.mentoring.entity.MentoringSession;
 import com.dreampath.domain.user.entity.User;
 import com.dreampath.global.enums.BookingStatus;
 import com.dreampath.global.exception.ResourceNotFoundException;
+import com.dreampath.domain.mentoring.repository.MentorRepository;
 import com.dreampath.domain.mentoring.repository.MentoringBookingRepository;
 import com.dreampath.domain.mentoring.repository.MentoringSessionRepository;
 import com.dreampath.domain.user.repository.UserRepository;
@@ -27,6 +28,7 @@ public class MentoringBookingService {
 
     private final MentoringBookingRepository bookingRepository;
     private final MentoringSessionRepository sessionRepository;
+    private final MentorRepository mentorRepository;
     private final UserRepository userRepository;
     private final PaymentService paymentService;
     private final LiveKitService liveKitService;
@@ -281,5 +283,60 @@ public class MentoringBookingService {
         log.info("LiveKit 토큰 생성 완료 - bookingId: {}, participantName: {}", bookingId, participantName);
 
         return token;
+    }
+
+    /**
+     * 멘토 접근 권한 검증 (mentorId 기반)
+     */
+    public void validateMentorAccess(Long mentorId, Long userId) {
+        var mentor = mentorRepository.findById(mentorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Mentor", "id", mentorId));
+
+        if (!mentor.getUser().getUserId().equals(userId)) {
+            throw new SecurityException("해당 멘토 정보에 대한 접근 권한이 없습니다.");
+        }
+    }
+
+    /**
+     * 예약 접근 권한 검증 (멘토 또는 멘티)
+     */
+    public void validateBookingAccess(Long bookingId, Long userId) {
+        MentoringBooking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking", "id", bookingId));
+
+        boolean isMentor = booking.getSession().getMentor().getUser().getUserId().equals(userId);
+        boolean isMentee = booking.getMentee().getUserId().equals(userId);
+
+        if (!isMentor && !isMentee) {
+            throw new SecurityException("해당 예약에 대한 접근 권한이 없습니다.");
+        }
+    }
+
+    /**
+     * 멘토 권한 검증 (bookingId 기반)
+     */
+    public void validateMentorAccessByBooking(Long bookingId, Long userId) {
+        MentoringBooking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking", "id", bookingId));
+
+        boolean isMentor = booking.getSession().getMentor().getUser().getUserId().equals(userId);
+
+        if (!isMentor) {
+            throw new SecurityException("멘토만 접근할 수 있습니다.");
+        }
+    }
+
+    /**
+     * 멘티 권한 검증 (bookingId 기반)
+     */
+    public void validateMenteeAccessByBooking(Long bookingId, Long userId) {
+        MentoringBooking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking", "id", bookingId));
+
+        boolean isMentee = booking.getMentee().getUserId().equals(userId);
+
+        if (!isMentee) {
+            throw new SecurityException("멘티만 접근할 수 있습니다.");
+        }
     }
 }

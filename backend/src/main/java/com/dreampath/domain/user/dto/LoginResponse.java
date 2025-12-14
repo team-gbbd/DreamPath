@@ -18,4 +18,5 @@ public class LoginResponse {
     private LocalDate birth;
     private LocalDateTime createdAt;
     private Role role;
+    private String accessToken;  // JWT 토큰
 }

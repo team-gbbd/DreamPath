@@ -34,7 +34,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import SurveyModal from '../../components/profile/SurveyModal';
 import AgentCard, { type AgentAction } from '../../components/career/AgentCard';
-import { API_BASE_URL, PYTHON_AI_SERVICE_URL } from '@/lib/api';
+import { API_BASE_URL, PYTHON_AI_SERVICE_URL, authFetch } from '@/lib/api';
 
 interface Message {
   id: string;
@@ -231,7 +231,7 @@ export default function CareerChatPage() {
   const findSimilarMentors = async (panelId: string, currentSession: MentoringSession) => {
     setSimilarMentorLoading(panelId);
     try {
-      const response = await fetch(`${API_BASE_URL}/mentoring-sessions/available`);
+      const response = await authFetch(`${API_BASE_URL}/mentoring-sessions/available`);
       if (!response.ok) throw new Error('Failed to fetch');
 
       const allSessions: MentoringSession[] = await response.json();
@@ -354,7 +354,7 @@ export default function CareerChatPage() {
 
   const restoreSessionState = async (existingSessionId: string): Promise<boolean> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/chat/history/${existingSessionId}`);
+      const response = await authFetch(`${API_BASE_URL}/chat/history/${existingSessionId}`);
       if (response.ok) {
         const history = await response.json();
         if (history && history.length > 0) {
@@ -380,7 +380,7 @@ export default function CareerChatPage() {
 
           try {
             console.log('백엔드에서 정체성 상태 조회 시도:', existingSessionId);
-            const identityResponse = await fetch(`${API_BASE_URL}/identity/${existingSessionId}`);
+            const identityResponse = await authFetch(`${API_BASE_URL}/identity/${existingSessionId}`);
             console.log('정체성 응답 상태:', identityResponse.status);
             if (identityResponse.ok) {
               const identityData = await identityResponse.json();
@@ -477,7 +477,7 @@ export default function CareerChatPage() {
 
       const userIdToUse = currentUserId ?? userIdFromStorage;
 
-      const response = await fetch(`${API_BASE_URL}/chat/start`, {
+      const response = await authFetch(`${API_BASE_URL}/chat/start`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -536,7 +536,7 @@ export default function CareerChatPage() {
 
     const poll = async () => {
       try {
-        const response = await fetch(`${PYTHON_AI_SERVICE_URL}/api/chat/agent-result/${taskId}`);
+        const response = await authFetch(`${PYTHON_AI_SERVICE_URL}/api/chat/agent-result/${taskId}`);
         const task = await response.json();
 
         console.log(`[폴링] task_id=${taskId}, status=${task.status}`);
@@ -641,7 +641,7 @@ export default function CareerChatPage() {
       const user = JSON.parse(userStr);
       const userId = user.userId;
 
-      const response = await fetch(`${API_BASE_URL}/chat`, {
+      const response = await authFetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -683,7 +683,7 @@ export default function CareerChatPage() {
       setIsIdentityLoading(true);
       setTimeout(async () => {
         try {
-          const identityResponse = await fetch(`${API_BASE_URL}/identity/${sessionId}`);
+          const identityResponse = await authFetch(`${API_BASE_URL}/identity/${sessionId}`);
           if (identityResponse.ok) {
             const updatedIdentity = await identityResponse.json();
             setIdentityStatus(updatedIdentity);
@@ -755,7 +755,7 @@ export default function CareerChatPage() {
 
       if (userId) {
         try {
-          const analysisCheckResponse = await fetch(`${API_BASE_URL}/profiles/${userId}/analysis`);
+          const analysisCheckResponse = await authFetch(`${API_BASE_URL}/profiles/${userId}/analysis`);
 
           if (analysisCheckResponse.ok) {
             console.log('기존 분석 결과 발견, 대시보드로 이동');
@@ -781,7 +781,7 @@ export default function CareerChatPage() {
 
       console.log('분석 API 호출 시작:', sessionId);
 
-      const response = await fetch(`${API_BASE_URL}/analysis/${sessionId}`, {
+      const response = await authFetch(`${API_BASE_URL}/analysis/${sessionId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -861,7 +861,7 @@ export default function CareerChatPage() {
               return;
             }
 
-            const response = await fetch(`${API_BASE_URL}/mentoring-bookings`, {
+            const response = await authFetch(`${API_BASE_URL}/mentoring-bookings`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({

@@ -46,6 +46,19 @@ public class IdentityService {
         String conversationHistory;
     }
 
+    /**
+     * 세션 소유권 검증
+     */
+    public void validateSessionOwnership(String sessionId, Long userId) {
+        CareerSession session = sessionRepository.findBySessionId(sessionId)
+                .orElseThrow(() -> new RuntimeException("세션을 찾을 수 없습니다."));
+
+        String sessionUserId = session.getUserId();
+        if (sessionUserId == null || !sessionUserId.equals(String.valueOf(userId))) {
+            throw new SecurityException("해당 세션에 대한 접근 권한이 없습니다.");
+        }
+    }
+
     public IdentityStatus getIdentityStatus(String sessionId) {
         log.info("정체성 상태 조회 - 세션: {}", sessionId);
 

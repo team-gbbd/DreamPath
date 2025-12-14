@@ -39,6 +39,52 @@ export const backendApi = axios.create({
   withCredentials: true,
 });
 
+// JWT 토큰을 Authorization 헤더에 추가하는 interceptor
+const addAuthHeader = (config: any) => {
+  const userStr = localStorage.getItem("dreampath:user");
+  if (userStr) {
+    try {
+      const user = JSON.parse(userStr);
+      if (user.accessToken) {
+        config.headers.Authorization = `Bearer ${user.accessToken}`;
+      }
+    } catch {
+      // 파싱 실패 시 무시
+    }
+  }
+  return config;
+};
+
+api.interceptors.request.use(addAuthHeader);
+backendApi.interceptors.request.use(addAuthHeader);
+
+// Native fetch wrapper with JWT auth header
+export const authFetch = async (
+  input: RequestInfo | URL,
+  init?: RequestInit
+): Promise<Response> => {
+  const headers = new Headers(init?.headers);
+
+  const userStr = localStorage.getItem("dreampath:user");
+  if (userStr) {
+    try {
+      const user = JSON.parse(userStr);
+      if (user.accessToken) {
+        headers.set("Authorization", `Bearer ${user.accessToken}`);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // Set Content-Type if not set and body exists
+  if (init?.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  return fetch(input, { ...init, headers });
+};
+
 export interface JobDetailData {
   jobId: number;
   summary?: string | null;

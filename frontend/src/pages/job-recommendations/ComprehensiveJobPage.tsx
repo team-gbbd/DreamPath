@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { jobRecommendationService, jobSiteService, BACKEND_BASE_URL } from "@/lib/api";
+import { jobRecommendationService, jobSiteService, BACKEND_BASE_URL, authFetch } from "@/lib/api";
 import ApplicationWriterModal from "../../components/application/ApplicationWriterModal";
 
 // localStorage에서 userId 가져오기
@@ -191,7 +191,7 @@ export default function ComprehensiveJobPage() {
       }
 
       // 2. 백엔드에서 프로파일 분석 데이터 가져오기 (분석 여부 확인)
-      const analysisResponse = await fetch(`${BACKEND_BASE_URL}/api/profiles/${userId}/analysis`);
+      const analysisResponse = await authFetch(`${BACKEND_BASE_URL}/api/profiles/${userId}/analysis`);
       if (!analysisResponse.ok) {
         if (analysisResponse.status === 404) {
           setNoAnalysis(true);

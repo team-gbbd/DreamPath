@@ -298,7 +298,7 @@ class JobRecommendationCalculator:
                     {"role": "system", "content": "당신은 한국 채용시장 전문가입니다. 키워드만 간결하게 응답하세요."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=200,
+                max_completion_tokens=200,
                 temperature=0.3
             )
 

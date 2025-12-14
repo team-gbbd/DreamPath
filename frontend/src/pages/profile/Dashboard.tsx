@@ -16,7 +16,7 @@ import HybridJobRecommendPanel from '@/components/profile/HybridJobRecommendPane
 import AssistantChatbot from "@/components/chatbot/AssistantChatbot";
 import MajorRecommendPanel from '@/components/profile/MajorRecommendPanel';
 import CounselRecommendPanel from '@/components/profile/CounselRecommendPanel';
-import { BACKEND_BASE_URL, backendApi, bookingService, paymentService, mentorService } from '@/lib/api';
+import { BACKEND_BASE_URL, backendApi, bookingService, paymentService, mentorService, authFetch } from '@/lib/api';
 import { fetchHybridJobs, fetchMajors } from '@/pages/profile/recommendApi';
 import { Bar, BarChart, CartesianGrid, Cell, PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer, Tooltip, XAxis, YAxis, } from 'recharts';
 
@@ -256,9 +256,8 @@ export default function NewDashboard() {
   const fetchProfileData = useCallback(
     async (targetUserId: number, options: FetchOptions = {}) => {
       const { signal } = options;
-      const response = await fetch(`${BACKEND_BASE_URL}/api/profiles/${targetUserId}`, { signal });
-      if (!response.ok) throw new Error('프로필 정보를 불러오지 못했습니다.');
-      return (await response.json()) as ProfileData;
+      const response = await backendApi.get(`/profiles/${targetUserId}`, { signal });
+      return response.data as ProfileData;
     },
     [],
   );
@@ -266,9 +265,8 @@ export default function NewDashboard() {
   const fetchAnalysisData = useCallback(
     async (targetUserId: number, options: FetchOptions = {}) => {
       const { signal } = options;
-      const response = await fetch(`${BACKEND_BASE_URL}/api/profiles/${targetUserId}/analysis`, { signal });
-      if (!response.ok) throw new Error('분석 데이터를 불러오지 못했습니다.');
-      return (await response.json()) as AnalysisData;
+      const response = await backendApi.get(`/profiles/${targetUserId}/analysis`, { signal });
+      return response.data as AnalysisData;
     },
     [],
   );
@@ -391,7 +389,7 @@ export default function NewDashboard() {
 
         // Fetch learning paths
         try {
-          const pathsResponse = await fetch(`${BACKEND_BASE_URL}/api/learning-paths/user/${storedId}`);
+          const pathsResponse = await authFetch(`${BACKEND_BASE_URL}/api/learning-paths/user/${storedId}`);
           if (pathsResponse.ok) {
             const paths = await pathsResponse.json();
             setLearningPaths(paths || []);
@@ -399,8 +397,10 @@ export default function NewDashboard() {
         } catch (e) {
           console.error('학습 경로 조회 실패:', e);
         }
-      } catch (err) {
+      } catch (err: any) {
+        // AbortController 취소 에러 무시 (DOMException 또는 axios CanceledError)
         if (err instanceof DOMException && err.name === 'AbortError') return;
+        if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED' || err?.message === 'canceled') return;
         const message = err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다.';
         setError(message);
       } finally {
