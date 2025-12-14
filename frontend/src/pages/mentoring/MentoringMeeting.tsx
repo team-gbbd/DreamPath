@@ -567,7 +567,7 @@ export default function MentoringMeetingPage() {
     try {
       await bookingService.completeBooking(Number(bookingId));
       showToast('멘토링이 완료 처리되었습니다.', 'success');
-      navigate('/mypage/mentor');
+      navigate('/profile/dashboard');
     } catch (err) {
       console.error('멘토링 완료 처리 실패:', err);
       const apiError = err as { response?: { data?: string } };

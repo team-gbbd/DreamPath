@@ -154,7 +154,7 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
   };
 
   return (
-    <div className={`min-h-screen ${theme.bg} flex relative`}>
+    <div className={`min-h-screen ${theme.bg} flex relative w-full`} style={{ maxWidth: '100%', overflowX: 'hidden' }}>
       {/* Mobile Menu Overlay */}
       {sidebarOpen && (
         <div
@@ -325,7 +325,7 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-x-hidden overflow-y-auto w-full max-w-full">
           {children}
         </div>
 
@@ -357,7 +357,13 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
 
       {/* Chatbot Panel */}
       {chatbotOpen && !location.pathname.startsWith('/profile') && (
-        <div className="fixed bottom-28 right-8 w-[400px] h-[550px] bg-white rounded-3xl shadow-2xl z-50 overflow-hidden border border-gray-200 transform transition-all duration-300 animate-slide-up">
+        <div className={`fixed z-50 overflow-hidden transform transition-all duration-300 animate-slide-up
+          bottom-4 right-4 left-4 h-[calc(100vh-120px)]
+          sm:bottom-28 sm:right-8 sm:left-auto sm:w-[380px] sm:h-[500px]
+          md:w-[400px] md:h-[550px]
+          rounded-2xl sm:rounded-3xl shadow-2xl border
+          ${darkMode ? "bg-[#0B0D14] border-white/[0.08]" : "bg-white border-gray-200"}
+        `}>
           <FaqChatbot onClose={() => setChatbotOpen(false)} />
         </div>
       )}

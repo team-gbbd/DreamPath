@@ -21,9 +21,10 @@ import {
   Loader2,
   Calendar,
   BookOpen,
-  GraduationCap,
   ChevronRight,
-  ChevronDown
+  ChevronDown,
+  Menu,
+  X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -127,12 +128,31 @@ interface SearchStep {
   status: 'pending' | 'loading' | 'done';
 }
 
+interface ThemeColors {
+  bg: string;
+  headerBg: string;
+  headerBorder: string;
+  card: string;
+  cardBorder: string;
+  text: string;
+  textMuted: string;
+  textSubtle: string;
+  border: string;
+  divider: string;
+  input: string;
+  inputBorder: string;
+  inputFocus: string;
+  userBubble: string;
+  assistantBubble: string;
+  assistantBubbleBorder: string;
+}
+
 const generateMessageId = () =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random()}`;
 
-function AISearchingState() {
+function AISearchingState({ darkMode }: { darkMode: boolean }) {
   const [steps, setSteps] = useState<SearchStep[]>([
     { id: '1', label: '질문 분석', status: 'done' },
     { id: '2', label: '관련 정보 검색 중', status: 'loading' },
@@ -180,19 +200,32 @@ function AISearchingState() {
           </div>
         ))}
       </div>
-
     </div>
   );
 }
 
-function TypingIndicator() {
+function TypingIndicator({ darkMode }: { darkMode: boolean }) {
   return (
     <div className="flex justify-start">
-      <div className="bg-white border border-gray-100 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm">
+      <div className={cn(
+        "rounded-2xl rounded-bl-md px-4 py-3 shadow-sm",
+        darkMode
+          ? "bg-white/[0.03] border border-white/[0.08]"
+          : "bg-white border border-gray-100"
+      )}>
         <div className="flex items-center gap-1">
-          <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-          <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-          <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+          <span className={cn(
+            "w-2 h-2 rounded-full animate-bounce",
+            darkMode ? "bg-violet-400" : "bg-primary/60"
+          )} style={{ animationDelay: '0ms' }} />
+          <span className={cn(
+            "w-2 h-2 rounded-full animate-bounce",
+            darkMode ? "bg-violet-400" : "bg-primary/60"
+          )} style={{ animationDelay: '150ms' }} />
+          <span className={cn(
+            "w-2 h-2 rounded-full animate-bounce",
+            darkMode ? "bg-violet-400" : "bg-primary/60"
+          )} style={{ animationDelay: '300ms' }} />
         </div>
       </div>
     </div>
@@ -202,6 +235,14 @@ function TypingIndicator() {
 export default function CareerChatPage() {
   const navigate = useNavigate();
   const location = useLocation();
+
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("dreampath:theme") === "dark";
+    }
+    return false;
+  });
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -221,6 +262,56 @@ export default function CareerChatPage() {
   const [personalityPromptDismissed, setPersonalityPromptDismissed] = useState(false);
   const [personalityTriggered, setPersonalityTriggered] = useState(false);
   const [isIdentityLoading, setIsIdentityLoading] = useState(false);
+  const [showMobilePanel, setShowMobilePanel] = useState(false);
+
+  // Theme sync
+  useEffect(() => {
+    const handleThemeChange = () => {
+      setDarkMode(localStorage.getItem("dreampath:theme") === "dark");
+    };
+    window.addEventListener("dreampath-theme-change", handleThemeChange);
+    window.addEventListener("storage", handleThemeChange);
+    return () => {
+      window.removeEventListener("dreampath-theme-change", handleThemeChange);
+      window.removeEventListener("storage", handleThemeChange);
+    };
+  }, []);
+
+  const theme: ThemeColors = darkMode ? {
+    bg: "bg-[#0B0D14]",
+    headerBg: "bg-[#0B0D14]/95 backdrop-blur-xl",
+    headerBorder: "border-white/[0.06]",
+    card: "bg-white/[0.02]",
+    cardBorder: "border-white/[0.08]",
+    text: "text-white",
+    textMuted: "text-white/70",
+    textSubtle: "text-white/50",
+    border: "border-white/[0.08]",
+    divider: "border-white/[0.06]",
+    input: "bg-white/[0.03] border-white/[0.1] text-white placeholder:text-white/40",
+    inputBorder: "border-white/[0.1]",
+    inputFocus: "focus:border-violet-500/50 focus:ring-violet-500/20",
+    userBubble: "bg-gradient-to-r from-violet-600 to-violet-500 text-white",
+    assistantBubble: "bg-white/[0.03] border-white/[0.08]",
+    assistantBubbleBorder: "border",
+  } : {
+    bg: "bg-slate-100",
+    headerBg: "bg-white/70 backdrop-blur-xl",
+    headerBorder: "border-gray-200/50",
+    card: "bg-white/50 backdrop-blur-md",
+    cardBorder: "border-white/60",
+    text: "text-gray-900",
+    textMuted: "text-gray-600",
+    textSubtle: "text-gray-500",
+    border: "border-gray-200",
+    divider: "border-gray-100",
+    input: "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400",
+    inputBorder: "border-gray-200",
+    inputFocus: "focus:border-primary focus:ring-primary/20",
+    userBubble: "bg-primary text-white",
+    assistantBubble: "bg-white border-gray-100",
+    assistantBubbleBorder: "border",
+  };
 
   const promptMessageText = [
     '사용자님의 상담 내용을 기반으로',
@@ -290,12 +381,10 @@ export default function CareerChatPage() {
     scrollToBottom();
   }, [messages]);
 
-  // HomePage에서 전달받은 initialMessage 처리
   useEffect(() => {
     const state = location.state as { initialMessage?: string } | null;
     if (state?.initialMessage && sessionId && !isLoading && !hasProcessedInitialMessage.current) {
       hasProcessedInitialMessage.current = true;
-      // location state 초기화 (새로고침 시 재전송 방지)
       window.history.replaceState({}, document.title);
       sendMessage(state.initialMessage);
     }
@@ -365,13 +454,11 @@ export default function CareerChatPage() {
             content: msg.message,
             timestamp: new Date(msg.timestamp),
           })));
-          console.log('기존 세션 복원:', existingSessionId, '메시지 수:', history.length);
 
           try {
             const savedIdentity = localStorage.getItem('career_chat_identity');
             if (savedIdentity) {
               const identityData = JSON.parse(savedIdentity);
-              console.log('localStorage에서 정체성 복원:', identityData);
               setIdentityStatus(identityData);
             }
           } catch (err) {
@@ -379,16 +466,11 @@ export default function CareerChatPage() {
           }
 
           try {
-            console.log('백엔드에서 정체성 상태 조회 시도:', existingSessionId);
             const identityResponse = await fetch(`${API_BASE_URL}/identity/${existingSessionId}`);
-            console.log('정체성 응답 상태:', identityResponse.status);
             if (identityResponse.ok) {
               const identityData = await identityResponse.json();
-              console.log('백엔드 정체성 데이터:', identityData);
               setIdentityStatus(identityData);
               localStorage.setItem('career_chat_identity', JSON.stringify(identityData));
-            } else {
-              console.warn('정체성 상태 조회 실패, 상태 코드:', identityResponse.status);
             }
           } catch (err) {
             console.error('정체성 상태 복원 에러:', err);
@@ -427,7 +509,6 @@ export default function CareerChatPage() {
         const sessionData = JSON.parse(savedSessionData);
 
         if (typeof sessionData === 'string' || !sessionData.userId) {
-          console.warn('이전 형식의 세션 데이터 감지, 삭제 후 새 세션 시작');
           localStorage.removeItem('career_chat_session');
           localStorage.removeItem('career_chat_identity');
           await startNewSession(currentUserId);
@@ -437,7 +518,6 @@ export default function CareerChatPage() {
         const { sessionId: savedSessionId, userId: savedUserId } = sessionData;
 
         if (currentUserId && savedUserId && currentUserId !== savedUserId) {
-          console.warn('다른 사용자의 세션 감지, 세션 초기화');
           localStorage.removeItem('career_chat_session');
           localStorage.removeItem('career_chat_identity');
           await startNewSession(currentUserId);
@@ -449,7 +529,6 @@ export default function CareerChatPage() {
           return;
         }
       } catch (error) {
-        console.log('세션 복원 실패, 새 세션 시작:', error);
         localStorage.removeItem('career_chat_session');
         localStorage.removeItem('career_chat_identity');
       }
@@ -516,8 +595,6 @@ export default function CareerChatPage() {
           timestamp: new Date(),
         }]);
       }
-
-      console.log('새 세션 시작:', data.sessionId, 'userId:', userIdToUse, 'forceNew:', forceNew);
     } catch (error) {
       console.error('Failed to start session:', error);
       setMessages([{
@@ -529,9 +606,8 @@ export default function CareerChatPage() {
     }
   };
 
-  // 에이전트 결과 폴링 함수
   const pollAgentResult = async (taskId: string) => {
-    const maxAttempts = 60; // 최대 30초 (0.5초 * 60)
+    const maxAttempts = 60;
     let attempts = 0;
 
     const poll = async () => {
@@ -539,10 +615,7 @@ export default function CareerChatPage() {
         const response = await fetch(`${PYTHON_AI_SERVICE_URL}/api/chat/agent-result/${taskId}`);
         const task = await response.json();
 
-        console.log(`[폴링] task_id=${taskId}, status=${task.status}`);
-
         if (task.status === 'completed' && task.agentAction) {
-          // 에이전트 결과 처리
           setIsSearching(false);
           const actionType = task.agentAction.type as string;
           const results = task.agentAction.data?.results || [];
@@ -589,21 +662,15 @@ export default function CareerChatPage() {
         }
 
         if (task.status === 'skipped' || task.status === 'failed') {
-          // 스킵 또는 실패
           setIsSearching(false);
-          if (task.status === 'failed') {
-            console.error('[폴링] 에이전트 실패:', task.error);
-          }
           return;
         }
 
-        // pending/running 상태면 계속 폴링
         attempts++;
         if (attempts < maxAttempts) {
-          setTimeout(poll, 500); // 0.5초 후 재시도
+          setTimeout(poll, 500);
         } else {
           setIsSearching(false);
-          console.warn('[폴링] 타임아웃');
         }
       } catch (error) {
         console.error('[폴링] 에러:', error);
@@ -654,10 +721,6 @@ export default function CareerChatPage() {
 
       const data = await response.json();
 
-      console.log('백엔드 응답:', data);
-      console.log('정체성 상태:', data.identityStatus);
-
-      // 상담 응답 즉시 표시
       const assistantMessage: Message = {
         id: generateMessageId(),
         role: 'assistant',
@@ -668,18 +731,14 @@ export default function CareerChatPage() {
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-      setIsLoading(false); // 상담 응답 받으면 로딩 해제
+      setIsLoading(false);
 
-      // 에이전트 태스크가 있으면 폴링 시작
       if (data.taskId) {
-        console.log(`[Chat] 에이전트 폴링 시작: task_id=${data.taskId}`);
         pollAgentResult(data.taskId);
       } else {
-        // 검색 작업이 아닐 경우 즉시 false 처리
         setIsSearching(false);
       }
 
-      // 정체성 상태 업데이트 (별도 폴링 - 백엔드 비동기 분석 결과 가져오기)
       setIsIdentityLoading(true);
       setTimeout(async () => {
         try {
@@ -688,16 +747,14 @@ export default function CareerChatPage() {
             const updatedIdentity = await identityResponse.json();
             setIdentityStatus(updatedIdentity);
             localStorage.setItem('career_chat_identity', JSON.stringify(updatedIdentity));
-            console.log('정체성 상태 업데이트됨:', updatedIdentity.clarity);
           }
         } catch (err) {
           console.warn('정체성 상태 폴링 실패:', err);
         } finally {
           setIsIdentityLoading(false);
         }
-      }, 2000); // 2초 후 폴링 (백엔드 비동기 분석 완료 대기)
+      }, 2000);
 
-      // PersonalityAgent 결과 처리
       const personalityAgentPayload =
         data?.personalityAgentResult ??
         data?.personalityAgent ??
@@ -758,8 +815,6 @@ export default function CareerChatPage() {
           const analysisCheckResponse = await fetch(`${API_BASE_URL}/profiles/${userId}/analysis`);
 
           if (analysisCheckResponse.ok) {
-            console.log('기존 분석 결과 발견, 대시보드로 이동');
-
             setMessages(prev => [...prev, {
               id: generateMessageId(),
               role: 'assistant',
@@ -779,8 +834,6 @@ export default function CareerChatPage() {
         }
       }
 
-      console.log('분석 API 호출 시작:', sessionId);
-
       const response = await fetch(`${API_BASE_URL}/analysis/${sessionId}`, {
         method: 'POST',
         headers: {
@@ -794,7 +847,6 @@ export default function CareerChatPage() {
       }
 
       const analysisResult = await response.json();
-      console.log('분석 완료:', analysisResult);
 
       setMessages(prev => [...prev, {
         id: generateMessageId(),
@@ -871,14 +923,14 @@ export default function CareerChatPage() {
               }),
             });
 
-              if (response.ok) {
-                const booking = await response.json();
-                setMessages(prev => [...prev, {
-                  id: generateMessageId(),
-                  role: 'assistant',
-                  content: `멘토링 예약이 완료되었습니다! 예약 번호: ${booking.bookingId}`,
-                  timestamp: new Date(),
-                }]);
+            if (response.ok) {
+              const booking = await response.json();
+              setMessages(prev => [...prev, {
+                id: generateMessageId(),
+                role: 'assistant',
+                content: `멘토링 예약이 완료되었습니다! 예약 번호: ${booking.bookingId}`,
+                timestamp: new Date(),
+              }]);
               if (messageIndex !== undefined) {
                 handleDismissAgentCard(messageIndex);
               }
@@ -907,7 +959,7 @@ export default function CareerChatPage() {
         break;
 
       case 'view_booking':
-        navigate('/mypage/bookings');
+        navigate('/profile/dashboard');
         break;
 
       case 'view_details':
@@ -942,8 +994,45 @@ export default function CareerChatPage() {
   const StageIcon = stageInfo?.icon || Compass;
   const shouldShowAnalyzeButton = messages.length >= 6 && (personalityTriggered || personalityPromptDismissed);
 
+  // Background Effects
+  const BackgroundEffects = () => (
+    <>
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div
+          className={`absolute top-0 right-1/4 rounded-full ${
+            darkMode ? "bg-violet-500/10" : "bg-violet-400/15"
+          }`}
+          style={{ width: 'min(60vw, 600px)', height: 'min(60vw, 600px)', filter: 'blur(150px)' }}
+        />
+        <div
+          className={`absolute bottom-1/4 left-0 rounded-full ${
+            darkMode ? "bg-blue-500/8" : "bg-blue-400/15"
+          }`}
+          style={{ width: 'min(50vw, 500px)', height: 'min(50vw, 500px)', filter: 'blur(120px)' }}
+        />
+        <div
+          className={`absolute top-1/2 right-0 rounded-full ${
+            darkMode ? "bg-cyan-500/6" : "bg-cyan-400/10"
+          }`}
+          style={{ width: 'min(40vw, 400px)', height: 'min(40vw, 400px)', filter: 'blur(100px)' }}
+        />
+      </div>
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: darkMode
+            ? "linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)"
+            : "linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)",
+          backgroundSize: "60px 60px",
+        }}
+      />
+    </>
+  );
+
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className={`min-h-screen ${theme.bg} relative`}>
+      <BackgroundEffects />
+
       {sessionId && (
         <SurveyModal
           isOpen={showSurvey}
@@ -953,23 +1042,36 @@ export default function CareerChatPage() {
         />
       )}
 
-      {/* 헤더 - 따뜻하고 깔끔한 스타일 */}
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
+      {/* 헤더 */}
+      <header className={`sticky top-0 z-50 border-b ${theme.headerBg} ${theme.headerBorder}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" className="rounded-full" onClick={() => navigate('/')}>
+          <div className="flex h-14 sm:h-16 items-center justify-between">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "rounded-full h-9 w-9",
+                  darkMode && "text-white/70 hover:text-white hover:bg-white/[0.05]"
+                )}
+                onClick={() => navigate('/')}
+              >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-violet-600 flex items-center justify-center shadow-lg shadow-primary/25">
-                  <MessageSquare className="h-5 w-5 text-white" />
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className={cn(
+                  "h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center shadow-lg",
+                  darkMode
+                    ? "bg-gradient-to-br from-violet-600 to-violet-500 shadow-violet-500/20"
+                    : "bg-gradient-to-br from-primary to-violet-600 shadow-primary/25"
+                )}>
+                  <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-base font-semibold text-gray-900">AI 진로 상담</h1>
+                  <h1 className={`text-sm sm:text-base font-semibold ${theme.text}`}>AI 진로 상담</h1>
                   {identityStatus && (
-                    <div className="flex items-center gap-1.5 text-sm text-gray-500">
-                      <StageIcon className="h-3.5 w-3.5 text-primary" />
+                    <div className={`hidden sm:flex items-center gap-1.5 text-xs sm:text-sm ${theme.textSubtle}`}>
+                      <StageIcon className={cn("h-3 w-3 sm:h-3.5 sm:w-3.5", darkMode ? "text-violet-400" : "text-primary")} />
                       <span>{stageInfo?.label} 단계</span>
                     </div>
                   )}
@@ -977,29 +1079,57 @@ export default function CareerChatPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              {identityStatus && identityStatus.overallProgress != null && (
-                <div className="hidden md:flex items-center gap-3 bg-gray-50 rounded-full px-4 py-2">
-                  <span className="text-sm text-gray-600">진행률</span>
-                  <Progress value={identityStatus.overallProgress} className="w-24 h-2" />
-                  <span className="text-sm font-semibold text-primary">{identityStatus.overallProgress}%</span>
-                </div>
-              )}
-              <Button variant="outline" size="sm" className="rounded-full" onClick={handleNewChat}>
+            <div className="flex items-center gap-2 sm:gap-4">
+              {/* 모바일 패널 토글 */}
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "lg:hidden rounded-full",
+                  darkMode && "border-white/[0.1] text-white/70 hover:bg-white/[0.05]"
+                )}
+                onClick={() => setShowMobilePanel(!showMobilePanel)}
+              >
+                {showMobilePanel ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full"
+                style={darkMode ? {
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  color: '#ffffff',
+                  backgroundColor: 'rgba(255,255,255,0.1)',
+                } : {
+                  borderColor: '#e5e7eb',
+                  color: '#374151',
+                }}
+                onClick={handleNewChat}
+              >
                 <Plus className="h-4 w-4 mr-1.5" />
-                새 상담
+                <span className="hidden sm:inline">새 상담</span>
               </Button>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
+      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+          {/* 채팅 영역 */}
           <div className="lg:col-span-2">
-            <Card className="h-[calc(100vh-160px)] flex flex-col bg-white shadow-sm border-gray-200">
-              <ScrollArea className="flex-1 p-6">
+            <div
+              className={cn(
+                "h-[calc(100vh-140px)] sm:h-[calc(100vh-160px)] flex flex-col shadow-sm border rounded-xl",
+                theme.cardBorder
+              )}
+              style={{
+                backgroundColor: darkMode ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.4)',
+                backdropFilter: 'blur(12px)',
+              }}
+            >
+              <ScrollArea className="flex-1 p-4 sm:p-6">
                 <div className="space-y-4 max-w-2xl mx-auto">
                   {messages.map((message, index) => (
                     <div key={message.id ?? index} className="animate-in">
@@ -1009,14 +1139,16 @@ export default function CareerChatPage() {
                           message.role === 'user' ? 'justify-end' : 'justify-start'
                         )}>
                           <div className={cn(
-                            "max-w-[80%] rounded-2xl px-4 py-3",
+                            "max-w-[85%] sm:max-w-[80%] rounded-2xl px-4 py-3",
                             message.role === 'user'
-                              ? 'bg-primary text-white rounded-br-md'
-                              : 'bg-white border border-gray-100 shadow-sm rounded-bl-md'
+                              ? `${theme.userBubble} rounded-br-md`
+                              : `${theme.assistantBubble} ${theme.assistantBubbleBorder} shadow-sm rounded-bl-md`
                           )}>
                             <p className={cn(
-                              "text-[15px] leading-relaxed whitespace-pre-wrap",
-                              message.role === 'user' ? 'text-white' : 'text-gray-800'
+                              "text-sm sm:text-[15px] leading-relaxed whitespace-pre-wrap",
+                              message.role === 'user'
+                                ? 'text-white'
+                                : theme.text
                             )}>
                               {message.content}
                             </p>
@@ -1025,14 +1157,24 @@ export default function CareerChatPage() {
                                 <button
                                   type="button"
                                   onClick={() => handlePersonalityPromptAction('view', message.id)}
-                                  className="w-full rounded-xl bg-gradient-to-r from-primary to-violet-600 px-4 py-2 text-sm font-semibold text-white shadow hover:opacity-90 transition"
+                                  className={cn(
+                                    "w-full rounded-xl px-4 py-2 text-sm font-semibold text-white shadow transition",
+                                    darkMode
+                                      ? "bg-gradient-to-r from-violet-600 to-violet-500 hover:opacity-90"
+                                      : "bg-gradient-to-r from-primary to-violet-600 hover:opacity-90"
+                                  )}
                                 >
                                   네, 확인할래요
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => handlePersonalityPromptAction('later', message.id)}
-                                  className="w-full rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 transition"
+                                  className={cn(
+                                    "w-full rounded-xl border px-4 py-2 text-sm font-semibold transition",
+                                    darkMode
+                                      ? "border-white/[0.1] text-white/70 hover:bg-white/[0.05]"
+                                      : "border-gray-200 text-gray-700 hover:bg-gray-100"
+                                  )}
                                 >
                                   조금 더 이야기할래요
                                 </button>
@@ -1040,7 +1182,9 @@ export default function CareerChatPage() {
                             )}
                             <p className={cn(
                               "text-xs mt-2",
-                              message.role === 'user' ? 'text-white/60' : 'text-gray-400'
+                              message.role === 'user'
+                                ? 'text-white/60'
+                                : theme.textSubtle
                             )}>
                               {message.timestamp.toLocaleTimeString('ko-KR', {
                                 hour: '2-digit',
@@ -1052,7 +1196,7 @@ export default function CareerChatPage() {
                       )}
                       {message.role === 'assistant' && message.agentAction && (
                         <div className="flex justify-start mt-3">
-                          <div className="max-w-[85%]">
+                          <div className="max-w-[90%] sm:max-w-[85%]">
                             <AgentCard
                               action={message.agentAction}
                               onActionClick={(actionId, params) => handleAgentAction(actionId, params, index)}
@@ -1064,18 +1208,27 @@ export default function CareerChatPage() {
                     </div>
                   ))}
 
-                  {isLoading && <TypingIndicator />}
+                  {isLoading && <TypingIndicator darkMode={darkMode} />}
                   <div ref={messagesEndRef} />
                 </div>
               </ScrollArea>
 
               {/* 입력 영역 */}
-              <div className="border-t border-gray-100 p-4 bg-gray-50/50">
+              <div className={cn(
+                "border-t p-3 sm:p-4",
+                theme.divider,
+                darkMode ? "bg-white/[0.01]" : "bg-gray-50/50"
+              )}>
                 {shouldShowAnalyzeButton && (
                   <div className="mb-3 flex justify-center">
                     <Button
                       onClick={handleAnalyze}
-                      className="rounded-full bg-gradient-to-r from-primary to-violet-600 hover:from-primary/90 hover:to-violet-600/90 shadow-lg shadow-primary/25"
+                      className={cn(
+                        "rounded-full shadow-lg",
+                        darkMode
+                          ? "bg-gradient-to-r from-violet-600 to-violet-500 hover:from-violet-500 hover:to-violet-400 shadow-violet-500/20"
+                          : "bg-gradient-to-r from-primary to-violet-600 hover:from-primary/90 hover:to-violet-600/90 shadow-primary/25"
+                      )}
                       disabled={isLoading}
                     >
                       <BarChart3 className="h-4 w-4 mr-2" />
@@ -1083,414 +1236,635 @@ export default function CareerChatPage() {
                     </Button>
                   </div>
                 )}
-                <div className="flex gap-3 max-w-2xl mx-auto">
+                <div className="flex gap-2 sm:gap-3 max-w-2xl mx-auto">
                   <Textarea
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
                     placeholder="메시지를 입력하세요..."
-                    className="min-h-[52px] max-h-32 resize-none rounded-2xl border-gray-200 bg-white focus:border-primary focus:ring-primary/20"
+                    className={cn(
+                      "min-h-[48px] sm:min-h-[52px] max-h-32 resize-none rounded-2xl",
+                      theme.input,
+                      theme.inputFocus
+                    )}
                     disabled={isLoading}
                   />
                   <Button
-                    onClick={sendMessage}
+                    onClick={() => sendMessage()}
                     disabled={isLoading || !inputMessage.trim()}
                     size="icon"
-                    className="h-[52px] w-[52px] shrink-0 rounded-2xl bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25"
+                    className={cn(
+                      "h-[48px] w-[48px] sm:h-[52px] sm:w-[52px] shrink-0 rounded-2xl shadow-lg",
+                      darkMode
+                        ? "bg-violet-600 hover:bg-violet-500 shadow-violet-500/20"
+                        : "bg-primary hover:bg-primary/90 shadow-primary/25"
+                    )}
                   >
                     <Send className="h-5 w-5" />
                   </Button>
                 </div>
               </div>
-            </Card>
+            </div>
           </div>
 
-          {/* 우측 패널 - 탭 구조 */}
-          <div className="lg:col-span-1">
-            <Card className="sticky top-24 h-[calc(100vh-160px)] flex flex-col overflow-hidden border-0 shadow-lg">
-              <Tabs value={rightPanelTab} onValueChange={(v) => setRightPanelTab(v as RightPanelTab)} className="flex flex-col h-full">
-                <TabsList className="grid w-full grid-cols-2 bg-gray-100 p-1 rounded-none">
-                  <TabsTrigger value="identity" className="data-[state=active]:bg-white rounded-md">
-                    나의 정체성
-                  </TabsTrigger>
-                  <TabsTrigger value="research" className="data-[state=active]:bg-slate-800 data-[state=active]:text-white rounded-md">
-                    AI Research
-                  </TabsTrigger>
-                </TabsList>
+          {/* 우측 패널 - 데스크톱 */}
+          <div className="hidden lg:block lg:col-span-1">
+            <RightPanel
+              darkMode={darkMode}
+              theme={theme}
+              rightPanelTab={rightPanelTab}
+              setRightPanelTab={setRightPanelTab}
+              identityStatus={identityStatus}
+              isIdentityLoading={isIdentityLoading}
+              stageInfo={stageInfo}
+              StageIcon={StageIcon}
+              isSearching={isSearching}
+              researchPanels={researchPanels}
+              setResearchPanels={setResearchPanels}
+              expandedSources={expandedSources}
+              toggleSourceExpand={toggleSourceExpand}
+              similarMentorLoading={similarMentorLoading}
+              findSimilarMentors={findSimilarMentors}
+              getResearchIcon={getResearchIcon}
+              navigate={navigate}
+            />
+          </div>
+        </div>
 
-                {/* 정체성 탭 */}
-                <TabsContent value="identity" className="flex-1 overflow-hidden m-0 bg-white">
-                  <ScrollArea className="h-full">
-                    <div className="p-4 space-y-4">
-                      {/* 로딩 상태 */}
-                      {isIdentityLoading && (
-                        <div className="bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/10 rounded-xl p-4">
-                          <div className="flex items-center gap-3">
-                            <Loader2 className="h-5 w-5 text-primary animate-spin" />
-                            <div>
-                              <p className="text-sm font-medium text-gray-700">정체성 분석 중...</p>
-                              <p className="text-xs text-gray-500">대화 내용을 분석하고 있어요</p>
-                            </div>
+        {/* 모바일 패널 오버레이 */}
+        {showMobilePanel && (
+          <div className="lg:hidden fixed inset-0 z-50">
+            <div
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => setShowMobilePanel(false)}
+            />
+            <div className={cn(
+              "absolute right-0 top-0 h-full w-full max-w-md",
+              theme.bg
+            )}>
+              <div className={cn(
+                "flex justify-between items-center px-4 py-3 border-b",
+                theme.divider
+              )}>
+                <span className={`font-medium ${theme.text}`}>정보 패널</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={darkMode ? "text-white/70 hover:bg-white/[0.05]" : ""}
+                  onClick={() => setShowMobilePanel(false)}
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+              <RightPanel
+                darkMode={darkMode}
+                theme={theme}
+                rightPanelTab={rightPanelTab}
+                setRightPanelTab={setRightPanelTab}
+                identityStatus={identityStatus}
+                isIdentityLoading={isIdentityLoading}
+                stageInfo={stageInfo}
+                StageIcon={StageIcon}
+                isSearching={isSearching}
+                researchPanels={researchPanels}
+                setResearchPanels={setResearchPanels}
+                expandedSources={expandedSources}
+                toggleSourceExpand={toggleSourceExpand}
+                similarMentorLoading={similarMentorLoading}
+                findSimilarMentors={findSimilarMentors}
+                getResearchIcon={getResearchIcon}
+                navigate={navigate}
+                isMobile
+              />
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
+// Right Panel Component
+interface RightPanelProps {
+  darkMode: boolean;
+  theme: ThemeColors;
+  rightPanelTab: RightPanelTab;
+  setRightPanelTab: (tab: RightPanelTab) => void;
+  identityStatus: IdentityStatus | null;
+  isIdentityLoading: boolean;
+  stageInfo: { label: string; icon: any } | null;
+  StageIcon: any;
+  isSearching: boolean;
+  researchPanels: ResearchPanel[];
+  setResearchPanels: React.Dispatch<React.SetStateAction<ResearchPanel[]>>;
+  expandedSources: Set<string>;
+  toggleSourceExpand: (panelId: string) => void;
+  similarMentorLoading: string | null;
+  findSimilarMentors: (panelId: string, session: MentoringSession) => void;
+  getResearchIcon: (type: ResearchPanel['type']) => JSX.Element;
+  navigate: (path: string) => void;
+  isMobile?: boolean;
+}
+
+function RightPanel({
+  darkMode,
+  theme,
+  rightPanelTab,
+  setRightPanelTab,
+  identityStatus,
+  isIdentityLoading,
+  stageInfo,
+  StageIcon,
+  isSearching,
+  researchPanels,
+  setResearchPanels,
+  expandedSources,
+  toggleSourceExpand,
+  similarMentorLoading,
+  findSimilarMentors,
+  getResearchIcon,
+  navigate,
+  isMobile = false,
+}: RightPanelProps) {
+  const height = isMobile ? "h-[calc(100vh-56px)]" : "h-[calc(100vh-160px)]";
+
+  return (
+    <Card className={cn(
+      "flex flex-col overflow-hidden border-0 shadow-lg",
+      darkMode ? "bg-[#0B0D14]" : "bg-white/80 backdrop-blur-sm",
+      isMobile ? height : `sticky top-24 ${height}`
+    )}>
+      <Tabs value={rightPanelTab} onValueChange={(v) => setRightPanelTab(v as RightPanelTab)} className="flex flex-col h-full">
+        <TabsList className={cn(
+          "grid w-full grid-cols-2 p-1 rounded-none",
+          darkMode ? "bg-white/[0.03]" : "bg-gray-100"
+        )}>
+          <TabsTrigger
+            value="identity"
+            className={cn(
+              "rounded-md text-sm transition-all",
+              darkMode
+                ? "data-[state=active]:bg-white/[0.08] data-[state=active]:text-white text-white/50"
+                : "data-[state=active]:bg-white"
+            )}
+          >
+            나의 정체성
+          </TabsTrigger>
+          <TabsTrigger
+            value="research"
+            className={cn(
+              "rounded-md text-sm transition-all",
+              "data-[state=active]:bg-slate-800 data-[state=active]:text-white",
+              darkMode ? "text-white/50" : "text-gray-600"
+            )}
+          >
+            AI Research
+          </TabsTrigger>
+        </TabsList>
+
+        {/* 정체성 탭 */}
+        <TabsContent value="identity" className={cn(
+          "flex-1 overflow-hidden m-0",
+          darkMode ? "bg-white/[0.02]" : "bg-white"
+        )}>
+          <ScrollArea className="h-full">
+            <div className="p-4 space-y-4">
+              {isIdentityLoading && (
+                <div className={cn(
+                  "rounded-xl p-4",
+                  darkMode
+                    ? "bg-gradient-to-r from-violet-500/10 to-violet-600/10 border border-violet-500/20"
+                    : "bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/10"
+                )}>
+                  <div className="flex items-center gap-3">
+                    <Loader2 className={cn(
+                      "h-5 w-5 animate-spin",
+                      darkMode ? "text-violet-400" : "text-primary"
+                    )} />
+                    <div>
+                      <p className={`text-sm font-medium ${theme.text}`}>정체성 분석 중...</p>
+                      <p className={`text-xs ${theme.textSubtle}`}>대화 내용을 분석하고 있어요</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {identityStatus ? (
+                <>
+                  {/* 새로운 인사이트 */}
+                  {identityStatus.recentInsight?.hasInsight && identityStatus.recentInsight?.insight && (
+                    <div className={cn(
+                      "rounded-xl p-4",
+                      darkMode
+                        ? "bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20"
+                        : "bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/50"
+                    )}>
+                      <div className="flex items-start gap-3">
+                        <div className={cn(
+                          "h-8 w-8 rounded-lg flex items-center justify-center",
+                          darkMode ? "bg-amber-500/20" : "bg-amber-100"
+                        )}>
+                          <Lightbulb className={cn(
+                            "h-4 w-4",
+                            darkMode ? "text-amber-400" : "text-amber-600"
+                          )} />
+                        </div>
+                        <div>
+                          <p className={cn(
+                            "text-sm font-medium",
+                            darkMode ? "text-amber-400" : "text-amber-800"
+                          )}>새로운 발견!</p>
+                          <p className={cn(
+                            "text-sm mt-1",
+                            darkMode ? "text-amber-300/80" : "text-amber-700"
+                          )}>
+                            {identityStatus.recentInsight.insight}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 현재 단계 */}
+                  {identityStatus.currentStage && (
+                    <div className={cn(
+                      "rounded-xl p-4",
+                      darkMode
+                        ? "bg-gradient-to-r from-violet-500/10 to-violet-600/10 border border-violet-500/20"
+                        : "bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/10"
+                    )}>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <StageIcon className={cn(
+                            "h-5 w-5",
+                            darkMode ? "text-violet-400" : "text-primary"
+                          )} />
+                          <span className={`font-medium ${theme.text}`}>
+                            {stageInfo?.label} 단계
+                          </span>
+                        </div>
+                        <span className={cn(
+                          "text-sm font-semibold",
+                          darkMode ? "text-violet-400" : "text-primary"
+                        )}>
+                          {identityStatus.overallProgress}%
+                        </span>
+                      </div>
+                      {identityStatus.stageDescription && (
+                        <p className={`text-sm ${theme.textMuted}`}>
+                          {identityStatus.stageDescription}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 명확도 */}
+                  {identityStatus.clarity != null && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className={`text-sm font-medium ${theme.textMuted}`}>정체성 명확도</span>
+                        <span className={cn(
+                          "text-sm font-semibold",
+                          darkMode ? "text-violet-400" : "text-primary"
+                        )}>
+                          {identityStatus.clarity}%
+                        </span>
+                      </div>
+                      <Progress value={identityStatus.clarity} className="h-2" />
+                      {identityStatus.clarityReason && (
+                        <p className={`text-xs ${theme.textSubtle}`}>
+                          {identityStatus.clarityReason}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 핵심 정체성 */}
+                  {identityStatus.identityCore && identityStatus.identityCore !== '탐색 중...' && (
+                    <div className={cn(
+                      "rounded-xl p-4",
+                      darkMode ? "bg-white/[0.03]" : "bg-gray-50"
+                    )}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Target className={cn(
+                          "h-4 w-4",
+                          darkMode ? "text-white/40" : "text-gray-500"
+                        )} />
+                        <span className={`text-xs font-medium uppercase tracking-wide ${theme.textSubtle}`}>핵심 정체성</span>
+                      </div>
+                      <p className={`text-sm leading-relaxed ${theme.text}`}>{identityStatus.identityCore}</p>
+                      {identityStatus.confidence != null && identityStatus.confidence > 0 && (
+                        <p className={`text-xs mt-2 ${theme.textSubtle}`}>
+                          확신도 {identityStatus.confidence}%
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 발견된 특징 */}
+                  {identityStatus.traits && identityStatus.traits.length > 0 && (
+                    <div className="space-y-3">
+                      <span className={`text-xs font-medium uppercase tracking-wide ${theme.textSubtle}`}>발견된 특징</span>
+                      {identityStatus.traits.map((item, index) => (
+                        <div key={index} className={cn(
+                          "rounded-lg p-3 shadow-sm border",
+                          darkMode
+                            ? "bg-white/[0.02] border-white/[0.06]"
+                            : "bg-white border-gray-100"
+                        )}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className={`text-sm font-medium ${theme.text}`}>{item.trait}</span>
+                            <span className={cn(
+                              "text-xs px-2 py-0.5 rounded",
+                              darkMode ? "bg-white/[0.05] text-white/60" : "bg-gray-100 text-gray-400"
+                            )}>
+                              {item.category}
+                            </span>
+                          </div>
+                          {item.evidence && (
+                            <p className={`text-xs ${theme.textSubtle}`}>"{item.evidence}"</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {identityStatus.nextFocus && (
+                    <div className={cn(
+                      "rounded-xl p-4",
+                      darkMode
+                        ? "bg-gradient-to-r from-violet-500/10 to-violet-600/10 border border-violet-500/20"
+                        : "bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/10"
+                    )}>
+                      <div className="flex items-start gap-3">
+                        <ArrowRight className={cn(
+                          "h-5 w-5 mt-0.5",
+                          darkMode ? "text-violet-400" : "text-primary"
+                        )} />
+                        <div>
+                          <p className={cn(
+                            "text-sm font-medium",
+                            darkMode ? "text-violet-400" : "text-primary"
+                          )}>다음 탐색</p>
+                          <p className={`text-sm mt-1 ${theme.textMuted}`}>
+                            {identityStatus.nextFocus}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className={cn(
+                    "h-16 w-16 rounded-2xl flex items-center justify-center mb-4",
+                    darkMode ? "bg-white/[0.03]" : "bg-gray-100"
+                  )}>
+                    <MessageSquare className={cn(
+                      "h-8 w-8",
+                      darkMode ? "text-white/20" : "text-gray-300"
+                    )} />
+                  </div>
+                  <p className={`text-sm ${theme.textSubtle}`}>
+                    대화를 시작하면<br/>정체성 분석이 표시됩니다
+                  </p>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </TabsContent>
+
+        {/* 리서치 탭 - 항상 다크 테마 */}
+        <TabsContent value="research" className="flex-1 overflow-hidden m-0 bg-slate-900">
+          <ScrollArea className="h-full">
+            <div className="p-4">
+              {isSearching && <AISearchingState darkMode={true} />}
+
+              {!isSearching && researchPanels.length > 0 && (() => {
+                const panel = researchPanels[0];
+                return (
+                  <div className="relative group">
+                    <div className="absolute -inset-0.5 bg-gradient-to-r from-violet-500 to-cyan-500 rounded-xl opacity-30 group-hover:opacity-50 blur transition" />
+
+                    <div className="relative bg-slate-800 rounded-xl p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-lg bg-slate-700 flex items-center justify-center text-cyan-400">
+                            {getResearchIcon(panel.type)}
+                          </div>
+                          <div>
+                            <h4 className="text-white text-sm font-medium line-clamp-1">
+                              {panel.title}
+                            </h4>
+                            <span className="text-xs text-slate-400">
+                              {panel.timestamp.toLocaleTimeString('ko-KR', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {panel.type === 'web_search' && (
+                        <p className="text-slate-300 text-sm leading-relaxed mb-4 whitespace-pre-line">
+                          {panel.summary}
+                        </p>
+                      )}
+
+                      {panel.type === 'mentoring' && panel.mentoringData?.sessions && panel.mentoringData.sessions.length > 0 && (
+                        <div className="pt-3 border-t border-slate-700">
+                          <p className="text-xs text-slate-400 mb-3">이런 멘토링도 있어요</p>
+                          <div className="space-y-3">
+                            {panel.mentoringData.sessions.slice(0, 2).map((session, idx) => (
+                              <div key={idx} className="bg-slate-700/50 rounded-lg p-4">
+                                <div className="flex items-start gap-3 mb-3">
+                                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-white font-medium text-sm">
+                                    {session.mentorName?.charAt(0) || 'M'}
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className="text-white font-medium">{session.mentorName}</p>
+                                    <p className="text-slate-400 text-xs">{session.mentorTitle}</p>
+                                  </div>
+                                </div>
+
+                                <div className="mb-3">
+                                  <p className="text-cyan-400 text-sm font-medium mb-1">{session.topic}</p>
+                                  {session.description && (
+                                    <p className="text-slate-300 text-xs leading-relaxed line-clamp-2">{session.description}</p>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-3 mb-4 text-xs text-slate-400">
+                                  <div className="flex items-center gap-1">
+                                    <Calendar className="h-3 w-3" />
+                                    <span>{session.sessionDate}</span>
+                                  </div>
+                                  {session.price !== undefined && session.price > 0 && (
+                                    <span className="text-cyan-400">{session.price.toLocaleString()}원</span>
+                                  )}
+                                </div>
+
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    className="flex-1 bg-cyan-500 hover:bg-cyan-600 text-white text-xs"
+                                    onClick={() => navigate(`/mentoring/book/${session.sessionId}`)}
+                                  >
+                                    예약하기
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700 text-xs"
+                                    disabled={similarMentorLoading === panel.id}
+                                    onClick={() => findSimilarMentors(panel.id, session)}
+                                  >
+                                    {similarMentorLoading === panel.id ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      '비슷한 멘토'
+                                    )}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="flex-1 text-slate-400 hover:text-white hover:bg-slate-700/50 text-xs"
+                                    onClick={() => {
+                                      setResearchPanels(prev => prev.filter(p => p.id !== panel.id));
+                                    }}
+                                  >
+                                    괜찮아요
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       )}
-                      {identityStatus ? (
-                        <>
-                          {/* 새로운 인사이트 */}
-                          {identityStatus.recentInsight?.hasInsight && identityStatus.recentInsight?.insight && (
-                            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/50 rounded-xl p-4">
-                              <div className="flex items-start gap-3">
-                                <div className="h-8 w-8 rounded-lg bg-amber-100 flex items-center justify-center">
-                                  <Lightbulb className="h-4 w-4 text-amber-600" />
-                                </div>
-                                <div>
-                                  <p className="text-sm font-medium text-amber-800">새로운 발견!</p>
-                                  <p className="text-sm text-amber-700 mt-1">
-                                    {identityStatus.recentInsight.insight}
-                                  </p>
-                                </div>
+
+                      {panel.type === 'learning_path' && panel.learningPathData?.path && (
+                        <div className="pt-3 border-t border-slate-700">
+                          <p className="text-xs text-slate-400 mb-3">이런 학습으로 시작해보는건 어때요?</p>
+                          <div className="bg-slate-700/50 rounded-lg p-4">
+                            <div className="flex items-start gap-3 mb-3">
+                              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center">
+                                <BookOpen className="h-5 w-5 text-white" />
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-white font-medium">{panel.learningPathData.path.career}</p>
+                                <p className="text-slate-400 text-xs">{panel.learningPathData.path.weeks}주 학습 코스</p>
                               </div>
                             </div>
-                          )}
-
-                          {/* 현재 단계 */}
-                          {identityStatus.currentStage && (
-                            <div className="bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/10 rounded-xl p-4">
-                              <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-2">
-                                  <StageIcon className="h-5 w-5 text-primary" />
-                                  <span className="font-medium text-gray-900">
-                                    {stageInfo?.label} 단계
-                                  </span>
-                                </div>
-                                <span className="text-sm font-semibold text-primary">
-                                  {identityStatus.overallProgress}%
-                                </span>
-                              </div>
-                              {identityStatus.stageDescription && (
-                                <p className="text-sm text-gray-600">
-                                  {identityStatus.stageDescription}
-                                </p>
-                              )}
-                            </div>
-                          )}
-
-                          {/* 명확도 */}
-                          {identityStatus.clarity != null && (
-                            <div className="space-y-2">
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm font-medium text-gray-700">정체성 명확도</span>
-                                <span className="text-sm font-semibold text-primary">
-                                  {identityStatus.clarity}%
-                                </span>
-                              </div>
-                              <Progress value={identityStatus.clarity} className="h-2" />
-                              {identityStatus.clarityReason && (
-                                <p className="text-xs text-gray-500">
-                                  {identityStatus.clarityReason}
-                                </p>
-                              )}
-                            </div>
-                          )}
-
-                          {/* 핵심 정체성 */}
-                          {identityStatus.identityCore && identityStatus.identityCore !== '탐색 중...' && (
-                            <div className="bg-gray-50 rounded-xl p-4">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Target className="h-4 w-4 text-gray-500" />
-                                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">핵심 정체성</span>
-                              </div>
-                              <p className="text-sm text-gray-800 leading-relaxed">{identityStatus.identityCore}</p>
-                              {identityStatus.confidence != null && identityStatus.confidence > 0 && (
-                                <p className="text-xs text-gray-500 mt-2">
-                                  확신도 {identityStatus.confidence}%
-                                </p>
-                              )}
-                            </div>
-                          )}
-
-                          {/* 발견된 특징 */}
-                          {identityStatus.traits && identityStatus.traits.length > 0 && (
-                            <div className="space-y-3">
-                              <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">발견된 특징</span>
-                              {identityStatus.traits.map((item, index) => (
-                                <div key={index} className="bg-white border border-gray-100 rounded-lg p-3 shadow-sm">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <span className="text-sm font-medium text-gray-800">{item.trait}</span>
-                                    <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
-                                      {item.category}
+                            {panel.learningPathData.path.topics && panel.learningPathData.path.topics.length > 0 && (
+                              <div className="mb-4">
+                                <p className="text-xs text-slate-400 mb-2">학습 주제</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {panel.learningPathData.path.topics.slice(0, 4).map((topic, idx) => (
+                                    <span key={idx} className="px-2 py-1 bg-slate-600/50 text-slate-300 text-xs rounded">
+                                      {topic}
                                     </span>
-                                  </div>
-                                  {item.evidence && (
-                                    <p className="text-xs text-gray-500">"{item.evidence}"</p>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {panel.learningPathData.exists ? (
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-slate-400">진행률</span>
+                                  <span className="text-cyan-400">{panel.learningPathData.path.progress || 0}%</span>
+                                </div>
+                                <Progress value={panel.learningPathData.path.progress || 0} className="h-1.5" />
+                                <Button
+                                  className="w-full mt-2 bg-cyan-500 hover:bg-cyan-600 text-white"
+                                  onClick={() => navigate(`/learning?career=${encodeURIComponent(panel.learningPathData!.path.career)}`)}
+                                >
+                                  이어서 학습하기
+                                </Button>
+                              </div>
+                            ) : panel.learningPathData.canCreate ? (
+                              <Button
+                                className="w-full bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white"
+                                onClick={() => navigate(`/learning?career=${encodeURIComponent(panel.learningPathData!.path.career)}`)}
+                              >
+                                학습 시작하기
+                              </Button>
+                            ) : (
+                              <p className="text-xs text-slate-400 text-center">준비 중인 학습 경로입니다</p>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            className="w-full mt-3 text-slate-400 hover:text-white hover:bg-slate-700/50"
+                            onClick={() => navigate('/learning')}
+                          >
+                            다른 학습 경로 보기
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        </div>
+                      )}
+
+                      {panel.sources && panel.sources.length > 0 && panel.type !== 'mentoring' && panel.type !== 'learning_path' && (
+                        <div className="pt-3 border-t border-slate-700">
+                          <button
+                            onClick={() => toggleSourceExpand(panel.id)}
+                            className="flex items-center justify-between w-full text-xs text-slate-400 hover:text-slate-300 transition-colors"
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <LinkIcon className="h-3 w-3" />
+                              <span>{panel.sources.length}개 출처에서 수집</span>
+                            </div>
+                            <ChevronDown className={cn(
+                              "h-4 w-4 transition-transform",
+                              expandedSources.has(panel.id) && "rotate-180"
+                            )} />
+                          </button>
+                          {expandedSources.has(panel.id) && (
+                            <div className="space-y-3 mt-3">
+                              {panel.sources.map((source, idx) => (
+                                <div key={idx} className="bg-slate-800/50 rounded-lg p-3">
+                                  <a
+                                    href={source.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-start gap-2 text-sm text-cyan-400 hover:text-cyan-300 transition-colors mb-1.5"
+                                  >
+                                    <ExternalLink className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                    <span className="font-medium leading-tight">{source.title}</span>
+                                  </a>
+                                  {source.snippet && (
+                                    <p className="text-xs text-slate-400 leading-relaxed pl-5">
+                                      {source.snippet}
+                                    </p>
                                   )}
                                 </div>
                               ))}
                             </div>
                           )}
-
-                          {identityStatus.nextFocus && (
-                            <div className="bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/10 rounded-xl p-4">
-                              <div className="flex items-start gap-3">
-                                <ArrowRight className="h-5 w-5 text-primary mt-0.5" />
-                                <div>
-                                  <p className="text-sm font-medium text-primary">다음 탐색</p>
-                                  <p className="text-sm text-gray-600 mt-1">
-                                    {identityStatus.nextFocus}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center py-16 text-center">
-                          <div className="h-16 w-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
-                            <MessageSquare className="h-8 w-8 text-gray-300" />
-                          </div>
-                          <p className="text-sm text-gray-500">
-                            대화를 시작하면<br/>정체성 분석이 표시됩니다
-                          </p>
                         </div>
                       )}
                     </div>
-                  </ScrollArea>
-                </TabsContent>
+                  </div>
+                );
+              })()}
 
-                <TabsContent value="research" className="flex-1 overflow-hidden m-0 ai-panel-dark">
-                  <ScrollArea className="h-full">
-                    <div className="p-4">
-                    {isSearching && <AISearchingState />}
-
-                    {!isSearching && researchPanels.length > 0 && (() => {
-                      const panel = researchPanels[0];
-                      return (
-                        <div className="relative group">
-                          <div className="absolute -inset-0.5 bg-gradient-to-r from-violet-500 to-cyan-500 rounded-xl opacity-30 group-hover:opacity-50 blur transition" />
-
-                          <div className="relative bg-slate-800 rounded-xl p-4">
-                            <div className="flex items-start justify-between mb-3">
-                              <div className="flex items-center gap-2">
-                                <div className="h-8 w-8 rounded-lg bg-slate-700 flex items-center justify-center text-cyan-400">
-                                  {getResearchIcon(panel.type)}
-                                </div>
-                                <div>
-                                  <h4 className="text-white text-sm font-medium line-clamp-1">
-                                    {panel.title}
-                                  </h4>
-                                  <span className="text-xs text-slate-400">
-                                    {panel.timestamp.toLocaleTimeString('ko-KR', {
-                                      hour: '2-digit',
-                                      minute: '2-digit'
-                                    })}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-
-                                {panel.type === 'web_search' && (
-                                  <p className="text-slate-300 text-sm leading-relaxed mb-4 whitespace-pre-line">
-                                    {panel.summary}
-                                  </p>
-                                )}
-
-                                {panel.type === 'mentoring' && panel.mentoringData?.sessions && panel.mentoringData.sessions.length > 0 && (
-                                  <div className="pt-3 border-t border-slate-700">
-                                    <p className="text-xs text-slate-400 mb-3">이런 멘토링도 있어요</p>
-                                    <div className="space-y-3">
-                                      {panel.mentoringData.sessions.slice(0, 2).map((session, idx) => (
-                                        <div key={idx} className="bg-slate-700/50 rounded-lg p-4">
-                                          <div className="flex items-start gap-3 mb-3">
-                                            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-white font-medium text-sm">
-                                              {session.mentorName?.charAt(0) || 'M'}
-                                            </div>
-                                            <div className="flex-1">
-                                              <p className="text-white font-medium">{session.mentorName}</p>
-                                              <p className="text-slate-400 text-xs">{session.mentorTitle}</p>
-                                            </div>
-                                          </div>
-
-                                          <div className="mb-3">
-                                            <p className="text-cyan-400 text-sm font-medium mb-1">{session.topic}</p>
-                                            {session.description && (
-                                              <p className="text-slate-300 text-xs leading-relaxed line-clamp-2">{session.description}</p>
-                                            )}
-                                          </div>
-
-                                          <div className="flex items-center gap-3 mb-4 text-xs text-slate-400">
-                                            <div className="flex items-center gap-1">
-                                              <Calendar className="h-3 w-3" />
-                                              <span>{session.sessionDate}</span>
-                                            </div>
-                                            {session.price !== undefined && session.price > 0 && (
-                                              <span className="text-cyan-400">{session.price.toLocaleString()}원</span>
-                                            )}
-                                          </div>
-
-                                          <div className="flex gap-2">
-                                            <Button
-                                              size="sm"
-                                              className="flex-1 bg-cyan-500 hover:bg-cyan-600 text-white text-xs"
-                                              onClick={() => navigate(`/mentoring/book/${session.sessionId}`)}
-                                            >
-                                              예약하기
-                                            </Button>
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700 text-xs"
-                                              disabled={similarMentorLoading === panel.id}
-                                              onClick={() => findSimilarMentors(panel.id, session)}
-                                            >
-                                              {similarMentorLoading === panel.id ? (
-                                                <Loader2 className="h-3 w-3 animate-spin" />
-                                              ) : (
-                                                '비슷한 멘토'
-                                              )}
-                                            </Button>
-                                            <Button
-                                              size="sm"
-                                              variant="ghost"
-                                              className="flex-1 text-slate-400 hover:text-white hover:bg-slate-700/50 text-xs"
-                                              onClick={() => {
-                                                setResearchPanels(prev => prev.filter(p => p.id !== panel.id));
-                                              }}
-                                            >
-                                              괜찮아요
-                                            </Button>
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {panel.type === 'learning_path' && panel.learningPathData?.path && (
-                                  <div className="pt-3 border-t border-slate-700">
-                                    <p className="text-xs text-slate-400 mb-3">이런 학습으로 시작해보는건 어때요?</p>
-                                    <div className="bg-slate-700/50 rounded-lg p-4">
-                                      <div className="flex items-start gap-3 mb-3">
-                                        <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center">
-                                          <BookOpen className="h-5 w-5 text-white" />
-                                        </div>
-                                        <div className="flex-1">
-                                          <p className="text-white font-medium">{panel.learningPathData.path.career}</p>
-                                          <p className="text-slate-400 text-xs">{panel.learningPathData.path.weeks}주 학습 코스</p>
-                                        </div>
-                                      </div>
-                                      {panel.learningPathData.path.topics && panel.learningPathData.path.topics.length > 0 && (
-                                        <div className="mb-4">
-                                          <p className="text-xs text-slate-400 mb-2">학습 주제</p>
-                                          <div className="flex flex-wrap gap-1.5">
-                                            {panel.learningPathData.path.topics.slice(0, 4).map((topic, idx) => (
-                                              <span key={idx} className="px-2 py-1 bg-slate-600/50 text-slate-300 text-xs rounded">
-                                                {topic}
-                                              </span>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      )}
-                                      {panel.learningPathData.exists ? (
-                                        <div className="space-y-2">
-                                          <div className="flex items-center justify-between text-xs">
-                                            <span className="text-slate-400">진행률</span>
-                                            <span className="text-cyan-400">{panel.learningPathData.path.progress || 0}%</span>
-                                          </div>
-                                          <Progress value={panel.learningPathData.path.progress || 0} className="h-1.5" />
-                                          <Button
-                                            className="w-full mt-2 bg-cyan-500 hover:bg-cyan-600 text-white"
-                                            onClick={() => navigate(`/learning?career=${encodeURIComponent(panel.learningPathData!.path.career)}`)}
-                                          >
-                                            이어서 학습하기
-                                          </Button>
-                                        </div>
-                                      ) : panel.learningPathData.canCreate ? (
-                                        <Button
-                                          className="w-full bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white"
-                                          onClick={() => navigate(`/learning?career=${encodeURIComponent(panel.learningPathData!.path.career)}`)}
-                                        >
-                                          학습 시작하기
-                                        </Button>
-                                      ) : (
-                                        <p className="text-xs text-slate-400 text-center">준비 중인 학습 경로입니다</p>
-                                      )}
-                                    </div>
-                                    <Button
-                                      variant="ghost"
-                                      className="w-full mt-3 text-slate-400 hover:text-white hover:bg-slate-700/50"
-                                      onClick={() => navigate('/learning')}
-                                    >
-                                      다른 학습 경로 보기
-                                      <ChevronRight className="h-4 w-4 ml-1" />
-                                    </Button>
-                                  </div>
-                                )}
-
-                                {panel.sources && panel.sources.length > 0 && panel.type !== 'mentoring' && panel.type !== 'learning_path' && (
-                                  <div className="pt-3 border-t border-slate-700">
-                                    <button
-                                      onClick={() => toggleSourceExpand(panel.id)}
-                                      className="flex items-center justify-between w-full text-xs text-slate-400 hover:text-slate-300 transition-colors"
-                                    >
-                                      <div className="flex items-center gap-1.5">
-                                        <LinkIcon className="h-3 w-3" />
-                                        <span>{panel.sources.length}개 출처에서 수집</span>
-                                      </div>
-                                      <ChevronDown className={cn(
-                                        "h-4 w-4 transition-transform",
-                                        expandedSources.has(panel.id) && "rotate-180"
-                                      )} />
-                                    </button>
-                                    {expandedSources.has(panel.id) && (
-                                      <div className="space-y-3 mt-3">
-                                        {panel.sources.map((source, idx) => (
-                                          <div key={idx} className="bg-slate-800/50 rounded-lg p-3">
-                                            <a
-                                              href={source.url}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="flex items-start gap-2 text-sm text-cyan-400 hover:text-cyan-300 transition-colors mb-1.5"
-                                            >
-                                              <ExternalLink className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                                              <span className="font-medium leading-tight">{source.title}</span>
-                                            </a>
-                                            {source.snippet && (
-                                              <p className="text-xs text-slate-400 leading-relaxed pl-5">
-                                                {source.snippet}
-                                              </p>
-                                            )}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })()}
-
-                        {!isSearching && researchPanels.length === 0 && (
-                          <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <div className="h-16 w-16 rounded-2xl bg-slate-800 flex items-center justify-center mb-4">
-                              <Search className="h-8 w-8 text-slate-600" />
-                            </div>
-                            <p className="text-sm text-slate-400 mb-1">
-                              리서치 결과가 없어요
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              대화 중 필요한 정보를<br/>AI가 자동으로 검색합니다
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </ScrollArea>
-                  </TabsContent>
-                </Tabs>
-              </Card>
+              {!isSearching && researchPanels.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="h-16 w-16 rounded-2xl bg-slate-800 flex items-center justify-center mb-4">
+                    <Search className="h-8 w-8 text-slate-600" />
+                  </div>
+                  <p className="text-sm text-slate-400 mb-1">
+                    리서치 결과가 없어요
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    대화 중 필요한 정보를<br/>AI가 자동으로 검색합니다
+                  </p>
+                </div>
+              )}
             </div>
-          </div>
-        </main>
-      </div>
-    );
+          </ScrollArea>
+        </TabsContent>
+      </Tabs>
+    </Card>
+  );
 }

@@ -5,16 +5,20 @@ import { sendChatMessage, getChatHistory } from "@/lib/api/ragChatApi";
 import { fetchFaqCategories, fetchFaqByCategory } from "@/lib/api/faqApi";
 import { BACKEND_BASE_URL } from "@/lib/api";
 import ReactMarkdown from "react-markdown";
-
-// sessionStorage는 탭을 닫을 때만 초기화됨 (새로고침/페이지 이동 시 유지)
+import { X, Send, Mail, Bot } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Message {
   role: "user" | "assistant";
   text: string;
 }
 
+interface ChatbotProps {
+  onClose?: () => void;
+  darkMode?: boolean;
+}
+
 function getUserId(): number | null {
-  // dreampath:user에서 사용자 정보 가져오기
   const userStr = localStorage.getItem("dreampath:user");
   if (userStr) {
     try {
@@ -25,18 +29,13 @@ function getUserId(): number | null {
       return null;
     }
   }
-
-  // 비회원: null 반환
   return null;
 }
 
 function getGuestId(): string | null {
-  // 로그인한 경우 null 반환 (guest_id 저장하지 않음)
   if (getUserId() !== null) {
     return null;
   }
-
-  // 비회원인 경우 localStorage에서 게스트 ID 가져오기 (없으면 생성)
   let guestId = localStorage.getItem("chatbot_guest_id");
   if (!guestId) {
     guestId = `guest_${crypto.randomUUID()}`;
@@ -45,7 +44,17 @@ function getGuestId(): string | null {
   return guestId;
 }
 
-export default function Chatbot({ onClose }: { onClose?: () => void }) {
+export default function Chatbot({ onClose, darkMode: propDarkMode }: ChatbotProps) {
+  // Use prop if provided, otherwise detect from localStorage
+  const [internalDarkMode, setInternalDarkMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("dreampath:theme") === "dark";
+    }
+    return false;
+  });
+
+  const darkMode = propDarkMode ?? internalDarkMode;
+
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -68,35 +77,41 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
   const chatRef = useRef<HTMLDivElement>(null);
   const lastUserIdRef = useRef<string | null>(null);
 
-  // 컴포넌트 마운트시 sessionStorage에서 sessionId 불러오기
-  // - 새로고침 → sessionStorage가 페이지 로드 시 초기화됨 → 새 대화 시작
-  // - X로 닫고 다시 열기 → sessionStorage에서 읽어서 대화 복원
-  // - 로그인/로그아웃 → 사용자 ID 변경 시 세션 초기화
+  // Theme sync for internal dark mode
+  useEffect(() => {
+    if (propDarkMode === undefined) {
+      const handleThemeChange = () => {
+        setInternalDarkMode(localStorage.getItem("dreampath:theme") === "dark");
+      };
+      window.addEventListener("dreampath-theme-change", handleThemeChange);
+      window.addEventListener("storage", handleThemeChange);
+      return () => {
+        window.removeEventListener("dreampath-theme-change", handleThemeChange);
+        window.removeEventListener("storage", handleThemeChange);
+      };
+    }
+  }, [propDarkMode]);
+
+  // Session initialization
   useEffect(() => {
     const currentUserId = getUserId();
     const currentGuestId = getGuestId();
-
-    // 마지막 사용자 정보 확인
     const lastUserId = localStorage.getItem("chatbot_last_user_id");
     const lastGuestId = localStorage.getItem("chatbot_last_guest_id");
 
-    // 사용자 ID가 변경되었는지 확인
     const userIdChanged = String(currentUserId) !== lastUserId;
     const guestIdChanged = String(currentGuestId) !== lastGuestId;
 
     if (userIdChanged || guestIdChanged) {
-      // 사용자가 바뀌면 세션 초기화
       console.log("👤 사용자 변경 감지 - 챗봇 세션 초기화");
       sessionStorage.removeItem("chatbot_session_id");
       sessionStorage.removeItem("chatbot_messages");
       setSessionId(null);
       setMessages([]);
 
-      // 현재 사용자 정보 저장
       localStorage.setItem("chatbot_last_user_id", String(currentUserId));
       localStorage.setItem("chatbot_last_guest_id", String(currentGuestId));
     } else {
-      // 같은 사용자면 기존 세션 및 대화 복원
       const savedSessionId = sessionStorage.getItem("chatbot_session_id");
       const savedMessages = sessionStorage.getItem("chatbot_messages");
 
@@ -112,18 +127,17 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
       }
     }
 
-    // 현재 사용자 ID를 ref에 저장
     lastUserIdRef.current = String(currentUserId);
   }, []);
 
-  // 대화 내용 변경 시 sessionStorage에 저장
+  // Save messages to session storage
   useEffect(() => {
     if (messages.length > 0) {
       sessionStorage.setItem("chatbot_messages", JSON.stringify(messages));
     }
   }, [messages]);
 
-  // FAQ 카테고리 로드 함수
+  // Load FAQ categories
   const loadFaqCategories = async () => {
     const categories = await fetchFaqCategories();
     if (!categories || categories.length === 0) return;
@@ -135,7 +149,7 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
     setChunkedCategories(chunked);
   };
 
-  // 로그인/로그아웃 이벤트 감지 (즉시 반응)
+  // Auth change handler
   useEffect(() => {
     const handleAuthChange = () => {
       const currentUserId = getUserId();
@@ -148,13 +162,12 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
       setMessages([]);
       setSelectedCategory(null);
       setFaqList([]);
-      setChunkedCategories([]);  // FAQ 카테고리도 초기화
+      setChunkedCategories([]);
 
       localStorage.setItem("chatbot_last_user_id", currentUserIdStr);
       localStorage.setItem("chatbot_last_guest_id", String(getGuestId()));
       lastUserIdRef.current = currentUserIdStr;
 
-      // FAQ 카테고리 다시 로드 (사용자 타입에 맞게)
       loadFaqCategories();
     };
 
@@ -162,31 +175,19 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
     return () => window.removeEventListener("dreampath-auth-change", handleAuthChange);
   }, []);
 
-  // 자동 스크롤
+  // Auto scroll
   useEffect(() => {
     if (chatRef.current) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
     }
   }, [messages]);
 
-  /* FAQ 카테고리 로드 */
+  // Initial FAQ categories load
   useEffect(() => {
-    const loadCategories = async () => {
-      const categories = await fetchFaqCategories();
-      if (!categories || categories.length === 0) return;
-
-      // ---- 2개씩 묶기 ----
-      const chunked: string[][] = [];
-      for (let i = 0; i < categories.length; i += 2) {
-        chunked.push(categories.slice(i, i + 2));
-      }
-      setChunkedCategories(chunked);
-    };
-
-    loadCategories();
+    loadFaqCategories();
   }, []);
 
-  /* 선택된 카테고리 FAQ 로드 */
+  // Load FAQ by category
   useEffect(() => {
     const loadFaq = async () => {
       if (!selectedCategory) return;
@@ -196,15 +197,13 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
     loadFaq();
   }, [selectedCategory]);
 
-  /* 기존 대화 불러오기 */
+  // Load chat history
   useEffect(() => {
     const loadHistory = async () => {
       if (!sessionId) return;
 
       try {
         const history = await getChatHistory(sessionId);
-
-        // 대화 내역을 messages에 설정 (기존 내용 덮어쓰기)
         setMessages(
           history.map((h: any) => ({
             role: h.role as "user" | "assistant",
@@ -218,7 +217,7 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
     loadHistory();
   }, [sessionId]);
 
-  /* 메시지 전송 */
+  // Send message
   const handleSend = async (text?: string) => {
     const userMsg = text ?? input;
     if (!userMsg.trim()) return;
@@ -231,9 +230,6 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
       const userId = getUserId();
       const guestId = getGuestId();
 
-      console.log("🔍 RAG 챗봇 메시지 전송:", { userId, guestId });
-
-      // ✅ 메인페이지: 회원+비회원 모두 RAG (FAQ 기반) 사용
       const res = await sendChatMessage({
         sessionId,
         userId,
@@ -252,14 +248,10 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
     }
   };
 
-  /* FAQ 클릭 시 handleSend를 사용하여 서버가 답변을 생성하도록 처리 */
   const sendFaq = async (question: string) => {
-    // handleSend를 호출하면 서버가 FAQ에서 답변을 찾아 반환하고
-    // user 메시지와 assistant 메시지를 올바르게 저장함
     await handleSend(question);
   };
 
-  /* X 버튼 클릭 시 sessionStorage에 sessionId 저장 */
   const handleClose = () => {
     if (sessionId) {
       sessionStorage.setItem("chatbot_session_id", sessionId);
@@ -267,14 +259,11 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
     onClose?.();
   };
 
-  /* 문의하기 버튼 클릭 */
   const handleInquiryClick = () => {
-    // 로그인한 사용자 정보 가져오기
     const userStr = localStorage.getItem("dreampath:user");
     if (userStr) {
       try {
         const user = JSON.parse(userStr);
-        // 로그인한 사용자는 이름, 이메일 자동 입력
         setInquiryData({
           name: user.name || "",
           email: user.email || "",
@@ -284,7 +273,6 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
         console.error("사용자 정보 파싱 실패:", e);
       }
     } else {
-      // 비로그인 사용자는 빈 폼
       setInquiryData({ name: "", email: "", content: "" });
     }
 
@@ -299,34 +287,27 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
     ]);
   };
 
-  /* 이메일 유효성 검사 */
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
 
-  /* 입력 필드 변경 시 에러 초기화 */
   const handleInquiryChange = (field: "name" | "email" | "content", value: string) => {
     setInquiryData({ ...inquiryData, [field]: value });
-
-    // 입력하면 해당 필드의 에러 메시지 제거
     if (value.trim()) {
       setInquiryErrors({ ...inquiryErrors, [field]: "" });
     }
   };
 
-  /* 문의 제출 */
   const handleInquirySubmit = async () => {
     const errors = { name: "", email: "", content: "" };
     let hasError = false;
 
-    // 이름 검증
     if (!inquiryData.name.trim()) {
       errors.name = "이름을 입력해주세요.";
       hasError = true;
     }
 
-    // 이메일 검증
     if (!inquiryData.email.trim()) {
       errors.email = "이메일을 입력해주세요.";
       hasError = true;
@@ -335,7 +316,6 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
       hasError = true;
     }
 
-    // 문의 내용 검증
     if (!inquiryData.content.trim()) {
       errors.content = "문의 내용을 입력해주세요.";
       hasError = true;
@@ -349,18 +329,14 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
     try {
       const userId = getUserId();
 
-      // 서버에 전달할 데이터
       const requestData = {
         name: inquiryData.name.trim(),
         email: inquiryData.email.trim(),
         content: inquiryData.content.trim(),
-        userId: userId, // 로그인한 경우 userId, 아니면 null
-        sessionId: sessionId || null, // 챗봇 세션 ID (null이면 명시적으로 null)
+        userId: userId,
+        sessionId: sessionId || null,
       };
 
-      console.log("🔍 문의 제출 데이터:", requestData);
-
-      // Java 백엔드로 문의 전송 (VITE_BACKEND_URL 환경변수 사용)
       const response = await fetch(`${BACKEND_BASE_URL}/api/inquiry`, {
         method: "POST",
         headers: {
@@ -391,43 +367,132 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
     }
   };
 
+  // Theme styles
+  const theme = {
+    container: darkMode
+      ? "bg-[#0B0D14] border-white/[0.08]"
+      : "bg-gradient-to-br from-[#eef2ff] to-[#f5e8ff]",
+    header: darkMode
+      ? "bg-[#0B0D14]/95 border-white/[0.06]"
+      : "bg-white border-gray-200",
+    headerText: darkMode ? "text-white" : "text-gray-900",
+    headerSubtext: darkMode ? "text-white/50" : "text-gray-500",
+    closeBtn: darkMode
+      ? "text-white/50 hover:text-white hover:bg-white/[0.05]"
+      : "text-gray-500 hover:text-gray-900 hover:bg-gray-100",
+    chatBg: darkMode ? "" : "",
+    userBubble: "bg-gradient-to-r from-violet-600 to-violet-500 text-white",
+    assistantBubble: darkMode
+      ? "bg-white/[0.05] text-white/90 border border-white/[0.08]"
+      : "bg-white text-gray-900 shadow-sm",
+    input: darkMode
+      ? "bg-white/[0.03] border-white/[0.1] text-white placeholder:text-white/40 focus:border-violet-500/50"
+      : "bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-violet-500",
+    inputContainer: darkMode
+      ? "bg-[#0B0D14]/95 border-white/[0.06]"
+      : "bg-white border-gray-200",
+    sendBtn: "bg-gradient-to-r from-violet-600 to-violet-500 hover:from-violet-500 hover:to-violet-400 text-white",
+    categoryBtn: darkMode
+      ? "bg-white/[0.05] text-white/70 hover:bg-white/[0.08] border border-white/[0.08]"
+      : "bg-white text-gray-700 hover:bg-gray-50 shadow-sm",
+    categoryBtnActive: "bg-gradient-to-r from-violet-600 to-violet-500 text-white",
+    inquiryBtn: "bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600",
+    faqBtn: darkMode
+      ? "bg-white/[0.03] text-white/80 hover:bg-white/[0.06] border border-white/[0.06]"
+      : "bg-white text-gray-700 hover:bg-gray-50 shadow-sm",
+    formContainer: darkMode
+      ? "bg-white/[0.03] border border-white/[0.08]"
+      : "bg-white shadow-md",
+    formLabel: darkMode ? "text-white/60" : "text-gray-600",
+    formInput: darkMode
+      ? "bg-white/[0.03] border-white/[0.1] text-white placeholder:text-white/40 focus:border-violet-500/50"
+      : "bg-white border-gray-300 text-gray-900 placeholder:text-gray-400",
+    formInputDisabled: darkMode
+      ? "bg-white/[0.02] cursor-not-allowed"
+      : "bg-gray-100 cursor-not-allowed",
+  };
+
+  // Custom scrollbar styles
+  const scrollbarStyles = darkMode ? `
+    .chatbot-scroll::-webkit-scrollbar { width: 6px; }
+    .chatbot-scroll::-webkit-scrollbar-track { background: transparent; }
+    .chatbot-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+    .chatbot-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+  ` : `
+    .chatbot-scroll::-webkit-scrollbar { width: 6px; }
+    .chatbot-scroll::-webkit-scrollbar-track { background: transparent; }
+    .chatbot-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 3px; }
+    .chatbot-scroll::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
+  `;
+
   return (
-    <div className="w-full h-full flex flex-col bg-gradient-to-br from-[#eef2ff] to-[#f5e8ff] rounded-lg overflow-hidden">
-      {/* 상단바 */}
-      <div className="flex items-center justify-between px-4 py-3 bg-white border-b">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">🤖</span>
-          <span className="font-semibold">AI 챗봇과 대화 중 ···</span>
+    <div className={cn(
+      "w-full max-w-full h-full flex flex-col rounded-xl sm:rounded-2xl overflow-hidden border shadow-xl box-border",
+      theme.container,
+      darkMode && "border-white/[0.08]"
+    )}>
+      <style>{scrollbarStyles}</style>
+      {/* Header */}
+      <div className={cn(
+        "flex items-center justify-between px-3 sm:px-4 py-3 border-b shrink-0",
+        theme.header
+      )}>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className={cn(
+            "h-8 w-8 sm:h-9 sm:w-9 rounded-lg flex items-center justify-center",
+            darkMode
+              ? "bg-gradient-to-br from-violet-600 to-violet-500"
+              : "bg-gradient-to-br from-violet-500 to-purple-600"
+          )}>
+            <Bot className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+          </div>
+          <div>
+            <span className={cn("font-semibold text-sm sm:text-base", theme.headerText)}>
+              AI 챗봇
+            </span>
+            <p className={cn("text-xs hidden sm:block", theme.headerSubtext)}>
+              무엇이든 물어보세요
+            </p>
+          </div>
         </div>
-        <button
-          onClick={handleClose}
-          className="text-gray-500 hover:text-black"
-        >
-          ✕
-        </button>
+        {onClose && (
+          <button
+            onClick={handleClose}
+            className={cn(
+              "p-2 rounded-lg transition-colors",
+              theme.closeBtn
+            )}
+          >
+            <X className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
-      {/* 🔥 스크롤 한 개만 존재하는 영역 */}
-      <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-2">
-        {/* 인사말 */}
-        <div className="max-w-[78%] bg-white text-gray-1000 px-4 py-2 rounded-2xl rounded-bl-none shadow-sm text-[14px] leading-relaxed">
-          <p>안녕하세요! DreamPath AI 챗봇이에요😊</p>
+      {/* Chat Area */}
+      <div ref={chatRef} className="chatbot-scroll flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 space-y-3">
+        {/* Welcome message */}
+        <div className={cn(
+          "max-w-[85%] sm:max-w-[78%] px-3 sm:px-4 py-2 sm:py-3 rounded-2xl rounded-bl-none text-sm leading-relaxed",
+          theme.assistantBubble
+        )}>
+          <p>안녕하세요! DreamPath AI 챗봇이에요</p>
           <p>무엇을 도와드릴까요?</p>
         </div>
 
-        {/* FAQ 카테고리 */}
+        {/* FAQ Categories */}
         <div className="flex flex-col gap-2">
           {chunkedCategories.map((row, idx) => (
-            <div key={idx} className="flex gap-2">
+            <div key={idx} className="flex flex-wrap gap-2">
               {row.map((c) => (
                 <button
                   key={c}
                   onClick={() => setSelectedCategory(c)}
-                  className={`inline-flex items-center justify-center py-2 px-2 text-sm rounded-xl shadow ${
+                  className={cn(
+                    "py-2 px-3 text-xs sm:text-sm rounded-lg sm:rounded-xl transition-all",
                     selectedCategory === c
-                      ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white"
-                      : "bg-white"
-                  }`}
+                      ? theme.categoryBtnActive
+                      : theme.categoryBtn
+                  )}
                 >
                   {c}
                 </button>
@@ -435,25 +500,32 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
             </div>
           ))}
 
-          {/* 문의하기 버튼 */}
+          {/* Inquiry button */}
           <div className="flex gap-2 mt-2">
             <button
               onClick={handleInquiryClick}
-              className="inline-flex items-center justify-center py-2 px-4 text-sm rounded-xl shadow bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600"
+              className={cn(
+                "flex items-center gap-1.5 py-2 px-3 sm:px-4 text-xs sm:text-sm rounded-lg sm:rounded-xl transition-all",
+                theme.inquiryBtn
+              )}
             >
-              📧 문의하기
+              <Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span>문의하기</span>
             </button>
           </div>
         </div>
 
-        {/* 선택된 카테고리의 질문 리스트 */}
+        {/* FAQ List */}
         {selectedCategory && (
           <div className="flex flex-col items-start gap-2">
             {faqList.map((q) => (
               <button
                 key={q.id}
                 onClick={() => sendFaq(q.question)}
-                className="bg-white inline-flex items-center py-3 px-3 text-sm rounded-xl shadow hover:bg-gray-100"
+                className={cn(
+                  "py-2 sm:py-3 px-3 text-xs sm:text-sm rounded-lg sm:rounded-xl text-left transition-all",
+                  theme.faqBtn
+                )}
               >
                 {q.question}
               </button>
@@ -461,27 +533,36 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
           </div>
         )}
 
-        {/* 모든 채팅 메시지 */}
+        {/* Messages */}
         {messages.map((m, i) => (
           <div
             key={i}
-            className={`mb-2 flex ${
+            className={cn(
+              "mb-2 flex",
               m.role === "user" ? "justify-end" : "justify-start"
-            }`}
+            )}
           >
             <div
-              className={`px-4 py-2 rounded-2xl max-w-[75%] text-sm leading-relaxed break-words ${
+              className={cn(
+                "px-3 sm:px-4 py-2 rounded-2xl max-w-[85%] sm:max-w-[75%] text-sm leading-relaxed break-words",
                 m.role === "user"
-                  ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white"
-                  : "bg-white text-gray-1000"
-              }`}
+                  ? theme.userBubble
+                  : theme.assistantBubble
+              )}
             >
               {m.role === "assistant" ? (
-                <div className="prose prose-sm max-w-none">
+                <div className="prose prose-sm max-w-none overflow-hidden" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                   <ReactMarkdown
                     components={{
                       p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                      strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
+                      strong: ({ children }) => (
+                        <strong className={cn(
+                          "font-semibold",
+                          darkMode ? "text-white" : "text-gray-900"
+                        )}>
+                          {children}
+                        </strong>
+                      ),
                       ul: ({ children }) => <ul className="list-disc list-inside space-y-1 my-2">{children}</ul>,
                       ol: ({ children }) => <ol className="list-decimal list-inside space-y-1 my-2">{children}</ol>,
                       li: ({ children }) => <li className="ml-2">{children}</li>,
@@ -497,29 +578,47 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
           </div>
         ))}
 
-        {/* 🔥 챗봇 타이핑 애니메이션 */}
+        {/* Loading indicator */}
         {loading && (
           <div className="mb-2 flex justify-start">
-            <div className="px-4 py-2 rounded-2xl bg-white text-gray-500 max-w-[75%] text-sm flex gap-1 items-center shadow-sm">
-              <span className="w-2 h-2 bg-gray-400 rounded-full animate-[typing_1s_infinite]"></span>
-              <span className="w-2 h-2 bg-gray-400 rounded-full animate-[typing_1s_infinite_0.2s]"></span>
-              <span className="w-2 h-2 bg-gray-400 rounded-full animate-[typing_1s_infinite_0.4s]"></span>
+            <div className={cn(
+              "px-4 py-3 rounded-2xl max-w-[75%] text-sm flex gap-1.5 items-center",
+              theme.assistantBubble
+            )}>
+              <span className={cn(
+                "w-2 h-2 rounded-full animate-bounce",
+                darkMode ? "bg-white/40" : "bg-gray-400"
+              )} style={{ animationDelay: "0ms" }} />
+              <span className={cn(
+                "w-2 h-2 rounded-full animate-bounce",
+                darkMode ? "bg-white/40" : "bg-gray-400"
+              )} style={{ animationDelay: "150ms" }} />
+              <span className={cn(
+                "w-2 h-2 rounded-full animate-bounce",
+                darkMode ? "bg-white/40" : "bg-gray-400"
+              )} style={{ animationDelay: "300ms" }} />
             </div>
           </div>
         )}
 
-        {/* 문의하기 폼 - 스크롤 영역 안에 */}
+        {/* Inquiry Form */}
         {showInquiryForm && (
-          <div className="bg-white rounded-xl p-4 shadow-md max-w-[90%]">
-            <h3 className="text-sm font-semibold mb-3">문의하기</h3>
+          <div className={cn(
+            "rounded-xl p-3 sm:p-4 max-w-[95%] sm:max-w-[90%]",
+            theme.formContainer
+          )}>
+            <h3 className={cn("text-sm font-semibold mb-3", theme.headerText)}>문의하기</h3>
             <div className="space-y-3">
               <div>
-                <label className="block text-xs text-gray-600 mb-1">이름</label>
+                <label className={cn("block text-xs mb-1", theme.formLabel)}>이름</label>
                 <input
                   type="text"
-                  className={`w-full border rounded-lg px-3 py-2 text-sm ${
-                    inquiryErrors.name ? "border-red-500" : "border-gray-300"
-                  } ${getUserId() !== null ? "bg-gray-100 cursor-not-allowed" : ""}`}
+                  className={cn(
+                    "w-full border rounded-lg px-3 py-2 text-sm outline-none transition-all",
+                    theme.formInput,
+                    inquiryErrors.name && "border-red-500",
+                    getUserId() !== null && theme.formInputDisabled
+                  )}
                   placeholder="이름을 입력하세요"
                   value={inquiryData.name}
                   onChange={(e) => handleInquiryChange("name", e.target.value)}
@@ -530,12 +629,15 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
                 )}
               </div>
               <div>
-                <label className="block text-xs text-gray-600 mb-1">이메일</label>
+                <label className={cn("block text-xs mb-1", theme.formLabel)}>이메일</label>
                 <input
                   type="email"
-                  className={`w-full border rounded-lg px-3 py-2 text-sm ${
-                    inquiryErrors.email ? "border-red-500" : "border-gray-300"
-                  } ${getUserId() !== null ? "bg-gray-100 cursor-not-allowed" : ""}`}
+                  className={cn(
+                    "w-full border rounded-lg px-3 py-2 text-sm outline-none transition-all",
+                    theme.formInput,
+                    inquiryErrors.email && "border-red-500",
+                    getUserId() !== null && theme.formInputDisabled
+                  )}
                   placeholder="email@example.com"
                   value={inquiryData.email}
                   onChange={(e) => handleInquiryChange("email", e.target.value)}
@@ -546,11 +648,13 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
                 )}
               </div>
               <div>
-                <label className="block text-xs text-gray-600 mb-1">문의 내용</label>
+                <label className={cn("block text-xs mb-1", theme.formLabel)}>문의 내용</label>
                 <textarea
-                  className={`w-full border rounded-lg px-3 py-2 text-sm resize-none ${
-                    inquiryErrors.content ? "border-red-500" : "border-gray-300"
-                  }`}
+                  className={cn(
+                    "w-full border rounded-lg px-3 py-2 text-sm resize-none outline-none transition-all",
+                    theme.formInput,
+                    inquiryErrors.content && "border-red-500"
+                  )}
                   placeholder="문의 내용을 입력하세요"
                   rows={4}
                   value={inquiryData.content}
@@ -563,7 +667,10 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
               <div className="flex gap-2">
                 <button
                   onClick={handleInquirySubmit}
-                  className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white py-2 rounded-lg text-sm hover:from-purple-600 hover:to-pink-600"
+                  className={cn(
+                    "flex-1 py-2 rounded-lg text-sm font-medium transition-all",
+                    theme.inquiryBtn
+                  )}
                 >
                   보내기
                 </button>
@@ -572,7 +679,12 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
                     setShowInquiryForm(false);
                     setInquiryErrors({ name: "", email: "", content: "" });
                   }}
-                  className="px-4 bg-gray-200 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-300"
+                  className={cn(
+                    "px-4 py-2 rounded-lg text-sm transition-all",
+                    darkMode
+                      ? "bg-white/[0.05] text-white/70 hover:bg-white/[0.08]"
+                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  )}
                 >
                   취소
                 </button>
@@ -582,11 +694,17 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
         )}
       </div>
 
-      {/* 입력창 */}
-      <div className="p-4 border-t bg-white">
+      {/* Input Area */}
+      <div className={cn(
+        "p-3 sm:p-4 border-t",
+        theme.inputContainer
+      )}>
         <div className="flex gap-2">
           <input
-            className="flex-1 border p-3 rounded-xl"
+            className={cn(
+              "flex-1 border px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-sm outline-none transition-all",
+              theme.input
+            )}
             placeholder="메시지를 입력하세요..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -594,9 +712,12 @@ export default function Chatbot({ onClose }: { onClose?: () => void }) {
           />
           <button
             onClick={() => handleSend()}
-            className="bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white px-5 rounded-xl"
+            className={cn(
+              "px-4 sm:px-5 rounded-xl transition-all flex items-center justify-center",
+              theme.sendBtn
+            )}
           >
-            전송
+            <Send className="h-4 w-4 sm:h-5 sm:w-5" />
           </button>
         </div>
       </div>

@@ -11,7 +11,6 @@ const ProfileDashboardPage = lazy(() => import("../pages/profile/Dashboard"));
 const HomePage = lazy(() => import("../pages/home/page"));
 const NotFoundPage = lazy(() => import("../pages/NotFound"));
 const CareerChatPage = lazy(() => import("../pages/career-chat/page"));
-const AnalysisResultPage = lazy(() => import("../pages/analysis-result/page"));
 const JobListingsPage = lazy(() => import("../pages/job-listings/page"));
 const LoginPage = lazy(() => import("../pages/auth/LoginPage"));
 const RegisterPage = lazy(() => import("../pages/auth/RegisterPage"));
@@ -20,30 +19,21 @@ const ChatbotPage = lazy(() => import("../pages/chatbot/ChatbotPage"));
 const LearningPathDetailPage = lazy(() => import("../pages/learning/LearningPathDetail"));
 const WeeklyQuizPage = lazy(() => import("../pages/learning/WeeklyQuiz"));
 const LearningDashboardPage = lazy(() => import("../pages/learning/Dashboard"));
-const DeveloperExperiencePage = lazy(() => import("../pages/career-simulation/DeveloperExperience"));
-const CareerSimulationResultPage = lazy(() => import("../pages/career-simulation/Result"));
-const CodingTestPage = lazy(() => import("../pages/career-simulation/CodingTest"));
 const AIAgentDashboardPage = lazy(() => import("../pages/ai-agent/Dashboard"));
 const CompanyListPage = lazy(() => import("../pages/company/CompanyListPage"));
 const CompanyDetailPage = lazy(() => import("../pages/company/CompanyDetailPage"));
 const CrawlerPage = lazy(() => import("../pages/admin/CrawlerPage"));
-const MentorApplyPage = lazy(() => import("../pages/mentors/MentorApply"));
 const MentorApplicationsPage = lazy(() => import("../pages/admin/MentorApplications"));
 const FaqManagementPage = lazy(() => import("../pages/admin/FaqManagement"));
 const InquiriesManagementPage = lazy(() => import("../pages/admin/InquiriesManagement"));
 const UserManagementPage = lazy(() => import("../pages/admin/UserManagement"));
 const MentorManagementPage = lazy(() => import("../pages/admin/MentorManagement"));
 const AdminPage = lazy(() => import("../pages/admin/AdminPage.tsx"));
-const MentorsListPage = lazy(() => import("../pages/mentors/MentorsList"));
-const MentorDetailPage = lazy(() => import("../pages/mentors/MentorDetail"));
-const MentorEditPage = lazy(() => import("../pages/mypage/mentor/MentorEditPage"));
 const PaymentPurchasePage = lazy(() => import("../pages/payments/PaymentPurchase"));
 const PaymentHistoryPage = lazy(() => import("../pages/payments/PaymentHistory"));
 const PaymentSuccessPage = lazy(() => import("../pages/payments/PaymentSuccess"));
 const PaymentFailPage = lazy(() => import("../pages/payments/PaymentFail"));
 const BookMentoringPage = lazy(() => import("../pages/mentoring/BookMentoring"));
-const MyBookingsPage = lazy(() => import("../pages/mypage/shared/BookingsPage"));
-const MentorSessionsPage = lazy(() => import("../pages/mypage/mentor/MentorSessionsPage"));
 const MentoringMeetingPage = lazy(() => import("../pages/mentoring/MentoringMeeting"));
 const JobAnalysisPage = lazy(() => import("../pages/job-analysis/JobAnalysisPage"));
 const PersonalizedInsightsPage = lazy(() => import("../pages/job-analysis/PersonalizedInsightsPage"));
@@ -78,10 +68,6 @@ const routes: RouteObject[] = [
   {
     path: "/career-chat",
     element: <MainLayout showFooter={false}><CareerChatPage /></MainLayout>,
-  },
-  {
-    path: "/analysis/:sessionId",
-    element: <MainLayout><AnalysisResultPage /></MainLayout>,
   },
   {
     path: "/job-listings",
@@ -141,22 +127,6 @@ const routes: RouteObject[] = [
   },
 
   /* ----------------------
-     CAREER SIMULATION
-     ---------------------- */
-  {
-    path: "/career-simulation/developer",
-    element: <MainLayout><DeveloperExperiencePage /></MainLayout>,
-  },
-  {
-    path: "/career-simulation/result",
-    element: <MainLayout><CareerSimulationResultPage /></MainLayout>,
-  },
-  {
-    path: "/career-simulation/coding-test",
-    element: <MainLayout showFooter={false}><CodingTestPage /></MainLayout>,
-  },
-
-  /* ----------------------
      AI AGENT
      ---------------------- */
   {
@@ -198,38 +168,6 @@ const routes: RouteObject[] = [
   {
     path: "/company-talent",
     element: <MainLayout><CompanyTalentPage /></MainLayout>,
-  },
-
-  /* ----------------------
-     MYPAGE
-     ---------------------- */
-  {
-    path: "/mypage/bookings",
-    element: <MainLayout><MyBookingsPage /></MainLayout>,
-  },
-  {
-    path: "/mypage/mentor/sessions",
-    element: <MainLayout><MentorSessionsPage /></MainLayout>,
-  },
-  {
-    path: "/mypage/mentor/edit",
-    element: <MainLayout><MentorEditPage /></MainLayout>,
-  },
-
-  /* ----------------------
-     MENTORS
-     ---------------------- */
-  {
-    path: "/mentors",
-    element: <MainLayout><MentorsListPage /></MainLayout>,
-  },
-  {
-    path: "/mentors/:id",
-    element: <MainLayout><MentorDetailPage /></MainLayout>,
-  },
-  {
-    path: "/mentors/apply",
-    element: <MainLayout><MentorApplyPage /></MainLayout>,
   },
 
   /* ----------------------
