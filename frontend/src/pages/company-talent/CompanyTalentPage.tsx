@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import Footer from '../../components/feature/Footer';
 import { companyTalentService } from '../../lib/api';
 
 /**
@@ -373,8 +372,6 @@ export default function CompanyTalentPage() {
           </div>
         )}
       </main>
-
-      <Footer />
     </div>
   );
 }

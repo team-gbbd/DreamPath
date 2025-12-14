@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import Footer from '../../components/feature/Footer';
 
 /**
  * AI 에이전트 대시보드
@@ -86,8 +85,6 @@ export default function AIAgentDashboard() {
           {activeTab === 'company' && <CompanyTalentTab />}
         </div>
       </main>
-
-      <Footer />
     </div>
   );
 }

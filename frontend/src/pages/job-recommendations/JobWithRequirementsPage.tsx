@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { jobRecommendationService, companyTalentService } from "@/lib/api";
-import Footer from "../../components/feature/Footer";
 
 // 타입 정의
 interface RequiredTechnology {
@@ -161,7 +160,6 @@ export default function JobWithRequirementsPage() {
             </p>
           </div>
         </div>
-        <Footer />
       </div>
     );
   }
@@ -262,7 +260,6 @@ export default function JobWithRequirementsPage() {
           <ComprehensiveAnalysisTab />
         )}
       </div>
-      <Footer />
     </div>
   );
 }

@@ -28,6 +28,7 @@ public class DashboardService {
     private final WeeklySessionRepository sessionRepository;
     private final WeeklyQuestionRepository questionRepository;
     private final StudentAnswerRepository answerRepository;
+    private final WeaknessAnalysisService weaknessAnalysisService;
     private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
@@ -66,10 +67,72 @@ public class DashboardService {
         // 문제 유형별 정답률
         dashboard.typeAccuracy = calculateTypeAccuracy(answers);
 
-        // 약점 분석
+        // 약점 분석 (기존 피드백 기반)
         dashboard.weaknessAnalysis = analyzeWeaknesses(answers);
 
+        // AI 약점 분석 (오답이 3개 이상일 때만)
+        List<StudentAnswer> wrongAnswers = answers.stream()
+                .filter(a -> a.getScore() != null && a.getQuestion().getMaxScore() != null
+                        && (float) a.getScore() / a.getQuestion().getMaxScore() < 0.6f)
+                .collect(Collectors.toList());
+
+        if (wrongAnswers.size() >= 3) {
+            try {
+                WeaknessAnalysisService.WeaknessAnalysisResult aiAnalysis =
+                        weaknessAnalysisService.analyzeWeaknesses(path.getDomain(), wrongAnswers);
+                dashboard.aiWeaknessAnalysis = convertToAIAnalysis(aiAnalysis);
+            } catch (Exception e) {
+                log.warn("AI 약점 분석 실패: {}", e.getMessage());
+                dashboard.aiWeaknessAnalysis = getDefaultAIAnalysis();
+            }
+        } else {
+            dashboard.aiWeaknessAnalysis = getDefaultAIAnalysis();
+        }
+
         return dashboard;
+    }
+
+    private AIWeaknessAnalysis convertToAIAnalysis(WeaknessAnalysisService.WeaknessAnalysisResult result) {
+        AIWeaknessAnalysis analysis = new AIWeaknessAnalysis();
+
+        for (WeaknessAnalysisService.WeaknessTag tag : result.weaknessTags) {
+            WeaknessTagItem item = new WeaknessTagItem();
+            item.tag = tag.tag;
+            item.count = tag.count;
+            item.severity = tag.severity;
+            item.description = tag.description;
+            analysis.weaknessTags.add(item);
+        }
+
+        analysis.recommendations = new ArrayList<>(result.recommendations);
+        analysis.overallAnalysis = result.overallAnalysis;
+
+        for (WeaknessAnalysisService.RadarDataItem rd : result.radarData) {
+            RadarDataItem item = new RadarDataItem();
+            item.category = rd.category;
+            item.score = rd.score;
+            item.fullMark = rd.fullMark;
+            analysis.radarData.add(item);
+        }
+
+        return analysis;
+    }
+
+    private AIWeaknessAnalysis getDefaultAIAnalysis() {
+        AIWeaknessAnalysis analysis = new AIWeaknessAnalysis();
+        analysis.overallAnalysis = "오답 데이터가 충분하지 않아 상세 분석이 제공되지 않습니다. 학습을 계속 진행해주세요!";
+        analysis.recommendations.add("꾸준히 학습을 진행해주세요");
+
+        String[] categories = {"기초 이론", "실무 적용", "문제 해결", "최신 트렌드", "종합 사고"};
+        for (String cat : categories) {
+            RadarDataItem item = new RadarDataItem();
+            item.category = cat;
+            item.score = 80;
+            item.fullMark = 100;
+            analysis.radarData.add(item);
+        }
+
+        return analysis;
     }
 
     private List<WeeklyProgress> calculateWeeklyProgress(List<WeeklySession> sessions, List<StudentAnswer> answers) {
@@ -206,6 +269,7 @@ public class DashboardService {
         public List<WeeklyProgress> weeklyProgress;
         public List<TypeAccuracy> typeAccuracy;
         public WeaknessAnalysis weaknessAnalysis;
+        public AIWeaknessAnalysis aiWeaknessAnalysis;  // AI 약점 분석 결과
     }
 
     public static class WeeklyProgress {
@@ -241,5 +305,26 @@ public class DashboardService {
         public String correctAnswer;
         public String userAnswer;
         public String questionType;
+    }
+
+    // AI 약점 분석 결과 DTO
+    public static class AIWeaknessAnalysis {
+        public List<WeaknessTagItem> weaknessTags = new ArrayList<>();
+        public List<String> recommendations = new ArrayList<>();
+        public String overallAnalysis = "";
+        public List<RadarDataItem> radarData = new ArrayList<>();
+    }
+
+    public static class WeaknessTagItem {
+        public String tag;
+        public Integer count;
+        public String severity;  // high, medium, low
+        public String description;
+    }
+
+    public static class RadarDataItem {
+        public String category;
+        public Integer score;
+        public Integer fullMark;
     }
 }

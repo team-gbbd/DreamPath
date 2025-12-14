@@ -12,6 +12,11 @@ import {
     ResponsiveContainer,
     LineChart,
     Line,
+    RadarChart,
+    PolarGrid,
+    PolarAngleAxis,
+    PolarRadiusAxis,
+    Radar,
 } from "recharts";
 
 interface LearningPath {
@@ -55,6 +60,26 @@ interface FeedbackItem {
     questionType?: string;
 }
 
+interface WeaknessTagItem {
+    tag: string;
+    count: number;
+    severity: string;  // high, medium, low
+    description: string;
+}
+
+interface RadarDataItem {
+    category: string;
+    score: number;
+    fullMark: number;
+}
+
+interface AIWeaknessAnalysis {
+    weaknessTags: WeaknessTagItem[];
+    recommendations: string[];
+    overallAnalysis: string;
+    radarData: RadarDataItem[];
+}
+
 interface DashboardStats {
     correctRate: number;
     correctCount: number;
@@ -66,6 +91,7 @@ interface DashboardStats {
     weeklyProgress: WeeklyProgress[];
     typeAccuracy: TypeAccuracy[];
     weaknessAnalysis: WeaknessAnalysis;
+    aiWeaknessAnalysis?: AIWeaknessAnalysis;
 }
 
 export default function Dashboard() {
@@ -333,6 +359,110 @@ export default function Dashboard() {
                                             <Bar dataKey="점수" fill="#f472b6" radius={[0, 2, 2, 0]} barSize={20} />
                                         </BarChart>
                                     </ResponsiveContainer>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* AI 약점 분석 섹션 */}
+                        {stats && stats.aiWeaknessAnalysis && (
+                            <div className="grid grid-cols-2 gap-4">
+                                {/* 역량 레이더 차트 */}
+                                <div className="bg-white border border-gray-200 rounded p-4">
+                                    <p className="text-sm font-medium text-gray-900 mb-4">역량 분석</p>
+                                    <ResponsiveContainer width="100%" height={220}>
+                                        <RadarChart data={stats.aiWeaknessAnalysis.radarData}>
+                                            <PolarGrid stroke="#fce7f3" />
+                                            <PolarAngleAxis
+                                                dataKey="category"
+                                                fontSize={11}
+                                                tick={{ fill: '#6b7280' }}
+                                            />
+                                            <PolarRadiusAxis
+                                                angle={90}
+                                                domain={[0, 100]}
+                                                fontSize={10}
+                                                tick={{ fill: '#9ca3af' }}
+                                            />
+                                            <Radar
+                                                name="역량"
+                                                dataKey="score"
+                                                stroke="#ec4899"
+                                                fill="#ec4899"
+                                                fillOpacity={0.3}
+                                                strokeWidth={2}
+                                            />
+                                            <Tooltip
+                                                contentStyle={{
+                                                    fontSize: 12,
+                                                    border: '1px solid #fce7f3',
+                                                    borderRadius: 4,
+                                                    boxShadow: 'none'
+                                                }}
+                                                formatter={(value: number) => [`${value}점`, '역량']}
+                                            />
+                                        </RadarChart>
+                                    </ResponsiveContainer>
+                                </div>
+
+                                {/* 약점 태그 및 추천 */}
+                                <div className="bg-white border border-gray-200 rounded p-4">
+                                    <p className="text-sm font-medium text-gray-900 mb-3">약점 분석</p>
+
+                                    {/* 약점 태그 */}
+                                    {stats.aiWeaknessAnalysis.weaknessTags.length > 0 ? (
+                                        <div className="space-y-2 mb-4">
+                                            {stats.aiWeaknessAnalysis.weaknessTags.map((tag, i) => (
+                                                <div
+                                                    key={i}
+                                                    className={`flex items-center justify-between p-2 rounded text-xs ${
+                                                        tag.severity === 'high'
+                                                            ? 'bg-rose-50 border border-rose-200'
+                                                            : tag.severity === 'medium'
+                                                            ? 'bg-amber-50 border border-amber-200'
+                                                            : 'bg-gray-50 border border-gray-200'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`w-2 h-2 rounded-full ${
+                                                            tag.severity === 'high' ? 'bg-rose-500' :
+                                                            tag.severity === 'medium' ? 'bg-amber-500' : 'bg-gray-400'
+                                                        }`}></span>
+                                                        <span className="font-medium text-gray-700">{tag.tag}</span>
+                                                    </div>
+                                                    <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                                                        tag.severity === 'high' ? 'bg-rose-100 text-rose-600' :
+                                                        tag.severity === 'medium' ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-600'
+                                                    }`}>
+                                                        {tag.count}회
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-gray-400 mb-4">아직 분석할 약점이 없습니다</p>
+                                    )}
+
+                                    {/* 종합 분석 */}
+                                    <div className="p-3 bg-pink-50/50 rounded border border-pink-100 mb-3">
+                                        <p className="text-xs text-gray-600 leading-relaxed">
+                                            {stats.aiWeaknessAnalysis.overallAnalysis}
+                                        </p>
+                                    </div>
+
+                                    {/* 학습 추천 */}
+                                    {stats.aiWeaknessAnalysis.recommendations.length > 0 && (
+                                        <div>
+                                            <p className="text-xs font-medium text-gray-500 mb-2">추천 학습</p>
+                                            <ul className="space-y-1">
+                                                {stats.aiWeaknessAnalysis.recommendations.slice(0, 3).map((rec, i) => (
+                                                    <li key={i} className="text-xs text-gray-600 flex items-start gap-1.5">
+                                                        <span className="text-pink-500 mt-0.5">•</span>
+                                                        <span>{rec}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
