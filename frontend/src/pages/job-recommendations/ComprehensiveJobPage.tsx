@@ -128,6 +128,21 @@ interface RecommendationResult {
   overallLearningPath: string[];
 }
 
+interface ThemeColors {
+  bg: string;
+  card: string;
+  cardHover: string;
+  text: string;
+  textMuted: string;
+  textSubtle: string;
+  border: string;
+  divider: string;
+  input: string;
+  inputBorder: string;
+  inputFocus: string;
+  statCard: string;
+}
+
 export default function ComprehensiveJobPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -144,6 +159,7 @@ export default function ComprehensiveJobPage() {
   const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [filteredRecommendations, setFilteredRecommendations] = useState<JobRecommendation[]>([]);
+  const [darkMode, setDarkMode] = useState(false);
 
   // 전체 검색 관련 state
   const [viewMode, setViewMode] = useState<"recommendations" | "allJobs">("recommendations");
@@ -152,6 +168,51 @@ export default function ComprehensiveJobPage() {
   const [allJobsTotalCount, setAllJobsTotalCount] = useState(0);
   const [selectedAllJob, setSelectedAllJob] = useState<JobRecommendation | null>(null);
   const [allJobsSearchKeyword, setAllJobsSearchKeyword] = useState("");
+
+  // 테마 설정
+  const theme: ThemeColors = darkMode ? {
+    bg: "bg-[#0B0D14]",
+    card: "bg-white/[0.02] border-white/[0.08]",
+    cardHover: "hover:bg-white/[0.05]",
+    text: "text-white",
+    textMuted: "text-white/70",
+    textSubtle: "text-white/50",
+    border: "border-white/[0.08]",
+    divider: "border-white/[0.08]",
+    input: "bg-white/[0.05] text-white placeholder-white/40",
+    inputBorder: "border-white/[0.1]",
+    inputFocus: "focus:border-blue-400 focus:ring-blue-400/20",
+    statCard: "bg-white/[0.03]",
+  } : {
+    bg: "bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50",
+    card: "bg-white border-slate-200",
+    cardHover: "hover:bg-slate-50",
+    text: "text-slate-900",
+    textMuted: "text-slate-600",
+    textSubtle: "text-slate-500",
+    border: "border-slate-200",
+    divider: "border-slate-200",
+    input: "bg-white text-slate-900 placeholder-slate-400",
+    inputBorder: "border-slate-300",
+    inputFocus: "focus:border-blue-500 focus:ring-blue-500/20",
+    statCard: "bg-slate-50",
+  };
+
+  useEffect(() => {
+    // 테마 로드
+    const savedTheme = localStorage.getItem('dreampath:theme');
+    if (savedTheme) {
+      setDarkMode(savedTheme === 'dark');
+    }
+
+    const handleThemeChange = () => {
+      const theme = localStorage.getItem('dreampath:theme');
+      setDarkMode(theme === 'dark');
+    };
+
+    window.addEventListener('dreampath-theme-change', handleThemeChange);
+    return () => window.removeEventListener('dreampath-theme-change', handleThemeChange);
+  }, []);
 
   useEffect(() => {
     loadRecommendations();
@@ -182,7 +243,6 @@ export default function ComprehensiveJobPage() {
   const loadRecommendations = async () => {
     setLoading(true);
     try {
-      // 1. 로그인한 사용자 ID 가져오기
       const userId = getStoredUserId();
       if (!userId) {
         setNotLoggedIn(true);
@@ -190,7 +250,6 @@ export default function ComprehensiveJobPage() {
         return;
       }
 
-      // 2. 백엔드에서 프로파일 분석 데이터 가져오기 (분석 여부 확인)
       const analysisResponse = await fetch(`${BACKEND_BASE_URL}/api/profiles/${userId}/analysis`);
       if (!analysisResponse.ok) {
         if (analysisResponse.status === 404) {
@@ -201,12 +260,10 @@ export default function ComprehensiveJobPage() {
         throw new Error('분석 데이터를 불러오지 못했습니다.');
       }
 
-      // 3. 캐시된 추천 조회 시도 (빠른 응답)
       try {
         const cachedResult = await jobRecommendationService.getRecommendationsByCareerAnalysis(userId, 20);
 
         if (cachedResult.success && cachedResult.recommendations && cachedResult.recommendations.length > 0) {
-          // 캐시된 데이터가 있으면 바로 표시
           const mappedRecommendations: JobRecommendation[] = cachedResult.recommendations.map((rec: any) => ({
             jobId: rec.id?.toString() || '',
             title: rec.title || '',
@@ -249,7 +306,6 @@ export default function ComprehensiveJobPage() {
         console.log("캐시된 추천 조회 실패:", cacheError);
       }
 
-      // 4. 캐시가 없으면 "준비 중" 표시 (프로파일링 시점에 이미 계산 트리거됨)
       setResult(null);
       setIsCached(false);
     } catch (error: any) {
@@ -263,16 +319,13 @@ export default function ComprehensiveJobPage() {
     }
   };
 
-  // 추천 재계산 트리거
   const handleRecalculate = async () => {
     const userId = getStoredUserId();
     if (!userId) return;
 
     setCalculating(true);
     try {
-      // 백그라운드에서 계산 시작
       await jobRecommendationService.triggerCalculation(userId, false);
-      // 재로드
       await loadRecommendations();
     } catch (error) {
       console.error("재계산 실패:", error);
@@ -282,7 +335,6 @@ export default function ComprehensiveJobPage() {
     }
   };
 
-  // 전체 채용 정보 검색
   const searchAllJobs = async (keyword?: string) => {
     setAllJobsLoading(true);
     try {
@@ -323,28 +375,49 @@ export default function ComprehensiveJobPage() {
     }
   };
 
-  // 전체 채용 모드로 전환 시 데이터 로드
   useEffect(() => {
     if (viewMode === "allJobs" && allJobListings.length === 0) {
       searchAllJobs();
     }
   }, [viewMode]);
 
+  // 배경 효과 컴포넌트
+  const BackgroundEffects = () => (
+    <>
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className={`absolute top-0 right-1/4 w-[500px] h-[500px] rounded-full blur-[120px] ${darkMode ? "bg-blue-500/10" : "bg-blue-400/20"}`} />
+        <div className={`absolute bottom-1/4 left-1/4 w-[400px] h-[400px] rounded-full blur-[120px] ${darkMode ? "bg-indigo-500/10" : "bg-indigo-400/20"}`} />
+        <div className={`absolute top-1/2 right-0 w-[300px] h-[300px] rounded-full blur-[100px] ${darkMode ? "bg-purple-500/10" : "bg-purple-400/15"}`} />
+      </div>
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: darkMode
+            ? "linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)"
+            : "linear-gradient(rgba(59,130,246,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,0.05) 1px, transparent 1px)",
+          backgroundSize: "60px 60px",
+        }}
+      />
+    </>
+  );
+
   // 로그인 필요
   if (notLoggedIn) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        
-        <div className="max-w-7xl mx-auto px-4 py-12">
-          <div className="bg-white rounded-lg shadow p-12 text-center">
-            <div className="text-6xl mb-4">🔐</div>
-            <h2 className="text-2xl font-bold mb-4">로그인이 필요합니다</h2>
-            <p className="text-gray-600 mb-6">
+      <div className={`min-h-screen ${theme.bg} relative overflow-hidden`}>
+        <BackgroundEffects />
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+          <div className={`${theme.card} border rounded-xl sm:rounded-2xl shadow-xl p-8 sm:p-12 text-center backdrop-blur-sm`}>
+            <div className={`w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 rounded-2xl flex items-center justify-center ${darkMode ? 'bg-white/[0.05]' : 'bg-blue-50'}`}>
+              <i className={`ri-lock-line text-3xl sm:text-4xl ${darkMode ? 'text-blue-400' : 'text-blue-500'}`}></i>
+            </div>
+            <h2 className={`text-xl sm:text-2xl font-bold mb-4 ${theme.text}`}>로그인이 필요합니다</h2>
+            <p className={`mb-6 text-sm sm:text-base ${theme.textMuted}`}>
               종합 채용 분석을 받으려면 먼저 로그인해주세요.
             </p>
             <button
               onClick={() => navigate("/login")}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-xl font-medium shadow-lg transition-all"
             >
               로그인하기
             </button>
@@ -357,18 +430,20 @@ export default function ComprehensiveJobPage() {
   // 프로파일 분석 필요
   if (noAnalysis) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        
-        <div className="max-w-7xl mx-auto px-4 py-12">
-          <div className="bg-white rounded-lg shadow p-12 text-center">
-            <div className="text-6xl mb-4">📋</div>
-            <h2 className="text-2xl font-bold mb-4">프로파일 분석이 필요합니다</h2>
-            <p className="text-gray-600 mb-6">
+      <div className={`min-h-screen ${theme.bg} relative overflow-hidden`}>
+        <BackgroundEffects />
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+          <div className={`${theme.card} border rounded-xl sm:rounded-2xl shadow-xl p-8 sm:p-12 text-center backdrop-blur-sm`}>
+            <div className={`w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 rounded-2xl flex items-center justify-center ${darkMode ? 'bg-white/[0.05]' : 'bg-blue-50'}`}>
+              <i className={`ri-file-user-line text-3xl sm:text-4xl ${darkMode ? 'text-blue-400' : 'text-blue-500'}`}></i>
+            </div>
+            <h2 className={`text-xl sm:text-2xl font-bold mb-4 ${theme.text}`}>프로파일 분석이 필요합니다</h2>
+            <p className={`mb-6 text-sm sm:text-base ${theme.textMuted}`}>
               먼저 프로파일 분석을 완료해야 종합 채용 분석을 받을 수 있습니다.
             </p>
             <button
               onClick={() => navigate("/profile/input")}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-xl font-medium shadow-lg transition-all"
             >
               프로파일 분석하기
             </button>
@@ -381,18 +456,18 @@ export default function ComprehensiveJobPage() {
   // 로딩/계산 중
   if (loading || calculating) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        
-        <div className="max-w-7xl mx-auto px-4 py-12">
-          <div className="bg-white rounded-lg shadow p-12 text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600 text-lg">
+      <div className={`min-h-screen ${theme.bg} relative overflow-hidden`}>
+        <BackgroundEffects />
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+          <div className={`${theme.card} border rounded-xl sm:rounded-2xl shadow-xl p-8 sm:p-12 text-center backdrop-blur-sm`}>
+            <div className="w-12 h-12 sm:w-16 sm:h-16 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+            <p className={`text-base sm:text-lg ${theme.textMuted}`}>
               {calculating
                 ? "AI가 6가지 종합 채용 분석을 수행하고 있습니다..."
                 : "추천 정보를 불러오는 중..."}
             </p>
             {calculating && (
-              <p className="text-sm text-gray-500 mt-2">
+              <p className={`text-xs sm:text-sm mt-2 ${theme.textSubtle}`}>
                 인재상, 채용 프로세스, 검증 기준, 합격 예측 등을 분석합니다
               </p>
             )}
@@ -405,21 +480,23 @@ export default function ComprehensiveJobPage() {
   // 캐시 없음 - 준비 중
   if (!result) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        
-        <div className="max-w-7xl mx-auto px-4 py-12">
-          <div className="bg-white rounded-lg shadow p-12 text-center">
-            <div className="text-4xl mb-4">⏳</div>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">종합 분석 준비 중</h3>
-            <p className="text-gray-600 mb-4">
+      <div className={`min-h-screen ${theme.bg} relative overflow-hidden`}>
+        <BackgroundEffects />
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+          <div className={`${theme.card} border rounded-xl sm:rounded-2xl shadow-xl p-8 sm:p-12 text-center backdrop-blur-sm`}>
+            <div className={`w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 rounded-2xl flex items-center justify-center ${darkMode ? 'bg-white/[0.05]' : 'bg-amber-50'}`}>
+              <i className={`ri-time-line text-3xl sm:text-4xl ${darkMode ? 'text-amber-400' : 'text-amber-500'}`}></i>
+            </div>
+            <h3 className={`text-lg sm:text-xl font-bold mb-2 ${theme.text}`}>종합 분석 준비 중</h3>
+            <p className={`mb-4 text-sm sm:text-base ${theme.textMuted}`}>
               AI가 당신에게 맞는 채용 공고를 종합 분석하고 있습니다.
             </p>
-            <p className="text-sm text-gray-500 mb-6">
+            <p className={`text-xs sm:text-sm mb-6 ${theme.textSubtle}`}>
               백그라운드에서 분석 중이며, 1-2분 후 새로고침하면 결과를 확인할 수 있습니다.
             </p>
             <button
               onClick={() => window.location.reload()}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-xl font-medium shadow-lg transition-all"
             >
               새로고침
             </button>
@@ -430,42 +507,39 @@ export default function ComprehensiveJobPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      
+    <div className={`min-h-screen ${theme.bg} relative overflow-hidden`}>
+      <BackgroundEffects />
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* 헤더 */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">AI 종합 채용 분석</h1>
-              <p className="mt-2 text-gray-600">
-                채용 공고별 6가지 맞춤 분석으로 합격 가능성을 높이세요
-              </p>
-              {isCached && calculatedAt && (
-                <p className="text-sm text-gray-400 mt-1">
-                  마지막 분석: {new Date(calculatedAt).toLocaleString('ko-KR')}
+        <div className="mb-4 sm:mb-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg">
+                <i className="ri-briefcase-4-line text-white text-xl sm:text-2xl"></i>
+              </div>
+              <div>
+                <h1 className={`text-xl sm:text-2xl lg:text-3xl font-bold ${theme.text}`}>AI 종합 채용 분석</h1>
+                <p className={`text-sm sm:text-base ${theme.textMuted}`}>
+                  채용 공고별 6가지 맞춤 분석으로 합격 가능성을 높이세요
                 </p>
-              )}
+                {isCached && calculatedAt && (
+                  <p className={`text-xs ${theme.textSubtle} mt-1`}>
+                    마지막 분석: {new Date(calculatedAt).toLocaleString('ko-KR')}
+                  </p>
+                )}
+              </div>
             </div>
             <button
               onClick={handleRecalculate}
               disabled={calculating}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className={`w-full sm:w-auto px-4 py-2.5 rounded-xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
+                darkMode
+                  ? 'bg-white/[0.05] text-white/70 hover:bg-white/[0.1]'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
             >
-              <svg
-                className={`w-4 h-4 ${calculating ? 'animate-spin' : ''}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
+              <i className={`ri-refresh-line ${calculating ? 'animate-spin' : ''}`}></i>
               {calculating ? '분석 중...' : '다시 분석'}
             </button>
           </div>
@@ -474,20 +548,24 @@ export default function ComprehensiveJobPage() {
           <div className="flex gap-2 mt-4">
             <button
               onClick={() => setViewMode("recommendations")}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                 viewMode === "recommendations"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg"
+                  : darkMode
+                    ? "bg-white/[0.05] text-white/70 hover:bg-white/[0.1]"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
               }`}
             >
               맞춤 추천 ({result?.totalCount || 0})
             </button>
             <button
               onClick={() => setViewMode("allJobs")}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                 viewMode === "allJobs"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg"
+                  : darkMode
+                    ? "bg-white/[0.05] text-white/70 hover:bg-white/[0.1]"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
               }`}
             >
               전체 채용공고 ({allJobsTotalCount})
@@ -497,14 +575,14 @@ export default function ComprehensiveJobPage() {
 
         {/* 전체 요약 - 추천 모드에서만 */}
         {viewMode === "recommendations" && result.summary && (
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg shadow p-6 mb-6 text-white">
-            <p className="text-lg mb-3">{result.summary.message}</p>
+          <div className="bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl sm:rounded-2xl shadow-xl p-4 sm:p-6 mb-4 sm:mb-6 text-white">
+            <p className="text-sm sm:text-lg mb-3">{result.summary.message}</p>
             {result.summary.topRecommendation && (
-              <div className="bg-white/20 rounded-lg p-4 mb-3">
-                <p className="font-semibold">
+              <div className="bg-white/20 rounded-xl p-3 sm:p-4 mb-3 backdrop-blur-sm">
+                <p className="font-semibold text-sm sm:text-base">
                   Top 추천: {result.summary.topRecommendation.company}
                 </p>
-                <p className="text-sm opacity-90">
+                <p className="text-xs sm:text-sm opacity-90">
                   {result.summary.topRecommendation.reason}
                 </p>
               </div>
@@ -514,7 +592,7 @@ export default function ComprehensiveJobPage() {
                 {result.summary.insights.map((insight, idx) => (
                   <span
                     key={idx}
-                    className="px-3 py-1 bg-white/20 rounded-full text-sm"
+                    className="px-3 py-1 bg-white/20 rounded-full text-xs sm:text-sm"
                   >
                     {insight}
                   </span>
@@ -524,13 +602,13 @@ export default function ComprehensiveJobPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* 채용 공고 목록 (좌측) */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow p-4">
+            <div className={`${theme.card} border rounded-xl sm:rounded-2xl shadow-xl p-4 backdrop-blur-sm`}>
               {viewMode === "recommendations" ? (
                 <>
-                  <h2 className="font-semibold text-gray-900 mb-3">
+                  <h2 className={`font-semibold mb-3 text-sm sm:text-base ${theme.text}`}>
                     추천 공고 ({filteredRecommendations.length}개)
                   </h2>
 
@@ -541,74 +619,61 @@ export default function ComprehensiveJobPage() {
                       placeholder="추천 목록에서 검색..."
                       value={searchKeyword}
                       onChange={(e) => setSearchKeyword(e.target.value)}
-                      className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                      className={`w-full px-4 py-2.5 pl-10 ${theme.input} border ${theme.inputBorder} rounded-xl ${theme.inputFocus} focus:ring-2 focus:outline-none text-sm transition-all`}
                     />
-                    <svg
-                      className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
-                    </svg>
+                    <i className={`ri-search-line absolute left-3 top-1/2 -translate-y-1/2 ${theme.textSubtle}`}></i>
                     {searchKeyword && (
                       <button
                         onClick={() => setSearchKeyword("")}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        className={`absolute right-3 top-1/2 -translate-y-1/2 ${theme.textSubtle} hover:${theme.textMuted}`}
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                        <i className="ri-close-line"></i>
                       </button>
                     )}
                   </div>
 
-                  <div className="space-y-3 max-h-[550px] overflow-y-auto">
+                  <div className="space-y-2 sm:space-y-3 max-h-[450px] sm:max-h-[550px] overflow-y-auto">
                     {filteredRecommendations.length === 0 && searchKeyword ? (
-                      <div className="text-center py-8 text-gray-500">
-                        <p>'{searchKeyword}'에 대한 검색 결과가 없습니다.</p>
+                      <div className={`text-center py-8 ${theme.textMuted}`}>
+                        <p className="text-sm">'{searchKeyword}'에 대한 검색 결과가 없습니다.</p>
                       </div>
                     ) : filteredRecommendations.map((job) => (
                       <div
                         key={job.jobId}
                         onClick={() => setSelectedJob(job)}
-                        className={`p-4 rounded-lg cursor-pointer transition-all ${
+                        className={`p-3 sm:p-4 rounded-xl cursor-pointer transition-all ${
                           selectedJob?.jobId === job.jobId
-                            ? "bg-blue-50 border-2 border-blue-500"
-                            : "bg-gray-50 border border-gray-200 hover:bg-gray-100"
+                            ? darkMode
+                              ? "bg-blue-500/20 border-2 border-blue-400"
+                              : "bg-blue-50 border-2 border-blue-500"
+                            : `${theme.statCard} border ${theme.border} ${theme.cardHover}`
                         }`}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-medium text-gray-900 truncate">
+                            <h3 className={`font-medium truncate text-sm sm:text-base ${theme.text}`}>
                               {job.title}
                             </h3>
-                            <p className="text-sm text-gray-600">{job.company}</p>
+                            <p className={`text-xs sm:text-sm ${theme.textMuted}`}>{job.company}</p>
                             {job.location && (
-                              <p className="text-xs text-gray-500">{job.location}</p>
+                              <p className={`text-xs ${theme.textSubtle}`}>{job.location}</p>
                             )}
                           </div>
                           <div className="ml-2 text-right">
                             <div
-                              className={`text-lg font-bold ${
+                              className={`text-base sm:text-lg font-bold ${
                                 job.matchScore >= 80
-                                  ? "text-green-600"
+                                  ? darkMode ? "text-green-400" : "text-green-600"
                                   : job.matchScore >= 60
-                                  ? "text-blue-600"
-                                  : "text-gray-600"
+                                  ? darkMode ? "text-blue-400" : "text-blue-600"
+                                  : theme.textMuted
                               }`}
                             >
                               {job.matchScore}점
                             </div>
-                            <p className="text-xs text-gray-500">매칭</p>
+                            <p className={`text-xs ${theme.textSubtle}`}>매칭</p>
                           </div>
                         </div>
-
                       </div>
                     ))}
                   </div>
@@ -616,11 +681,10 @@ export default function ComprehensiveJobPage() {
               ) : (
                 /* 전체 채용공고 모드 */
                 <>
-                  <h2 className="font-semibold text-gray-900 mb-3">
+                  <h2 className={`font-semibold mb-3 text-sm sm:text-base ${theme.text}`}>
                     전체 채용공고 ({allJobsTotalCount}개)
                   </h2>
 
-                  {/* DB 검색 입력 */}
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
@@ -633,24 +697,12 @@ export default function ComprehensiveJobPage() {
                       placeholder="회사명, 직무로 검색..."
                       value={allJobsSearchKeyword}
                       onChange={(e) => setAllJobsSearchKeyword(e.target.value)}
-                      className="w-full px-4 py-2 pl-10 pr-16 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                      className={`w-full px-4 py-2.5 pl-10 pr-16 ${theme.input} border ${theme.inputBorder} rounded-xl ${theme.inputFocus} focus:ring-2 focus:outline-none text-sm transition-all`}
                     />
-                    <svg
-                      className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
-                    </svg>
+                    <i className={`ri-search-line absolute left-3 top-1/2 -translate-y-1/2 ${theme.textSubtle}`}></i>
                     <button
                       type="submit"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-xs rounded-lg hover:from-blue-600 hover:to-indigo-600"
                     >
                       검색
                     </button>
@@ -658,35 +710,37 @@ export default function ComprehensiveJobPage() {
 
                   {allJobsLoading ? (
                     <div className="flex justify-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      <div className="w-8 h-8 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
                     </div>
                   ) : (
-                    <div className="space-y-3 max-h-[550px] overflow-y-auto">
+                    <div className="space-y-2 sm:space-y-3 max-h-[450px] sm:max-h-[550px] overflow-y-auto">
                       {allJobListings.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">
-                          <p>채용 정보가 없습니다.</p>
+                        <div className={`text-center py-8 ${theme.textMuted}`}>
+                          <p className="text-sm">채용 정보가 없습니다.</p>
                         </div>
                       ) : allJobListings.map((job) => (
                         <div
                           key={job.jobId}
                           onClick={() => setSelectedAllJob(job)}
-                          className={`p-4 rounded-lg cursor-pointer transition-all ${
+                          className={`p-3 sm:p-4 rounded-xl cursor-pointer transition-all ${
                             selectedAllJob?.jobId === job.jobId
-                              ? "bg-blue-50 border-2 border-blue-500"
-                              : "bg-gray-50 border border-gray-200 hover:bg-gray-100"
+                              ? darkMode
+                                ? "bg-blue-500/20 border-2 border-blue-400"
+                                : "bg-blue-50 border-2 border-blue-500"
+                              : `${theme.statCard} border ${theme.border} ${theme.cardHover}`
                           }`}
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1 min-w-0">
-                              <h3 className="font-medium text-gray-900 truncate">
+                              <h3 className={`font-medium truncate text-sm sm:text-base ${theme.text}`}>
                                 {job.title}
                               </h3>
-                              <p className="text-sm text-gray-600">{job.company}</p>
+                              <p className={`text-xs sm:text-sm ${theme.textMuted}`}>{job.company}</p>
                               {job.location && (
-                                <p className="text-xs text-gray-500">{job.location}</p>
+                                <p className={`text-xs ${theme.textSubtle}`}>{job.location}</p>
                               )}
                             </div>
-                            <span className="ml-2 px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                            <span className={`ml-2 px-2 py-1 text-xs rounded-lg ${darkMode ? 'bg-white/[0.05] text-white/50' : 'bg-slate-100 text-slate-600'}`}>
                               {job.siteName}
                             </span>
                           </div>
@@ -703,110 +757,113 @@ export default function ComprehensiveJobPage() {
           <div className="lg:col-span-2">
             {viewMode === "recommendations" ? (
               selectedJob ? (
-                <div className="bg-white rounded-lg shadow">
-                {/* 선택된 공고 헤더 */}
-                <div className="p-6 border-b border-gray-200">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h2 className="text-xl font-bold text-gray-900">
-                        {selectedJob.title}
-                      </h2>
-                      <p className="text-gray-600">{selectedJob.company}</p>
-                      {selectedJob.location && (
-                        <p className="text-sm text-gray-500">{selectedJob.location}</p>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setIsApplicationModalOpen(true)}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1"
-                      >
-                        <span>✍️</span>
-                        지원서 작성
-                      </button>
-                      <a
-                        href={selectedJob.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                      >
-                        지원하기
-                      </a>
+                <div className={`${theme.card} border rounded-xl sm:rounded-2xl shadow-xl overflow-hidden backdrop-blur-sm`}>
+                  {/* 선택된 공고 헤더 */}
+                  <div className={`p-4 sm:p-6 border-b ${theme.divider}`}>
+                    <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                      <div>
+                        <h2 className={`text-lg sm:text-xl font-bold ${theme.text}`}>
+                          {selectedJob.title}
+                        </h2>
+                        <p className={theme.textMuted}>{selectedJob.company}</p>
+                        {selectedJob.location && (
+                          <p className={`text-sm ${theme.textSubtle}`}>{selectedJob.location}</p>
+                        )}
+                      </div>
+                      <div className="flex gap-2 w-full sm:w-auto">
+                        <button
+                          onClick={() => setIsApplicationModalOpen(true)}
+                          className="flex-1 sm:flex-none px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-xl transition-all flex items-center justify-center gap-1 text-sm"
+                        >
+                          <i className="ri-edit-line"></i>
+                          지원서 작성
+                        </button>
+                        <a
+                          href={selectedJob.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 sm:flex-none px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-xl transition-all flex items-center justify-center gap-1 text-sm"
+                        >
+                          <i className="ri-external-link-line"></i>
+                          지원하기
+                        </a>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* 5가지 분석 탭 */}
-                <div className="border-b border-gray-200">
-                  <nav className="flex overflow-x-auto">
-                    {[
-                      { id: "talent", label: "인재상", icon: "👤" },
-                      { id: "process", label: "채용 프로세스", icon: "📋" },
-                      { id: "criteria", label: "검증 기준", icon: "✅" },
-                      { id: "status", label: "채용 현황", icon: "📊" },
-                      { id: "result", label: "검증 결과", icon: "📝" },
-                    ].map((tab) => (
-                      <button
-                        key={tab.id}
-                        onClick={() => setActiveAnalysisTab(tab.id as any)}
-                        className={`flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                          activeAnalysisTab === tab.id
-                            ? "border-blue-500 text-blue-600"
-                            : "border-transparent text-gray-500 hover:text-gray-700"
-                        }`}
-                      >
-                        <span className="mr-1">{tab.icon}</span>
-                        {tab.label}
-                      </button>
-                    ))}
-                  </nav>
-                </div>
+                  {/* 5가지 분석 탭 */}
+                  <div className={`border-b ${theme.divider} overflow-x-auto`}>
+                    <nav className="flex">
+                      {[
+                        { id: "talent", label: "인재상", icon: "ri-user-star-line" },
+                        { id: "process", label: "채용 프로세스", icon: "ri-flow-chart" },
+                        { id: "criteria", label: "검증 기준", icon: "ri-checkbox-circle-line" },
+                        { id: "status", label: "채용 현황", icon: "ri-bar-chart-2-line" },
+                        { id: "result", label: "검증 결과", icon: "ri-file-chart-line" },
+                      ].map((tab) => (
+                        <button
+                          key={tab.id}
+                          onClick={() => setActiveAnalysisTab(tab.id as any)}
+                          className={`flex-shrink-0 px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
+                            activeAnalysisTab === tab.id
+                              ? darkMode
+                                ? "border-blue-400 text-blue-400 bg-blue-500/10"
+                                : "border-blue-500 text-blue-600 bg-blue-50"
+                              : `border-transparent ${theme.textMuted} ${theme.cardHover}`
+                          }`}
+                        >
+                          <i className={`${tab.icon} mr-1`}></i>
+                          <span className="hidden sm:inline">{tab.label}</span>
+                          <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
+                        </button>
+                      ))}
+                    </nav>
+                  </div>
 
-                {/* 탭 컨텐츠 */}
-                <div className="p-6">
-                  {selectedJob.comprehensiveAnalysis && (
-                    <>
-                      {activeAnalysisTab === "talent" && (
-                        <TalentTab analysis={selectedJob.comprehensiveAnalysis.idealTalent} />
-                      )}
-                      {activeAnalysisTab === "process" && (
-                        <ProcessTab analysis={selectedJob.comprehensiveAnalysis.hiringProcess} />
-                      )}
-                      {activeAnalysisTab === "criteria" && (
-                        <CriteriaTab analysis={selectedJob.comprehensiveAnalysis.verificationCriteria} />
-                      )}
-                      {activeAnalysisTab === "status" && (
-                        <StatusTab analysis={selectedJob.comprehensiveAnalysis.hiringStatus} />
-                      )}
-                      {activeAnalysisTab === "result" && (
-                        <ResultTab analysis={selectedJob.comprehensiveAnalysis.userVerificationResult} />
-                      )}
-                    </>
-                  )}
+                  {/* 탭 컨텐츠 */}
+                  <div className="p-4 sm:p-6">
+                    {selectedJob.comprehensiveAnalysis && (
+                      <>
+                        {activeAnalysisTab === "talent" && (
+                          <TalentTab analysis={selectedJob.comprehensiveAnalysis.idealTalent} darkMode={darkMode} theme={theme} />
+                        )}
+                        {activeAnalysisTab === "process" && (
+                          <ProcessTab analysis={selectedJob.comprehensiveAnalysis.hiringProcess} darkMode={darkMode} theme={theme} />
+                        )}
+                        {activeAnalysisTab === "criteria" && (
+                          <CriteriaTab analysis={selectedJob.comprehensiveAnalysis.verificationCriteria} darkMode={darkMode} theme={theme} />
+                        )}
+                        {activeAnalysisTab === "status" && (
+                          <StatusTab analysis={selectedJob.comprehensiveAnalysis.hiringStatus} darkMode={darkMode} theme={theme} />
+                        )}
+                        {activeAnalysisTab === "result" && (
+                          <ResultTab analysis={selectedJob.comprehensiveAnalysis.userVerificationResult} darkMode={darkMode} theme={theme} />
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className={`${theme.card} border rounded-xl sm:rounded-2xl shadow-xl p-8 sm:p-12 text-center backdrop-blur-sm ${theme.textMuted}`}>
+                  좌측에서 채용 공고를 선택하세요
+                </div>
+              )
             ) : (
-              <div className="bg-white rounded-lg shadow p-12 text-center text-gray-500">
-                좌측에서 채용 공고를 선택하세요
-              </div>
-            )
-          ) : (
               /* 전체 채용공고 모드 상세 보기 */
               selectedAllJob ? (
-                <div className="bg-white rounded-lg shadow">
-                  {/* 선택된 공고 헤더 */}
-                  <div className="p-6 border-b border-gray-200">
-                    <div className="flex justify-between items-start">
+                <div className={`${theme.card} border rounded-xl sm:rounded-2xl shadow-xl overflow-hidden backdrop-blur-sm`}>
+                  <div className={`p-4 sm:p-6 border-b ${theme.divider}`}>
+                    <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                       <div>
-                        <h2 className="text-xl font-bold text-gray-900">
+                        <h2 className={`text-lg sm:text-xl font-bold ${theme.text}`}>
                           {selectedAllJob.title}
                         </h2>
-                        <p className="text-gray-600">{selectedAllJob.company}</p>
+                        <p className={theme.textMuted}>{selectedAllJob.company}</p>
                         {selectedAllJob.location && (
-                          <p className="text-sm text-gray-500">{selectedAllJob.location}</p>
+                          <p className={`text-sm ${theme.textSubtle}`}>{selectedAllJob.location}</p>
                         )}
                         {selectedAllJob.siteName && (
-                          <span className="inline-block mt-2 px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                          <span className={`inline-block mt-2 px-2 py-1 text-xs rounded-lg ${darkMode ? 'bg-white/[0.05] text-white/50' : 'bg-slate-100 text-slate-600'}`}>
                             {selectedAllJob.siteName}
                           </span>
                         )}
@@ -815,48 +872,48 @@ export default function ComprehensiveJobPage() {
                         href={selectedAllJob.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-xl transition-all flex items-center justify-center gap-1 text-sm"
                       >
+                        <i className="ri-external-link-line"></i>
                         지원하기
                       </a>
                     </div>
                   </div>
 
-                  {/* 상세 정보 */}
-                  <div className="p-6">
+                  <div className="p-4 sm:p-6">
                     {selectedAllJob.description ? (
                       <div>
-                        <h3 className="font-semibold text-gray-900 mb-3">채용 상세</h3>
-                        <div className="p-4 bg-gray-50 rounded-lg">
-                          <p className="text-gray-700 whitespace-pre-wrap">
+                        <h3 className={`font-semibold mb-3 text-sm sm:text-base ${theme.text}`}>채용 상세</h3>
+                        <div className={`p-4 rounded-xl ${theme.statCard}`}>
+                          <p className={`whitespace-pre-wrap text-sm ${theme.textMuted}`}>
                             {selectedAllJob.description}
                           </p>
                         </div>
                       </div>
                     ) : (
-                      <div className="text-center py-8 text-gray-500">
-                        <p>상세 정보가 없습니다.</p>
+                      <div className={`text-center py-8 ${theme.textMuted}`}>
+                        <p className="text-sm">상세 정보가 없습니다.</p>
                         <a
                           href={selectedAllJob.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-block mt-4 text-blue-600 hover:underline"
+                          className="inline-block mt-4 text-blue-500 hover:underline text-sm"
                         >
-                          원본 공고에서 확인하기 →
+                          원본 공고에서 확인하기 <i className="ri-arrow-right-line"></i>
                         </a>
                       </div>
                     )}
 
-                    {/* 안내 메시지 */}
-                    <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-sm text-blue-800">
-                        💡 이 채용공고에 대한 AI 분석을 받으려면 "맞춤 추천" 탭에서 프로파일 기반 추천을 확인하세요.
+                    <div className={`mt-6 p-4 rounded-xl ${darkMode ? 'bg-blue-500/10 border border-blue-500/20' : 'bg-blue-50 border border-blue-200'}`}>
+                      <p className={`text-xs sm:text-sm ${darkMode ? 'text-blue-300' : 'text-blue-800'}`}>
+                        <i className="ri-lightbulb-line mr-1"></i>
+                        이 채용공고에 대한 AI 분석을 받으려면 "맞춤 추천" 탭에서 프로파일 기반 추천을 확인하세요.
                       </p>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="bg-white rounded-lg shadow p-12 text-center text-gray-500">
+                <div className={`${theme.card} border rounded-xl sm:rounded-2xl shadow-xl p-8 sm:p-12 text-center backdrop-blur-sm ${theme.textMuted}`}>
                   좌측에서 채용 공고를 선택하세요
                 </div>
               )
@@ -886,22 +943,22 @@ export default function ComprehensiveJobPage() {
 }
 
 // ============== 1. 인재상 분석 탭 ==============
-function TalentTab({ analysis }: { analysis: IdealTalent }) {
+function TalentTab({ analysis, darkMode, theme }: { analysis: IdealTalent; darkMode: boolean; theme: ThemeColors }) {
   return (
-    <div className="space-y-6">
-      <div className="p-4 bg-blue-50 rounded-lg">
-        <h3 className="font-semibold text-blue-900 mb-2">이 기업이 원하는 인재</h3>
-        <p className="text-blue-800">{analysis.summary}</p>
+    <div className="space-y-4 sm:space-y-6">
+      <div className={`p-4 rounded-xl ${darkMode ? 'bg-blue-500/10 border border-blue-500/20' : 'bg-blue-50 border border-blue-200'}`}>
+        <h3 className={`font-semibold mb-2 text-sm sm:text-base ${darkMode ? 'text-blue-400' : 'text-blue-900'}`}>이 기업이 원하는 인재</h3>
+        <p className={`text-xs sm:text-sm ${darkMode ? 'text-blue-300' : 'text-blue-800'}`}>{analysis.summary}</p>
       </div>
 
       {analysis.coreValues?.length > 0 && (
         <div>
-          <h3 className="font-semibold text-gray-900 mb-3">핵심 가치</h3>
+          <h3 className={`font-semibold mb-3 text-sm sm:text-base ${theme.text}`}>핵심 가치</h3>
           <div className="flex flex-wrap gap-2">
             {analysis.coreValues.map((value, idx) => (
               <span
                 key={idx}
-                className="px-4 py-2 bg-purple-100 text-purple-800 rounded-full"
+                className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm ${darkMode ? 'bg-purple-500/20 text-purple-300' : 'bg-purple-100 text-purple-800'}`}
               >
                 {value}
               </span>
@@ -912,58 +969,59 @@ function TalentTab({ analysis }: { analysis: IdealTalent }) {
 
       {analysis.keyTraits?.length > 0 && (
         <div>
-          <h3 className="font-semibold text-gray-900 mb-3">원하는 특성</h3>
+          <h3 className={`font-semibold mb-3 text-sm sm:text-base ${theme.text}`}>원하는 특성</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {analysis.keyTraits.map((trait, idx) => (
-              <div key={idx} className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
-                <span className="text-green-500">✓</span>
-                <span>{trait}</span>
+              <div key={idx} className={`flex items-center gap-2 p-3 rounded-lg text-xs sm:text-sm ${theme.statCard}`}>
+                <span className="text-green-500"><i className="ri-checkbox-circle-fill"></i></span>
+                <span className={theme.textMuted}>{trait}</span>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-        <h3 className="font-semibold text-green-900 mb-2">당신과의 적합도</h3>
-        <p className="text-green-800">{analysis.fitWithUser}</p>
+      <div className={`p-4 rounded-xl ${darkMode ? 'bg-green-500/10 border border-green-500/20' : 'bg-green-50 border border-green-200'}`}>
+        <h3 className={`font-semibold mb-2 text-sm sm:text-base ${darkMode ? 'text-green-400' : 'text-green-900'}`}>당신과의 적합도</h3>
+        <p className={`text-xs sm:text-sm ${darkMode ? 'text-green-300' : 'text-green-800'}`}>{analysis.fitWithUser}</p>
       </div>
     </div>
   );
 }
 
 // ============== 2. 채용 프로세스 탭 ==============
-function ProcessTab({ analysis }: { analysis: HiringProcess }) {
+function ProcessTab({ analysis, darkMode, theme }: { analysis: HiringProcess; darkMode: boolean; theme: ThemeColors }) {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-lg">
+    <div className="space-y-4 sm:space-y-6">
+      <div className={`flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-xl ${darkMode ? 'bg-blue-500/10 border border-blue-500/20' : 'bg-blue-50 border border-blue-200'}`}>
         <div>
-          <span className="text-sm text-gray-600">채용 유형</span>
-          <p className="font-semibold text-blue-900">{analysis.processType}</p>
+          <span className={`text-xs sm:text-sm ${theme.textSubtle}`}>채용 유형</span>
+          <p className={`font-semibold text-sm sm:text-base ${darkMode ? 'text-blue-400' : 'text-blue-900'}`}>{analysis.processType}</p>
         </div>
-        <div className="border-l border-blue-200 pl-4">
-          <span className="text-sm text-gray-600">예상 기간</span>
-          <p className="font-semibold text-blue-900">{analysis.estimatedDuration}</p>
+        <div className={`sm:border-l ${darkMode ? 'sm:border-blue-500/20' : 'sm:border-blue-200'} sm:pl-4`}>
+          <span className={`text-xs sm:text-sm ${theme.textSubtle}`}>예상 기간</span>
+          <p className={`font-semibold text-sm sm:text-base ${darkMode ? 'text-blue-400' : 'text-blue-900'}`}>{analysis.estimatedDuration}</p>
         </div>
       </div>
 
       {analysis.expectedSteps?.length > 0 && (
         <div>
-          <h3 className="font-semibold text-gray-900 mb-4">예상 채용 절차</h3>
-          <div className="space-y-4">
+          <h3 className={`font-semibold mb-4 text-sm sm:text-base ${theme.text}`}>예상 채용 절차</h3>
+          <div className="space-y-3 sm:space-y-4">
             {analysis.expectedSteps.map((step, idx) => (
               <div
                 key={idx}
-                className="flex gap-4 p-4 bg-gray-50 rounded-lg"
+                className={`flex gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl ${theme.statCard}`}
               >
-                <div className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold">
+                <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-full flex items-center justify-center font-semibold text-xs sm:text-sm">
                   {step.step}
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-medium text-gray-900">{step.name}</h4>
-                  <p className="text-sm text-gray-600 mt-1">{step.description}</p>
+                  <h4 className={`font-medium text-sm sm:text-base ${theme.text}`}>{step.name}</h4>
+                  <p className={`text-xs sm:text-sm mt-1 ${theme.textMuted}`}>{step.description}</p>
                   {step.tips && (
-                    <div className="mt-2 p-2 bg-yellow-50 rounded text-sm text-yellow-800">
+                    <div className={`mt-2 p-2 rounded-lg text-xs sm:text-sm ${darkMode ? 'bg-amber-500/10 text-amber-300' : 'bg-yellow-50 text-yellow-800'}`}>
+                      <i className="ri-lightbulb-line mr-1"></i>
                       Tip: {step.tips}
                     </div>
                   )}
@@ -974,85 +1032,85 @@ function ProcessTab({ analysis }: { analysis: HiringProcess }) {
         </div>
       )}
 
-      <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-        <h3 className="font-semibold text-green-900 mb-2">맞춤 준비 조언</h3>
-        <p className="text-green-800">{analysis.userPreparationAdvice}</p>
+      <div className={`p-4 rounded-xl ${darkMode ? 'bg-green-500/10 border border-green-500/20' : 'bg-green-50 border border-green-200'}`}>
+        <h3 className={`font-semibold mb-2 text-sm sm:text-base ${darkMode ? 'text-green-400' : 'text-green-900'}`}>맞춤 준비 조언</h3>
+        <p className={`text-xs sm:text-sm ${darkMode ? 'text-green-300' : 'text-green-800'}`}>{analysis.userPreparationAdvice}</p>
       </div>
     </div>
   );
 }
 
 // ============== 3. 검증 기준 탭 ==============
-function CriteriaTab({ analysis }: { analysis: VerificationCriteria }) {
+function CriteriaTab({ analysis, darkMode, theme }: { analysis: VerificationCriteria; darkMode: boolean; theme: ThemeColors }) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* 학력 기준 */}
-      <div className="p-4 bg-gray-50 rounded-lg">
-        <h3 className="font-semibold text-gray-900 mb-3">학력 기준</h3>
-        <div className="grid grid-cols-2 gap-4">
+      <div className={`p-4 rounded-xl ${theme.statCard}`}>
+        <h3 className={`font-semibold mb-3 text-sm sm:text-base ${theme.text}`}>학력 기준</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <span className="text-sm text-gray-600">선호 전공</span>
+            <span className={`text-xs sm:text-sm ${theme.textSubtle}`}>선호 전공</span>
             <div className="flex flex-wrap gap-1 mt-1">
               {analysis.academicCriteria.preferredMajors.map((major, idx) => (
-                <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded">
+                <span key={idx} className={`px-2 py-1 text-xs rounded-lg ${darkMode ? 'bg-blue-500/20 text-blue-300' : 'bg-blue-100 text-blue-800'}`}>
                   {major}
                 </span>
               ))}
             </div>
           </div>
           <div>
-            <span className="text-sm text-gray-600">최소 학점</span>
-            <p className="font-medium">{analysis.academicCriteria.minimumGPA}</p>
+            <span className={`text-xs sm:text-sm ${theme.textSubtle}`}>최소 학점</span>
+            <p className={`font-medium text-sm sm:text-base ${theme.text}`}>{analysis.academicCriteria.minimumGPA}</p>
           </div>
         </div>
-        <div className="mt-3 p-2 bg-blue-50 rounded">
-          <span className="text-sm text-blue-800">당신의 평가: {analysis.academicCriteria.userGPAAssessment}</span>
+        <div className={`mt-3 p-2 rounded-lg ${darkMode ? 'bg-blue-500/10' : 'bg-blue-50'}`}>
+          <span className={`text-xs sm:text-sm ${darkMode ? 'text-blue-300' : 'text-blue-800'}`}>당신의 평가: {analysis.academicCriteria.userGPAAssessment}</span>
         </div>
       </div>
 
       {/* 역량 기준 */}
-      <div className="p-4 bg-gray-50 rounded-lg">
-        <h3 className="font-semibold text-gray-900 mb-3">역량 기준</h3>
-        <div className="grid grid-cols-2 gap-4">
+      <div className={`p-4 rounded-xl ${theme.statCard}`}>
+        <h3 className={`font-semibold mb-3 text-sm sm:text-base ${theme.text}`}>역량 기준</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <span className="text-sm text-gray-600 flex items-center gap-1">
+            <span className={`text-xs sm:text-sm flex items-center gap-1 ${theme.textSubtle}`}>
               <span className="text-red-500">*</span> 필수 역량
             </span>
             <ul className="mt-1 space-y-1">
               {analysis.skillCriteria.essential.map((skill, idx) => (
-                <li key={idx} className="text-sm">{skill}</li>
+                <li key={idx} className={`text-xs sm:text-sm ${theme.textMuted}`}>{skill}</li>
               ))}
             </ul>
           </div>
           <div>
-            <span className="text-sm text-gray-600">우대 역량</span>
+            <span className={`text-xs sm:text-sm ${theme.textSubtle}`}>우대 역량</span>
             <ul className="mt-1 space-y-1">
               {analysis.skillCriteria.preferred.map((skill, idx) => (
-                <li key={idx} className="text-sm text-gray-700">{skill}</li>
+                <li key={idx} className={`text-xs sm:text-sm ${theme.textMuted}`}>{skill}</li>
               ))}
             </ul>
           </div>
         </div>
-        <div className="mt-3 p-2 bg-green-50 rounded">
-          <span className="text-sm text-green-800">{analysis.skillCriteria.userSkillMatch}</span>
+        <div className={`mt-3 p-2 rounded-lg ${darkMode ? 'bg-green-500/10' : 'bg-green-50'}`}>
+          <span className={`text-xs sm:text-sm ${darkMode ? 'text-green-300' : 'text-green-800'}`}>{analysis.skillCriteria.userSkillMatch}</span>
         </div>
       </div>
 
       {/* 경력 기준 */}
-      <div className="p-4 bg-gray-50 rounded-lg">
-        <h3 className="font-semibold text-gray-900 mb-3">경력 기준</h3>
-        <div className="grid grid-cols-2 gap-4">
+      <div className={`p-4 rounded-xl ${theme.statCard}`}>
+        <h3 className={`font-semibold mb-3 text-sm sm:text-base ${theme.text}`}>경력 기준</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <span className="text-sm text-gray-600">최소 경력</span>
-            <p className="font-medium">{analysis.experienceCriteria.minimumYears}</p>
+            <span className={`text-xs sm:text-sm ${theme.textSubtle}`}>최소 경력</span>
+            <p className={`font-medium text-sm sm:text-base ${theme.text}`}>{analysis.experienceCriteria.minimumYears}</p>
           </div>
           <div>
-            <span className="text-sm text-gray-600">선호 배경</span>
-            <p className="font-medium">{analysis.experienceCriteria.preferredBackground}</p>
+            <span className={`text-xs sm:text-sm ${theme.textSubtle}`}>선호 배경</span>
+            <p className={`font-medium text-sm sm:text-base ${theme.text}`}>{analysis.experienceCriteria.preferredBackground}</p>
           </div>
         </div>
-        <div className="mt-3 p-2 bg-purple-50 rounded">
-          <span className="text-sm text-purple-800">{analysis.experienceCriteria.userExperienceAssessment}</span>
+        <div className={`mt-3 p-2 rounded-lg ${darkMode ? 'bg-purple-500/10' : 'bg-purple-50'}`}>
+          <span className={`text-xs sm:text-sm ${darkMode ? 'text-purple-300' : 'text-purple-800'}`}>{analysis.experienceCriteria.userExperienceAssessment}</span>
         </div>
       </div>
     </div>
@@ -1060,30 +1118,30 @@ function CriteriaTab({ analysis }: { analysis: VerificationCriteria }) {
 }
 
 // ============== 4. 채용 현황 탭 ==============
-function StatusTab({ analysis }: { analysis: HiringStatus }) {
+function StatusTab({ analysis, darkMode, theme }: { analysis: HiringStatus; darkMode: boolean; theme: ThemeColors }) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* 경쟁률 하이라이트 */}
-      <div className="p-6 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg text-white">
+      <div className="p-4 sm:p-6 bg-gradient-to-r from-orange-500 to-red-500 rounded-xl text-white">
         <div className="text-center">
-          <span className="text-sm opacity-90">
+          <span className="text-xs sm:text-sm opacity-90">
             {analysis.estimatedApplicants ? '현재 지원자 기준 경쟁률' : '예상 경쟁률'}
           </span>
-          <p className="text-4xl font-bold mt-1">{analysis.competitionRatio || analysis.competitionLevel}</p>
+          <p className="text-3xl sm:text-4xl font-bold mt-1">{analysis.competitionRatio || analysis.competitionLevel}</p>
           {!analysis.estimatedApplicants && (
             <p className="text-xs opacity-70 mt-1">* 유사 공고 기반 추정치</p>
           )}
-          <div className="flex justify-center gap-8 mt-4">
+          <div className="flex justify-center gap-6 sm:gap-8 mt-4">
             <div>
-              <span className="text-2xl font-semibold">
+              <span className="text-xl sm:text-2xl font-semibold">
                 {analysis.estimatedApplicants ? `${analysis.estimatedApplicants}명` : '-'}
               </span>
               <p className="text-xs opacity-80">
                 {analysis.estimatedApplicants ? '현재 지원자' : '지원자 정보 없음'}
               </p>
             </div>
-            <div className="border-l border-white/30 pl-8">
-              <span className="text-2xl font-semibold">
+            <div className="border-l border-white/30 pl-6 sm:pl-8">
+              <span className="text-xl sm:text-2xl font-semibold">
                 {analysis.estimatedHires ? `${analysis.estimatedHires}명` : '-'}
               </span>
               <p className="text-xs opacity-80">채용 인원</p>
@@ -1092,56 +1150,56 @@ function StatusTab({ analysis }: { analysis: HiringStatus }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="p-4 bg-blue-50 rounded-lg text-center">
-          <span className="text-sm text-gray-600">현재 단계</span>
-          <p className="text-xl font-bold text-blue-900 mt-1">{analysis.estimatedPhase}</p>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <div className={`p-4 rounded-xl text-center ${darkMode ? 'bg-blue-500/10 border border-blue-500/20' : 'bg-blue-50'}`}>
+          <span className={`text-xs sm:text-sm ${theme.textSubtle}`}>현재 단계</span>
+          <p className={`text-lg sm:text-xl font-bold mt-1 ${darkMode ? 'text-blue-400' : 'text-blue-900'}`}>{analysis.estimatedPhase}</p>
         </div>
-        <div className="p-4 bg-orange-50 rounded-lg text-center">
-          <span className="text-sm text-gray-600">경쟁 수준</span>
-          <p className="text-xl font-bold text-orange-900 mt-1">{analysis.competitionLevel}</p>
+        <div className={`p-4 rounded-xl text-center ${darkMode ? 'bg-orange-500/10 border border-orange-500/20' : 'bg-orange-50'}`}>
+          <span className={`text-xs sm:text-sm ${theme.textSubtle}`}>경쟁 수준</span>
+          <p className={`text-lg sm:text-xl font-bold mt-1 ${darkMode ? 'text-orange-400' : 'text-orange-900'}`}>{analysis.competitionLevel}</p>
         </div>
       </div>
 
-      <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-        <h3 className="font-semibold text-green-900 mb-2">최적 지원 시기</h3>
-        <p className="text-green-800">{analysis.bestApplyTiming}</p>
+      <div className={`p-4 rounded-xl ${darkMode ? 'bg-green-500/10 border border-green-500/20' : 'bg-green-50 border border-green-200'}`}>
+        <h3 className={`font-semibold mb-2 text-sm sm:text-base ${darkMode ? 'text-green-400' : 'text-green-900'}`}>최적 지원 시기</h3>
+        <p className={`text-xs sm:text-sm ${darkMode ? 'text-green-300' : 'text-green-800'}`}>{analysis.bestApplyTiming}</p>
       </div>
 
-      <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
-        <h3 className="font-semibold text-purple-900 mb-2">시장 수요 분석</h3>
-        <p className="text-purple-800">{analysis.marketDemand}</p>
+      <div className={`p-4 rounded-xl ${darkMode ? 'bg-purple-500/10 border border-purple-500/20' : 'bg-purple-50 border border-purple-200'}`}>
+        <h3 className={`font-semibold mb-2 text-sm sm:text-base ${darkMode ? 'text-purple-400' : 'text-purple-900'}`}>시장 수요 분석</h3>
+        <p className={`text-xs sm:text-sm ${darkMode ? 'text-purple-300' : 'text-purple-800'}`}>{analysis.marketDemand}</p>
       </div>
     </div>
   );
 }
 
 // ============== 5. 검증 결과 탭 ==============
-function ResultTab({ analysis }: { analysis: UserVerificationResult }) {
+function ResultTab({ analysis, darkMode, theme }: { analysis: UserVerificationResult; darkMode: boolean; theme: ThemeColors }) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* 종합 점수 */}
-      <div className="text-center p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
-        <div className="text-5xl font-bold text-blue-600 mb-2">
+      <div className={`text-center p-6 rounded-xl ${darkMode ? 'bg-gradient-to-r from-blue-500/10 to-purple-500/10' : 'bg-gradient-to-r from-blue-50 to-purple-50'}`}>
+        <div className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent mb-2">
           {analysis.overallScore}점
         </div>
-        <p className="text-gray-600">종합 검증 점수</p>
+        <p className={theme.textMuted}>종합 검증 점수</p>
       </div>
 
       {/* 강점 */}
       {analysis.strengths?.length > 0 && (
         <div>
-          <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-            <span className="text-green-500">✓</span> 나의 강점
+          <h3 className={`font-semibold mb-3 flex items-center gap-2 text-sm sm:text-base ${theme.text}`}>
+            <span className="text-green-500"><i className="ri-checkbox-circle-fill"></i></span> 나의 강점
           </h3>
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             {analysis.strengths.map((strength, idx) => (
-              <div key={idx} className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+              <div key={idx} className={`flex items-center justify-between p-3 sm:p-4 rounded-xl ${darkMode ? 'bg-green-500/10 border border-green-500/20' : 'bg-green-50'}`}>
                 <div>
-                  <h4 className="font-medium text-green-900">{strength.area}</h4>
-                  <p className="text-sm text-green-700">{strength.detail}</p>
+                  <h4 className={`font-medium text-sm sm:text-base ${darkMode ? 'text-green-400' : 'text-green-900'}`}>{strength.area}</h4>
+                  <p className={`text-xs sm:text-sm ${darkMode ? 'text-green-300' : 'text-green-700'}`}>{strength.detail}</p>
                 </div>
-                <div className="text-2xl font-bold text-green-600">{strength.score}점</div>
+                <div className={`text-xl sm:text-2xl font-bold ${darkMode ? 'text-green-400' : 'text-green-600'}`}>{strength.score}점</div>
               </div>
             ))}
           </div>
@@ -1151,27 +1209,27 @@ function ResultTab({ analysis }: { analysis: UserVerificationResult }) {
       {/* 약점 */}
       {analysis.weaknesses?.length > 0 && (
         <div>
-          <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-            <span className="text-yellow-500">!</span> 보완 필요 영역
+          <h3 className={`font-semibold mb-3 flex items-center gap-2 text-sm sm:text-base ${theme.text}`}>
+            <span className="text-amber-500"><i className="ri-alert-line"></i></span> 보완 필요 영역
           </h3>
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             {analysis.weaknesses.map((weakness, idx) => (
-              <div key={idx} className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-medium text-yellow-900">{weakness.area}</h4>
+              <div key={idx} className={`p-3 sm:p-4 rounded-xl ${darkMode ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-yellow-50 border border-yellow-200'}`}>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <h4 className={`font-medium text-sm sm:text-base ${darkMode ? 'text-amber-400' : 'text-yellow-900'}`}>{weakness.area}</h4>
                   <span
-                    className={`px-2 py-1 text-xs rounded ${
+                    className={`px-2 py-1 text-xs rounded-full ${
                       weakness.priority === "HIGH"
-                        ? "bg-red-100 text-red-800"
+                        ? darkMode ? "bg-red-500/20 text-red-400" : "bg-red-100 text-red-800"
                         : weakness.priority === "MEDIUM"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-gray-100 text-gray-800"
+                        ? darkMode ? "bg-yellow-500/20 text-yellow-400" : "bg-yellow-100 text-yellow-800"
+                        : darkMode ? "bg-gray-500/20 text-gray-400" : "bg-gray-100 text-gray-800"
                     }`}
                   >
                     {weakness.priority === "HIGH" ? "높음" : weakness.priority === "MEDIUM" ? "중간" : "낮음"}
                   </span>
                 </div>
-                <p className="text-sm text-yellow-800">{weakness.detail}</p>
+                <p className={`text-xs sm:text-sm ${darkMode ? 'text-amber-300' : 'text-yellow-800'}`}>{weakness.detail}</p>
               </div>
             ))}
           </div>
@@ -1179,21 +1237,20 @@ function ResultTab({ analysis }: { analysis: UserVerificationResult }) {
       )}
 
       {/* 적합도 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-4 bg-gray-50 rounded-lg">
-          <h4 className="font-medium text-gray-900 mb-2">가치관 적합도</h4>
-          <p className="text-sm text-gray-700">{analysis.valueAlignment}</p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+        <div className={`p-4 rounded-xl ${theme.statCard}`}>
+          <h4 className={`font-medium mb-2 text-sm sm:text-base ${theme.text}`}>가치관 적합도</h4>
+          <p className={`text-xs sm:text-sm ${theme.textMuted}`}>{analysis.valueAlignment}</p>
         </div>
-        <div className="p-4 bg-gray-50 rounded-lg">
-          <h4 className="font-medium text-gray-900 mb-2">문화 적합도</h4>
-          <p className="text-sm text-gray-700">{analysis.cultureAlignment}</p>
+        <div className={`p-4 rounded-xl ${theme.statCard}`}>
+          <h4 className={`font-medium mb-2 text-sm sm:text-base ${theme.text}`}>문화 적합도</h4>
+          <p className={`text-xs sm:text-sm ${theme.textMuted}`}>{analysis.cultureAlignment}</p>
         </div>
-        <div className="p-4 bg-gray-50 rounded-lg">
-          <h4 className="font-medium text-gray-900 mb-2">성장 가능성</h4>
-          <p className="text-sm text-gray-700">{analysis.growthPotential}</p>
+        <div className={`p-4 rounded-xl ${theme.statCard}`}>
+          <h4 className={`font-medium mb-2 text-sm sm:text-base ${theme.text}`}>성장 가능성</h4>
+          <p className={`text-xs sm:text-sm ${theme.textMuted}`}>{analysis.growthPotential}</p>
         </div>
       </div>
     </div>
   );
 }
-

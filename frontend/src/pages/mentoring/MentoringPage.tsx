@@ -273,14 +273,16 @@ export default function MentoringPage() {
       {/* Background Effects */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
-          className={`absolute top-0 left-1/4 w-[600px] h-[600px] rounded-full blur-[120px] ${
+          className={`absolute top-0 left-1/4 rounded-full ${
             darkMode ? "bg-[#5A7BFF]/10" : "bg-[#5A7BFF]/20"
           }`}
+          style={{ width: 'min(60vw, 600px)', height: 'min(60vw, 600px)', filter: 'blur(120px)' }}
         />
         <div
-          className={`absolute bottom-1/4 right-1/4 w-[500px] h-[500px] rounded-full blur-[120px] ${
+          className={`absolute bottom-1/4 right-1/4 rounded-full ${
             darkMode ? "bg-[#8F5CFF]/10" : "bg-[#8F5CFF]/20"
           }`}
+          style={{ width: 'min(50vw, 500px)', height: 'min(50vw, 500px)', filter: 'blur(120px)' }}
         />
       </div>
 

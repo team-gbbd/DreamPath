@@ -154,7 +154,7 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
   };
 
   return (
-    <div className={`min-h-screen ${theme.bg} flex relative`}>
+    <div className={`h-screen ${theme.bg} flex relative w-full overflow-hidden`}>
       {/* Mobile Menu Overlay */}
       {sidebarOpen && (
         <div
@@ -237,7 +237,7 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
           </button>
         </div>
 
-        <nav className="flex-1 px-3 space-y-2">
+        <nav className="flex-1 px-3 space-y-2 overflow-y-auto min-h-0">
           {sidebarItems.map((item) => (
             <button
               key={item.type}
@@ -250,19 +250,31 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
           ))}
         </nav>
 
-        <div className="px-3">
+        <div className="px-3 pt-2 flex-shrink-0 space-y-2">
+          {isLoggedIn && (
+            <button
+              onClick={() => {
+                setSidebarOpen(false);
+                navigate(userRole === 'ADMIN' ? "/admin" : "/profile/dashboard");
+              }}
+              className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 ${theme.sidebarText} ${theme.sidebarHover}`}
+            >
+              <User className="w-5 h-5 flex-shrink-0" />
+              <span className="font-medium text-sm">{userRole === 'ADMIN' ? '대시보드' : '프로파일링'}</span>
+            </button>
+          )}
           {isLoggedIn ? (
             <button
               onClick={handleLogout}
-              className={`w-full flex items-center justify-center gap-2 px-4 py-4 rounded-xl transition-all duration-200 ${theme.sidebarText} ${theme.sidebarHover}`}
+              className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 ${theme.sidebarText} ${theme.sidebarHover}`}
             >
-              <LogOut className="w-5 h-5" />
-              로그아웃
+              <LogOut className="w-5 h-5 flex-shrink-0" />
+              <span className="font-medium text-sm">로그아웃</span>
             </button>
           ) : (
             <button
               onClick={() => navigate("/login")}
-              className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-xl bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white font-medium"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white font-medium"
             >
               로그인
             </button>
@@ -325,7 +337,7 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
         </header>
 
         {/* Page Content */}
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-x-hidden overflow-y-auto w-full max-w-full">
           {children}
         </div>
 
@@ -357,7 +369,13 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
 
       {/* Chatbot Panel */}
       {chatbotOpen && !location.pathname.startsWith('/profile') && (
-        <div className="fixed bottom-28 right-8 w-[400px] h-[550px] bg-white rounded-3xl shadow-2xl z-50 overflow-hidden border border-gray-200 transform transition-all duration-300 animate-slide-up">
+        <div className={`fixed z-50 overflow-hidden transform transition-all duration-300 animate-slide-up
+          bottom-4 right-4 left-4 h-[calc(100vh-120px)]
+          sm:bottom-28 sm:right-8 sm:left-auto sm:w-[380px] sm:h-[500px]
+          md:w-[400px] md:h-[550px]
+          rounded-2xl sm:rounded-3xl shadow-2xl border
+          ${darkMode ? "bg-[#0B0D14] border-white/[0.08]" : "bg-white border-gray-200"}
+        `}>
           <FaqChatbot onClose={() => setChatbotOpen(false)} />
         </div>
       )}

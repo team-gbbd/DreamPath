@@ -47,7 +47,7 @@ function FloatingParticles({ darkMode }: { darkMode: boolean }) {
   );
 
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', maxWidth: '100%', overflow: 'hidden', pointerEvents: 'none' }}>
       {positions.map((p, i) => (
           <div
             key={`${i}-${darkMode}`}
@@ -75,7 +75,7 @@ function NeuralNetwork({ darkMode }: { darkMode: boolean }) {
   ];
 
   return (
-    <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ opacity: darkMode ? 0.15 : 0.4 }}>
+    <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', maxWidth: '100%', overflow: 'hidden', pointerEvents: 'none', opacity: darkMode ? 0.15 : 0.4 }}>
       <defs>
         <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#5A7BFF" />
@@ -222,16 +222,33 @@ export default function LandingPage() {
       <FloatingParticles darkMode={darkMode} />
 
       {/* Animated gradient orbs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className={`absolute top-1/4 left-1/4 w-[600px] h-[600px] rounded-full blur-[120px] animate-blob ${darkMode ? 'bg-[#5A7BFF]/10' : 'bg-[#5A7BFF]/25'}`} />
-        <div className={`absolute bottom-1/4 right-1/4 w-[500px] h-[500px] rounded-full blur-[120px] animate-blob animation-delay-2000 ${darkMode ? 'bg-[#8F5CFF]/10' : 'bg-[#8F5CFF]/25'}`} />
-        <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] rounded-full blur-[150px] ${darkMode ? 'bg-[#5A7BFF]/[0.05]' : 'bg-[#5A7BFF]/15'}`} />
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', maxWidth: '100%', overflow: 'hidden', pointerEvents: 'none' }}>
+        <div
+          className={`absolute top-1/4 left-1/4 rounded-full animate-blob ${darkMode ? 'bg-[#5A7BFF]/10' : 'bg-[#5A7BFF]/25'}`}
+          style={{ width: 'min(60vw, 600px)', height: 'min(60vw, 600px)', filter: 'blur(120px)' }}
+        />
+        <div
+          className={`absolute bottom-1/4 right-1/4 rounded-full animate-blob animation-delay-2000 ${darkMode ? 'bg-[#8F5CFF]/10' : 'bg-[#8F5CFF]/25'}`}
+          style={{ width: 'min(50vw, 500px)', height: 'min(50vw, 500px)', filter: 'blur(120px)' }}
+        />
+        <div
+          className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full ${darkMode ? 'bg-[#5A7BFF]/[0.05]' : 'bg-[#5A7BFF]/15'}`}
+          style={{ width: 'min(80vw, 800px)', height: 'min(60vw, 600px)', filter: 'blur(150px)' }}
+        />
       </div>
 
       {/* Grid pattern overlay */}
       <div
-        className="absolute inset-0 pointer-events-none"
         style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100%',
+          maxWidth: '100%',
+          overflow: 'hidden',
+          pointerEvents: 'none',
           backgroundImage: darkMode
             ? 'linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)'
             : 'linear-gradient(rgba(90,123,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(90,123,255,0.08) 1px, transparent 1px)',
@@ -260,7 +277,7 @@ export default function LandingPage() {
       )}
 
       {/* Left Sidebar - Desktop */}
-      <div className={`hidden lg:flex w-20 hover:w-64 transition-all duration-300 border-r flex-col py-8 group ${theme.sidebar}`}>
+      <div className={`hidden lg:flex sticky top-0 h-screen w-20 hover:w-64 transition-all duration-300 border-r flex-col py-8 group ${theme.sidebar}`}>
         <div className="px-4 mb-12">
           <div className="w-12 h-12 bg-gradient-to-br from-[#5A7BFF] to-[#8F5CFF] rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/20 relative overflow-hidden group/logo">
             <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover/logo:opacity-100 transition-opacity" />
@@ -500,7 +517,7 @@ export default function LandingPage() {
 
       {/* Chatbot Panel */}
       {chatbotOpen && (
-        <div className="fixed bottom-28 right-8 w-[400px] h-[550px] bg-white rounded-3xl shadow-2xl z-50 overflow-hidden border border-gray-200 transform transition-all duration-300 animate-slide-up">
+        <div className="fixed z-50 overflow-hidden transform transition-all duration-300 animate-slide-up bottom-4 right-4 left-4 h-[calc(100vh-120px)] sm:bottom-28 sm:right-8 sm:left-auto sm:w-[380px] sm:h-[500px] md:w-[400px] md:h-[550px] bg-white rounded-3xl shadow-2xl border border-gray-200">
           <FaqChatbot onClose={() => setChatbotOpen(false)} />
         </div>
       )}

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   LayoutGrid, MessageSquare, Bell, User, Settings, LogOut,
   BookOpen, GraduationCap, Briefcase, FileText,
-  PieChart, Heart, Target, ChevronRight, Menu, X, Send, Check, AlertCircle, Bot
+  PieChart, Heart, Target, ChevronRight, Menu, X, Send, Check, AlertCircle, Bot, Search
 } from 'lucide-react';
 import Button from '../../components/base/Button';
 import { useToast } from '../../components/common/Toast';
