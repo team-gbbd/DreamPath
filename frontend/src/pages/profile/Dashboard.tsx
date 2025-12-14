@@ -248,8 +248,191 @@ export default function NewDashboard() {
   const { showToast, ToastContainer } = useToast();
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [showMentorModal, setShowMentorModal] = useState(false);
   const [showAssistantChat, setShowAssistantChat] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
+
+  // Theme sync with localStorage
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("dreampath:theme");
+    if (savedTheme) {
+      setDarkMode(savedTheme === "dark");
+    }
+
+    const handleThemeChange = () => {
+      const theme = localStorage.getItem("dreampath:theme");
+      setDarkMode(theme === "dark");
+    };
+
+    window.addEventListener("dreampath-theme-change", handleThemeChange);
+    window.addEventListener("storage", handleThemeChange);
+
+    return () => {
+      window.removeEventListener("dreampath-theme-change", handleThemeChange);
+      window.removeEventListener("storage", handleThemeChange);
+    };
+  }, []);
+
+  // Theme object
+  const theme = {
+    // Main backgrounds
+    containerBg: darkMode
+      ? "bg-[#0a0a0f]"
+      : "bg-gradient-to-br from-orange-100 via-pink-100 to-purple-200",
+    boxBg: darkMode
+      ? "bg-white/[0.03] border-white/[0.06]"
+      : "bg-white/60 border-white/80",
+    sidebarBg: darkMode
+      ? "bg-white/[0.02] border-white/[0.06]"
+      : "bg-white/40 border-white/50",
+    cardBg: darkMode
+      ? "bg-white/[0.03] border-white/[0.08]"
+      : "bg-white/20 border-white/30",
+    statBg: darkMode
+      ? "bg-white/[0.05]"
+      : "bg-slate-100",
+
+    // Text colors
+    text: darkMode ? "text-white" : "text-slate-800",
+    textSecondary: darkMode ? "text-white/70" : "text-slate-700",
+    textSubtle: darkMode ? "text-white/50" : "text-slate-500",
+    textMuted: darkMode ? "text-white/40" : "text-slate-400",
+
+    // Borders
+    border: darkMode ? "border-white/[0.08]" : "border-slate-200",
+    borderSubtle: darkMode ? "border-white/[0.06]" : "border-white/50",
+
+    // Hover states
+    hoverBg: darkMode ? "hover:bg-white/[0.06]" : "hover:bg-slate-100",
+    itemHover: darkMode ? "hover:bg-white/[0.08]" : "hover:bg-white/40",
+
+    // Active/Selected states
+    activeBg: darkMode ? "bg-blue-600" : "bg-blue-500",
+
+    // Input styles
+    inputBg: darkMode
+      ? "bg-white/[0.05] border-white/[0.1] text-white placeholder:text-white/40"
+      : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400",
+
+    // Modal
+    modalBg: darkMode ? "bg-[#0f0f14]" : "bg-white",
+    modalOverlay: darkMode ? "bg-black/60" : "bg-black/40",
+  };
+
+  // Floating Particles Component (like main page)
+  const FloatingParticles = () => {
+    const particles = useMemo(() => Array.from({ length: 35 }, (_, i) => ({
+      id: i,
+      size: Math.random() * 4 + 1,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      duration: Math.random() * 20 + 10,
+      delay: Math.random() * 5,
+    })), []);
+
+    return (
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {particles.map((p) => (
+          <div
+            key={p.id}
+            className={`absolute rounded-full ${darkMode ? "bg-blue-500" : "bg-blue-400"}`}
+            style={{
+              width: p.size,
+              height: p.size,
+              left: `${p.x}%`,
+              top: `${p.y}%`,
+              opacity: darkMode ? 0.3 : 0.5,
+              animation: `float-particle ${p.duration}s ease-in-out ${p.delay}s infinite`,
+            }}
+          />
+        ))}
+      </div>
+    );
+  };
+
+  // Neural Network Lines (like main page)
+  const NeuralNetwork = () => {
+    const nodes = useMemo(() => [
+      { x: 10, y: 20 }, { x: 25, y: 60 }, { x: 15, y: 80 },
+      { x: 85, y: 25 }, { x: 90, y: 70 }, { x: 75, y: 85 },
+      { x: 50, y: 10 }, { x: 50, y: 90 },
+    ], []);
+
+    return (
+      <svg className={`absolute inset-0 w-full h-full pointer-events-none ${darkMode ? 'opacity-15' : 'opacity-25'}`}>
+        <defs>
+          <linearGradient id="lineGradientProfile" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#3b82f6" />
+            <stop offset="100%" stopColor="#8b5cf6" />
+          </linearGradient>
+        </defs>
+        {nodes.map((node, i) =>
+          nodes.slice(i + 1).map((target, j) => (
+            <line
+              key={`${i}-${j}`}
+              x1={`${node.x}%`} y1={`${node.y}%`}
+              x2={`${target.x}%`} y2={`${target.y}%`}
+              stroke="url(#lineGradientProfile)"
+              strokeWidth="1"
+              className="animate-pulse"
+            />
+          ))
+        )}
+        {nodes.map((node, i) => (
+          <circle
+            key={i}
+            cx={`${node.x}%`} cy={`${node.y}%`}
+            r="4"
+            fill="url(#lineGradientProfile)"
+            className="animate-pulse"
+            style={{ animationDelay: `${i * 0.3}s` }}
+          />
+        ))}
+      </svg>
+    );
+  };
+
+  // Background Effects (main page style)
+  const BackgroundEffects = () => (
+    <>
+      <NeuralNetwork />
+      <FloatingParticles />
+
+      {/* Animated gradient orbs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div
+          className={`absolute top-1/4 left-1/4 rounded-full animate-blob ${
+            darkMode ? "bg-blue-600/10" : "bg-blue-500/20"
+          }`}
+          style={{ width: 'min(50vw, 500px)', height: 'min(50vw, 500px)', filter: 'blur(120px)' }}
+        />
+        <div
+          className={`absolute bottom-1/4 right-1/4 rounded-full animate-blob animation-delay-2000 ${
+            darkMode ? "bg-purple-600/10" : "bg-purple-500/20"
+          }`}
+          style={{ width: 'min(40vw, 400px)', height: 'min(40vw, 400px)', filter: 'blur(100px)' }}
+        />
+        <div
+          className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full ${
+            darkMode ? "bg-indigo-500/[0.05]" : "bg-indigo-400/15"
+          }`}
+          style={{ width: 'min(70vw, 700px)', height: 'min(50vw, 500px)', filter: 'blur(150px)' }}
+        />
+      </div>
+
+      {/* Grid pattern */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: darkMode
+            ? "linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)"
+            : "linear-gradient(rgba(59,130,246,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,0.06) 1px, transparent 1px)",
+          backgroundSize: "60px 60px",
+        }}
+      />
+    </>
+  );
 
   // Mentor application form state
   const [company, setCompany] = useState('');
@@ -700,33 +883,33 @@ export default function NewDashboard() {
   const renderOverviewSection = () => (
     <div className="space-y-6">
       {/* Career Summary Card */}
-      <div className={styles['glass-card']}>
+      <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-indigo-100 to-indigo-200 rounded-2xl flex items-center justify-center">
-            <Target size={24} className="text-indigo-600" />
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${darkMode ? 'bg-indigo-500/20' : 'bg-gradient-to-br from-indigo-100 to-indigo-200'}`}>
+            <Target size={24} className="text-indigo-500" />
           </div>
-          <h2 className="text-xl font-bold text-slate-800">나의 진로 요약</h2>
+          <h2 className={`text-xl font-bold ${theme.text}`}>나의 진로 요약</h2>
         </div>
 
         <div className="mb-5">
-          <p className="text-lg font-bold text-indigo-600 mb-3">
+          <p className="text-lg font-bold text-indigo-500 mb-3">
             {analysisData?.mbti ? `"${analysisData.mbti} 유형의 잠재력을 가진 인재"` : '"분석 중..."'}
           </p>
-          <p className="text-slate-700 leading-relaxed text-sm">
+          <p className={`leading-relaxed text-sm ${theme.textSecondary}`}>
             {analysisData?.summary || '요약 정보가 아직 준비되지 않았습니다.'}
           </p>
         </div>
 
         {/* Goals Section */}
         {analysisData?.goals && analysisData.goals.length > 0 && (
-          <div className="mt-4 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
-            <h4 className="text-sm font-bold text-indigo-700 mb-3 flex items-center gap-2">
+          <div className={`mt-4 p-4 rounded-xl border ${darkMode ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-100'}`}>
+            <h4 className={`text-sm font-bold mb-3 flex items-center gap-2 ${darkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>
               <Target size={16} />
               나의 목표
             </h4>
             <ul className="space-y-2">
               {analysisData.goals.map((goal, idx) => (
-                <li key={idx} className="text-sm text-slate-700 flex items-start gap-2">
+                <li key={idx} className={`text-sm flex items-start gap-2 ${theme.textSecondary}`}>
                   <span className="text-indigo-500 mt-0.5">•</span>
                   <span>{goal}</span>
                 </li>
@@ -737,14 +920,14 @@ export default function NewDashboard() {
 
         {/* Values Section */}
         {analysisData?.valuesList && analysisData.valuesList.length > 0 && (
-          <div className="mt-3 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-100">
-            <h4 className="text-sm font-bold text-purple-700 mb-3 flex items-center gap-2">
+          <div className={`mt-3 p-4 rounded-xl border ${darkMode ? 'bg-purple-500/10 border-purple-500/20' : 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-100'}`}>
+            <h4 className={`text-sm font-bold mb-3 flex items-center gap-2 ${darkMode ? 'text-purple-400' : 'text-purple-700'}`}>
               <Heart size={16} />
               핵심 가치
             </h4>
             <div className="flex flex-wrap gap-2">
               {analysisData.valuesList.map((value, idx) => (
-                <span key={idx} className="px-3 py-1.5 bg-white text-purple-700 rounded-full text-xs font-medium border border-purple-200 shadow-sm">
+                <span key={idx} className={`px-3 py-1.5 rounded-full text-xs font-medium shadow-sm ${darkMode ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-white text-purple-700 border border-purple-200'}`}>
                   {value}
                 </span>
               ))}
@@ -762,72 +945,72 @@ export default function NewDashboard() {
       {/* Recommendations Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top 3 Jobs */}
-        <div className={styles['glass-card']}>
+        <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-100 to-indigo-200 rounded-2xl flex items-center justify-center">
-                <Briefcase size={20} className="text-indigo-600" />
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${darkMode ? 'bg-indigo-500/20' : 'bg-gradient-to-br from-indigo-100 to-indigo-200'}`}>
+                <Briefcase size={20} className="text-indigo-500" />
               </div>
-              <h3 className="text-lg font-bold text-slate-800">추천 직업 TOP 3</h3>
+              <h3 className={`text-lg font-bold ${theme.text}`}>추천 직업 TOP 3</h3>
             </div>
-            <button onClick={() => setActiveTab('jobs')} className="text-slate-400 hover:text-indigo-600">
+            <button onClick={() => setActiveTab('jobs')} className={`${theme.textMuted} hover:text-indigo-500`}>
               <ChevronRight size={20} />
             </button>
           </div>
 
           <div className="space-y-3">
             {topJobs.length > 0 ? topJobs.map((job) => (
-              <div key={job.rank} className="flex items-center justify-between p-3 rounded-2xl bg-white/20 hover:bg-white/40 transition-all cursor-pointer group border border-white/30">
+              <div key={job.rank} className={`flex items-center justify-between p-3 rounded-2xl transition-all cursor-pointer group border ${darkMode ? 'bg-white/[0.03] border-white/[0.08] hover:bg-white/[0.08]' : 'bg-white/20 border-white/30 hover:bg-white/40'}`}>
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${job.color} flex items-center justify-center text-white font-bold shadow-lg`}>
                     {job.rank}
                   </div>
                   <div>
-                    <p className="font-bold text-slate-800 group-hover:text-indigo-700 text-sm">{job.title}</p>
-                    <p className="text-xs text-slate-500">{job.tag}</p>
+                    <p className={`font-bold text-sm group-hover:text-indigo-500 ${theme.text}`}>{job.title}</p>
+                    <p className={`text-xs ${theme.textSubtle}`}>{job.tag}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-base font-bold text-indigo-600">{job.match}%</span>
-                  <p className="text-[10px] text-slate-500">일치</p>
+                  <span className="text-base font-bold text-indigo-500">{job.match}%</span>
+                  <p className={`text-[10px] ${theme.textSubtle}`}>일치</p>
                 </div>
               </div>
-            )) : <p className="text-sm text-gray-500 text-center py-4">추천 데이터를 불러오는 중...</p>}
+            )) : <p className={`text-sm text-center py-4 ${theme.textSubtle}`}>추천 데이터를 불러오는 중...</p>}
           </div>
         </div>
 
         {/* Top 3 Majors */}
-        <div className={styles['glass-card']}>
+        <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-green-200 rounded-2xl flex items-center justify-center">
-                <GraduationCap size={20} className="text-green-600" />
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${darkMode ? 'bg-green-500/20' : 'bg-gradient-to-br from-green-100 to-green-200'}`}>
+                <GraduationCap size={20} className="text-green-500" />
               </div>
-              <h3 className="text-lg font-bold text-slate-800">추천 학과 TOP 3</h3>
+              <h3 className={`text-lg font-bold ${theme.text}`}>추천 학과 TOP 3</h3>
             </div>
-            <button onClick={() => setActiveTab('majors')} className="text-slate-400 hover:text-green-600">
+            <button onClick={() => setActiveTab('majors')} className={`${theme.textMuted} hover:text-green-500`}>
               <ChevronRight size={20} />
             </button>
           </div>
 
           <div className="space-y-3">
             {topMajors.length > 0 ? topMajors.map((major) => (
-              <div key={major.rank} className="flex items-center justify-between p-3 rounded-2xl bg-white/20 hover:bg-white/40 transition-all cursor-pointer group border border-white/30">
+              <div key={major.rank} className={`flex items-center justify-between p-3 rounded-2xl transition-all cursor-pointer group border ${darkMode ? 'bg-white/[0.03] border-white/[0.08] hover:bg-white/[0.08]' : 'bg-white/20 border-white/30 hover:bg-white/40'}`}>
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${major.color} flex items-center justify-center text-white font-bold shadow-lg`}>
                     {major.rank}
                   </div>
                   <div>
-                    <p className="font-bold text-slate-800 group-hover:text-green-700 text-sm">{major.title}</p>
-                    <p className="text-xs text-slate-500">{major.tag}</p>
+                    <p className={`font-bold text-sm group-hover:text-green-500 ${theme.text}`}>{major.title}</p>
+                    <p className={`text-xs ${theme.textSubtle}`}>{major.tag}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-base font-bold text-green-600">{major.match}%</span>
-                  <p className="text-[10px] text-slate-500">일치</p>
+                  <span className="text-base font-bold text-green-500">{major.match}%</span>
+                  <p className={`text-[10px] ${theme.textSubtle}`}>일치</p>
                 </div>
               </div>
-            )) : <p className="text-sm text-gray-500 text-center py-4">추천 데이터를 불러오는 중...</p>}
+            )) : <p className={`text-sm text-center py-4 ${theme.textSubtle}`}>추천 데이터를 불러오는 중...</p>}
           </div>
         </div>
       </div>
@@ -839,45 +1022,44 @@ export default function NewDashboard() {
     const selectedMbtiDetail = getMbtiDetails(analysisData?.mbti);
     return (
       <div className="space-y-6">
-        <div className={styles['glass-card']}>
-          <h3 className="text-lg font-semibold text-gray-800">성격 특성 분포</h3>
+        <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
+          <h3 className={`text-lg font-semibold ${theme.text}`}>성격 특성 분포</h3>
           {personalityChartData ? (
             <div className="mt-4 h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <RadarChart data={personalityChartData}>
-                  <PolarGrid />
-                  <PolarAngleAxis dataKey="trait" />
+                  <PolarGrid stroke={darkMode ? 'rgba(255,255,255,0.1)' : '#e5e7eb'} />
+                  <PolarAngleAxis dataKey="trait" tick={{ fill: darkMode ? 'rgba(255,255,255,0.7)' : '#374151' }} />
                   <Radar name="Personality" dataKey="score" stroke="#4f46e5" fill="#6366f1" fillOpacity={0.5} />
-                  <Tooltip />
+                  <Tooltip contentStyle={{ backgroundColor: darkMode ? '#1f1f2e' : '#fff', border: darkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e5e7eb', color: darkMode ? '#fff' : '#374151' }} />
                 </RadarChart>
               </ResponsiveContainer>
             </div>
           ) : (
-            <p className="mt-4 text-sm text-gray-500">성격 데이터가 없습니다.</p>
+            <p className={`mt-4 text-sm ${theme.textSubtle}`}>성격 데이터가 없습니다.</p>
           )}
         </div>
 
         {personalityNarrative && (
-          <div className={styles['glass-card']}>
-            <h3 className="text-lg font-semibold text-gray-800">AI 성향 리포트</h3>
+          <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
+            <h3 className={`text-lg font-semibold ${theme.text}`}>AI 성향 리포트</h3>
             {personalityNarrative.type && (
-              <p className="mt-1 text-sm text-indigo-600 font-semibold">{personalityNarrative.type}</p>
+              <p className="mt-1 text-sm text-indigo-500 font-semibold">{personalityNarrative.type}</p>
             )}
             {personalityNarrative.description ? (
-              <p className="mt-3 text-sm text-gray-700 whitespace-pre-line">{personalityNarrative.description}</p>
+              <p className={`mt-3 text-sm whitespace-pre-line ${theme.textSecondary}`}>{personalityNarrative.description}</p>
             ) : (
-              // If no description, show summary as fallback or just the goals/strengths
-              analysisData?.summary && <p className="mt-3 text-sm text-gray-700 whitespace-pre-line leading-relaxed">{analysisData.summary}</p>
+              analysisData?.summary && <p className={`mt-3 text-sm whitespace-pre-line leading-relaxed ${theme.textSecondary}`}>{analysisData.summary}</p>
             )}
 
             {(personalityNarrative.strengths.length > 0 || personalityNarrative.growthAreas.length > 0) && (
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 {personalityNarrative.strengths.length > 0 && (
-                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 mb-2">강점</p>
+                  <div className={`rounded-xl border p-3 ${darkMode ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-emerald-100 bg-emerald-50/60'}`}>
+                    <p className={`text-xs font-semibold uppercase tracking-wide mb-2 ${darkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>강점</p>
                     <div className="flex flex-wrap gap-2">
                       {personalityNarrative.strengths.map((item, idx) => (
-                        <span key={`${item}-${idx}`} className="rounded-full bg-white px-3 py-1 text-xs text-emerald-700 shadow-sm">
+                        <span key={`${item}-${idx}`} className={`rounded-full px-3 py-1 text-xs shadow-sm ${darkMode ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white text-emerald-700'}`}>
                           {item}
                         </span>
                       ))}
@@ -885,11 +1067,11 @@ export default function NewDashboard() {
                   </div>
                 )}
                 {personalityNarrative.growthAreas.length > 0 && (
-                  <div className="rounded-xl border border-amber-100 bg-amber-50/60 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-2">성장 포인트</p>
+                  <div className={`rounded-xl border p-3 ${darkMode ? 'border-amber-500/30 bg-amber-500/10' : 'border-amber-100 bg-amber-50/60'}`}>
+                    <p className={`text-xs font-semibold uppercase tracking-wide mb-2 ${darkMode ? 'text-amber-400' : 'text-amber-700'}`}>성장 포인트</p>
                     <div className="flex flex-wrap gap-2">
                       {personalityNarrative.growthAreas.map((item, idx) => (
-                        <span key={`${item}-${idx}`} className="rounded-full bg-white px-3 py-1 text-xs text-amber-700 shadow-sm">
+                        <span key={`${item}-${idx}`} className={`rounded-full px-3 py-1 text-xs shadow-sm ${darkMode ? 'bg-amber-500/20 text-amber-300' : 'bg-white text-amber-700'}`}>
                           {item}
                         </span>
                       ))}
@@ -902,8 +1084,8 @@ export default function NewDashboard() {
         )}
 
         {emotionProgressData && emotionProgressData.length > 0 && (
-          <div className={styles['glass-card']}>
-            <h3 className="text-lg font-semibold text-gray-800">감정 반응 지표</h3>
+          <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
+            <h3 className={`text-lg font-semibold ${theme.text}`}>감정 반응 지표</h3>
             <div className="mt-4 space-y-4">
               {emotionProgressData.map((item, index) => (
                 <ProgressBar
@@ -917,12 +1099,12 @@ export default function NewDashboard() {
           </div>
         )}
 
-        <div className={`${styles['glass-card']} bg-indigo-50/50`}>
-          <h3 className="text-lg font-semibold text-indigo-700">MBTI Insights</h3>
+        <div className={`backdrop-blur-lg rounded-3xl p-6 border ${darkMode ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-indigo-50/50 border-white/30'}`}>
+          <h3 className={`text-lg font-semibold ${darkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>MBTI Insights</h3>
           <p className="mt-1 text-sm text-indigo-500">
             {analysisData?.mbti ? `${analysisData.mbti} 유형` : 'MBTI 정보 없음'}
           </p>
-          <p className="mt-3 text-gray-700">
+          <p className={`mt-3 ${theme.textSecondary}`}>
             {selectedMbtiDetail
               ? selectedMbtiDetail.description
               : 'MBTI 데이터가 준비되면 이 영역에서 해석을 확인할 수 있습니다.'}
@@ -934,16 +1116,16 @@ export default function NewDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Strengths Card */}
             {analysisData?.strengths && analysisData.strengths.length > 0 && (
-              <div className={styles['glass-card']}>
+              <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-green-200 rounded-xl flex items-center justify-center">
-                    <Check size={20} className="text-green-600" />
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-green-500/20' : 'bg-gradient-to-br from-green-100 to-green-200'}`}>
+                    <Check size={20} className="text-green-500" />
                   </div>
-                  <h3 className="text-lg font-bold text-slate-800">나의 강점</h3>
+                  <h3 className={`text-lg font-bold ${theme.text}`}>나의 강점</h3>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {analysisData.strengths.map((strength, idx) => (
-                    <span key={idx} className="px-3 py-1.5 bg-green-50 text-green-700 rounded-full text-sm font-medium border border-green-200 shadow-sm hover:bg-green-100 transition-colors">
+                    <span key={idx} className={`px-3 py-1.5 rounded-full text-sm font-medium border shadow-sm transition-colors ${darkMode ? 'bg-green-500/20 text-green-300 border-green-500/30 hover:bg-green-500/30' : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'}`}>
                       {strength}
                     </span>
                   ))}
@@ -953,16 +1135,16 @@ export default function NewDashboard() {
 
             {/* Risks Card */}
             {analysisData?.risks && analysisData.risks.length > 0 && (
-              <div className={styles['glass-card']}>
+              <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 bg-gradient-to-br from-amber-100 to-amber-200 rounded-xl flex items-center justify-center">
-                    <AlertCircle size={20} className="text-amber-600" />
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-amber-500/20' : 'bg-gradient-to-br from-amber-100 to-amber-200'}`}>
+                    <AlertCircle size={20} className="text-amber-500" />
                   </div>
-                  <h3 className="text-lg font-bold text-slate-800">주의할 점</h3>
+                  <h3 className={`text-lg font-bold ${theme.text}`}>주의할 점</h3>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {analysisData.risks.map((risk, idx) => (
-                    <span key={idx} className="px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full text-sm font-medium border border-amber-200 shadow-sm hover:bg-amber-100 transition-colors">
+                    <span key={idx} className={`px-3 py-1.5 rounded-full text-sm font-medium border shadow-sm transition-colors ${darkMode ? 'bg-amber-500/20 text-amber-300 border-amber-500/30 hover:bg-amber-500/30' : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'}`}>
                       {risk}
                     </span>
                   ))}
@@ -977,16 +1159,16 @@ export default function NewDashboard() {
 
         {
           mbtiTraits && (
-            <div className={styles['glass-card']}>
-              <h3 className="text-lg font-semibold text-gray-800">MBTI 결정 근거</h3>
+            <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
+              <h3 className={`text-lg font-semibold ${theme.text}`}>MBTI 결정 근거</h3>
               <div className="mt-4 space-y-3">
                 {mbtiTraits.map((trait) => (
-                  <div key={trait.pair} className="rounded-lg border bg-gray-50/50 px-4 py-3">
+                  <div key={trait.pair} className={`rounded-lg border px-4 py-3 ${darkMode ? 'bg-white/[0.03] border-white/[0.08]' : 'bg-gray-50/50 border-gray-200'}`}>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-gray-700">{trait.pair}</span>
-                      <span className="text-sm text-gray-500">{(trait.score * 100).toFixed(0)}%</span>
+                      <span className={`text-sm font-semibold ${theme.textSecondary}`}>{trait.pair}</span>
+                      <span className={`text-sm ${theme.textSubtle}`}>{(trait.score * 100).toFixed(0)}%</span>
                     </div>
-                    <p className="mt-1 text-sm text-gray-600">{trait.explanation}</p>
+                    <p className={`mt-1 text-sm ${theme.textSubtle}`}>{trait.explanation}</p>
                   </div>
                 ))}
               </div>
@@ -1001,15 +1183,15 @@ export default function NewDashboard() {
     <div className="space-y-6">
 
       {valuesChartData && (
-        <div className={styles['glass-card']}>
-          <h3 className="text-lg font-semibold text-gray-800">가치관 집중도 (차트)</h3>
+        <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
+          <h3 className={`text-lg font-semibold ${theme.text}`}>가치관 집중도 (차트)</h3>
           <div className="mt-4 h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={valuesChartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
+                <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? 'rgba(255,255,255,0.1)' : '#e5e7eb'} />
+                <XAxis dataKey="name" tick={{ fill: darkMode ? 'rgba(255,255,255,0.7)' : '#374151' }} />
+                <YAxis tick={{ fill: darkMode ? 'rgba(255,255,255,0.7)' : '#374151' }} />
+                <Tooltip contentStyle={{ backgroundColor: darkMode ? '#1f1f2e' : '#fff', border: darkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e5e7eb', color: darkMode ? '#fff' : '#374151' }} />
                 <Bar dataKey="score">
                   {valuesChartData.map((entry) => (
                     <Cell key={`cell-${entry.key}`} fill={entry.color} />
@@ -1023,19 +1205,19 @@ export default function NewDashboard() {
 
       {/* Values Text List Card */}
       {analysisData?.valuesList && analysisData.valuesList.length > 0 && (
-        <div className={styles['glass-card']}>
+        <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-pink-200 rounded-xl flex items-center justify-center">
-              <Heart size={20} className="text-purple-600" />
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-purple-500/20' : 'bg-gradient-to-br from-purple-100 to-pink-200'}`}>
+              <Heart size={20} className="text-purple-500" />
             </div>
-            <h3 className="text-lg font-bold text-slate-800">나의 핵심 가치</h3>
+            <h3 className={`text-lg font-bold ${theme.text}`}>나의 핵심 가치</h3>
           </div>
-          <p className="text-sm text-slate-600 mb-4">
+          <p className={`text-sm mb-4 ${theme.textSubtle}`}>
             Personality Agent가 분석한 당신의 핵심 가치관입니다.
           </p>
           <div className="flex flex-wrap gap-2">
             {analysisData.valuesList.map((value, idx) => (
-              <span key={idx} className="px-4 py-2 bg-gradient-to-r from-purple-50 to-pink-50 text-purple-700 rounded-full text-sm font-medium border border-purple-200 shadow-sm hover:shadow-md hover:scale-105 transition-all">
+              <span key={idx} className={`px-4 py-2 rounded-full text-sm font-medium border shadow-sm hover:shadow-md hover:scale-105 transition-all ${darkMode ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'bg-gradient-to-r from-purple-50 to-pink-50 text-purple-700 border-purple-200'}`}>
                 {value}
               </span>
             ))}
@@ -1084,52 +1266,52 @@ export default function NewDashboard() {
       <div className="space-y-6">
         {/* 통계 카드 그리드 */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className={styles['glass-card']}>
+          <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
-                <PieChart size={20} className="text-slate-600" />
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-white/10' : 'bg-slate-100'}`}>
+                <PieChart size={20} className={darkMode ? 'text-white/70' : 'text-slate-600'} />
               </div>
-              <h3 className="text-sm font-bold text-slate-700">평균 진행률</h3>
+              <h3 className={`text-sm font-bold ${theme.textSecondary}`}>평균 진행률</h3>
             </div>
-            <p className="text-3xl font-bold text-slate-800 mb-1">{totalProgress}%</p>
-            <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+            <p className={`text-3xl font-bold mb-1 ${theme.text}`}>{totalProgress}%</p>
+            <div className={`h-1.5 rounded-full overflow-hidden ${darkMode ? 'bg-white/10' : 'bg-slate-200'}`}>
               <div className="h-full bg-pink-500 rounded-full" style={{ width: `${totalProgress}%` }} />
             </div>
           </div>
 
-          <div className={styles['glass-card']}>
+          <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
-                <Target size={20} className="text-slate-600" />
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-white/10' : 'bg-slate-100'}`}>
+                <Target size={20} className={darkMode ? 'text-white/70' : 'text-slate-600'} />
               </div>
-              <h3 className="text-sm font-bold text-slate-700">평균 점수</h3>
+              <h3 className={`text-sm font-bold ${theme.textSecondary}`}>평균 점수</h3>
             </div>
-            <p className="text-3xl font-bold text-slate-800 mb-1">{avgScoreAll}점</p>
+            <p className={`text-3xl font-bold mb-1 ${theme.text}`}>{avgScoreAll}점</p>
           </div>
 
-          <div className={styles['glass-card']}>
+          <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
-                <BookOpen size={20} className="text-slate-600" />
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-white/10' : 'bg-slate-100'}`}>
+                <BookOpen size={20} className={darkMode ? 'text-white/70' : 'text-slate-600'} />
               </div>
-              <h3 className="text-sm font-bold text-slate-700">진행 중인 학습</h3>
+              <h3 className={`text-sm font-bold ${theme.textSecondary}`}>진행 중인 학습</h3>
             </div>
-            <p className="text-3xl font-bold text-slate-800 mb-1">{activeCount}개</p>
+            <p className={`text-3xl font-bold mb-1 ${theme.text}`}>{activeCount}개</p>
           </div>
         </div>
 
         {/* 가장 잘하는 학습 */}
-        <div className={styles['glass-card']}>
+        <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-pink-100 rounded-xl flex items-center justify-center">
-                <GraduationCap size={20} className="text-pink-600" />
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-pink-500/20' : 'bg-pink-100'}`}>
+                <GraduationCap size={20} className={darkMode ? 'text-pink-400' : 'text-pink-600'} />
               </div>
-              <h3 className="text-sm font-bold text-slate-700">가장 잘하는 학습</h3>
+              <h3 className={`text-sm font-bold ${theme.textSecondary}`}>가장 잘하는 학습</h3>
             </div>
             <Link
               to="/learning"
-              className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700"
+              className={`flex items-center gap-1 text-sm ${theme.textSubtle} hover:${theme.textSecondary}`}
             >
               대시보드
               <ChevronRight size={16} />
@@ -1137,11 +1319,11 @@ export default function NewDashboard() {
           </div>
 
           {bestPath && bestPathAvgScore > 0 ? (
-            <div className="bg-slate-50 rounded-xl p-4">
+            <div className={`rounded-xl p-4 ${darkMode ? 'bg-white/5' : 'bg-slate-50'}`}>
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="font-bold text-slate-800">{bestPath.domain}</h4>
-                  <p className="text-sm text-slate-500">평균 {bestPathAvgScore}점</p>
+                  <h4 className={`font-bold ${theme.text}`}>{bestPath.domain}</h4>
+                  <p className={`text-sm ${theme.textSubtle}`}>평균 {bestPathAvgScore}점</p>
                 </div>
                 <Link
                   to={`/learning?career=${encodeURIComponent(bestPath.domain)}`}
@@ -1153,7 +1335,7 @@ export default function NewDashboard() {
             </div>
           ) : learningPaths.length === 0 ? (
             <div className="text-center py-6">
-              <p className="text-slate-500 text-sm mb-4">아직 시작한 학습이 없습니다</p>
+              <p className={`text-sm mb-4 ${theme.textSubtle}`}>아직 시작한 학습이 없습니다</p>
               <button
                 onClick={() => setActiveTab('roadmap')}
                 className="px-4 py-2 bg-pink-500 text-white text-sm font-medium rounded-lg hover:bg-pink-600 transition-colors"
@@ -1163,7 +1345,7 @@ export default function NewDashboard() {
             </div>
           ) : (
             <div className="text-center py-6">
-              <p className="text-slate-500 text-sm">학습을 진행하면 결과가 표시됩니다</p>
+              <p className={`text-sm ${theme.textSubtle}`}>학습을 진행하면 결과가 표시됩니다</p>
             </div>
           )}
         </div>
@@ -1197,61 +1379,61 @@ export default function NewDashboard() {
         {!isMentor && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* 잔여 횟수 */}
-            <div className={styles['glass-card']}>
+            <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-yellow-100 to-yellow-200 rounded-xl flex items-center justify-center">
-                  <MessageSquare size={20} className="text-yellow-600" />
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-yellow-500/20' : 'bg-gradient-to-br from-yellow-100 to-yellow-200'}`}>
+                  <MessageSquare size={20} className={darkMode ? 'text-yellow-400' : 'text-yellow-600'} />
                 </div>
-                <h3 className="text-sm font-bold text-slate-700">잔여 횟수</h3>
+                <h3 className={`text-sm font-bold ${theme.textSecondary}`}>잔여 횟수</h3>
               </div>
-              <p className="text-3xl font-bold text-yellow-600 mb-1">{remainingSessions}회</p>
+              <p className={`text-3xl font-bold mb-1 ${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>{remainingSessions}회</p>
             </div>
 
             {/* 멘토 찾기 */}
-            <div className={styles['glass-card']}>
+            <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-purple-200 rounded-xl flex items-center justify-center">
-                  <Search size={20} className="text-purple-600" />
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-purple-500/20' : 'bg-gradient-to-br from-purple-100 to-purple-200'}`}>
+                  <Search size={20} className={darkMode ? 'text-purple-400' : 'text-purple-600'} />
                 </div>
-                <h3 className="text-sm font-bold text-slate-700">멘토 찾기</h3>
+                <h3 className={`text-sm font-bold ${theme.textSecondary}`}>멘토 찾기</h3>
               </div>
-              <button onClick={() => navigate('/mentoring')} className="text-sm text-purple-600 font-semibold hover:underline">
+              <button onClick={() => navigate('/mentoring')} className={`text-sm font-semibold hover:underline ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>
                 세션 둘러보기
               </button>
             </div>
 
             {/* 내 예약 */}
-            <div className={styles['glass-card']}>
+            <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-pink-100 to-pink-200 rounded-xl flex items-center justify-center">
-                  <Heart size={20} className="text-pink-600" />
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-pink-500/20' : 'bg-gradient-to-br from-pink-100 to-pink-200'}`}>
+                  <Heart size={20} className={darkMode ? 'text-pink-400' : 'text-pink-600'} />
                 </div>
-                <h3 className="text-sm font-bold text-slate-700">내 예약</h3>
+                <h3 className={`text-sm font-bold ${theme.textSecondary}`}>내 예약</h3>
               </div>
-              <p className="text-3xl font-bold text-pink-600 mb-1">{myBookings.length}건</p>
+              <p className={`text-3xl font-bold mb-1 ${darkMode ? 'text-pink-400' : 'text-pink-600'}`}>{myBookings.length}건</p>
             </div>
           </div>
         )}
 
         {/* My Reservations - 멘티용 */}
         {!isMentor && (
-          <div className={styles['glass-card']}>
+          <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
             <div className="flex items-center gap-3 mb-6">
               <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-pink-500 rounded-xl flex items-center justify-center">
                 <Heart size={24} className="text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-800">나의 예약</h3>
-                <p className="text-sm text-slate-500">예약한 멘토링 세션</p>
+                <h3 className={`text-lg font-bold ${theme.text}`}>나의 예약</h3>
+                <p className={`text-sm ${theme.textSubtle}`}>예약한 멘토링 세션</p>
               </div>
             </div>
 
             {myBookings.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12">
-                <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
-                  <Heart size={32} className="text-slate-400" />
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${darkMode ? 'bg-white/10' : 'bg-slate-100'}`}>
+                  <Heart size={32} className={darkMode ? 'text-white/40' : 'text-slate-400'} />
                 </div>
-                <p className="text-slate-600 text-sm mb-6">예약한 세션이 없습니다</p>
+                <p className={`text-sm mb-6 ${theme.textSecondary}`}>예약한 세션이 없습니다</p>
                 <button onClick={() => navigate('/mentoring')} className="px-6 py-3 bg-gradient-to-r from-pink-400 to-pink-500 text-white rounded-xl text-sm font-bold hover:opacity-90 transition-opacity shadow-lg">
                   세션 찾아보기
                 </button>
@@ -1261,15 +1443,15 @@ export default function NewDashboard() {
                 {myBookings.map((booking) => {
                   const status = getBookingStatusStyle(booking.status);
                   return (
-                    <div key={booking.bookingId} className={`border ${status.border} rounded-xl p-4 ${status.bg}`}>
+                    <div key={booking.bookingId} className={`border rounded-xl p-4 ${darkMode ? 'bg-white/[0.03] border-white/[0.08]' : `${status.bg} ${status.border}`}`}>
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-gradient-to-br from-pink-400 to-pink-500 rounded-full flex items-center justify-center">
                             <User size={20} className="text-white" />
                           </div>
                           <div>
-                            <h4 className="text-sm font-semibold text-slate-800">{booking.mentorName}</h4>
-                            <p className="text-xs text-slate-500">멘토</p>
+                            <h4 className={`text-sm font-semibold ${theme.text}`}>{booking.mentorName}</h4>
+                            <p className={`text-xs ${theme.textSubtle}`}>멘토</p>
                           </div>
                         </div>
                         <span className={`text-xs px-2 py-1 rounded-lg ${status.bg} ${status.text} border ${status.border}`}>
@@ -1277,15 +1459,15 @@ export default function NewDashboard() {
                         </span>
                       </div>
 
-                      <p className="text-sm font-medium text-slate-800 mb-2">{booking.sessionTitle}</p>
+                      <p className={`text-sm font-medium mb-2 ${theme.text}`}>{booking.sessionTitle}</p>
 
                       {booking.rejectionReason && (
-                        <div className="bg-white/50 rounded-lg p-2 mb-2">
-                          <p className="text-xs text-rose-600">거절 사유: {booking.rejectionReason}</p>
+                        <div className={`rounded-lg p-2 mb-2 ${darkMode ? 'bg-rose-500/10' : 'bg-white/50'}`}>
+                          <p className="text-xs text-rose-500">거절 사유: {booking.rejectionReason}</p>
                         </div>
                       )}
 
-                      <p className="text-xs text-slate-500 mb-3">
+                      <p className={`text-xs mb-3 ${theme.textSubtle}`}>
                         예약일: {booking.bookingDate} {booking.timeSlot}
                       </p>
 
@@ -1326,23 +1508,23 @@ export default function NewDashboard() {
 
         {/* Mentor's Sessions (only for approved mentors) */}
         {mentorInfo && mentorInfo.status === 'APPROVED' && (
-          <div className={styles['glass-card']}>
+          <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
             <div className="flex items-center gap-3 mb-6">
               <div className="w-12 h-12 bg-gradient-to-br from-violet-400 to-violet-500 rounded-xl flex items-center justify-center">
                 <User size={24} className="text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-800">멘토링 세션</h3>
-                <p className="text-sm text-slate-500">내가 진행하는 멘토링</p>
+                <h3 className={`text-lg font-bold ${theme.text}`}>멘토링 세션</h3>
+                <p className={`text-sm ${theme.textSubtle}`}>내가 진행하는 멘토링</p>
               </div>
             </div>
 
             {mentorBookings.filter(b => b.status === 'CONFIRMED' || b.status === 'PENDING').length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12">
-                <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
-                  <User size={32} className="text-slate-400" />
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${darkMode ? 'bg-white/10' : 'bg-slate-100'}`}>
+                  <User size={32} className={darkMode ? 'text-white/40' : 'text-slate-400'} />
                 </div>
-                <p className="text-slate-600 text-sm mb-6">예약된 멘토링이 없습니다</p>
+                <p className={`text-sm mb-6 ${theme.textSecondary}`}>예약된 멘토링이 없습니다</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -1351,15 +1533,15 @@ export default function NewDashboard() {
                   .map((booking) => {
                     const status = getBookingStatusStyle(booking.status);
                     return (
-                      <div key={booking.bookingId} className={`border ${status.border} rounded-xl p-4 ${status.bg}`}>
+                      <div key={booking.bookingId} className={`border rounded-xl p-4 ${darkMode ? 'bg-white/[0.03] border-white/[0.08]' : `${status.bg} ${status.border}`}`}>
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-gradient-to-br from-violet-400 to-violet-500 rounded-full flex items-center justify-center">
                               <User size={20} className="text-white" />
                             </div>
                             <div>
-                              <h4 className="text-sm font-semibold text-slate-800">{booking.menteeName}</h4>
-                              <p className="text-xs text-slate-500">멘티</p>
+                              <h4 className={`text-sm font-semibold ${theme.text}`}>{booking.menteeName}</h4>
+                              <p className={`text-xs ${theme.textSubtle}`}>멘티</p>
                             </div>
                           </div>
                           <span className={`text-xs px-2 py-1 rounded-lg ${status.bg} ${status.text} border ${status.border}`}>
@@ -1367,9 +1549,9 @@ export default function NewDashboard() {
                           </span>
                         </div>
 
-                        <p className="text-sm font-medium text-slate-800 mb-2">{booking.sessionTitle}</p>
+                        <p className={`text-sm font-medium mb-2 ${theme.text}`}>{booking.sessionTitle}</p>
 
-                        <p className="text-xs text-slate-500 mb-3">
+                        <p className={`text-xs mb-3 ${theme.textSubtle}`}>
                           예약일: {booking.bookingDate} {booking.timeSlot}
                         </p>
 
@@ -1451,18 +1633,18 @@ export default function NewDashboard() {
 
   const renderSettingsSection = () => (
     <div className="space-y-6">
-      <div className={styles['glass-card']}>
+      <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-pink-500 rounded-xl flex items-center justify-center">
               <Settings size={24} className="text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-800">계정 정보</h2>
-              <p className="text-sm text-slate-500">개인정보 확인 및 관리</p>
+              <h2 className={`text-lg font-bold ${theme.text}`}>계정 정보</h2>
+              <p className={`text-sm ${theme.textSubtle}`}>개인정보 확인 및 관리</p>
             </div>
           </div>
-          <button disabled className="px-4 py-2 text-sm text-pink-600 hover:text-pink-700 disabled:text-gray-400 disabled:cursor-not-allowed flex items-center gap-1">
+          <button disabled className={`px-4 py-2 text-sm ${darkMode ? 'text-pink-400 hover:text-pink-300 disabled:text-white/30' : 'text-pink-600 hover:text-pink-700 disabled:text-gray-400'} disabled:cursor-not-allowed flex items-center gap-1`}>
             <FileText size={16} />
             수정하기
           </button>
@@ -1470,53 +1652,53 @@ export default function NewDashboard() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* 이름 */}
-          <div className="border border-gray-200 rounded-lg p-4">
-            <p className="text-xs text-gray-500 mb-1">이름</p>
-            <p className="text-sm font-medium text-gray-900">{currentUser?.name || '-'}</p>
+          <div className={`border rounded-lg p-4 ${darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200'}`}>
+            <p className={`text-xs mb-1 ${theme.textSubtle}`}>이름</p>
+            <p className={`text-sm font-medium ${theme.text}`}>{currentUser?.name || '-'}</p>
           </div>
 
           {/* 아이디 */}
-          <div className="border border-gray-200 rounded-lg p-4">
-            <p className="text-xs text-gray-500 mb-1">아이디</p>
-            <p className="text-sm font-medium text-gray-900">{currentUser?.username || '-'}</p>
+          <div className={`border rounded-lg p-4 ${darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200'}`}>
+            <p className={`text-xs mb-1 ${theme.textSubtle}`}>아이디</p>
+            <p className={`text-sm font-medium ${theme.text}`}>{currentUser?.username || '-'}</p>
           </div>
 
           {/* 이메일 */}
-          <div className="border border-gray-200 rounded-lg p-4">
-            <p className="text-xs text-gray-500 mb-1">이메일</p>
-            <p className="text-sm font-medium text-gray-900">{currentUser?.email || '-'}</p>
+          <div className={`border rounded-lg p-4 ${darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200'}`}>
+            <p className={`text-xs mb-1 ${theme.textSubtle}`}>이메일</p>
+            <p className={`text-sm font-medium ${theme.text}`}>{currentUser?.email || '-'}</p>
           </div>
 
           {/* 전화번호 */}
-          <div className="border border-gray-200 rounded-lg p-4">
-            <p className="text-xs text-gray-500 mb-1">전화번호</p>
-            <p className="text-sm font-medium text-gray-900">{currentUser?.phone || '-'}</p>
+          <div className={`border rounded-lg p-4 ${darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200'}`}>
+            <p className={`text-xs mb-1 ${theme.textSubtle}`}>전화번호</p>
+            <p className={`text-sm font-medium ${theme.text}`}>{currentUser?.phone || '-'}</p>
           </div>
 
           {/* 생년월일 */}
-          <div className="border border-gray-200 rounded-lg p-4">
-            <p className="text-xs text-gray-500 mb-1">생년월일</p>
-            <p className="text-sm font-medium text-gray-900">{formatDate(currentUser?.birth)}</p>
+          <div className={`border rounded-lg p-4 ${darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200'}`}>
+            <p className={`text-xs mb-1 ${theme.textSubtle}`}>생년월일</p>
+            <p className={`text-sm font-medium ${theme.text}`}>{formatDate(currentUser?.birth)}</p>
           </div>
 
           {/* 가입일 */}
-          <div className="border border-gray-200 rounded-lg p-4">
-            <p className="text-xs text-gray-500 mb-1">가입일</p>
-            <p className="text-sm font-medium text-gray-900">{formatDate(currentUser?.createdAt)}</p>
+          <div className={`border rounded-lg p-4 ${darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200'}`}>
+            <p className={`text-xs mb-1 ${theme.textSubtle}`}>가입일</p>
+            <p className={`text-sm font-medium ${theme.text}`}>{formatDate(currentUser?.createdAt)}</p>
           </div>
 
           {/* 계정 상태 */}
-          <div className="border border-gray-200 rounded-lg p-4">
-            <p className="text-xs text-gray-500 mb-1">계정 상태</p>
-            <span className="text-xs px-2 py-1 rounded bg-emerald-50 text-emerald-600">
+          <div className={`border rounded-lg p-4 ${darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200'}`}>
+            <p className={`text-xs mb-1 ${theme.textSubtle}`}>계정 상태</p>
+            <span className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>
               활성
             </span>
           </div>
 
           {/* 역할 */}
-          <div className="border border-gray-200 rounded-lg p-4">
-            <p className="text-xs text-gray-500 mb-1">역할</p>
-            <span className="text-xs px-2 py-1 rounded bg-pink-50 text-pink-600">
+          <div className={`border rounded-lg p-4 ${darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200'}`}>
+            <p className={`text-xs mb-1 ${theme.textSubtle}`}>역할</p>
+            <span className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-pink-500/20 text-pink-400' : 'bg-pink-50 text-pink-600'}`}>
               {mentorInfo?.status === 'APPROVED' ? '멘토' : currentUser?.role === 'ADMIN' ? '관리자' : '학생'}
             </span>
           </div>
@@ -1532,22 +1714,115 @@ export default function NewDashboard() {
       {/* Main Page Header */}
       
 
-      {/* Main Dashboard Container */}
-      <div className={styles['glass-container']}>
-        {/* Transparent Container Box wrapping BOTH sidebar and main content */}
-        <div className={styles['glass-box']}>
+      {/* Mobile Header with Hamburger */}
+      <div className={`lg:hidden fixed top-0 left-0 right-0 z-40 ${darkMode ? 'bg-[#0a0a0f]/95' : 'bg-white/95'} backdrop-blur-md border-b ${theme.border} px-4 py-3`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
+              D
+            </div>
+            <span className={`font-bold text-lg ${theme.text}`}>DreamPath</span>
+          </div>
+          <button
+            onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+            className={`p-2 rounded-lg ${theme.hoverBg} ${theme.text}`}
+          >
+            {mobileSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        </div>
+      </div>
 
-          {/* Left Sidebar */}
-          <div className={`${styles['glass-sidebar']} ${sidebarOpen ? 'w-64' : 'w-20'}`}>
+      {/* Mobile Sidebar Overlay */}
+      {mobileSidebarOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
+
+      {/* Mobile Sidebar */}
+      <div className={`lg:hidden fixed top-0 left-0 h-full w-72 z-50 transform transition-transform duration-300 ease-in-out ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${darkMode ? 'bg-[#0a0a0f]' : 'bg-white'} shadow-2xl`}>
+        <div className="h-full flex flex-col">
+          {/* Mobile Sidebar Header */}
+          <div className={`h-16 flex items-center justify-between px-5 border-b ${theme.border}`}>
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
+                D
+              </div>
+              <span className={`font-bold text-lg ${theme.text}`}>DreamPath</span>
+            </div>
+            <button
+              onClick={() => setMobileSidebarOpen(false)}
+              className={`p-2 rounded-lg ${theme.hoverBg} ${theme.textSecondary}`}
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          {/* Mobile Menu */}
+          <div className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
+            <div>
+              <h3 className={`text-xs font-bold ${theme.textMuted} uppercase tracking-wider mb-3 px-3`}>
+                Career & AI Analysis
+              </h3>
+              <nav className="space-y-1">
+                <SidebarItem icon={<LayoutGrid size={20} />} label="대시보드" active={activeTab === 'dashboard'} onClick={() => { setActiveTab('dashboard'); setMobileSidebarOpen(false); }} darkMode={darkMode} />
+                <SidebarItem icon={<PieChart size={20} />} label="성향 및 가치관 분석" active={activeTab === 'personality'} onClick={() => { setActiveTab('personality'); setMobileSidebarOpen(false); }} darkMode={darkMode} />
+                <SidebarItem icon={<Briefcase size={20} />} label="직업 추천" active={activeTab === 'jobs'} onClick={() => { setActiveTab('jobs'); setMobileSidebarOpen(false); }} darkMode={darkMode} />
+                <SidebarItem icon={<GraduationCap size={20} />} label="학과 추천" active={activeTab === 'majors'} onClick={() => { setActiveTab('majors'); setMobileSidebarOpen(false); }} darkMode={darkMode} />
+              </nav>
+            </div>
+            <div>
+              <h3 className={`text-xs font-bold ${theme.textMuted} uppercase tracking-wider mb-3 px-3`}>
+                Learning & Account
+              </h3>
+              <nav className="space-y-1">
+                <SidebarItem icon={<BookOpen size={20} />} label="학습 현황" active={activeTab === 'learning'} onClick={() => { setActiveTab('learning'); setMobileSidebarOpen(false); }} darkMode={darkMode} />
+                <SidebarItem icon={<MessageSquare size={20} />} label="멘토링" active={activeTab === 'mentoring'} onClick={() => { setActiveTab('mentoring'); setMobileSidebarOpen(false); }} darkMode={darkMode} />
+                <SidebarItem icon={<Settings size={20} />} label="계정 설정" active={activeTab === 'settings'} onClick={() => { setActiveTab('settings'); setMobileSidebarOpen(false); }} darkMode={darkMode} />
+              </nav>
+            </div>
+          </div>
+
+          {/* Mobile User Profile */}
+          <div className={`p-4 border-t ${theme.border}`}>
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-full ${darkMode ? 'bg-gradient-to-br from-slate-600 to-slate-700' : 'bg-gradient-to-br from-slate-200 to-slate-300'} flex items-center justify-center ${theme.text} font-bold shadow`}>
+                {currentUser?.name?.[0] || 'U'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-bold ${theme.text} truncate`}>{currentUser?.name || 'Guest'}</p>
+                <p className={`text-xs ${theme.textSubtle} truncate`}>Student</p>
+              </div>
+              <button onClick={handleLogout} className={`${theme.textMuted} hover:${darkMode ? 'text-white' : 'text-slate-600'}`}>
+                <LogOut size={18} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Dashboard Container - 헤더(64px) 제외 */}
+      <div className={`min-h-[calc(100vh-4rem)] overflow-y-auto ${theme.containerBg} relative flex flex-col`}>
+        {/* Background Effects */}
+        <BackgroundEffects />
+
+        {/* 중앙 정렬 컨테이너 - 충분한 여백으로 스크롤 방지 */}
+        <div className="relative z-10 flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-4 pt-16 lg:py-6">
+          {/* Transparent Container Box wrapping BOTH sidebar and main content */}
+          <div className={`w-full max-w-[1600px] max-h-[calc(100vh-10rem)] lg:max-h-[calc(100vh-8rem)] ${theme.boxBg} backdrop-blur-xl border rounded-[1.5rem] lg:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col lg:flex-row`}>
+
+          {/* Left Sidebar - Hidden on mobile */}
+          <div className={`hidden lg:flex flex-shrink-0 flex-col ${theme.sidebarBg} backdrop-blur-xl border-r transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-20'}`}>
             {/* Logo Area */}
             <div className="h-20 flex items-center justify-between px-6">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
                   D
                 </div>
-                {sidebarOpen && <span className="font-bold text-lg text-slate-800">DreamPath</span>}
+                {sidebarOpen && <span className={`font-bold text-lg ${theme.text}`}>DreamPath</span>}
               </div>
-              <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-slate-500 hover:text-slate-700">
+              <button onClick={() => setSidebarOpen(!sidebarOpen)} className={`${theme.textSubtle} ${darkMode ? 'hover:text-white' : 'hover:text-slate-700'}`}>
                 <Menu size={20} />
               </button>
             </div>
@@ -1557,47 +1832,47 @@ export default function NewDashboard() {
               {/* Career & AI Analysis */}
               <div>
                 {sidebarOpen && (
-                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-3">
+                  <h3 className={`text-xs font-bold ${theme.textMuted} uppercase tracking-wider mb-3 px-3`}>
                     Career & AI Analysis
                   </h3>
                 )}
                 <nav className="space-y-1">
-                  <SidebarItem icon={<LayoutGrid size={20} />} label="대시보드" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} collapsed={!sidebarOpen} />
-                  <SidebarItem icon={<PieChart size={20} />} label="성향 및 가치관 분석" active={activeTab === 'personality'} onClick={() => setActiveTab('personality')} collapsed={!sidebarOpen} />
-                  {/* <SidebarItem icon={<Heart size={20} />} label="가치관 분석" active={activeTab === 'values'} onClick={() => setActiveTab('values')} collapsed={!sidebarOpen} /> */}
-                  <SidebarItem icon={<Briefcase size={20} />} label="직업 추천" active={activeTab === 'jobs'} onClick={() => setActiveTab('jobs')} collapsed={!sidebarOpen} />
-                  <SidebarItem icon={<GraduationCap size={20} />} label="학과 추천" active={activeTab === 'majors'} onClick={() => setActiveTab('majors')} collapsed={!sidebarOpen} />
+                  <SidebarItem icon={<LayoutGrid size={20} />} label="대시보드" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} collapsed={!sidebarOpen} darkMode={darkMode} />
+                  <SidebarItem icon={<PieChart size={20} />} label="성향 및 가치관 분석" active={activeTab === 'personality'} onClick={() => setActiveTab('personality')} collapsed={!sidebarOpen} darkMode={darkMode} />
+                  {/* <SidebarItem icon={<Heart size={20} />} label="가치관 분석" active={activeTab === 'values'} onClick={() => setActiveTab('values')} collapsed={!sidebarOpen} darkMode={darkMode} /> */}
+                  <SidebarItem icon={<Briefcase size={20} />} label="직업 추천" active={activeTab === 'jobs'} onClick={() => setActiveTab('jobs')} collapsed={!sidebarOpen} darkMode={darkMode} />
+                  <SidebarItem icon={<GraduationCap size={20} />} label="학과 추천" active={activeTab === 'majors'} onClick={() => setActiveTab('majors')} collapsed={!sidebarOpen} darkMode={darkMode} />
                 </nav>
               </div>
 
               {/* Learning & Account */}
               <div>
                 {sidebarOpen && (
-                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-3">
+                  <h3 className={`text-xs font-bold ${theme.textMuted} uppercase tracking-wider mb-3 px-3`}>
                     Learning & Account
                   </h3>
                 )}
                 <nav className="space-y-1">
-                  <SidebarItem icon={<BookOpen size={20} />} label="학습 현황" active={activeTab === 'learning'} onClick={() => setActiveTab('learning')} collapsed={!sidebarOpen} />
-                  <SidebarItem icon={<MessageSquare size={20} />} label="멘토링" active={activeTab === 'mentoring'} onClick={() => setActiveTab('mentoring')} collapsed={!sidebarOpen} />
-                  <SidebarItem icon={<Settings size={20} />} label="계정 설정" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} collapsed={!sidebarOpen} />
+                  <SidebarItem icon={<BookOpen size={20} />} label="학습 현황" active={activeTab === 'learning'} onClick={() => setActiveTab('learning')} collapsed={!sidebarOpen} darkMode={darkMode} />
+                  <SidebarItem icon={<MessageSquare size={20} />} label="멘토링" active={activeTab === 'mentoring'} onClick={() => setActiveTab('mentoring')} collapsed={!sidebarOpen} darkMode={darkMode} />
+                  <SidebarItem icon={<Settings size={20} />} label="계정 설정" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} collapsed={!sidebarOpen} darkMode={darkMode} />
                 </nav>
               </div>
             </div>
 
             {/* User Profile */}
-            <div className="p-4 border-t border-slate-200">
+            <div className={`p-4 border-t ${theme.border}`}>
               <div className={`flex items-center gap-3 ${!sidebarOpen && 'justify-center'}`}>
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-slate-700 font-bold shadow">
+                <div className={`w-10 h-10 rounded-full ${darkMode ? 'bg-gradient-to-br from-slate-600 to-slate-700' : 'bg-gradient-to-br from-slate-200 to-slate-300'} flex items-center justify-center ${theme.text} font-bold shadow`}>
                   {currentUser?.name?.[0] || 'U'}
                 </div>
                 {sidebarOpen && (
                   <>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-slate-800 truncate">{currentUser?.name || 'Guest'}</p>
-                      <p className="text-xs text-slate-500 truncate">Student</p>
+                      <p className={`text-sm font-bold ${theme.text} truncate`}>{currentUser?.name || 'Guest'}</p>
+                      <p className={`text-xs ${theme.textSubtle} truncate`}>Student</p>
                     </div>
-                    <button onClick={handleLogout} className="text-slate-400 hover:text-slate-600">
+                    <button onClick={handleLogout} className={`${theme.textMuted} ${darkMode ? 'hover:text-white' : 'hover:text-slate-600'}`}>
                       <LogOut size={18} />
                     </button>
                   </>
@@ -1607,15 +1882,15 @@ export default function NewDashboard() {
           </div>
 
           {/* Main Content Area */}
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
 
-            {/* Header - Completely Transparent */}
-            <header className="h-20 border-b border-white/10 px-8" />
+            {/* Header - Hidden on desktop (only shown on mobile) */}
+            <header className={`hidden lg:block h-20 flex-shrink-0 border-b ${theme.border} px-4 sm:px-8`} />
 
             {/* Scrollable Content */}
-            <main className="flex-1 overflow-y-auto px-8 py-6">
+            <main className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-6">
               <div className="max-w-7xl mx-auto">
-                {isLoading && <p className="text-gray-500">데이터를 불러오는 중입니다...</p>}
+                {isLoading && <p className={theme.textSubtle}>데이터를 불러오는 중입니다...</p>}
                 {!isLoading && error && <p className="text-red-500">{error}</p>}
                 {!isLoading && !error && (
                   <>
@@ -1623,7 +1898,7 @@ export default function NewDashboard() {
                     {activeTab === 'personality' && renderPersonalitySection()}
                     {activeTab === 'jobs' && (
                       <div className="space-y-4">
-                        <h2 className="text-xl font-bold text-slate-800">AI 직업 추천</h2>
+                        <h2 className={`text-xl font-bold ${theme.text}`}>AI 직업 추천</h2>
                         {/* Integrated Hybrid Panel (Search + Top 10 Results + Details) */}
                         <HybridJobRecommendPanel
                           embedded={true}
@@ -1635,7 +1910,7 @@ export default function NewDashboard() {
                     )}
                     {activeTab === 'majors' && (
                       <div className="space-y-4">
-                        <h2 className="text-xl font-bold text-slate-800">AI 학과 추천</h2>
+                        <h2 className={`text-xl font-bold ${theme.text}`}>AI 학과 추천</h2>
 
                         <MajorRecommendPanel
                           embedded={true}
@@ -1653,6 +1928,7 @@ export default function NewDashboard() {
               </div>
             </main>
           </div>
+        </div>
         </div>
       </div>
 
@@ -1889,31 +2165,34 @@ export default function NewDashboard() {
 }
 
 // Sidebar Item Component
-function SidebarItem({ icon, label, active = false, onClick, badge, collapsed = false }: {
+function SidebarItem({ icon, label, active = false, onClick, badge, collapsed = false, darkMode = false }: {
   icon: React.ReactNode,
   label: string,
   active?: boolean,
   onClick?: () => void,
   badge?: string,
-  collapsed?: boolean
+  collapsed?: boolean,
+  darkMode?: boolean
 }) {
   return (
     <button
       onClick={onClick}
       className={`w-full flex items-center ${collapsed ? 'justify-center' : 'justify-between'} px-3 py-3 rounded-xl transition-all duration-200 group ${active
         ? 'bg-blue-500 text-white shadow-lg'
-        : 'text-slate-600 hover:bg-slate-100'
+        : darkMode
+          ? 'text-white/70 hover:bg-white/[0.08] hover:text-white'
+          : 'text-slate-600 hover:bg-slate-100'
         }`}
       title={collapsed ? label : undefined}
     >
       <div className="flex items-center gap-3">
-        <span className={`${active ? 'text-white' : 'text-slate-500 group-hover:text-slate-700'}`}>
+        <span className={`${active ? 'text-white' : darkMode ? 'text-white/50 group-hover:text-white' : 'text-slate-500 group-hover:text-slate-700'}`}>
           {icon}
         </span>
         {!collapsed && <span className="font-medium text-sm">{label}</span>}
       </div>
       {!collapsed && badge && (
-        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${active ? 'bg-blue-400 text-white' : 'bg-indigo-100 text-indigo-600'}`}>
+        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${active ? 'bg-blue-400 text-white' : darkMode ? 'bg-white/10 text-white/70' : 'bg-indigo-100 text-indigo-600'}`}>
           {badge}
         </span>
       )}

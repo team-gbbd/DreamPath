@@ -336,8 +336,8 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
           </div>
         </header>
 
-        {/* Page Content */}
-        <div className="flex-1 overflow-x-hidden overflow-y-auto w-full max-w-full">
+        {/* Page Content - profile 페이지에서는 스크롤 비활성화 */}
+        <div className={`flex-1 overflow-x-hidden w-full max-w-full ${location.pathname.startsWith('/profile') ? 'overflow-hidden' : 'overflow-y-auto'}`}>
           {children}
         </div>
 
