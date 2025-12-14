@@ -18,7 +18,10 @@ public class LearningPathResponse {
     private String status;
     private Integer totalQuestions;
     private Integer correctCount;
-    private Float correctRate;
+    private Integer earnedScore;      // 총 획득 점수
+    private Integer totalMaxScore;    // 총 배점
+    private Float scoreRate;          // 득점률 (%)
+    private Float correctRate;        // 기존 호환용
     private String weaknessTags;
     private LocalDateTime createdAt;
     private List<WeeklySessionInfo> weeklySessions;
@@ -34,6 +37,9 @@ public class LearningPathResponse {
         response.status = path.getStatus().name();
         response.totalQuestions = path.getTotalQuestions();
         response.correctCount = path.getCorrectCount();
+        response.earnedScore = path.getEarnedScore();
+        response.totalMaxScore = path.getTotalMaxScore();
+        response.scoreRate = path.getScoreRate();
         response.correctRate = path.getCorrectRate();
         response.weaknessTags = path.getWeaknessTags();
         response.createdAt = path.getCreatedAt();
@@ -73,8 +79,13 @@ public class LearningPathResponse {
         private Boolean isCompleted;
         private Integer questionCount;
         private Integer correctCount;
+        private Integer earnedScore;
+        private Integer totalScore;
+        private Float scoreRate;
         private String aiSummary;
         private LocalDateTime createdAt;
+        private LocalDateTime completedAt;
+        private LocalDateTime unlockAt;
 
         public static WeeklySessionInfo from(WeeklySession session) {
             WeeklySessionInfo info = new WeeklySessionInfo();
@@ -92,8 +103,13 @@ public class LearningPathResponse {
             }
 
             info.correctCount = session.getCorrectCount() != null ? session.getCorrectCount() : 0;
+            info.earnedScore = session.getEarnedScore() != null ? session.getEarnedScore() : 0;
+            info.totalScore = session.getTotalScore() != null ? session.getTotalScore() : 0;
+            info.scoreRate = info.totalScore > 0 ? (float) info.earnedScore / info.totalScore * 100 : 0.0f;
             info.aiSummary = session.getAiSummary();
             info.createdAt = session.getCreatedAt();
+            info.completedAt = session.getCompletedAt();
+            info.unlockAt = session.getUnlockAt();
             return info;
         }
     }

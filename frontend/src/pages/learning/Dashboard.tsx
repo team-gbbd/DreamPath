@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { learningPathService } from "@/lib/api";
-import Header from "@/components/feature/Header";
 
 import {
     BarChart,
@@ -13,6 +12,11 @@ import {
     ResponsiveContainer,
     LineChart,
     Line,
+    RadarChart,
+    PolarGrid,
+    PolarAngleAxis,
+    PolarRadiusAxis,
+    Radar,
 } from "recharts";
 
 interface LearningPath {
@@ -28,6 +32,9 @@ interface WeeklyProgress {
     status: string;
     questionCount: number;
     correctCount: number;
+    earnedScore: number;
+    totalScore: number;
+    scoreRate: number;
     correctRate: number;
 }
 
@@ -53,18 +60,43 @@ interface FeedbackItem {
     questionType?: string;
 }
 
+interface WeaknessTagItem {
+    tag: string;
+    count: number;
+    severity: string;  // high, medium, low
+    description: string;
+}
+
+interface RadarDataItem {
+    category: string;
+    score: number;
+    fullMark: number;
+}
+
+interface AIWeaknessAnalysis {
+    weaknessTags: WeaknessTagItem[];
+    recommendations: string[];
+    overallAnalysis: string;
+    radarData: RadarDataItem[];
+}
+
 interface DashboardStats {
     correctRate: number;
     correctCount: number;
+    earnedScore: number;
+    totalMaxScore: number;
+    scoreRate: number;
     totalQuestions: number;
     answeredQuestions: number;
     weeklyProgress: WeeklyProgress[];
     typeAccuracy: TypeAccuracy[];
     weaknessAnalysis: WeaknessAnalysis;
+    aiWeaknessAnalysis?: AIWeaknessAnalysis;
 }
 
 export default function Dashboard() {
     const navigate = useNavigate();
+    const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
 
     const [learningPaths, setLearningPaths] = useState<LearningPath[]>([]);
@@ -88,30 +120,59 @@ export default function Dashboard() {
             // career 파라미터가 있으면 학습 경로 생성 시도
             createLearningPathFromCareer(userId, careerParam);
         } else {
-            loadLearningPaths(userId);
+            // state로 selectPathId가 전달되면 해당 경로 선택
+            const state = location.state as { selectPathId?: number } | null;
+            const selectId = state?.selectPathId;
+
+            loadLearningPaths(userId).then(() => {
+                if (selectId) {
+                    handlePathSelect(selectId);
+                    // state 초기화
+                    window.history.replaceState({}, document.title);
+                }
+            });
         }
     }, []);
 
     const createLearningPathFromCareer = async (userId: number, career: string) => {
         setCreating(true);
         try {
-            // 학습 경로 생성
+            // 먼저 기존 학습 경로 조회
+            const existingPaths = await learningPathService.getUserLearningPaths(userId);
+
+            // 같은 도메인의 기존 학습 경로가 있는지 확인
+            const careerLower = career.toLowerCase();
+            const existingPath = existingPaths.find(
+                (p: LearningPath) => p.domain.toLowerCase() === careerLower ||
+                    p.domain.toLowerCase().includes(careerLower) ||
+                    careerLower.includes(p.domain.toLowerCase())
+            );
+
+            if (existingPath) {
+                // 기존 경로가 있으면 바로 상세 페이지로 이동
+                console.log("기존 학습 경로 발견:", existingPath.domain);
+                navigate(`/learning/${existingPath.pathId}`);
+                return;
+            }
+
+            // 기존 경로가 없으면 새로 생성
             const newPath = await learningPathService.createLearningPath({
                 userId,
                 domain: career,
             });
 
-            // URL에서 career 파라미터 제거
-            setSearchParams({});
-
-            // 목록 새로고침 후 새로 생성된 경로 선택
-            await loadLearningPaths(userId);
+            // 생성 성공 시 바로 상세 페이지로 이동
             if (newPath.pathId) {
-                handlePathSelect(newPath.pathId);
+                navigate(`/learning/${newPath.pathId}`);
+            } else {
+                // pathId가 없으면 대시보드에서 목록 새로고침
+                setSearchParams({});
+                await loadLearningPaths(userId);
             }
         } catch (error) {
             console.error("학습 경로 생성 실패:", error);
             // 실패해도 기존 목록은 로드
+            setSearchParams({});
             await loadLearningPaths(userId);
         } finally {
             setCreating(false);
@@ -167,26 +228,30 @@ export default function Dashboard() {
 
     const weeklyProgressData = stats?.weeklyProgress?.map((w) => ({
         name: `${w.weekNumber}주차`,
-        정답률: w.correctRate,
+        점수: w.scoreRate,
     })) ?? [];
 
     const typeAccuracyData = stats?.typeAccuracy?.map((t) => ({
         name: getTypeLabel(t.questionType),
-        정답률: t.accuracy,
+        점수: t.accuracy,
     })) ?? [];
 
     const selectedPath = learningPaths.find(p => p.pathId === selectedPathId);
 
     // 계산된 값들
-    const totalQ = stats ? calcTotalQuestions(stats) : 0;
-    const correctC = stats ? calcCorrectCount(stats) : 0;
-    const correctRate = safePercent(correctC, totalQ);
+    const scoreRate = stats?.scoreRate ?? 0;
+    const earnedScore = stats?.earnedScore ?? 0;
+    const totalMaxScore = stats?.totalMaxScore ?? 0;
+
+    // 평균 점수 계산 (완료된 주차 기준)
+    const completedWeeks = stats?.weeklyProgress?.filter((w: any) => w.status === 'COMPLETED') ?? [];
+    const avgScore = completedWeeks.length > 0
+        ? Math.round(completedWeeks.reduce((sum: number, w: any) => sum + (w.earnedScore || 0), 0) / completedWeeks.length)
+        : 0;
 
     return (
         <div className="min-h-screen bg-[#FFF5F7]">
-            <Header />
-
-            <div className="max-w-[1600px] mx-auto px-6 pt-24 pb-8">
+            <div className="max-w-[1600px] mx-auto px-6 py-8">
                 {/* 상단 헤더 */}
                 <div className="flex items-center justify-between mb-5 pb-4 border-b border-pink-100">
                     <div className="flex items-center gap-4">
@@ -210,14 +275,17 @@ export default function Dashboard() {
                         {stats && (
                             <div className="grid grid-cols-4 gap-4">
                                 <div className="bg-white border border-gray-200 rounded p-4">
-                                    <p className="text-xs text-gray-500 mb-1">전체 정답률</p>
-                                    <p className="text-2xl font-bold text-gray-900">{safeNumber(correctRate)}%</p>
-                                    <p className="text-xs text-gray-400 mt-1">{correctC} / {totalQ}</p>
+                                    <p className="text-xs text-gray-500 mb-1">평균 점수</p>
+                                    <p className="text-2xl font-bold text-gray-900">
+                                        {completedWeeks.length > 0 ? `${avgScore}점` : '-'}
+                                    </p>
                                 </div>
                                 <div className="bg-white border border-gray-200 rounded p-4">
                                     <p className="text-xs text-gray-500 mb-1">완료한 문제</p>
-                                    <p className="text-2xl font-bold text-gray-900">{stats.answeredQuestions}</p>
-                                    <p className="text-xs text-gray-400 mt-1">/ {totalQ} 문제</p>
+                                    <p className="text-2xl font-bold text-gray-900">{stats.answeredQuestions}문제</p>
+                                    <p className="text-xs text-gray-400 mt-1">
+                                        {stats.totalQuestions > 0 ? `/ ${stats.totalQuestions}문제` : '-'}
+                                    </p>
                                 </div>
                                 <div className="bg-white border border-gray-200 rounded p-4">
                                     <p className="text-xs text-gray-500 mb-1">완료 주차</p>
@@ -243,14 +311,14 @@ export default function Dashboard() {
                         {/* 차트 영역 */}
                         {stats && (
                             <div className="grid grid-cols-2 gap-4">
-                                {/* 주차별 정답률 */}
+                                {/* 주차별 점수 추이 */}
                                 <div className="bg-white border border-gray-200 rounded p-4">
                                     <div className="flex items-center justify-between mb-4">
-                                        <p className="text-sm font-medium text-gray-900">주차별 정답률</p>
+                                        <p className="text-sm font-medium text-gray-900">점수 추이</p>
                                         <div className="flex items-center gap-3 text-xs text-gray-400">
                                             <span className="flex items-center gap-1">
                                                 <span className="w-2 h-2 rounded-full bg-pink-500"></span>
-                                                정답률
+                                                점수
                                             </span>
                                         </div>
                                     </div>
@@ -269,7 +337,7 @@ export default function Dashboard() {
                                             />
                                             <Line
                                                 type="monotone"
-                                                dataKey="정답률"
+                                                dataKey="점수"
                                                 stroke="#ec4899"
                                                 strokeWidth={2}
                                                 dot={{ fill: '#ec4899', r: 3 }}
@@ -278,9 +346,9 @@ export default function Dashboard() {
                                     </ResponsiveContainer>
                                 </div>
 
-                                {/* 유형별 정답률 */}
+                                {/* 유형별 점수 */}
                                 <div className="bg-white border border-gray-200 rounded p-4">
-                                    <p className="text-sm font-medium text-gray-900 mb-4">유형별 정답률</p>
+                                    <p className="text-sm font-medium text-gray-900 mb-4">유형별 점수</p>
                                     <ResponsiveContainer width="100%" height={180}>
                                         <BarChart data={typeAccuracyData} layout="vertical">
                                             <CartesianGrid strokeDasharray="3 3" stroke="#fce7f3" horizontal={false} />
@@ -294,9 +362,113 @@ export default function Dashboard() {
                                                     boxShadow: 'none'
                                                 }}
                                             />
-                                            <Bar dataKey="정답률" fill="#f472b6" radius={[0, 2, 2, 0]} barSize={20} />
+                                            <Bar dataKey="점수" fill="#f472b6" radius={[0, 2, 2, 0]} barSize={20} />
                                         </BarChart>
                                     </ResponsiveContainer>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* AI 약점 분석 섹션 */}
+                        {stats && stats.aiWeaknessAnalysis && (
+                            <div className="grid grid-cols-2 gap-4">
+                                {/* 역량 레이더 차트 */}
+                                <div className="bg-white border border-gray-200 rounded p-4">
+                                    <p className="text-sm font-medium text-gray-900 mb-4">역량 분석</p>
+                                    <ResponsiveContainer width="100%" height={220}>
+                                        <RadarChart data={stats.aiWeaknessAnalysis.radarData}>
+                                            <PolarGrid stroke="#fce7f3" />
+                                            <PolarAngleAxis
+                                                dataKey="category"
+                                                fontSize={11}
+                                                tick={{ fill: '#6b7280' }}
+                                            />
+                                            <PolarRadiusAxis
+                                                angle={90}
+                                                domain={[0, 100]}
+                                                fontSize={10}
+                                                tick={{ fill: '#9ca3af' }}
+                                            />
+                                            <Radar
+                                                name="역량"
+                                                dataKey="score"
+                                                stroke="#ec4899"
+                                                fill="#ec4899"
+                                                fillOpacity={0.3}
+                                                strokeWidth={2}
+                                            />
+                                            <Tooltip
+                                                contentStyle={{
+                                                    fontSize: 12,
+                                                    border: '1px solid #fce7f3',
+                                                    borderRadius: 4,
+                                                    boxShadow: 'none'
+                                                }}
+                                                formatter={(value: number) => [`${value}점`, '역량']}
+                                            />
+                                        </RadarChart>
+                                    </ResponsiveContainer>
+                                </div>
+
+                                {/* 약점 태그 및 추천 */}
+                                <div className="bg-white border border-gray-200 rounded p-4">
+                                    <p className="text-sm font-medium text-gray-900 mb-3">약점 분석</p>
+
+                                    {/* 약점 태그 */}
+                                    {stats.aiWeaknessAnalysis.weaknessTags.length > 0 ? (
+                                        <div className="space-y-2 mb-4">
+                                            {stats.aiWeaknessAnalysis.weaknessTags.map((tag, i) => (
+                                                <div
+                                                    key={i}
+                                                    className={`flex items-center justify-between p-2 rounded text-xs ${
+                                                        tag.severity === 'high'
+                                                            ? 'bg-rose-50 border border-rose-200'
+                                                            : tag.severity === 'medium'
+                                                            ? 'bg-amber-50 border border-amber-200'
+                                                            : 'bg-gray-50 border border-gray-200'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`w-2 h-2 rounded-full ${
+                                                            tag.severity === 'high' ? 'bg-rose-500' :
+                                                            tag.severity === 'medium' ? 'bg-amber-500' : 'bg-gray-400'
+                                                        }`}></span>
+                                                        <span className="font-medium text-gray-700">{tag.tag}</span>
+                                                    </div>
+                                                    <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                                                        tag.severity === 'high' ? 'bg-rose-100 text-rose-600' :
+                                                        tag.severity === 'medium' ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-600'
+                                                    }`}>
+                                                        {tag.count}회
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-gray-400 mb-4">아직 분석할 약점이 없습니다</p>
+                                    )}
+
+                                    {/* 종합 분석 */}
+                                    <div className="p-3 bg-pink-50/50 rounded border border-pink-100 mb-3">
+                                        <p className="text-xs text-gray-600 leading-relaxed">
+                                            {stats.aiWeaknessAnalysis.overallAnalysis}
+                                        </p>
+                                    </div>
+
+                                    {/* 학습 추천 */}
+                                    {stats.aiWeaknessAnalysis.recommendations.length > 0 && (
+                                        <div>
+                                            <p className="text-xs font-medium text-gray-500 mb-2">추천 학습</p>
+                                            <ul className="space-y-1">
+                                                {stats.aiWeaknessAnalysis.recommendations.slice(0, 3).map((rec, i) => (
+                                                    <li key={i} className="text-xs text-gray-600 flex items-start gap-1.5">
+                                                        <span className="text-pink-500 mt-0.5">•</span>
+                                                        <span>{rec}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -313,8 +485,7 @@ export default function Dashboard() {
                                             <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">주차</th>
                                             <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500">상태</th>
                                             <th className="text-right px-4 py-2.5 text-xs font-medium text-gray-500">문제 수</th>
-                                            <th className="text-right px-4 py-2.5 text-xs font-medium text-gray-500">정답 수</th>
-                                            <th className="text-right px-4 py-2.5 text-xs font-medium text-gray-500">정답률</th>
+                                            <th className="text-right px-4 py-2.5 text-xs font-medium text-gray-500">점수</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -331,11 +502,8 @@ export default function Dashboard() {
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-2.5 text-right text-gray-600">{w.questionCount}</td>
-                                                <td className="px-4 py-2.5 text-right text-gray-600">{w.correctCount}</td>
-                                                <td className="px-4 py-2.5 text-right">
-                                                    <span className={w.correctRate >= 70 ? "text-pink-600" : w.correctRate >= 40 ? "text-amber-600" : "text-rose-600"}>
-                                                        {safeNumber(w.correctRate)}%
-                                                    </span>
+                                                <td className="px-4 py-2.5 text-right text-gray-600">
+                                                    {w.totalScore > 0 ? `${w.earnedScore}/${w.totalScore}` : '-'}
                                                 </td>
                                             </tr>
                                         ))}
@@ -469,37 +637,51 @@ export default function Dashboard() {
                                         {learningPaths.map((p) => (
                                             <div
                                                 key={p.pathId}
-                                                onClick={() => handlePathSelect(p.pathId)}
-                                                className={`px-4 py-3 cursor-pointer transition-colors ${
+                                                className={`px-4 py-3 transition-colors ${
                                                     selectedPathId === p.pathId
                                                         ? "bg-pink-50 border-l-2 border-l-pink-500"
                                                         : "hover:bg-pink-50/30 border-l-2 border-l-transparent"
                                                 }`}
                                             >
-                                                <p className={`text-sm truncate ${
-                                                    selectedPathId === p.pathId ? "text-pink-700 font-medium" : "text-gray-700"
-                                                }`}>
-                                                    {p.domain}
-                                                </p>
-                                                {p.subDomain && (
-                                                    <p className="text-xs text-gray-400 truncate mt-0.5">{p.subDomain}</p>
-                                                )}
-                                                <div className="flex items-center justify-between mt-2">
-                                                    <span className="text-xs text-gray-400">{p.currentWeek ?? 1}/4주차</span>
-                                                    <span className={`text-xs font-medium ${
-                                                        selectedPathId === p.pathId ? "text-pink-600" : "text-gray-500"
+                                                <div
+                                                    onClick={() => handlePathSelect(p.pathId)}
+                                                    className="cursor-pointer"
+                                                >
+                                                    <p className={`text-sm truncate ${
+                                                        selectedPathId === p.pathId ? "text-pink-700 font-medium" : "text-gray-700"
                                                     }`}>
-                                                        {p.overallProgress ?? 0}%
-                                                    </span>
+                                                        {p.domain}
+                                                    </p>
+                                                    {p.subDomain && (
+                                                        <p className="text-xs text-gray-400 truncate mt-0.5">{p.subDomain}</p>
+                                                    )}
+                                                    <div className="flex items-center justify-between mt-2">
+                                                        <span className="text-xs text-gray-400">{p.currentWeek ?? 1}/4주차</span>
+                                                        <span className={`text-xs font-medium ${
+                                                            selectedPathId === p.pathId ? "text-pink-600" : "text-gray-500"
+                                                        }`}>
+                                                            {p.overallProgress ?? 0}%
+                                                        </span>
+                                                    </div>
+                                                    <div className="mt-1.5 h-1 bg-pink-100 rounded-full overflow-hidden">
+                                                        <div
+                                                            className={`h-full rounded-full ${
+                                                                selectedPathId === p.pathId ? "bg-pink-500" : "bg-pink-300"
+                                                            }`}
+                                                            style={{ width: `${p.overallProgress ?? 0}%` }}
+                                                        />
+                                                    </div>
                                                 </div>
-                                                <div className="mt-1.5 h-1 bg-pink-100 rounded-full overflow-hidden">
-                                                    <div
-                                                        className={`h-full rounded-full ${
-                                                            selectedPathId === p.pathId ? "bg-pink-500" : "bg-pink-300"
-                                                        }`}
-                                                        style={{ width: `${p.overallProgress ?? 0}%` }}
-                                                    />
-                                                </div>
+                                                {/* 학습하기 버튼 */}
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        navigate(`/learning/${p.pathId}`);
+                                                    }}
+                                                    className="mt-3 w-full py-2 bg-pink-500 hover:bg-pink-600 text-white text-xs font-medium rounded transition-colors"
+                                                >
+                                                    문제 풀기
+                                                </button>
                                             </div>
                                         ))}
                                     </div>

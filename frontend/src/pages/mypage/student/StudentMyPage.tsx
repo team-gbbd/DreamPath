@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { mentorService, paymentService, userService, bookingService, API_BASE_URL } from '@/lib/api';
-import Header from '@/components/feature/Header';
 
 interface UserProfile {
   userId: number;
@@ -188,9 +187,9 @@ export default function StudentMyPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Header />
+      
 
-      <div className="max-w-6xl mx-auto px-6 pt-24 pb-8">
+      <div className="max-w-6xl mx-auto px-6 py-8 pb-8">
         <div className="flex gap-6">
           {/* 사이드바 */}
           <div className="w-56 flex-shrink-0">

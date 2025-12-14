@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
   Plus,
@@ -201,6 +201,7 @@ function TypingIndicator() {
 
 export default function CareerChatPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -211,6 +212,7 @@ export default function CareerChatPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasCheckedAuth = useRef(false);
+  const hasProcessedInitialMessage = useRef(false);
   const [rightPanelTab, setRightPanelTab] = useState<RightPanelTab>('identity');
   const [researchPanels, setResearchPanels] = useState<ResearchPanel[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -218,6 +220,7 @@ export default function CareerChatPage() {
   const [similarMentorLoading, setSimilarMentorLoading] = useState<string | null>(null);
   const [personalityPromptDismissed, setPersonalityPromptDismissed] = useState(false);
   const [personalityTriggered, setPersonalityTriggered] = useState(false);
+  const [isIdentityLoading, setIsIdentityLoading] = useState(false);
 
   const promptMessageText = [
     '사용자님의 상담 내용을 기반으로',
@@ -286,6 +289,17 @@ export default function CareerChatPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // HomePage에서 전달받은 initialMessage 처리
+  useEffect(() => {
+    const state = location.state as { initialMessage?: string } | null;
+    if (state?.initialMessage && sessionId && !isLoading && !hasProcessedInitialMessage.current) {
+      hasProcessedInitialMessage.current = true;
+      // location state 초기화 (새로고침 시 재전송 방지)
+      window.history.replaceState({}, document.title);
+      sendMessage(state.initialMessage);
+    }
+  }, [sessionId, location.state]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -503,7 +517,7 @@ export default function CareerChatPage() {
         }]);
       }
 
-      console.log('새 세션 시작:', data.sessionId, 'userId:', userIdToUse);
+      console.log('새 세션 시작:', data.sessionId, 'userId:', userIdToUse, 'forceNew:', forceNew);
     } catch (error) {
       console.error('Failed to start session:', error);
       setMessages([{
@@ -517,7 +531,7 @@ export default function CareerChatPage() {
 
   // 에이전트 결과 폴링 함수
   const pollAgentResult = async (taskId: string) => {
-    const maxAttempts = 30; // 최대 15초 (0.5초 * 30)
+    const maxAttempts = 60; // 최대 30초 (0.5초 * 60)
     let attempts = 0;
 
     const poll = async () => {
@@ -600,8 +614,9 @@ export default function CareerChatPage() {
     poll();
   };
 
-  const sendMessage = async () => {
-    if (!inputMessage.trim() || !sessionId || isLoading) return;
+  const sendMessage = async (messageToSend?: string) => {
+    const messageContent = messageToSend || inputMessage;
+    if (!messageContent.trim() || !sessionId || isLoading) return;
 
     const userStr = localStorage.getItem('dreampath:user');
     if (!userStr) {
@@ -613,7 +628,7 @@ export default function CareerChatPage() {
     const userMessage: Message = {
       id: generateMessageId(),
       role: 'user',
-      content: inputMessage,
+      content: messageContent,
       timestamp: new Date(),
     };
 
@@ -631,7 +646,7 @@ export default function CareerChatPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId,
-          message: inputMessage,
+          message: messageContent,
           userId: String(userId),
           identityStatus,
         }),
@@ -664,16 +679,25 @@ export default function CareerChatPage() {
         setIsSearching(false);
       }
 
-      if (data.identityStatus) {
-        setIdentityStatus(data.identityStatus);
-
+      // 정체성 상태 업데이트 (별도 폴링 - 백엔드 비동기 분석 결과 가져오기)
+      setIsIdentityLoading(true);
+      setTimeout(async () => {
         try {
-          localStorage.setItem('career_chat_identity', JSON.stringify(data.identityStatus));
-        } catch (e) {
-          console.warn('Failed to save identity status');
+          const identityResponse = await fetch(`${API_BASE_URL}/identity/${sessionId}`);
+          if (identityResponse.ok) {
+            const updatedIdentity = await identityResponse.json();
+            setIdentityStatus(updatedIdentity);
+            localStorage.setItem('career_chat_identity', JSON.stringify(updatedIdentity));
+            console.log('정체성 상태 업데이트됨:', updatedIdentity.clarity);
+          }
+        } catch (err) {
+          console.warn('정체성 상태 폴링 실패:', err);
+        } finally {
+          setIsIdentityLoading(false);
         }
-      }
+      }, 2000); // 2초 후 폴링 (백엔드 비동기 분석 완료 대기)
 
+      // PersonalityAgent 결과 처리
       const personalityAgentPayload =
         data?.personalityAgentResult ??
         data?.personalityAgent ??
@@ -1098,6 +1122,18 @@ export default function CareerChatPage() {
                 <TabsContent value="identity" className="flex-1 overflow-hidden m-0 bg-white">
                   <ScrollArea className="h-full">
                     <div className="p-4 space-y-4">
+                      {/* 로딩 상태 */}
+                      {isIdentityLoading && (
+                        <div className="bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/10 rounded-xl p-4">
+                          <div className="flex items-center gap-3">
+                            <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700">정체성 분석 중...</p>
+                              <p className="text-xs text-gray-500">대화 내용을 분석하고 있어요</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       {identityStatus ? (
                         <>
                           {/* 새로운 인사이트 */}

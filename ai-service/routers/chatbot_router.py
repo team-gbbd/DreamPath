@@ -9,7 +9,7 @@ from models.chatbot import (
     ChatRequestDto,
     ChatResponse,
 )
-from services.chatbot.rag import (
+from services.chatbot import (
     RagEmbeddingService,
     RagSearchService,
     RagAnswerService,
@@ -37,7 +37,7 @@ def get_db():
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(dto: ChatRequestDto, db: DatabaseService = Depends(get_db)):
-    """RAG 챗봇 (메인페이지 - 비회원 + 회원)"""
+    """챗봇 메시지 처리"""
     try:
         # 1. User 조회 (비회원이면 None)
         user = None

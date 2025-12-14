@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "@/components/feature/Header";
 import { useToast } from "@/components/common/Toast";
 import axios from "axios";
 
@@ -116,7 +115,7 @@ export default function FaqManagementPage() {
     setFormData({
       category: faq.category,
       question: faq.question,
-      answer: faq.answer,
+      answer: faq.answer || "",
       user_type: faq.user_type,
       answer_type: faq.answer_type,
       function_name: faq.function_name || "",
@@ -185,7 +184,8 @@ export default function FaqManagementPage() {
       setValidationError("질문을 입력해주세요.");
       return;
     }
-    if (!formData.answer.trim()) {
+    // 정적 답변일 때만 답변 필수
+    if (formData.answer_type === "static" && !formData.answer.trim()) {
       setValidationError("답변을 입력해주세요.");
       return;
     }
@@ -226,8 +226,23 @@ export default function FaqManagementPage() {
 
   const filteredFaqs = faqs.filter((faq) => {
     // User Type 필터
-    if (filterUserType !== "all" && faq.user_type !== filterUserType) {
-      return false;
+    if (filterUserType !== "all") {
+      if (filterUserType === "guest") {
+        // 비회원: guest + both
+        if (faq.user_type !== "guest" && faq.user_type !== "both") {
+          return false;
+        }
+      } else if (filterUserType === "member") {
+        // 회원: member + both
+        if (faq.user_type !== "member" && faq.user_type !== "both") {
+          return false;
+        }
+      } else {
+        // both, assistant 등: 정확히 일치
+        if (faq.user_type !== filterUserType) {
+          return false;
+        }
+      }
     }
     // Category 필터
     if (filterCategory !== "전체" && faq.category !== filterCategory) {
@@ -267,9 +282,9 @@ export default function FaqManagementPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50/30 via-purple-50/20 to-blue-50/30">
       <ToastContainer />
-      <Header />
+      
 
-      <div className="pt-24 pb-8 min-h-screen">
+      <div className="py-8 pb-8 min-h-screen">
         <div className="max-w-7xl mx-auto px-6">
           {/* Title Section */}
           <div className="mb-8 flex items-center justify-between">
@@ -282,40 +297,13 @@ export default function FaqManagementPage() {
                 <p className="text-gray-600">자주 묻는 질문 관리 시스템</p>
               </div>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => navigate("/admin")}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-medium transition-all flex items-center gap-2"
-              >
-                <i className="ri-arrow-left-line"></i>
-                대시보드로
-              </button>
-              <button
-                onClick={handleCreate}
-                className="bg-pink-500 hover:bg-pink-600 text-white px-5 py-2.5 rounded-xl font-medium transition-all flex items-center gap-2"
-              >
-                <i className="ri-add-line"></i>
-                FAQ 추가
-              </button>
-              <button
-                onClick={handleSyncPinecone}
-                disabled={isSyncing}
-                className="bg-purple-500 hover:bg-purple-600 disabled:bg-gray-300 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5"
-                title="Pinecone 동기화"
-              >
-                {isSyncing ? (
-                  <>
-                    <i className="ri-loader-4-line animate-spin text-base"></i>
-                    <span>동기화 중...</span>
-                  </>
-                ) : (
-                  <>
-                    <i className="ri-refresh-line text-base"></i>
-                    <span>Pinecone</span>
-                  </>
-                )}
-              </button>
-            </div>
+            <button
+              onClick={() => navigate("/admin")}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-medium transition-all flex items-center gap-2"
+            >
+              <i className="ri-arrow-left-line"></i>
+              대시보드로
+            </button>
           </div>
 
           {/* Stats */}
@@ -429,7 +417,7 @@ export default function FaqManagementPage() {
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
-                대시보드
+                챗봇 비서
               </button>
             </div>
           </div>
@@ -458,10 +446,39 @@ export default function FaqManagementPage() {
 
           {/* FAQ List */}
           <div className="bg-white rounded-xl shadow-md border-2 border-pink-200 p-8">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-              <i className="ri-list-check text-pink-500 mr-3"></i>
-              FAQ 목록 ({filteredFaqs.length}개)
-            </h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-800 flex items-center">
+                <i className="ri-list-check text-pink-500 mr-3"></i>
+                FAQ 목록 ({filteredFaqs.length}개)
+              </h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSyncPinecone}
+                  disabled={isSyncing}
+                  className="bg-purple-500 hover:bg-purple-600 disabled:bg-gray-300 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2"
+                  title="Pinecone 동기화"
+                >
+                  {isSyncing ? (
+                    <>
+                      <i className="ri-loader-4-line animate-spin"></i>
+                      <span>동기화 중...</span>
+                    </>
+                  ) : (
+                    <>
+                      <i className="ri-refresh-line"></i>
+                      <span>Pinecone 동기화</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={handleCreate}
+                  className="bg-pink-500 hover:bg-pink-600 text-white px-4 py-2.5 rounded-xl font-medium transition-all flex items-center gap-2"
+                >
+                  <i className="ri-add-line"></i>
+                  FAQ 추가
+                </button>
+              </div>
+            </div>
 
             {filteredFaqs.length === 0 ? (
               <div className="text-center py-12 bg-gray-50 rounded-lg">

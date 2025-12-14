@@ -6,12 +6,14 @@ from pydantic import BaseModel
 from typing import List, Optional, Any
 from services.learning.question_generator import QuestionGeneratorService
 from services.learning.answer_evaluator import AnswerEvaluatorService
+from services.learning.weakness_analyzer import WeaknessAnalyzerService
 
 router = APIRouter(prefix="/api/learning", tags=["learning"])
 
 # 서비스 인스턴스
 question_generator = QuestionGeneratorService()
 answer_evaluator = AnswerEvaluatorService()
+weakness_analyzer = WeaknessAnalyzerService()
 
 
 # ========== Request/Response Models ==========
@@ -50,6 +52,41 @@ class EvaluateAnswerResponse(BaseModel):
     score: int
     feedback: str
     isCorrect: bool
+
+
+class WrongAnswerItem(BaseModel):
+    questionType: str
+    questionText: str
+    correctAnswer: str
+    userAnswer: str
+    feedback: Optional[str] = None
+    score: int = 0
+    maxScore: int = 10
+
+
+class AnalyzeWeaknessRequest(BaseModel):
+    domain: str
+    wrongAnswers: List[WrongAnswerItem]
+
+
+class WeaknessTag(BaseModel):
+    tag: str
+    count: int
+    severity: str
+    description: str
+
+
+class RadarDataItem(BaseModel):
+    category: str
+    score: int
+    fullMark: int = 100
+
+
+class AnalyzeWeaknessResponse(BaseModel):
+    weaknessTags: List[WeaknessTag]
+    recommendations: List[str]
+    overallAnalysis: str
+    radarData: List[RadarDataItem]
 
 
 # ========== Endpoints ==========
@@ -106,3 +143,30 @@ async def evaluate_answer(request: EvaluateAnswerRequest):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"답변 평가 실패: {str(e)}")
+
+
+@router.post("/analyze-weakness", response_model=AnalyzeWeaknessResponse)
+async def analyze_weakness(request: AnalyzeWeaknessRequest):
+    """
+    AI 약점 분석
+
+    - domain: 학습 분야 (예: "백엔드 개발", "데이터 분석")
+    - wrongAnswers: 오답 리스트
+    """
+    try:
+        # Pydantic 모델을 dict로 변환
+        wrong_answers_dict = [wa.model_dump() for wa in request.wrongAnswers]
+
+        result = await weakness_analyzer.analyze_weaknesses(
+            domain=request.domain,
+            wrong_answers=wrong_answers_dict
+        )
+
+        return AnalyzeWeaknessResponse(
+            weaknessTags=result["weaknessTags"],
+            recommendations=result["recommendations"],
+            overallAnalysis=result["overallAnalysis"],
+            radarData=result["radarData"]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"약점 분석 실패: {str(e)}")

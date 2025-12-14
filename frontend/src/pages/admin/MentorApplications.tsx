@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { mentorService } from '@/lib/api';
-import Header from '@/components/feature/Header';
+import { mentorService, userService } from '@/lib/api';
 import { useToast } from '@/components/common/Toast';
+
+interface User {
+  userId: number;
+  name: string;
+  email: string;
+}
 
 interface MentorApplication {
   mentorId: number;
@@ -49,6 +54,9 @@ export default function MentorApplicationsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set());
   const [statusCounts, setStatusCounts] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [usersMap, setUsersMap] = useState<Map<number, User>>(new Map());
+  const [searchQuery, setSearchQuery] = useState('');
 
   const getLoggedInUserId = (): number | null => {
     try {
@@ -77,8 +85,18 @@ export default function MentorApplicationsPage() {
       setIsLoading(true);
       setError(null);
 
-      // 전체 데이터 가져오기 (카운트 계산용)
-      const allData = await mentorService.getAllApplications();
+      // 전체 데이터와 사용자 정보 동시에 가져오기
+      const [allData, allUsers] = await Promise.all([
+        mentorService.getAllApplications(),
+        userService.getAllUsers()
+      ]);
+
+      // 사용자 맵 생성
+      const userMap = new Map<number, User>();
+      allUsers.forEach((user: User) => {
+        userMap.set(user.userId, user);
+      });
+      setUsersMap(userMap);
 
       // 상태별 카운트 계산
       const counts = {
@@ -112,6 +130,11 @@ export default function MentorApplicationsPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const getUserName = (userId: number) => {
+    const user = usersMap.get(userId);
+    return user?.name || `사용자 ${userId}`;
   };
 
   const handleReview = async () => {
@@ -179,9 +202,9 @@ export default function MentorApplicationsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50/30 via-purple-50/20 to-blue-50/30 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-teal-50/30 via-cyan-50/20 to-blue-50/30 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-pink-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-16 h-16 border-4 border-teal-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-lg text-gray-600 font-medium">로딩 중...</p>
         </div>
       </div>
@@ -189,50 +212,58 @@ export default function MentorApplicationsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50/30 via-purple-50/20 to-blue-50/30">
+    <div className="min-h-screen bg-gradient-to-br from-teal-50/30 via-cyan-50/20 to-blue-50/30">
       <ToastContainer />
-      <Header />
+      
 
-      <div className="pt-24 pb-8 min-h-screen">
+      <div className="py-8 pb-8 min-h-screen">
         <div className="max-w-7xl mx-auto px-6">
-          {/* Back Button & Title */}
-          <div className="mb-6">
-            <button
-              onClick={() => navigate('/profile/dashboard')}
-              className="mb-4 text-gray-600 hover:text-gray-900 transition-colors flex items-center"
-            >
-              <i className="ri-arrow-left-line text-xl mr-1"></i>
-              <span className="text-sm font-medium">프로파일링 대시보드로</span>
-            </button>
-
+          {/* Title Section */}
+          <div className="mb-8 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-pink-400 rounded-full flex items-center justify-center">
+              <div className="w-14 h-14 bg-teal-400 rounded-full flex items-center justify-center">
                 <i className="ri-file-list-line text-white text-2xl"></i>
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">멘토 신청 목록</h1>
+                <h1 className="text-3xl font-bold text-gray-900">멘토 심사</h1>
                 <p className="text-gray-600">
                   {statusFilter ? STATUS_LABELS[statusFilter] : '전체'} ({applications.length}건)
                 </p>
               </div>
             </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigate('/admin')}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-medium transition-all flex items-center gap-2"
+              >
+                <i className="ri-dashboard-line"></i>
+                대시보드로
+              </button>
+              <button
+                onClick={() => navigate('/admin/mentors')}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-medium transition-all flex items-center gap-2"
+              >
+                <i className="ri-arrow-left-line"></i>
+                멘토 관리로
+              </button>
+            </div>
           </div>
 
           {/* Main Container */}
-          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-pink-100/50 p-6">
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-teal-100/50 p-6">
             {/* Filter Tabs with Counts */}
-            <div className="bg-pink-50/50 rounded-xl p-2 mb-6 flex gap-2">
+            <div className="bg-teal-50/50 rounded-xl p-2 mb-6 flex gap-2">
               <button
                 onClick={() => navigate('/admin/mentor-applications')}
                 className={`flex-1 px-4 py-3 rounded-lg font-semibold transition-all ${
                   !statusFilter
-                    ? 'bg-pink-500 text-white shadow-sm'
+                    ? 'bg-teal-500 text-white shadow-sm'
                     : 'text-gray-600 hover:bg-white'
                 }`}
               >
                 <div className="flex items-center justify-center gap-2">
                   <span>전체</span>
-                  <span className={`text-sm px-2 py-0.5 rounded-full ${!statusFilter ? 'bg-pink-600' : 'bg-gray-200'}`}>
+                  <span className={`text-sm px-2 py-0.5 rounded-full ${!statusFilter ? 'bg-teal-600' : 'bg-gray-200'}`}>
                     {statusCounts.total}
                   </span>
                 </div>
@@ -246,7 +277,7 @@ export default function MentorApplicationsPage() {
                 }`}
               >
                 <div className="flex items-center justify-center gap-2">
-                  <span>대기</span>
+                  <span>심사중</span>
                   <span className={`text-sm px-2 py-0.5 rounded-full ${statusFilter === 'PENDING' ? 'bg-yellow-600' : 'bg-gray-200'}`}>
                     {statusCounts.pending}
                   </span>
@@ -284,6 +315,46 @@ export default function MentorApplicationsPage() {
               </button>
             </div>
 
+            {/* Search and Sort */}
+            <div className="flex items-center justify-between gap-4 mb-4">
+              {/* Search */}
+              <div className="relative flex-1 max-w-md">
+                <i className="ri-search-line absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg"></i>
+                <input
+                  type="text"
+                  placeholder="이름, 자기소개, 경력으로 검색..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100 transition-all"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <i className="ri-close-circle-fill"></i>
+                  </button>
+                )}
+              </div>
+
+              {/* Sort */}
+              <button
+                onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+                className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-xl font-medium text-gray-700 transition-all"
+              >
+                <i className="ri-calendar-line"></i>
+                신청일
+                {sortOrder === 'desc' ? (
+                  <i className="ri-arrow-down-line text-teal-500"></i>
+                ) : (
+                  <i className="ri-arrow-up-line text-teal-500"></i>
+                )}
+                <span className="text-sm text-gray-500">
+                  ({sortOrder === 'desc' ? '최신순' : '오래된순'})
+                </span>
+              </button>
+            </div>
+
             {error && (
               <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start">
                 <i className="ri-error-warning-line text-red-500 text-xl mr-3 mt-0.5"></i>
@@ -292,16 +363,45 @@ export default function MentorApplicationsPage() {
             )}
 
             {/* Applications List */}
-            {applications.length === 0 ? (
-              <div className="bg-pink-50/50 rounded-xl p-12 text-center">
-                <i className="ri-inbox-line text-6xl text-gray-300 mb-4"></i>
-                <p className="text-gray-500 text-base">
-                  {statusFilter ? `${STATUS_LABELS[statusFilter]} 신청이 없습니다.` : '신청이 없습니다.'}
-                </p>
-              </div>
-            ) : (
+            {(() => {
+              // 검색 필터링
+              const filteredApps = applications.filter((app) => {
+                if (!searchQuery.trim()) return true;
+                const query = searchQuery.toLowerCase();
+                const userName = getUserName(app.userId).toLowerCase();
+                return (
+                  userName.includes(query) ||
+                  app.bio?.toLowerCase().includes(query) ||
+                  app.career?.toLowerCase().includes(query) ||
+                  app.mentorId.toString().includes(query) ||
+                  app.userId.toString().includes(query)
+                );
+              });
+
+              if (filteredApps.length === 0) {
+                return (
+                  <div className="bg-teal-50/50 rounded-xl p-12 text-center">
+                    <i className="ri-inbox-line text-6xl text-gray-300 mb-4"></i>
+                    <p className="text-gray-500 text-base">
+                      {searchQuery
+                        ? `"${searchQuery}"에 대한 검색 결과가 없습니다.`
+                        : statusFilter
+                          ? `${STATUS_LABELS[statusFilter]} 신청이 없습니다.`
+                          : '신청이 없습니다.'}
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
               <div className="space-y-4">
-                {applications.map((app) => {
+                {[...filteredApps]
+                  .sort((a, b) => {
+                    const dateA = new Date(a.createdAt).getTime();
+                    const dateB = new Date(b.createdAt).getTime();
+                    return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+                  })
+                  .map((app) => {
                   const badge = getStatusBadge(app.status);
                   const isExpanded = expandedCards.has(app.mentorId);
 
@@ -310,8 +410,8 @@ export default function MentorApplicationsPage() {
                     key={app.mentorId}
                     className={`bg-white rounded-xl shadow-sm border overflow-hidden transition-all ${
                       highlightId && app.mentorId === parseInt(highlightId)
-                        ? 'border-pink-400'
-                        : 'border-gray-200 hover:border-pink-200 hover:shadow-md'
+                        ? 'border-teal-400'
+                        : 'border-gray-200 hover:border-teal-200 hover:shadow-md'
                     }`}
                   >
                     {/* 상태 배지 헤더 */}
@@ -333,11 +433,11 @@ export default function MentorApplicationsPage() {
                     <div className="p-6">
                       {/* 사용자 정보 */}
                       <div className="flex items-center gap-3 mb-6">
-                        <div className="w-14 h-14 bg-pink-400 rounded-full flex items-center justify-center">
+                        <div className="w-14 h-14 bg-teal-400 rounded-full flex items-center justify-center">
                           <i className="ri-user-line text-white text-2xl"></i>
                         </div>
                         <div>
-                          <h3 className="text-lg font-semibold text-gray-900">사용자 ID: {app.userId}</h3>
+                          <h3 className="text-lg font-semibold text-gray-900">{getUserName(app.userId)}</h3>
                           <p className="text-sm text-gray-500">멘토 ID: {app.mentorId}</p>
                         </div>
                       </div>
@@ -345,20 +445,20 @@ export default function MentorApplicationsPage() {
                       {/* 자기소개 */}
                       <div className="mb-4">
                         <div className="flex items-center gap-2 mb-2">
-                          <i className="ri-chat-quote-line text-pink-500 text-lg"></i>
+                          <i className="ri-chat-quote-line text-teal-500 text-lg"></i>
                           <h4 className="font-bold text-gray-700">자기소개</h4>
                         </div>
                         <div className="bg-gray-50 rounded-lg p-4">
                           <p className={`text-gray-700 whitespace-pre-wrap ${!isExpanded ? 'line-clamp-2' : ''}`}>
-                            {app.bio}
+                            {app.bio || '-'}
                           </p>
-                          {app.bio.length > 100 && (
+                          {app.bio && app.bio.length > 100 && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 toggleCard(app.mentorId);
                               }}
-                              className="text-pink-500 text-sm mt-2 hover:text-pink-600 font-medium"
+                              className="text-teal-500 text-sm mt-2 hover:text-teal-600 font-medium"
                             >
                               {isExpanded ? '접기' : '더보기'}
                             </button>
@@ -369,20 +469,20 @@ export default function MentorApplicationsPage() {
                       {/* 경력 */}
                       <div className="mb-4">
                         <div className="flex items-center gap-2 mb-2">
-                          <i className="ri-briefcase-line text-pink-500 text-lg"></i>
+                          <i className="ri-briefcase-line text-teal-500 text-lg"></i>
                           <h4 className="font-bold text-gray-700">경력 사항</h4>
                         </div>
                         <div className="bg-gray-50 rounded-lg p-4">
                           <p className={`text-gray-700 whitespace-pre-wrap ${!isExpanded ? 'line-clamp-2' : ''}`}>
-                            {app.career}
+                            {app.career || '-'}
                           </p>
-                          {app.career.length > 100 && !app.bio.includes('더보기') && (
+                          {app.career && app.career.length > 100 && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 toggleCard(app.mentorId);
                               }}
-                              className="text-pink-500 text-sm mt-2 hover:text-pink-600 font-medium"
+                              className="text-teal-500 text-sm mt-2 hover:text-teal-600 font-medium"
                             >
                               {isExpanded ? '접기' : '더보기'}
                             </button>
@@ -393,12 +493,12 @@ export default function MentorApplicationsPage() {
                       {/* 가능 시간 */}
                       <div className="mb-6">
                         <div className="flex items-center gap-2 mb-2">
-                          <i className="ri-calendar-check-line text-pink-500 text-lg"></i>
+                          <i className="ri-calendar-check-line text-teal-500 text-lg"></i>
                           <h4 className="font-bold text-gray-700">가능 시간</h4>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {Object.entries(app.availableTime).map(([day, times]) => (
-                            <span key={day} className="bg-pink-50 text-pink-700 border border-pink-200 px-3 py-1.5 rounded-full text-sm font-medium">
+                          {app.availableTime && Object.entries(app.availableTime).map(([day, times]) => (
+                            <span key={day} className="bg-teal-50 text-teal-700 border border-teal-200 px-3 py-1.5 rounded-full text-sm font-medium">
                               {DAY_LABELS[day]} {times.length}회
                             </span>
                           ))}
@@ -450,7 +550,8 @@ export default function MentorApplicationsPage() {
                   );
                 })}
               </div>
-            )}
+              );
+            })()}
           </div>
         </div>
       </div>
@@ -473,11 +574,11 @@ export default function MentorApplicationsPage() {
               {/* User Info */}
               <div>
                 <h3 className="font-bold text-gray-700 mb-2 flex items-center">
-                  <i className="ri-user-line mr-2 text-pink-500"></i>
+                  <i className="ri-user-line mr-2 text-teal-500"></i>
                   신청자 정보
                 </h3>
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-gray-800">사용자 ID: {selectedApp.userId}</p>
+                  <p className="text-gray-800 font-medium">{getUserName(selectedApp.userId)}</p>
                   <p className="text-sm text-gray-600 mt-1">
                     신청일: {new Date(selectedApp.createdAt).toLocaleString('ko-KR')}
                   </p>
@@ -490,7 +591,7 @@ export default function MentorApplicationsPage() {
               {/* Bio */}
               <div>
                 <h3 className="font-bold text-gray-700 mb-2 flex items-center">
-                  <i className="ri-quill-pen-line mr-2 text-pink-500"></i>
+                  <i className="ri-quill-pen-line mr-2 text-teal-500"></i>
                   자기소개
                 </h3>
                 <div className="bg-gray-50 rounded-lg p-4">
@@ -501,7 +602,7 @@ export default function MentorApplicationsPage() {
               {/* Career */}
               <div>
                 <h3 className="font-bold text-gray-700 mb-2 flex items-center">
-                  <i className="ri-briefcase-line mr-2 text-pink-500"></i>
+                  <i className="ri-briefcase-line mr-2 text-teal-500"></i>
                   경력 사항
                 </h3>
                 <div className="bg-gray-50 rounded-lg p-4">
@@ -512,34 +613,38 @@ export default function MentorApplicationsPage() {
               {/* Available Time */}
               <div>
                 <h3 className="font-bold text-gray-700 mb-2 flex items-center">
-                  <i className="ri-calendar-check-line mr-2 text-pink-500"></i>
+                  <i className="ri-calendar-check-line mr-2 text-teal-500"></i>
                   가능 시간
                 </h3>
                 <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                  {Object.entries(selectedApp.availableTime).map(([day, times]) => (
-                    <div key={day}>
-                      <p className="font-semibold text-gray-700 mb-2">
-                        {DAY_LABELS[day] || day}요일
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {times.map((time) => (
-                          <span
-                            key={time}
-                            className="bg-pink-50 text-pink-700 px-3 py-1 rounded-lg text-sm"
-                          >
-                            {time}
-                          </span>
-                        ))}
+                  {selectedApp.availableTime && Object.keys(selectedApp.availableTime).length > 0 ? (
+                    Object.entries(selectedApp.availableTime).map(([day, times]) => (
+                      <div key={day}>
+                        <p className="font-semibold text-gray-700 mb-2">
+                          {DAY_LABELS[day] || day}요일
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {times.map((time) => (
+                            <span
+                              key={time}
+                              className="bg-teal-50 text-teal-700 px-3 py-1 rounded-lg text-sm"
+                            >
+                              {time}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <p className="text-gray-500">등록된 시간이 없습니다.</p>
+                  )}
                 </div>
               </div>
 
               {/* Status */}
               <div>
                 <h3 className="font-bold text-gray-700 mb-2 flex items-center">
-                  <i className="ri-information-line mr-2 text-pink-500"></i>
+                  <i className="ri-information-line mr-2 text-teal-500"></i>
                   현재 상태
                 </h3>
                 <div className="bg-gray-50 rounded-lg p-4">
@@ -600,7 +705,7 @@ export default function MentorApplicationsPage() {
 
             <div className="p-6">
               <p className="text-gray-700 mb-4">
-                사용자 ID {selectedApp.userId}의 멘토 신청을{' '}
+                <span className="font-medium">{getUserName(selectedApp.userId)}</span>님의 멘토 신청을{' '}
                 {reviewAction === 'approve' ? '승인' : '거절'}하시겠습니까?
               </p>
 
@@ -611,7 +716,7 @@ export default function MentorApplicationsPage() {
                 <textarea
                   value={reviewReason}
                   onChange={(e) => setReviewReason(e.target.value)}
-                  className="w-full h-32 p-3 border-2 border-gray-200 rounded-lg focus:border-pink-500 focus:outline-none resize-none transition-colors"
+                  className="w-full h-32 p-3 border-2 border-gray-200 rounded-lg focus:border-teal-500 focus:outline-none resize-none transition-colors"
                   placeholder={
                     reviewAction === 'approve'
                       ? '승인 메시지를 입력하세요 (선택사항)'

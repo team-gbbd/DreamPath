@@ -45,9 +45,10 @@ from routers.personality_profile_router import router as personality_profile_rou
 from routers.personality_agent_router import router as personality_agent_router
 from routers.recommendation_agent_router import router as recommendation_agent_router
 from routers.chatbot_router import router as chatbot_router
-from routers.assistant_router import router as assistant_router
 from routers.faq_router import router as faq_router
+from routers.assistant_router import router as assistant_router
 from routers.company_talent_router import router as company_talent_router
+from routers.application_router import router as application_router
 
 # ====== Services ======
 from services.common.openai_client import OpenAIService as OpenAIServiceDev
@@ -125,6 +126,7 @@ app.include_router(chatbot_router)            # RAG 챗봇 API (메인페이지 
 app.include_router(assistant_router)          # AI 비서 API (대시보드 - 회원 전용, Function Calling)
 app.include_router(faq_router)                # FAQ 관리 API
 app.include_router(company_talent_router)     # 목표 기업 인재상 분석 API
+app.include_router(application_router)        # AI 지원서 작성 도우미 API
 
 
 # =========================================
@@ -349,30 +351,30 @@ async def identity_progress(req: ProgressRequest):
 
 
 # =========================================
-# Chat API
+# Chat API (임시 복원 - 디버깅용)
 # =========================================
 
-class ChatRequest(BaseModel):
+class ChatRequestMain(BaseModel):
     sessionId: str
     userMessage: str
     currentStage: str
     conversationHistory: List[ConversationMessage]
     surveyData: Optional[dict] = None
 
-class ChatRes(BaseModel):
+class ChatResMain(BaseModel):
     sessionId: str
     message: str
 
 
-@app.post("/api/chat", response_model=ChatRes)
-async def chat(req: ChatRequest):
-
+@app.post("/api/chat/test", response_model=ChatResMain)
+async def chat_test(req: ChatRequestMain):
+    """디버깅용 테스트 엔드포인트"""
     if not chat_service:
         raise HTTPException(status_code=500, detail="OpenAI API Key 필요")
 
     history = [{"role": m.role, "content": m.content} for m in req.conversationHistory]
 
-    msg = await chat_service.generate_response(
+    result = await chat_service.generate_response(
         session_id=req.sessionId,
         user_message=req.userMessage,
         current_stage=req.currentStage,
@@ -380,7 +382,8 @@ async def chat(req: ChatRequest):
         survey_data=req.surveyData
     )
 
-    return ChatRes(sessionId=req.sessionId, message=msg)
+    # result는 {"message": "..."} dict
+    return ChatResMain(sessionId=req.sessionId, message=result["message"])
 
 
 # =========================================

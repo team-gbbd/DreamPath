@@ -78,7 +78,7 @@ def execute(
         if not results or len(results) == 0:
             return {
                 "success": False,
-                "message": "아직 성격 분석 결과가 없습니다. 프로필 분석을 먼저 진행해주세요."
+                "message": "아직 진로 분석을 진행하지 않으셨네요! 진로 분석을 진행하시면 성격 분석 결과를 조회할 수 있어요."
             }
 
         analysis = results[0]
@@ -125,7 +125,7 @@ def execute(
         if not any([data.get("personality"), data.get("mbti"), data.get("values"), data.get("emotions")]):
             return {
                 "success": False,
-                "message": "분석 결과가 비어있습니다. 프로필 분석을 다시 진행해주세요."
+                "message": "성격 분석 결과를 조회할 수 없습니다. 진로 분석을 다시 진행해주세요."
             }
 
         return {
@@ -159,18 +159,26 @@ def format_result(data: Dict[str, Any]) -> str:
     results = data.get("data", {})
     response = "## 🧠 성격 분석 결과\n\n"
 
-    # MBTI 결과
-    mbti = results.get("mbti")
-    if mbti:
-        response += f"### 🎭 MBTI 유형: **{mbti}**\n\n"
+    # 성격 유형 (personality.type 또는 mbti 필드)
+    personality = results.get("personality")
+    personality_type = None
+    if personality and isinstance(personality, dict):
+        personality_type = personality.get("type")
+    if not personality_type:
+        personality_type = results.get("mbti")
+
+    if personality_type:
+        response += f"### 🎭 성격 유형: **{personality_type}**\n\n"
 
     # Big Five 성격 특성
     personality = results.get("personality")
+    print(f"[DEBUG format_result] personality: {personality}")
     if personality and isinstance(personality, dict):
         response += "### 📊 Big Five 성격 특성\n\n"
 
-        # traits 키가 있는 경우
-        traits = personality.get("traits", personality)
+        # bigFive 또는 traits 키가 있는 경우 (백엔드에서 bigFive로 저장)
+        traits = personality.get("bigFive") or personality.get("traits") or personality
+        print(f"[DEBUG format_result] traits: {traits}")
         if isinstance(traits, dict):
             trait_labels = {
                 "openness": "개방성",
@@ -181,14 +189,27 @@ def format_result(data: Dict[str, Any]) -> str:
                 "neuroticism": "신경성"
             }
 
+            has_traits = False
             for key, label in trait_labels.items():
                 if key in traits:
-                    score = traits[key]
+                    trait_value = traits[key]
+                    # score가 객체 안에 있는 경우 (예: {'score': 85, 'reason': '...'})
+                    if isinstance(trait_value, dict):
+                        score = trait_value.get('score')
+                        reason = trait_value.get('reason', '')
+                    else:
+                        score = trait_value
+                        reason = ''
+
                     if isinstance(score, (int, float)):
                         percent = int(score * 100) if score <= 1 else int(score)
                         response += f"- **{label}**: {percent}%\n"
+                        if reason:
+                            response += f"  - {reason}\n"
+                        has_traits = True
 
-            response += "\n"
+            if has_traits:
+                response += "\n"
 
         # 설명이 있는 경우
         description = personality.get("description")
@@ -205,31 +226,6 @@ def format_result(data: Dict[str, Any]) -> str:
         if growth_areas and isinstance(growth_areas, list):
             response += "**성장 포인트**: " + ", ".join(growth_areas[:5]) + "\n\n"
 
-    # 가치관 분석
-    values = results.get("values")
-    if values and isinstance(values, dict):
-        response += "### 💎 가치관 분석\n\n"
-
-        scores = values.get("scores", values)
-        if isinstance(scores, dict):
-            value_labels = {
-                "creativity": "창의성",
-                "growth": "성장 지향",
-                "security": "안정성",
-                "autonomy": "자율성",
-                "achievement": "성취",
-                "relationships": "관계"
-            }
-
-            for key, label in value_labels.items():
-                if key in scores:
-                    score = scores[key]
-                    if isinstance(score, (int, float)):
-                        percent = int(score * 100) if score <= 1 else int(score)
-                        response += f"- **{label}**: {percent}%\n"
-
-            response += "\n"
-
     # 감정 분석
     emotions = results.get("emotions")
     if emotions and isinstance(emotions, dict):
@@ -238,18 +234,20 @@ def format_result(data: Dict[str, Any]) -> str:
         for emotion, score in emotions.items():
             if isinstance(score, (int, float)):
                 percent = int(score * 100) if score <= 1 else int(score)
-                response += f"- **{emotion}**: {percent}%\n"
+                response += f"- **{emotion}** (긍정적 감정 지수): {percent}%\n"
 
         response += "\n"
 
     # 신뢰도 점수
     confidence = results.get("confidence_score")
     if confidence:
-        response += f"*분석 신뢰도: {confidence:.1%}*\n"
+        response += f"*분석 신뢰도: {confidence:.1%}*\n\n"
 
-    # 분석 일시
+    # 분석 일시 (초 단위 제거: YYYY-MM-DD HH:MM 형식으로 출력)
     analyzed_at = results.get("analyzed_at")
     if analyzed_at:
-        response += f"*분석 일시: {analyzed_at}*\n"
+        # "2025-12-09 15:48:45.047117" -> "2025-12-09 15:48"
+        formatted_date = analyzed_at[:16] if len(analyzed_at) >= 16 else analyzed_at
+        response += f"*분석 일시: {formatted_date}*\n"
 
     return response

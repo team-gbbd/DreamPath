@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * 진로 상담 채팅 API 컨트롤러
@@ -57,36 +58,36 @@ public class CareerChatController {
             var session = chatService.getOrCreateSession(request.getSessionId(), request.getUserId());
             boolean surveyCompleted = session.getSurveyCompleted() != null && session.getSurveyCompleted();
 
-            // 설문조사가 완료된 경우에만 정체성 상태 업데이트
+            // 설문조사가 완료된 경우에만 정체성 상태 업데이트 (비동기)
             if (surveyCompleted) {
-                // 단계 진행 확인 (백그라운드)
-                boolean stageChanged = identityService.shouldProgressToNextStage(response.getSessionId());
-                response.setStageChanged(stageChanged);
+                final String sessionId = response.getSessionId();
 
-                // 실시간 정체성 상태 조회
-                try {
-                    String recentMessages = chatService.getRecentMessages(response.getSessionId(), 2);
-                    log.debug("최근 메시지: {}", recentMessages);
+                // 정체성 분석을 백그라운드에서 비동기 실행 (채팅 응답 블로킹 방지)
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        log.info("[Async] 정체성 분석 시작: sessionId={}", sessionId);
 
-                    IdentityStatus identityStatus = identityService.updateIdentityStatus(
-                            response.getSessionId(),
-                            recentMessages);
+                        // 단계 진행 확인
+                        boolean stageChanged = identityService.shouldProgressToNextStage(sessionId);
+                        if (stageChanged) {
+                            log.info("[Async] 단계 변경됨: sessionId={}", sessionId);
+                        }
 
-                    log.info("정체성 상태 업데이트 완료: clarity={}, traits={}",
-                            identityStatus != null ? identityStatus.getClarity() : null,
-                            identityStatus != null && identityStatus.getTraits() != null
-                                    ? identityStatus.getTraits().size()
-                                    : 0);
-                    response.setIdentityStatus(identityStatus);
+                        // 정체성 상태 업데이트
+                        String recentMessages = chatService.getRecentMessages(sessionId, 2);
+                        IdentityStatus identityStatus = identityService.updateIdentityStatus(sessionId, recentMessages);
 
-                    if (stageChanged && identityStatus != null) {
-                        log.info("단계 변경됨: {} -> {}",
-                                identityStatus.getCurrentStage(),
-                                identityStatus.getCurrentStage());
+                        log.info("[Async] 정체성 분석 완료: sessionId={}, clarity={}",
+                                sessionId,
+                                identityStatus != null ? identityStatus.getClarity() : null);
+                    } catch (Exception e) {
+                        log.error("[Async] 정체성 분석 실패: sessionId={}, error={}", sessionId, e.getMessage());
                     }
-                } catch (Exception e) {
-                    log.error("정체성 상태 업데이트 실패 (무시됨): {}", e.getMessage(), e);
-                }
+                });
+
+                // 채팅 응답은 정체성 분석 완료를 기다리지 않고 즉시 반환
+                // 프론트엔드는 /api/identity/{sessionId}로 별도 조회 가능
+                log.info("채팅 응답 즉시 반환 (정체성 분석은 백그라운드 진행)");
             } else {
                 // 설문조사 미완료 시 기본 정체성 상태 반환
                 try {
@@ -131,28 +132,19 @@ public class CareerChatController {
         log.info("새 세션 시작");
 
         // userId 필수 검증
-        String userId = null;
-        boolean forceNew = false;
-
-        if (request != null) {
-            Object userIdObj = request.get("userId");
-            if (userIdObj != null) {
-                userId = String.valueOf(userIdObj);
-            }
-
-            Object forceNewObj = request.get("forceNew");
-            if (forceNewObj != null) {
-                forceNew = Boolean.parseBoolean(String.valueOf(forceNewObj));
-            }
-        }
-
+        String userId = request != null ? (String) request.get("userId") : null;
         if (userId == null || userId.isBlank()) {
             log.warn("로그인하지 않은 사용자의 세션 시작 시도");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "로그인이 필요합니다."));
         }
 
-        var session = chatService.getOrCreateSession(null, userId, forceNew);
+        // forceNew 파라미터 확인 (새 상담 버튼 클릭 시)
+        Boolean forceNew = request.get("forceNew") != null ? (Boolean) request.get("forceNew") : false;
+
+        var session = forceNew
+                ? chatService.createNewSessionForUser(userId)
+                : chatService.getOrCreateSession(null, userId);
 
         // 설문조사 질문 조회
         var surveyResponse = chatService.getSurveyQuestions(session.getSessionId());
@@ -161,7 +153,6 @@ public class CareerChatController {
         response.put("sessionId", session.getSessionId());
         response.put("needsSurvey", surveyResponse.getNeedsSurvey());
         response.put("surveyQuestions", surveyResponse.getQuestions());
-
         if (surveyResponse.getNeedsSurvey()) {
             response.put("message", "안녕! 나는 너의 진로 정체성을 함께 찾아갈 상담사야. 먼저 간단한 설문조사를 진행해볼까? 😊");
         } else {

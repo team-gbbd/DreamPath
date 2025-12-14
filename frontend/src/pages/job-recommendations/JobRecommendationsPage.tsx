@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { jobRecommendationService } from "@/lib/api";
+import { jobRecommendationService, BACKEND_BASE_URL } from "@/lib/api";
 
 interface JobRecommendation {
   jobId: string;
@@ -16,12 +16,39 @@ interface JobRecommendation {
   concerns: string[];
 }
 
+interface AnalysisData {
+  mbti?: string | null;
+  personality?: string | Record<string, number> | null;
+  values?: string | Record<string, number> | null;
+  emotions?: string | Record<string, number | string> | null;
+  confidenceScore?: number | null;
+  createdAt?: string | null;
+  summary?: string | null;
+}
+
+// localStorage에서 userId 가져오기
+const getStoredUserId = (): number | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem('dreampath:user');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { userId?: number };
+    return typeof parsed?.userId === 'number' ? parsed.userId : null;
+  } catch {
+    return null;
+  }
+};
+
 export default function JobRecommendationsPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [calculating, setCalculating] = useState(false);
   const [recommendations, setRecommendations] = useState<JobRecommendation[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [noAnalysis, setNoAnalysis] = useState(false);
+  const [notLoggedIn, setNotLoggedIn] = useState(false);
+  const [isCached, setIsCached] = useState(false);
+  const [calculatedAt, setCalculatedAt] = useState<string | null>(null);
 
   useEffect(() => {
     loadRecommendations();
@@ -30,71 +57,123 @@ export default function JobRecommendationsPage() {
   const loadRecommendations = async () => {
     setLoading(true);
     try {
-      // localStorage에서 진로 분석 결과 가져오기
-      let analysisData = localStorage.getItem("careerAnalysis");
-      const profileData = localStorage.getItem("userProfile");
-
-      // 개발용 샘플 데이터
-      if (!analysisData) {
-        console.log("샘플 데이터 사용 (개발용)");
-        analysisData = JSON.stringify({
-          recommendedCareers: [
-            {
-              careerName: "백엔드 개발자",
-              description: "서버 개발 및 API 설계",
-              matchScore: 85,
-              reasons: ["Python 경험", "문제 해결 능력"]
-            }
-          ],
-          strengths: ["빠른 학습 능력", "문제 해결 능력"],
-          values: ["성장", "협업"],
-          interests: ["웹 개발", "데이터베이스"]
-        });
+      // 1. 로그인한 사용자 ID 가져오기
+      const userId = getStoredUserId();
+      if (!userId) {
+        setNotLoggedIn(true);
+        setLoading(false);
+        return;
       }
 
-      const careerAnalysis = JSON.parse(analysisData);
-      const userProfile = profileData ? JSON.parse(profileData) : {
-        skills: ["Python", "JavaScript", "React"],
-        experience: "2년차"
-      };
+      // 2. 진로상담 직업추천 기반 채용공고 추천 조회 (우선)
+      try {
+        const careerResult = await jobRecommendationService.getRecommendationsByCareerAnalysis(userId, 20);
 
-      // AI 추천 요청
-      const result = await jobRecommendationService.getRecommendations(
-        1, // userId (개발용)
-        careerAnalysis,
-        userProfile,
-        20
-      );
+        if (careerResult.success && careerResult.recommendations && careerResult.recommendations.length > 0) {
+          const mappedRecommendations = careerResult.recommendations.map((rec: any) => ({
+            jobId: rec.id?.toString() || '',
+            title: rec.title || '',
+            company: rec.company || '',
+            location: rec.location || null,
+            url: rec.url || '',
+            description: rec.description || null,
+            siteName: rec.siteName || '',
+            matchScore: rec.matchScore || 0,
+            reasons: rec.matchReason ? [rec.matchReason] : [],
+            strengths: rec.matchedCareers || [],
+            concerns: [],
+          }));
 
-      setRecommendations(result.recommendations || []);
-      setTotalCount(result.totalCount || 0);
+          setRecommendations(mappedRecommendations);
+          setTotalCount(careerResult.totalCount || mappedRecommendations.length);
+          setIsCached(false);
+          setCalculatedAt(null);
+          setLoading(false);
+          return;
+        }
+      } catch (careerError) {
+        console.log("진로상담 기반 추천 조회 실패:", careerError);
+      }
+
+      // 3. 진로상담 결과가 없으면 캐시된 추천 조회 시도 (fallback)
+      try {
+        const cachedResult = await jobRecommendationService.getCachedRecommendations(userId, 20);
+
+        if (cachedResult.success && cachedResult.recommendations && cachedResult.recommendations.length > 0) {
+          const mappedRecommendations = cachedResult.recommendations.map((rec: any) => ({
+            jobId: rec.id?.toString() || '',
+            title: rec.title || '',
+            company: rec.company || '',
+            location: rec.location || null,
+            url: rec.url || '',
+            description: rec.description || null,
+            siteName: rec.siteName || '',
+            matchScore: rec.matchScore || 0,
+            reasons: rec.matchReason ? [rec.matchReason] : [],
+            strengths: rec.strengths || [],
+            concerns: rec.concerns || [],
+          }));
+
+          setRecommendations(mappedRecommendations);
+          setTotalCount(cachedResult.totalCount || mappedRecommendations.length);
+          setIsCached(true);
+          setCalculatedAt(cachedResult.calculatedAt || null);
+          setLoading(false);
+          return;
+        }
+      } catch (cacheError) {
+        console.log("캐시된 추천 조회 실패:", cacheError);
+      }
+
+      // 4. 둘 다 없으면 진로상담 필요 안내
+      setNoAnalysis(true);
     } catch (error: any) {
       console.error("추천 실패:", error);
       if (error.response?.status === 404) {
         setNoAnalysis(true);
       } else {
-        alert(error.response?.data?.detail || "채용 공고 추천 실패");
+        alert(error.response?.data?.detail || error.message || "채용 공고 추천 실패");
       }
     } finally {
       setLoading(false);
+      setCalculating(false);
     }
   };
 
-  if (noAnalysis) {
+  // 추천 재계산 트리거
+  const handleRecalculate = async () => {
+    const userId = getStoredUserId();
+    if (!userId) return;
+
+    setCalculating(true);
+    try {
+      // 백그라운드에서 계산 시작
+      await jobRecommendationService.triggerCalculation(userId, false);
+      // 재로드
+      await loadRecommendations();
+    } catch (error) {
+      console.error("재계산 실패:", error);
+      alert("추천 재계산에 실패했습니다.");
+    } finally {
+      setCalculating(false);
+    }
+  };
+
+  if (notLoggedIn) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-7xl mx-auto px-4">
           <div className="bg-white rounded-lg shadow p-12 text-center">
-            <div className="text-6xl mb-4">📋</div>
-            <h2 className="text-2xl font-bold mb-4">채용 공고 데이터가 부족합니다</h2>
+            <div className="text-6xl mb-4">🔐</div>
+            <h2 className="text-2xl font-bold mb-4">로그인이 필요합니다</h2>
             <p className="text-gray-600 mb-6">
-              먼저 채용 공고를 수집해야 AI가 분석할 수 있습니다.
+              채용 추천을 받으려면 먼저 로그인해주세요.
             </p>
             <button
-              onClick={() => navigate("/admin/crawler")}
+              onClick={() => navigate("/login")}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
-              크롤러 페이지로 이동
+              로그인하기
             </button>
           </div>
         </div>
@@ -102,13 +181,44 @@ export default function JobRecommendationsPage() {
     );
   }
 
-  if (loading) {
+  if (noAnalysis) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="bg-white rounded-lg shadow p-12 text-center">
+            <div className="text-6xl mb-4">💬</div>
+            <h2 className="text-2xl font-bold mb-4">진로상담이 필요합니다</h2>
+            <p className="text-gray-600 mb-6">
+              먼저 진로상담 챗봇과 대화하고 종합분석을 완료해야 맞춤 채용 추천을 받을 수 있습니다.
+            </p>
+            <button
+              onClick={() => navigate("/career-chat")}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              진로상담 시작하기
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading || calculating) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-7xl mx-auto px-4">
           <div className="bg-white rounded-lg shadow p-12 text-center">
             <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">AI가 당신에게 맞는 채용 공고를 찾고 있습니다...</p>
+            <p className="text-gray-600">
+              {calculating
+                ? "AI가 당신에게 맞는 채용 공고를 분석 중입니다..."
+                : "추천 정보를 불러오는 중..."}
+            </p>
+            {calculating && (
+              <p className="text-sm text-gray-400 mt-2">
+                처음 분석 시 1-2분 정도 소요될 수 있습니다
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -126,19 +236,69 @@ export default function JobRecommendationsPage() {
           >
             ← 뒤로 가기
           </button>
-          <h1 className="text-3xl font-bold mb-2">AI 채용 공고 추천</h1>
-          <p className="text-gray-600">
-            당신의 진로 분석 결과를 바탕으로 {totalCount}개의 공고를 찾았습니다
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">AI 채용 공고 추천</h1>
+              <p className="text-gray-600">
+                당신의 진로 분석 결과를 바탕으로 {totalCount}개의 공고를 찾았습니다
+              </p>
+              {isCached && calculatedAt && (
+                <p className="text-sm text-gray-400 mt-1">
+                  마지막 분석: {new Date(calculatedAt).toLocaleString('ko-KR')}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={handleRecalculate}
+              disabled={calculating}
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              <svg
+                className={`w-4 h-4 ${calculating ? 'animate-spin' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              {calculating ? '분석 중...' : '다시 분석'}
+            </button>
+          </div>
         </div>
 
         {recommendations.length === 0 ? (
           <div className="bg-white rounded-lg shadow p-12 text-center">
-            <div className="text-4xl mb-4">😔</div>
-            <p className="text-gray-600">추천할 채용 공고가 없습니다</p>
-            <p className="text-sm text-gray-500 mt-2">
-              채용 공고 데이터를 수집하거나, 다른 키워드로 시도해보세요
-            </p>
+            {!isCached ? (
+              <>
+                <div className="text-4xl mb-4">⏳</div>
+                <h3 className="text-xl font-bold text-gray-800 mb-2">추천 준비 중</h3>
+                <p className="text-gray-600 mb-4">
+                  AI가 당신에게 맞는 채용 공고를 분석하고 있습니다.
+                </p>
+                <p className="text-sm text-gray-500 mb-6">
+                  백그라운드에서 분석 중이며, 1-2분 후 새로고침하면 결과를 확인할 수 있습니다.
+                </p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  새로고침
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="text-4xl mb-4">😔</div>
+                <p className="text-gray-600">추천할 채용 공고가 없습니다</p>
+                <p className="text-sm text-gray-500 mt-2">
+                  채용 공고 데이터를 수집하거나, 다른 키워드로 시도해보세요
+                </p>
+              </>
+            )}
           </div>
         ) : (
           <div className="space-y-4">

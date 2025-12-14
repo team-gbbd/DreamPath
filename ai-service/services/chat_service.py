@@ -24,7 +24,7 @@ class ChatService:
             api_key=api_key,
             model=model,
             temperature=0.7,
-            max_tokens=1000 # 응답 생성을 위한 충분한 토큰
+            max_completion_tokens=1000  # 응답 생성을 위한 충분한 토큰
         )
         # 기존 agent_integration 제거됨 - ReAct 에이전트가 대체
 
@@ -86,6 +86,11 @@ class ChatService:
             )
 
             if agent_result.get("used_agent"):
+                # 에이전트가 "액션 불필요"로 판단한 경우 → 아무것도 표시 안함
+                if agent_result.get("no_action"):
+                    logger.info("[ChatService] 에이전트 판단: 액션 불필요, 표시 생략")
+                    return {"agent_action": None, "agent_steps": None, "used_agent": False}
+
                 tools_used = agent_result.get("tools_used", [])
                 full_result = agent_result.get("agent_result", {})
 
@@ -127,6 +132,8 @@ class ChatService:
         이 메서드는 항상 따뜻한 상담 응답을 생성합니다.
         리서치/정보는 별도 에이전트가 담당합니다.
         """
+        logger.info(f"[Counseling] 응답 생성 시작: '{user_message[:30]}...'")
+
         # 단계별 시스템 프롬프트 생성
         system_prompt = self._build_system_prompt(current_stage, survey_data)
 
@@ -146,14 +153,30 @@ class ChatService:
         # 현재 사용자 메시지 추가
         messages.append(HumanMessage(content=user_message))
 
-        # LangChain을 통한 응답 생성
-        loop = asyncio.get_event_loop()
-        response_message = await loop.run_in_executor(
-            None,
-            lambda: self.llm.invoke(messages).content
-        )
+        logger.info(f"[Counseling] LLM 호출: {len(messages)}개 메시지")
 
-        return response_message
+        # LangChain을 통한 응답 생성
+        try:
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: self.llm.invoke(messages)
+            )
+
+            # 응답 상세 로깅
+            response_message = response.content if response.content else ""
+            logger.info(f"[Counseling] 응답 생성 완료: {len(response_message)}자")
+            logger.debug(f"[Counseling] 응답 내용: {response_message[:100]}..." if response_message else "[Counseling] 빈 응답!")
+
+            # 빈 응답 처리
+            if not response_message or not response_message.strip():
+                logger.warning(f"[Counseling] LLM이 빈 응답 반환! response_metadata: {response.response_metadata}")
+                return "안녕! 오늘 어떤 이야기를 나눠볼까?"
+
+            return response_message
+        except Exception as e:
+            logger.error(f"[Counseling] LLM 호출 실패: {e}")
+            return "죄송해요, 잠시 오류가 발생했어요. 다시 말해줄래?"
     
     def _build_system_prompt(self, current_stage: str, survey_data: Optional[Dict] = None) -> str:
         """현재 단계에 맞는 시스템 프롬프트 생성"""

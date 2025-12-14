@@ -2,8 +2,23 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { learningPathService } from '@/lib/api';
 import type { LearningPath, WeeklySessionInfo } from '@/types';
-import Header from '@/components/feature/Header';
 import { useToast } from '@/components/common/Toast';
+
+// 남은 시간 계산 헬퍼
+const getRemainingTime = (unlockAt: string | null): string | null => {
+  if (!unlockAt) return null;
+  const now = new Date();
+  const unlock = new Date(unlockAt);
+  const diff = unlock.getTime() - now.getTime();
+  if (diff <= 0) return null;
+
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+
+  if (days > 0) return `${days}일 ${hours}시간 후 해제`;
+  if (hours > 0) return `${hours}시간 후 해제`;
+  return '곧 해제';
+};
 
 export default function LearningPathDetail() {
   const { pathId } = useParams<{ pathId: string }>();
@@ -114,8 +129,8 @@ export default function LearningPathDetail() {
   return (
     <div className="min-h-screen bg-[#FFF5F7]">
       <ToastContainer />
-      <Header />
-      <div className="max-w-4xl mx-auto px-6 pt-24 pb-8">
+      
+      <div className="max-w-4xl mx-auto px-6 py-8 pb-8">
         {/* 상단 네비게이션 */}
         <div className="flex items-center justify-between mb-6 pb-4 border-b border-pink-100">
           <button
@@ -125,7 +140,7 @@ export default function LearningPathDetail() {
             <i className="ri-arrow-left-s-line"></i> 대시보드
           </button>
           <button
-            onClick={() => navigate(`/learning/${pathId}/dashboard`)}
+            onClick={() => navigate('/learning', { state: { selectPathId: Number(pathId) } })}
             className="text-sm text-pink-600 hover:text-pink-700 flex items-center gap-1 transition-colors"
           >
             <i className="ri-bar-chart-2-line"></i> 통계 보기
@@ -147,26 +162,39 @@ export default function LearningPathDetail() {
           </div>
 
           {/* 통계 */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center p-3 bg-gray-50 rounded">
-              <p className="text-2xl font-bold text-gray-900">
-                {((path.weeklySessions.filter((w) => w.status === 'COMPLETED').length / 4) * 100).toFixed(0)}%
-              </p>
-              <p className="text-xs text-gray-500 mt-1">진도율</p>
-            </div>
-            <div className="text-center p-3 bg-gray-50 rounded">
-              <p className="text-2xl font-bold text-gray-900">
-                {path.correctRate?.toFixed(0) || 0}%
-              </p>
-              <p className="text-xs text-gray-500 mt-1">정답률</p>
-            </div>
-            <div className="text-center p-3 bg-gray-50 rounded">
-              <p className="text-2xl font-bold text-gray-900">
-                {path.correctCount}<span className="text-sm font-normal text-gray-400">/{path.totalQuestions}</span>
-              </p>
-              <p className="text-xs text-gray-500 mt-1">맞춘 문제</p>
-            </div>
-          </div>
+          {(() => {
+            // weeklySessions에서 실제 점수 계산
+            const completedSessions = path.weeklySessions.filter((s: any) => s.status === 'COMPLETED');
+            const totalEarned = completedSessions.reduce((sum: number, s: any) => sum + (s.earnedScore || 0), 0);
+            const avgScore = completedSessions.length > 0 ? Math.round(totalEarned / completedSessions.length) : 0;
+
+            // 현재 주차: UNLOCKED 또는 IN_PROGRESS 상태인 주차, 없으면 마지막 완료 주차 + 1
+            const currentWeek = path.weeklySessions.find((s: any) => s.status === 'UNLOCKED' || s.status === 'IN_PROGRESS')?.weekNumber
+              || (completedSessions.length > 0 ? Math.min(completedSessions.length + 1, 4) : 1);
+
+            return (
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center p-3 bg-gray-50 rounded">
+                  <p className="text-2xl font-bold text-gray-900">
+                    {((completedSessions.length / 4) * 100).toFixed(0)}%
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">진도율</p>
+                </div>
+                <div className="text-center p-3 bg-gray-50 rounded">
+                  <p className="text-2xl font-bold text-gray-900">
+                    {avgScore}<span className="text-sm font-normal text-gray-400">점</span>
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">평균 점수</p>
+                </div>
+                <div className="text-center p-3 bg-gray-50 rounded">
+                  <p className="text-2xl font-bold text-gray-900">
+                    {currentWeek}<span className="text-sm font-normal text-gray-400">주차</span>
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">현재 주차</p>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* 주차별 목록 */}
@@ -177,8 +205,8 @@ export default function LearningPathDetail() {
               const difficultyBadge = getDifficultyBadge(session.weekNumber);
               const statusBadge = getStatusBadge(session.status);
               const isGenerating = generatingWeek === session.weekNumber;
-              const correctRate = session.questionCount > 0
-                ? ((session.correctCount / session.questionCount) * 100).toFixed(0)
+              const scoreRate = session.totalScore > 0
+                ? ((session.earnedScore / session.totalScore) * 100).toFixed(0)
                 : 0;
 
               return (
@@ -213,9 +241,9 @@ export default function LearningPathDetail() {
                             {session.questionCount > 0 && (
                               <>
                                 <span>•</span>
-                                <span>{session.correctCount}/{session.questionCount} 정답</span>
+                                <span>{session.earnedScore}/{session.totalScore}점</span>
                                 <span>•</span>
-                                <span className={Number(correctRate) >= 70 ? 'text-pink-600' : ''}>{correctRate}%</span>
+                                <span className={Number(scoreRate) >= 70 ? 'text-pink-600' : ''}>{scoreRate}%</span>
                               </>
                             )}
                           </div>
@@ -229,9 +257,16 @@ export default function LearningPathDetail() {
                             <i className="ri-check-line"></i> 완료
                           </span>
                         ) : session.status === 'LOCKED' ? (
-                          <span className="text-xs text-gray-400 flex items-center gap-1">
-                            <i className="ri-lock-line"></i> 잠김
-                          </span>
+                          <div className="text-right">
+                            <span className="text-xs text-gray-400 flex items-center gap-1">
+                              <i className="ri-lock-line"></i> 잠김
+                            </span>
+                            {session.unlockAt && (
+                              <span className="text-xs text-pink-500 mt-1 block">
+                                {getRemainingTime(session.unlockAt)}
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <button
                             className="text-sm bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded font-medium transition-colors disabled:opacity-50"

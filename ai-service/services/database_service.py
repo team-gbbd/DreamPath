@@ -682,16 +682,45 @@ class DatabaseService:
                     cursor.execute(check_sql, [site_name] + job_ids_to_check)
                     existing_job_ids = {row['job_id'] for row in cursor.fetchall()}
                 
+                # 2.5단계: tech_stack, required_skills, applicant_count 컬럼이 없으면 추가
+                try:
+                    cursor.execute("""
+                        SELECT column_name FROM information_schema.columns
+                        WHERE table_name = 'job_listings' AND column_name = 'tech_stack'
+                    """)
+                    if not cursor.fetchone():
+                        cursor.execute("ALTER TABLE job_listings ADD COLUMN tech_stack TEXT")
+                        print("✓ tech_stack 컬럼 추가됨")
+
+                    cursor.execute("""
+                        SELECT column_name FROM information_schema.columns
+                        WHERE table_name = 'job_listings' AND column_name = 'required_skills'
+                    """)
+                    if not cursor.fetchone():
+                        cursor.execute("ALTER TABLE job_listings ADD COLUMN required_skills TEXT")
+                        print("✓ required_skills 컬럼 추가됨")
+
+                    cursor.execute("""
+                        SELECT column_name FROM information_schema.columns
+                        WHERE table_name = 'job_listings' AND column_name = 'applicant_count'
+                    """)
+                    if not cursor.fetchone():
+                        cursor.execute("ALTER TABLE job_listings ADD COLUMN applicant_count INTEGER DEFAULT 0")
+                        print("✓ applicant_count 컬럼 추가됨")
+                    conn.commit()
+                except Exception as col_error:
+                    print(f"컬럼 추가 중 오류 (무시 가능): {col_error}")
+
                 # 3단계: 새 공고만 INSERT
                 insert_sql = """
                     INSERT INTO job_listings (
                         site_name, site_url, job_id, title, company,
                         location, description, url, reward, experience,
-                        search_keyword, crawled_at
+                        search_keyword, crawled_at, tech_stack, required_skills, applicant_count
                     ) VALUES (
                         %s, %s, %s, %s, %s,
                         %s, %s, %s, %s, %s,
-                        %s, %s
+                        %s, %s, %s, %s, %s
                     )
                 """
                 
@@ -729,6 +758,21 @@ class DatabaseService:
                         # company가 None이면 빈 문자열로 처리
                         company = job.get("company") or ""
                         
+                        # tech_stack 처리 (리스트 또는 문자열)
+                        tech_stack = job.get("tech_stack")
+                        if isinstance(tech_stack, list):
+                            tech_stack = ",".join(tech_stack)
+                        elif tech_stack is not None:
+                            tech_stack = str(tech_stack)
+
+                        # required_skills 처리
+                        required_skills = job.get("required_skills")
+                        if required_skills is not None:
+                            required_skills = str(required_skills)[:2000]  # 최대 2000자
+
+                        # applicant_count 처리
+                        applicant_count = job.get("applicant_count") or 0
+
                         cursor.execute(insert_sql, (
                             site_name,
                             site_url,
@@ -741,7 +785,10 @@ class DatabaseService:
                             reward,
                             experience,
                             search_keyword,
-                            datetime.now()
+                            datetime.now(),
+                            tech_stack,
+                            required_skills,
+                            applicant_count
                         ))
                         conn.commit()  # 각 INSERT 후 즉시 커밋
                         saved_count += 1

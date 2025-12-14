@@ -21,6 +21,7 @@ def crawl_jobs(state: JobResearchState) -> Dict[str, Any]:
     crawl_errors = []
     sites_crawled = []
 
+    db = None
     try:
         # DB에서 채용 공고 조회
         from services.database_service import DatabaseService
@@ -75,6 +76,10 @@ def crawl_jobs(state: JobResearchState) -> Dict[str, Any]:
 
     except Exception as e:
         crawl_errors.append(f"DB 조회 오류: {str(e)}")
+    finally:
+        # DB 연결 정리 (연결 누수 방지)
+        if db:
+            db.cleanup()
 
     return {
         "job_postings": job_postings,

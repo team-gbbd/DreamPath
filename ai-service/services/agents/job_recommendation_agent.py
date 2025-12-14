@@ -33,7 +33,140 @@ class JobRecommendationAgent:
         self.model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         self.db_service = DatabaseService()
 
-    # ==================== AI 기반 매칭 점수 (100점 만점) ====================
+    # ==================== 배치 처리: AI 기반 매칭 점수 (100점 만점) ====================
+
+    async def _calculate_ai_scores_batch(
+        self,
+        career_analysis: Dict,
+        user_profile: Optional[Dict],
+        user_skills: List[str],
+        jobs: List[Dict]
+    ) -> List[Dict]:
+        """
+        여러 채용공고를 한 번의 OpenAI 호출로 배치 처리
+
+        Args:
+            jobs: 채용공고 리스트 (최대 10개 권장)
+
+        Returns:
+            각 공고별 점수 및 분석 결과 리스트
+        """
+        import json
+        import re
+
+        if not jobs:
+            return []
+
+        # 사용자 정보 요약
+        user_info_parts = []
+        if career_analysis.get("recommendedCareers"):
+            careers = [c.get("careerName", "") for c in career_analysis["recommendedCareers"][:3]]
+            user_info_parts.append(f"추천 직업: {', '.join(careers)}")
+        if career_analysis.get("strengths"):
+            user_info_parts.append(f"강점: {', '.join(career_analysis['strengths'][:5])}")
+        if career_analysis.get("values"):
+            user_info_parts.append(f"가치관: {', '.join(career_analysis['values'][:3])}")
+        if career_analysis.get("interests"):
+            user_info_parts.append(f"관심사: {', '.join(career_analysis['interests'][:5])}")
+        if user_skills:
+            user_info_parts.append(f"보유 스킬: {', '.join(user_skills[:10])}")
+        if user_profile:
+            if user_profile.get("experience"):
+                user_info_parts.append(f"경력: {user_profile['experience']}")
+            if user_profile.get("education"):
+                user_info_parts.append(f"학력: {user_profile['education']}")
+
+        user_summary = "\n".join(user_info_parts) if user_info_parts else "정보 없음"
+        user_skills_lower = set([s.lower() for s in user_skills if s])
+
+        # 채용공고 정보 배열 생성
+        jobs_info = []
+        for i, job in enumerate(jobs):
+            job_tech = job.get("tech_stack") or []
+            job_skills = job.get("required_skills") or []
+            job_all_skills = set([s.lower() for s in (job_tech + job_skills) if s])
+            matched_skills = user_skills_lower & job_all_skills
+            skill_match_rate = round(len(matched_skills) / len(job_all_skills) * 100) if job_all_skills else 0
+
+            jobs_info.append({
+                "index": i,
+                "title": job.get('title', ''),
+                "company": job.get('company', ''),
+                "location": job.get('location', ''),
+                "tech_stack": job_tech[:8],
+                "required_skills": job_skills[:8],
+                "description": (job.get('description') or '')[:200],
+                "skill_match_rate": skill_match_rate,
+                "matched_skills": list(matched_skills)[:5]
+            })
+
+        prompt = f"""사용자와 여러 채용공고의 적합도를 **한 번에** 분석해주세요.
+
+【사용자 정보】
+{user_summary}
+
+【채용공고 목록】
+{json.dumps(jobs_info, ensure_ascii=False, indent=2)}
+
+다음 JSON 배열 형식으로 응답하세요. 각 공고의 index 순서대로 응답:
+[
+  {{
+    "index": 0,
+    "matchScore": 73,
+    "reasons": ["적합 이유 1", "적합 이유 2"],
+    "strengths": ["이 포지션에서 발휘할 강점"],
+    "concerns": ["고려사항 (없으면 빈 배열)"]
+  }},
+  ...
+]
+
+**점수 산정 기준 (1점 단위로 세밀하게):**
+1. 직무 일치도 (40점): 추천 직업과의 일치 정도
+2. 스킬 매칭률 (40점): skill_match_rate 참고
+3. 성장 가능성 (20점): 강점/가치관 적합성
+
+**중요:** 각 공고마다 차별화된 점수를 부여하세요. 모든 공고에 같은 점수 금지.
+"""
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "당신은 채용 매칭 전문가입니다. 여러 채용공고를 한 번에 분석하여 적합도를 평가합니다. 반드시 JSON 배열로만 응답하세요."
+                    },
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+                max_tokens=2000
+            )
+
+            result_text = response.choices[0].message.content
+
+            # JSON 배열 추출
+            json_match = re.search(r'\[[\s\S]*\]', result_text)
+            if json_match:
+                results = json.loads(json_match.group())
+
+                # index 순서대로 정렬하여 반환
+                results_dict = {r.get("index", i): r for i, r in enumerate(results)}
+                return [
+                    {
+                        "matchScore": min(100, max(0, results_dict.get(i, {}).get("matchScore", 50))),
+                        "reasons": results_dict.get(i, {}).get("reasons", []),
+                        "strengths": results_dict.get(i, {}).get("strengths", []),
+                        "concerns": results_dict.get(i, {}).get("concerns", [])
+                    }
+                    for i in range(len(jobs))
+                ]
+
+            # 파싱 실패시 기본값
+            return [{"matchScore": 50, "reasons": [], "strengths": [], "concerns": []} for _ in jobs]
+
+        except Exception as e:
+            print(f"배치 점수 계산 실패: {str(e)}")
+            return [{"matchScore": 50, "reasons": [], "strengths": [], "concerns": []} for _ in jobs]
 
     async def _calculate_ai_score(
         self,
@@ -157,8 +290,8 @@ class JobRecommendationAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.3,
-                max_tokens=500
+                temperature=1,
+                max_completion_tokens=500
             )
 
             result_text = response.choices[0].message.content
@@ -364,8 +497,8 @@ class JobRecommendationAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.3,
-                max_tokens=500
+                temperature=1,
+                max_completion_tokens=500
             )
 
             result_text = response.choices[0].message.content
@@ -520,21 +653,24 @@ class JobRecommendationAgent:
                 "overallLearningPath": []
             }
 
-        # 3. 각 공고에 규칙 기반 점수 계산 + 기술/자격증 분석
+        # 3. 배치 처리: 모든 공고를 한 번의 AI 호출로 점수 계산
+        print(f"[배치 처리] {len(job_listings)}개 공고 점수 계산 시작...")
+        score_results = await self._calculate_ai_scores_batch(
+            career_analysis, user_profile, user_skills, job_listings
+        )
+        print(f"[배치 처리] 점수 계산 완료")
+
+        # 4. 결과 조합 + 기술/자격증 분석
         recommendations = []
         all_technologies = {}
         all_certifications = {}
 
-        for job in job_listings:
-            # AI 기반 점수 계산 (100점 만점)
-            score_result = await self._calculate_ai_score(
-                career_analysis, user_profile, user_skills, job
-            )
-
+        for i, job in enumerate(job_listings):
+            score_result = score_results[i] if i < len(score_results) else {"matchScore": 50, "reasons": [], "strengths": [], "concerns": []}
             match_score = score_result["matchScore"]
 
             if match_score >= 30:  # 30점 이상만 포함
-                # 기술/자격증 정보 추출
+                # 기술/자격증 정보 추출 (규칙 기반, AI 호출 없음)
                 tech_info = self._extract_tech_info(job, user_skills)
 
                 recommendations.append({
@@ -894,8 +1030,8 @@ class JobRecommendationAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.3,
-                max_tokens=1000
+                temperature=1,
+                max_completion_tokens=1000
             )
 
             result_text = response.choices[0].message.content
@@ -970,6 +1106,157 @@ class JobRecommendationAgent:
 
     # ==================== 6가지 채용 분석 기능 ====================
 
+    async def _perform_comprehensive_analysis_batch(
+        self,
+        jobs_with_data: List[Dict],
+        career_analysis: Dict,
+        user_profile: Optional[Dict],
+        user_skills: List[str]
+    ) -> List[Dict]:
+        """
+        여러 채용공고의 6가지 종합 분석을 배치 처리
+
+        Args:
+            jobs_with_data: [{job, external_data}, ...] 리스트
+        """
+        import json
+        import re
+
+        if not jobs_with_data:
+            return []
+
+        # 사용자 정보 요약 (한 번만 생성)
+        user_info_parts = []
+        if career_analysis.get("recommendedCareers"):
+            careers = [c.get("careerName", "") for c in career_analysis["recommendedCareers"][:3]]
+            user_info_parts.append(f"추천 직업: {', '.join(careers)}")
+        if career_analysis.get("strengths"):
+            user_info_parts.append(f"강점: {', '.join(career_analysis['strengths'][:5])}")
+        if career_analysis.get("values"):
+            user_info_parts.append(f"가치관: {', '.join(career_analysis['values'][:3])}")
+        if user_skills:
+            user_info_parts.append(f"보유 스킬: {', '.join(user_skills[:10])}")
+        if user_profile:
+            if user_profile.get("education"):
+                user_info_parts.append(f"학력: {user_profile['education']}")
+            if user_profile.get("gpa"):
+                user_info_parts.append(f"학점: {user_profile['gpa']}")
+            if user_profile.get("experience"):
+                user_info_parts.append(f"경력: {user_profile['experience']}")
+
+        user_summary = "\n".join(user_info_parts) if user_info_parts else "정보 없음"
+
+        # 채용공고 정보 배열 생성
+        jobs_info = []
+        for i, item in enumerate(jobs_with_data):
+            job = item.get("job", {})
+            external_data = item.get("external_data", {})
+            company_info = external_data.get("companyInfo", {})
+
+            jobs_info.append({
+                "index": i,
+                "title": job.get("title", ""),
+                "company": job.get("company", ""),
+                "location": job.get("location", ""),
+                "description": (job.get("description") or "")[:300],
+                "industry": company_info.get("industry", "정보 없음"),
+                "companyType": company_info.get("companyType", "정보 없음")
+            })
+
+        prompt = f"""사용자 정보를 바탕으로 여러 채용공고에 대한 종합 분석을 **한 번에** 수행해주세요.
+
+【사용자 정보】
+{user_summary}
+
+【채용공고 목록】
+{json.dumps(jobs_info, ensure_ascii=False, indent=2)}
+
+각 공고에 대해 다음 JSON 배열 형식으로 응답하세요:
+[
+  {{
+    "index": 0,
+    "idealTalent": {{
+      "summary": "원하는 인재 한 문장",
+      "coreValues": ["가치1", "가치2"],
+      "keyTraits": ["특성1", "특성2"],
+      "fitWithUser": "사용자 적합도"
+    }},
+    "hiringProcess": {{
+      "processType": "공채/수시",
+      "expectedSteps": [{{"step": 1, "name": "서류", "tips": "팁"}}],
+      "estimatedDuration": "예상 기간"
+    }},
+    "verificationCriteria": {{
+      "skillCriteria": {{"essential": ["필수1"], "preferred": ["우대1"]}},
+      "experienceCriteria": {{"minimumYears": "신입~3년"}}
+    }},
+    "hiringStatus": {{
+      "competitionLevel": "높음/중간/낮음",
+      "marketDemand": "시장 수요"
+    }},
+    "userVerificationResult": {{
+      "overallScore": 75,
+      "strengths": [{{"area": "강점", "detail": "설명", "score": 80}}],
+      "weaknesses": [{{"area": "약점", "priority": "MEDIUM"}}]
+    }},
+    "successPrediction": {{
+      "overallProbability": 65,
+      "keyFactors": [{{"factor": "요인", "impact": "POSITIVE"}}],
+      "confidenceLevel": "중간"
+    }}
+  }},
+  ...
+]
+
+중요: 각 공고마다 차별화된 분석을 제공하세요. 점수와 분석이 모두 같으면 안됩니다.
+"""
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "당신은 채용 분석 전문가입니다. 여러 채용공고를 한 번에 분석합니다. 반드시 JSON 배열로만 응답하세요."
+                    },
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.4,
+                max_tokens=4000
+            )
+
+            result_text = response.choices[0].message.content
+
+            # JSON 배열 추출
+            json_match = re.search(r'\[[\s\S]*\]', result_text)
+            if json_match:
+                results = json.loads(json_match.group())
+                results_dict = {r.get("index", i): r for i, r in enumerate(results)}
+
+                return [
+                    self._fill_comprehensive_analysis(results_dict.get(i, {}))
+                    for i in range(len(jobs_with_data))
+                ]
+
+            return [self._get_default_comprehensive_analysis() for _ in jobs_with_data]
+
+        except Exception as e:
+            print(f"배치 종합 분석 실패: {str(e)}")
+            return [self._get_default_comprehensive_analysis() for _ in jobs_with_data]
+
+    def _fill_comprehensive_analysis(self, analysis: Dict) -> Dict:
+        """배치 결과에서 누락된 필드를 기본값으로 채움"""
+        default = self._get_default_comprehensive_analysis()
+
+        return {
+            "idealTalent": {**default["idealTalent"], **analysis.get("idealTalent", {})},
+            "hiringProcess": {**default["hiringProcess"], **analysis.get("hiringProcess", {})},
+            "verificationCriteria": {**default["verificationCriteria"], **analysis.get("verificationCriteria", {})},
+            "hiringStatus": {**default["hiringStatus"], **analysis.get("hiringStatus", {})},
+            "userVerificationResult": {**default["userVerificationResult"], **analysis.get("userVerificationResult", {})},
+            "successPrediction": {**default["successPrediction"], **analysis.get("successPrediction", {})}
+        }
+
     async def get_comprehensive_job_analysis(
         self,
         user_id: int,
@@ -979,7 +1266,7 @@ class JobRecommendationAgent:
         limit: int = 10
     ) -> Dict:
         """
-        채용 공고 추천 + 6가지 종합 분석
+        채용 공고 추천 + 6가지 종합 분석 (배치 처리)
 
         외부 데이터 + AI 분석을 결합하여 맞춤형 채용 정보 제공
 
@@ -997,7 +1284,8 @@ class JobRecommendationAgent:
 
         user_skills = user_skills or []
 
-        # 1. 기본 추천 공고 가져오기
+        # 1. 기본 추천 공고 가져오기 (배치 처리됨)
+        print(f"[종합분석] 추천 공고 조회 시작...")
         base_result = await self.get_recommendations_with_requirements(
             user_id, career_analysis, user_profile, user_skills, limit
         )
@@ -1011,29 +1299,32 @@ class JobRecommendationAgent:
                 "summary": "추천할 채용 공고가 없습니다."
             }
 
-        # 2. 각 추천 공고에 6가지 분석 추가
-        enhanced_recommendations = []
-
+        # 2. 외부 데이터 수집 (병렬 처리 가능하지만 DB 쿼리라 빠름)
+        print(f"[종합분석] {len(recommendations)}개 공고 외부 데이터 수집...")
+        jobs_with_data = []
         for job in recommendations[:limit]:
             company_name = job.get("company", "")
-
-            # 외부 데이터 수집 (기업 정보)
             external_data = await self._fetch_external_company_data(company_name)
+            jobs_with_data.append({"job": job, "external_data": external_data})
 
-            # 6가지 분석 수행
-            comprehensive_analysis = await self._perform_comprehensive_analysis(
-                job, external_data, career_analysis, user_profile, user_skills
-            )
+        # 3. 배치 처리로 6가지 종합 분석 수행 (한 번의 AI 호출)
+        print(f"[종합분석] 배치 종합 분석 시작...")
+        comprehensive_analyses = await self._perform_comprehensive_analysis_batch(
+            jobs_with_data, career_analysis, user_profile, user_skills
+        )
+        print(f"[종합분석] 배치 종합 분석 완료")
 
-            # 기존 추천 정보에 6가지 분석 추가
+        # 4. 결과 조합
+        enhanced_recommendations = []
+        for i, job in enumerate(recommendations[:limit]):
+            analysis = comprehensive_analyses[i] if i < len(comprehensive_analyses) else self._get_default_comprehensive_analysis()
             enhanced_job = {
                 **job,
-                "comprehensiveAnalysis": comprehensive_analysis
+                "comprehensiveAnalysis": analysis
             }
-
             enhanced_recommendations.append(enhanced_job)
 
-        # 3. 전체 요약 생성
+        # 5. 전체 요약 생성
         overall_summary = await self._generate_overall_summary(
             enhanced_recommendations, career_analysis
         )
@@ -1281,8 +1572,8 @@ class JobRecommendationAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.4,
-                max_tokens=3000
+                temperature=1,
+                max_completion_tokens=3000
             )
 
             result_text = response.choices[0].message.content
@@ -1369,8 +1660,8 @@ class JobRecommendationAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.5,
-                max_tokens=500
+                temperature=1,
+                max_completion_tokens=500
             )
 
             result_text = response.choices[0].message.content

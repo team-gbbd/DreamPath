@@ -45,7 +45,20 @@ public class LearningPath {
     @Column(nullable = false)
     private Integer correctCount = 0;
 
-    // DB에서 자동 계산되는 컬럼 (GENERATED)
+    @Column(nullable = false)
+    private Integer earnedScore = 0;  // 총 획득 점수
+
+    @Column(nullable = false)
+    private Integer totalMaxScore = 0;  // 총 배점
+
+    // 득점률 (earnedScore / totalMaxScore * 100)
+    @Transient
+    public Float getScoreRate() {
+        if (totalMaxScore == null || totalMaxScore == 0) return 0.0f;
+        return (float) earnedScore / totalMaxScore * 100;
+    }
+
+    // 기존 correctRate는 호환성 유지 (deprecated)
     @Column(insertable = false, updatable = false)
     private Float correctRate;
 

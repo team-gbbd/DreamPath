@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import Header from '../../components/feature/Header';
-import Footer from '../../components/feature/Footer';
 import { companyTalentService } from '../../lib/api';
 
 /**
@@ -158,7 +156,7 @@ export default function CompanyTalentPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* 헤더 */}
@@ -374,8 +372,6 @@ export default function CompanyTalentPage() {
           </div>
         )}
       </main>
-
-      <Footer />
     </div>
   );
 }

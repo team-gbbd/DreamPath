@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import Header from '../../components/feature/Header';
-import Footer from '../../components/feature/Footer';
 
 /**
  * AI 에이전트 대시보드
@@ -11,7 +9,7 @@ export default function AIAgentDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* 헤더 */}
@@ -87,8 +85,6 @@ export default function AIAgentDashboard() {
           {activeTab === 'company' && <CompanyTalentTab />}
         </div>
       </main>
-
-      <Footer />
     </div>
   );
 }

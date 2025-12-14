@@ -19,8 +19,8 @@ class IdentityAnalysisService:
         self.llm = ChatOpenAI(
             api_key=api_key,
             model=model,
-            temperature=0.7,
-            max_tokens=2000
+            temperature=1,
+            max_completion_tokens=2000
         )
         self._db_service = None
 
@@ -32,20 +32,11 @@ class IdentityAnalysisService:
 
     def _get_full_conversation(self, conversation_history: str, session_id: Optional[str] = None) -> str:
         """
-        sessionId가 있으면 해당 세션의 전체 대화 기록을 가져옵니다.
+        현재 세션의 대화 기록만 반환합니다.
+        (이전 세션의 대화는 포함하지 않음 - 새 상담 시 정체성 초기화를 위해)
         """
-        if not session_id:
-            return conversation_history
-
-        try:
-            db = self._get_db_service()
-            full_history = db.get_conversation_history_by_session_id(session_id)
-
-            # DB에서 가져온 전체 기록이 있으면 사용, 없으면 파라미터로 받은 기록 사용
-            return full_history if full_history else conversation_history
-        except Exception as e:
-            print(f"대화 기록 조회 실패 (sessionId: {session_id}): {e}")
-            return conversation_history
+        # 이전 세션 대화 조회 비활성화 - 새 상담마다 정체성을 새로 시작
+        return conversation_history
     
     async def assess_clarity(self, conversation_history: str, session_id: Optional[str] = None) -> Dict:
         """

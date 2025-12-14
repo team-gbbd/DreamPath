@@ -1,6 +1,7 @@
 """
-추천 시스템 Tool - 직업/학과 추천
+추천 시스템 Tool - 직업/학과 추천 (간단 요약)
 """
+import json
 from typing import Dict, Any, List, Optional
 from services.database_service import DatabaseService
 
@@ -10,26 +11,16 @@ TOOL_SCHEMA = {
     "type": "function",
     "function": {
         "name": "get_recommendations",
-        "description": "사용자에게 맞는 직업, 학과를 추천합니다. 프로필 분석 결과를 기반으로 Pinecone 벡터 검색을 통해 개인화된 추천을 제공합니다.",
+        "description": "사용자에게 맞는 직업, 학과를 간단히 추천합니다. 진로 분석 결과를 기반으로 추천 직업과 학과를 요약해서 제공합니다.",
         "parameters": {
             "type": "object",
             "properties": {
                 "user_id": {
                     "type": "integer",
                     "description": "조회할 사용자의 ID"
-                },
-                "recommendation_type": {
-                    "type": "string",
-                    "enum": ["job", "major", "all"],
-                    "description": "추천 유형 - job(직업), major(학과), all(전체)"
-                },
-                "top_k": {
-                    "type": "integer",
-                    "description": "추천 결과 개수 (기본: 5)",
-                    "default": 5
                 }
             },
-            "required": ["user_id", "recommendation_type"]
+            "required": ["user_id"]
         }
     }
 }
@@ -37,80 +28,72 @@ TOOL_SCHEMA = {
 
 def execute(
     user_id: int,
-    recommendation_type: str = "all",
-    top_k: int = 5,
     db: DatabaseService = None,
     **kwargs
 ) -> Dict[str, Any]:
     """
-    추천 시스템 실행 - Pinecone 벡터 검색 기반
+    추천 시스템 실행 - DB에 저장된 진로 분석 결과 기반
 
     Args:
         user_id: 사용자 ID
-        recommendation_type: 추천 유형 (job, major, all)
-        top_k: 추천 결과 개수
         db: DatabaseService 인스턴스
         **kwargs: 추가 파라미터 (무시됨)
 
     Returns:
-        추천 결과
+        추천 결과 (직업 + 학과 간단 요약)
     """
     try:
         if db is None:
             db = DatabaseService()
 
-        # 1. user_id로 profile_id 조회, 그 다음 vector_db_id 조회
-        vector_query = """
-            SELECT pv.vector_db_id
-            FROM profile_vector pv
-            JOIN user_profiles up ON pv.profile_id = up.profile_id
-            WHERE up.user_id = %s
+        # 진로 분석 결과에서 추천 직업 조회
+        query = """
+            SELECT
+                ca.recommended_careers,
+                ca.interest_areas,
+                ca.personality_type
+            FROM career_analyses ca
+            JOIN career_sessions cs ON ca.session_id = cs.id
+            WHERE cs.user_id = %s
+            ORDER BY ca.analyzed_at DESC
+            LIMIT 1
         """
-        vector_result = db.execute_query(vector_query, (user_id,))
+        results = db.execute_query(query, (str(user_id),))
 
-        if not vector_result or len(vector_result) == 0:
+        if not results or len(results) == 0:
             return {
                 "success": False,
-                "message": "프로필 벡터가 없습니다. 프로필 분석을 먼저 진행해주세요."
+                "message": "아직 진로 분석을 진행하지 않으셨네요! 진로 분석을 먼저 진행해주세요."
             }
 
-        vector_id = vector_result[0].get("vector_db_id")
+        analysis = results[0]
 
-        # 3. Pinecone에서 추천 결과 조회
-        recommendations = {}
+        # JSON 필드 파싱
+        recommended_careers = analysis.get('recommended_careers', [])
+        if isinstance(recommended_careers, str):
+            try:
+                recommended_careers = json.loads(recommended_careers)
+            except:
+                recommended_careers = []
 
-        try:
-            # recommend_service를 사용하여 추천 결과 가져오기
-            from services.recommend.recommend_service import RecommendService
-            recommend_service = RecommendService()
-
-            if recommendation_type in ["job", "all"]:
-                # 직업 추천
-                job_results = recommend_service.recommend_jobs(vector_id, top_k=top_k)
-                if job_results:
-                    recommendations["jobs"] = job_results
-
-            if recommendation_type in ["major", "all"]:
-                # 학과 추천
-                major_results = recommend_service.recommend_major(vector_id, top_k=top_k)
-                if major_results:
-                    recommendations["majors"] = major_results
-
-        except Exception as e:
-            pass
-
-        if not recommendations:
-            return {
-                "success": False,
-                "message": "추천 결과가 없습니다. 프로필 분석을 먼저 완료해주세요."
-            }
+        interest_areas = analysis.get('interest_areas', [])
+        if isinstance(interest_areas, str):
+            try:
+                interest_areas = json.loads(interest_areas)
+            except:
+                interest_areas = []
 
         return {
             "success": True,
-            "data": recommendations
+            "data": {
+                "recommended_careers": recommended_careers,
+                "interest_areas": interest_areas,
+                "personality_type": analysis.get('personality_type', '')
+            }
         }
 
     except Exception as e:
+        print(f"추천 조회 오류: {str(e)}")
         return {
             "success": False,
             "message": f"추천 조회 중 오류가 발생했습니다: {str(e)}"
@@ -119,7 +102,7 @@ def execute(
 
 def format_result(data: Dict[str, Any]) -> str:
     """
-    추천 결과를 사용자 친화적인 마크다운으로 포맷팅
+    추천 결과를 사용자 친화적인 마크다운으로 포맷팅 (간단 요약)
 
     Args:
         data: execute() 반환값
@@ -130,57 +113,43 @@ def format_result(data: Dict[str, Any]) -> str:
     if not data.get("success"):
         return data.get("message", "추천 결과를 찾을 수 없습니다.")
 
-    recommendations = data.get("data", {})
+    result = data.get("data", {})
     response = "## 🎯 맞춤형 추천 결과\n\n"
 
-    # 직업 추천
-    if "jobs" in recommendations and recommendations["jobs"]:
+    # 성향 타입
+    personality_type = result.get('personality_type')
+    if personality_type:
+        response += f"**나의 성향**: {personality_type}\n\n"
+
+    # 추천 직업 (간단히)
+    recommended_careers = result.get('recommended_careers', [])
+    if recommended_careers and isinstance(recommended_careers, list):
         response += "### 💼 추천 직업\n"
-        for idx, job in enumerate(recommendations["jobs"][:5], 1):
-            title = job.get("title", job.get("metadata", {}).get("jobName", "제목 없음"))
-            score = job.get("score", 0)
-            metadata = job.get("metadata", {})
-
-            response += f"{idx}. **{title}** (적합도: {score:.1%})\n"
-
-            summary = metadata.get("summary") or metadata.get("job_summary")
-            if summary:
-                # 요약이 너무 길면 자르기
-                if len(summary) > 100:
-                    summary = summary[:100] + "..."
-                response += f"   - {summary}\n"
-
-            job_ability = metadata.get("job_ability")
-            if job_ability:
-                response += f"   - 필요 능력: {job_ability}\n"
-
+        for idx, career in enumerate(recommended_careers[:5], 1):
+            if isinstance(career, dict):
+                career_name = career.get('careerName', 'N/A')
+                match_score = career.get('matchScore', 0)
+                response += f"{idx}. **{career_name}** (적합도: {match_score}%)\n"
+            elif isinstance(career, str):
+                response += f"{idx}. **{career}**\n"
         response += "\n"
 
-    # 학과 추천
-    if "majors" in recommendations and recommendations["majors"]:
-        response += "### 🎓 추천 학과\n"
-        for idx, major in enumerate(recommendations["majors"][:5], 1):
-            title = major.get("title", major.get("metadata", {}).get("deptName", "제목 없음"))
-            score = major.get("score", 0)
-            metadata = major.get("metadata", {})
-
-            response += f"{idx}. **{title}** (적합도: {score:.1%})\n"
-
-            dept_name = metadata.get("deptName")
-            summary = metadata.get("summary") or metadata.get("mClass")
-
-            if dept_name and dept_name != title:
-                response += f"   - 학과: {dept_name}\n"
-            if summary:
-                if len(summary) > 100:
-                    summary = summary[:100] + "..."
-                response += f"   - {summary}\n"
-
+    # 관심 분야
+    interest_areas = result.get('interest_areas', [])
+    if interest_areas and isinstance(interest_areas, list):
+        response += "### 🌟 관심 분야\n"
+        for area in interest_areas[:5]:
+            if isinstance(area, dict):
+                name = area.get('name', 'N/A')
+                level = area.get('level', 0)
+                response += f"- {name} (관심도: {level}/10)\n"
+            elif isinstance(area, str):
+                response += f"- {area}\n"
         response += "\n"
 
-    if not any(recommendations.values()):
-        return "추천 결과가 없습니다. 프로필 분석을 먼저 완료해주세요."
+    if not recommended_careers and not interest_areas:
+        return "추천 결과가 없습니다. 진로 분석을 먼저 완료해주세요."
 
-    response += "*이 추천은 AI 벡터 검색 기반으로 생성되었습니다.*"
+    response += "*상세 분석은 '내 진로 분석 결과'에서 확인하세요.*"
 
     return response

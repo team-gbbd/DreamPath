@@ -70,7 +70,7 @@ def execute(user_id: int, db: DatabaseService = None, **kwargs) -> Dict[str, Any
         if not results or len(results) == 0:
             return {
                 "success": False,
-                "message": "아직 진로 분석 결과가 없습니다. 진로 분석을 먼저 진행해주세요."
+                "message": "아직 진로 분석을 진행하지 않으셨네요! 진로 분석을 진행하시면 결과를 조회할 수 있어요."
             }
 
         analysis = results[0]
@@ -128,7 +128,7 @@ def format_result(data: Dict[str, Any]) -> str:
 
     # 감정 분석
     response += "### 😊 감정 분석\n"
-    response += f"- **점수**: {analysis.get('emotion_score', 0)}/100\n"
+    response += f"- **점수 (긍정적 감정 지수)**: {analysis.get('emotion_score', 0)}/100\n"
     response += f"- **설명**: {analysis.get('emotion_analysis', 'N/A')}\n\n"
 
     # 성향 분석
@@ -178,6 +178,13 @@ def format_result(data: Dict[str, Any]) -> str:
         response += "### 📋 종합 분석\n"
         response += f"{comprehensive}\n\n"
 
-    response += f"*분석 일시: {analysis.get('analyzed_at', 'N/A')}*"
+    # 분석 일시 (초 단위 제거: YYYY-MM-DD HH:MM:SS 형식으로 출력)
+    analyzed_at = str(analysis.get('analyzed_at', 'N/A'))
+    if analyzed_at and analyzed_at != 'N/A':
+        # "2025-12-09 15:48:44.890868" -> "2025-12-09 15:48:44"
+        formatted_date = analyzed_at[:19] if len(analyzed_at) >= 19 else analyzed_at
+        response += f"*분석 일시: {formatted_date}*"
+    else:
+        response += f"*분석 일시: N/A*"
 
     return response

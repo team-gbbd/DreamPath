@@ -243,10 +243,9 @@ class WebCrawlerService:
             page = 0
             
             while page < max_pages:
-                # 검색 파라미터 설정
+                # 검색 파라미터 설정 (전체 직군 크롤링 - tag_type_ids 제거)
                 params = {
                     "country": "kr",
-                    "tag_type_ids": "518",
                     "job_sort": "job.latest_order",
                     "locations": "all",
                     "years": "-1",
@@ -610,13 +609,57 @@ class WebCrawlerService:
                     if tag_text and len(tag_text) < 30:
                         tech_stack.append(tag_text)
 
+                # 지원자 수 추출
+                applicant_count = 0
+
+                # 방법 1: "지원현황" 또는 "지원자" 텍스트 근처에서 숫자 찾기
+                applicant_section = soup.find(string=re.compile(r"지원현황|지원자\s*수|지원자|현재\s*지원", re.I))
+                if applicant_section:
+                    parent = applicant_section.find_parent()
+                    if parent:
+                        # 부모 요소 전체 텍스트에서 숫자 추출
+                        parent_text = parent.get_text(strip=True)
+                        count_match = re.search(r'(\d{1,5})\s*명', parent_text)
+                        if count_match:
+                            applicant_count = int(count_match.group(1))
+                        else:
+                            # "명" 없이 숫자만 있는 경우
+                            count_match = re.search(r'지원[자현황]*\s*[:\s]*(\d{1,5})', parent_text)
+                            if count_match:
+                                applicant_count = int(count_match.group(1))
+
+                # 방법 2: 클래스명으로 찾기
+                if not applicant_count:
+                    applicant_elem = soup.find(class_=re.compile(r".*applicant.*|.*apply.*cnt.*|.*jv_apply.*", re.I))
+                    if applicant_elem:
+                        elem_text = applicant_elem.get_text(strip=True)
+                        count_match = re.search(r'(\d{1,5})', elem_text)
+                        if count_match:
+                            applicant_count = int(count_match.group(1))
+
+                # 방법 3: 전체 HTML에서 "N명 지원" 패턴 찾기
+                if not applicant_count:
+                    full_text = soup.get_text()
+                    patterns = [
+                        r'(\d{1,5})\s*명\s*지원',
+                        r'지원자\s*(\d{1,5})\s*명',
+                        r'현재\s*(\d{1,5})\s*명',
+                        r'(\d{1,5})\s*명이?\s*지원'
+                    ]
+                    for pattern in patterns:
+                        match = re.search(pattern, full_text)
+                        if match:
+                            applicant_count = int(match.group(1))
+                            break
+
                 full_description = "\n".join(description_parts)[:2000]
 
                 return {
                     "description": full_description if full_description else "",
                     "tech_stack": tech_stack,
                     "requirements": requirements,
-                    "preferred": preferred
+                    "preferred": preferred,
+                    "applicant_count": applicant_count
                 }
             else:
                 print(f"[사람인] 상세 페이지 호출 실패: HTTP {response.status_code}")
@@ -892,14 +935,64 @@ class WebCrawlerService:
                                     if href and not href.startswith("#") and not href.startswith("javascript:") and not href.startswith("mailto:"):
                                         job_url = urljoin("https://www.jobkorea.co.kr", href)
                             
-                            # 전체 텍스트 추출 (item 전체에서)
-                            full_text = item.get_text(strip=True)
-                            
-                            # 기본 정보 추출
-                            title = title_elem.get_text(strip=True) if title_elem else ""
+                            # 회사명, 지역 추출
                             company = company_elem.get_text(strip=True) if company_elem else ""
                             location = location_elem.get_text(strip=True) if location_elem else ""
-                            
+
+                            # 제목 추출 - 잡코리아는 <div class="description"> 안의 <span class="text">에 제목이 있음
+                            title = ""
+
+                            # 방법 1: description 영역에서 text 클래스 찾기
+                            desc_div = item.find("div", class_=re.compile(r".*description.*", re.I))
+                            if desc_div:
+                                text_span = desc_div.find("span", class_=re.compile(r".*text.*", re.I))
+                                if text_span:
+                                    title = text_span.get_text(strip=True)
+
+                            # 방법 2: item에서 직접 text 클래스 찾기
+                            if not title:
+                                text_span = item.find("span", class_=re.compile(r"^text$|.*job.*text.*", re.I))
+                                if text_span:
+                                    title = text_span.get_text(strip=True)
+
+                            # 방법 3: title_elem이 a 태그이고 title 속성이 있으면 사용
+                            if not title and title_elem and title_elem.get('title'):
+                                title = title_elem.get('title')
+
+                            # 방법 4: description 영역의 a 태그 텍스트
+                            if not title and desc_div:
+                                desc_link = desc_div.find("a", href=True)
+                                if desc_link:
+                                    # span.text 자식만 추출
+                                    text_child = desc_link.find("span", class_=re.compile(r".*text.*", re.I))
+                                    if text_child:
+                                        title = text_child.get_text(strip=True)
+                                    else:
+                                        # 자식 중 마감일/dday 제외하고 추출
+                                        for child in desc_link.children:
+                                            if isinstance(child, str):
+                                                title += child.strip() + " "
+                                            elif hasattr(child, 'name') and child.name == 'span':
+                                                child_class = child.get('class', [])
+                                                if child_class and not any(c in str(child_class).lower() for c in ['dday', 'deadline', 'date']):
+                                                    title += child.get_text(strip=True) + " "
+                                        title = title.strip()
+
+                            # 방법 5: 최후의 수단 - title_elem 전체에서 회사명/지역 패턴 제거
+                            if not title and title_elem:
+                                full_text = title_elem.get_text(strip=True)
+                                # 회사명이 이미 추출되었으면 제거
+                                if company and company in full_text:
+                                    full_text = full_text.replace(company, '')
+                                # 지역 패턴 제거
+                                title = re.sub(r'(서울|경기|인천|부산|대구|광주|대전|울산|세종|강원|충북|충남|전북|전남|경북|경남|제주)(전체|[가-힣]+구)?(\s*외)?', '', full_text)
+                                title = re.sub(r'지원\s*TOP\s*\d+', '', title)
+                                title = re.sub(r'/[가-힣·\s]+$', '', title)
+                                title = title.strip()
+
+                            # 전체 텍스트 추출 (item 전체에서 - 경력, 학력 등 추출용)
+                            full_text = item.get_text(strip=True)
+
                             # 경력 정보 추출 (experience 필드)
                             experience = ""
                             experience_patterns = [
@@ -915,15 +1008,15 @@ class WebCrawlerService:
                                 if exp_match:
                                     experience = exp_match.group(0)
                                     break
-                            
+
                             # 상세정보 추출 (description 필드)
                             details = []
-                            
+
                             # 마감일
                             deadline_match = re.search(r'(~\d+\.\d+\([월화수목금토일]\)|D-\d+|마감임박)', full_text)
                             if deadline_match:
                                 details.append(f"마감: {deadline_match.group(1)}")
-                            
+
                             # 학력
                             education_patterns = [
                                 r'학력무관', r'고졸\s*이상', r'대졸\s*이상',
@@ -934,7 +1027,7 @@ class WebCrawlerService:
                                 if edu_match:
                                     details.append(f"학력: {edu_match.group(0)}")
                                     break
-                            
+
                             # 고용형태
                             employment_patterns = [
                                 r'정규직', r'계약직', r'인턴', r'아르바이트',
@@ -945,9 +1038,9 @@ class WebCrawlerService:
                                 if emp_match:
                                     details.append(f"고용형태: {emp_match.group(0)}")
                                     break
-                            
+
                             description = " | ".join(details) if details else ""
-                            
+
                             # 제목 정리
                             clean_title = title
                             clean_title = re.sub(r'~\d+\.\d+\([월화수목금토일]\).*$', '', clean_title)
@@ -956,6 +1049,9 @@ class WebCrawlerService:
                             clean_title = re.sub(r'(학력무관|고졸|대졸|초대졸|석사|박사)\s*(이상)?', '', clean_title)
                             clean_title = re.sub(r'(정규직|계약직|인턴|아르바이트|파견직|프리랜서)', '', clean_title)
                             clean_title = re.sub(r'마감임박', '', clean_title)
+                            # 회사명이 제목에 붙어있는 경우 제거
+                            if company:
+                                clean_title = clean_title.replace(company, '')
                             clean_title = re.sub(r'\s+', ' ', clean_title).strip()
                             
                             # 필터/메뉴 항목만 제외 (완화된 필터)
@@ -1327,9 +1423,49 @@ class WebCrawlerService:
                                     if href and not href.startswith("#") and not href.startswith("javascript:") and not href.startswith("mailto:"):
                                         job_url = urljoin("https://www.saramin.co.kr", href)
                             
-                            # 전체 텍스트 추출
-                            full_text = title_elem.get_text(strip=True) if title_elem else ""
-                            
+                            # 제목 추출 - 사람인은 <strong class="tit"> 또는 <h2 class="job_tit"> 안에 제목이 있음
+                            title = ""
+
+                            # 방법 1: item 또는 title_elem 내에서 실제 제목 요소 찾기
+                            actual_title_elem = (
+                                item.find("strong", class_=re.compile(r".*tit.*", re.I)) or
+                                item.find("h2", class_=re.compile(r".*job_tit.*|.*tit.*", re.I)) or
+                                item.find("span", class_=re.compile(r".*job_tit.*|.*tit.*", re.I))
+                            )
+
+                            if actual_title_elem:
+                                title = actual_title_elem.get_text(strip=True)
+
+                            # 방법 2: title_elem이 있고 title 속성이 있으면 사용
+                            if not title and title_elem and title_elem.get('title'):
+                                title = title_elem.get('title')
+
+                            # 방법 3: title_elem의 직접 텍스트만 추출 (회사명 등 제외)
+                            if not title and title_elem:
+                                # tit 클래스를 가진 자식 요소만 추출
+                                tit_child = title_elem.find(class_=re.compile(r".*tit.*", re.I))
+                                if tit_child:
+                                    title = tit_child.get_text(strip=True)
+
+                            # 방법 4: 최후의 수단 - get_text에서 회사명/지역 패턴 제거
+                            if not title and title_elem:
+                                full_text = title_elem.get_text(strip=True)
+                                # 회사명 패턴 제거 (주식회사, (주), ㈜ 등 포함 문자열)
+                                title = re.sub(r'(주식회사|㈜|\(주\))[가-힣A-Za-z0-9\s]+', '', full_text)
+                                # 지역 패턴 제거
+                                title = re.sub(r'(서울|경기|인천|부산|대구|광주|대전|울산|세종|강원|충북|충남|전북|전남|경북|경남|제주)(전체|[가-힣]+구|[가-힣]+시)?(\s*외)?', '', title)
+                                # 경력/학력 패턴 제거
+                                title = re.sub(r'(신입|경력무관|경력|학력무관|대졸|고졸|석사|박사)[/\s]*', '', title)
+                                # 마감일 패턴 제거
+                                title = re.sub(r'~\d+\.\d+\([월화수목금토일]\)', '', title)
+                                title = re.sub(r'D-\d+', '', title)
+                                # 합격 축하금 패턴 제거
+                                title = re.sub(r'합격\s*시?\s*\d+만원', '', title)
+                                title = title.strip()
+
+                            # 전체 텍스트 (경력, 학력 등 추출용)
+                            full_text = item.get_text(strip=True)
+
                             # 경력 정보 추출 (experience 필드에 저장)
                             experience = ""
                             experience_patterns = [
@@ -1345,18 +1481,18 @@ class WebCrawlerService:
                                 if exp_match:
                                     experience = exp_match.group(0)
                                     break
-                            
+
                             # 상세정보 추출 (description 필드에 저장할 학력, 고용형태, 마감일)
                             details = []
-                            
+
                             # 마감일
                             deadline_match = re.search(r'(~\d+\.\d+\([월화수목금토일]\)|D-\d+)', full_text)
                             if deadline_match:
                                 details.append(f"마감: {deadline_match.group(1)}")
-                            
+
                             # 학력
                             education_patterns = [
-                                r'학력무관', r'고졸\s*이상', r'대졸\s*이상', 
+                                r'학력무관', r'고졸\s*이상', r'대졸\s*이상',
                                 r'초대졸\s*이상', r'석사', r'박사'
                             ]
                             for pattern in education_patterns:
@@ -1364,7 +1500,7 @@ class WebCrawlerService:
                                 if edu_match:
                                     details.append(f"학력: {edu_match.group(0)}")
                                     break
-                            
+
                             # 고용형태
                             employment_patterns = [
                                 r'정규직', r'계약직', r'인턴', r'아르바이트',
@@ -1375,11 +1511,10 @@ class WebCrawlerService:
                                 if emp_match:
                                     details.append(f"고용형태: {emp_match.group(0)}")
                                     break
-                            
+
                             description = " | ".join(details) if details else ""
-                            
+
                             # 제목 정리 - 깔끔한 제목만 남김
-                            title = full_text
                             # [회사명] 패턴 제거
                             title = re.sub(r'^\[[^\]]+\]\s*', '', title)
                             title = re.sub(r'~\d+\.\d+\([월화수목금토일]\).*$', '', title)
@@ -1389,6 +1524,9 @@ class WebCrawlerService:
                             title = re.sub(r'(학력무관|고졸|대졸|초대졸|석사|박사)\s*(이상)?', '', title)
                             title = re.sub(r'(정규직|계약직|인턴|아르바이트|파견직|프리랜서)', '', title)
                             title = re.sub(r'\([^)]*\)$', '', title)
+                            # 회사명이 제목 끝에 붙어있는 경우 제거 (회사명은 별도로 추출됨)
+                            if company:
+                                title = title.replace(company, '')
                             title = re.sub(r'\s+', ' ', title).strip()
                             if len(title) > 200:
                                 title = title[:200] + '...'
@@ -1491,7 +1629,9 @@ class WebCrawlerService:
                                 job["tech_stack"] = ",".join(detail_info["tech_stack"])
                             if detail_info.get("requirements"):
                                 job["required_skills"] = detail_info["requirements"][:500]
-                            print(f"[사람인] ({i+1}/{total_jobs}) {job.get('title', '')[:30]}... 상세 정보 추가 완료")
+                            if detail_info.get("applicant_count"):
+                                job["applicant_count"] = detail_info["applicant_count"]
+                            print(f"[사람인] ({i+1}/{total_jobs}) {job.get('title', '')[:30]}... 상세 정보 추가 완료 (지원자: {detail_info.get('applicant_count', 0)}명)")
 
                 print(f"[사람인] 상세 정보 가져오기 완료")
 

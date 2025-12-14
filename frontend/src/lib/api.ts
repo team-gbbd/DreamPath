@@ -376,6 +376,32 @@ export const jobAnalysisService = {
    🔹 Job Recommendation Agent
    ================================ */
 export const jobRecommendationService = {
+  // 캐시된 추천 조회 (빠른 응답)
+  getCachedRecommendations: async (userId: number, limit: number = 20, minScore: number = 0) => {
+    const response = await pythonApi.get(`/api/job-agent/recommendations/fast/${userId}`, {
+      params: { limit, min_score: minScore },
+    });
+    return response.data;
+  },
+
+  // 진로상담 직업추천 기반 채용공고 추천
+  getRecommendationsByCareerAnalysis: async (userId: number, limit: number = 20) => {
+    const response = await pythonApi.get(`/api/job-agent/recommendations/by-careers/${userId}`, {
+      params: { limit },
+    });
+    return response.data;
+  },
+
+  // 추천 계산 트리거 (백그라운드 실행)
+  triggerCalculation: async (userId: number, background: boolean = true) => {
+    const response = await pythonApi.post(
+      `/api/job-agent/recommendations/calculate/${userId}`,
+      {},
+      { params: { background } }
+    );
+    return response.data;
+  },
+
   getRecommendations: async (userId: number, careerAnalysis: any, userProfile?: any, limit: number = 10) => {
     const response = await pythonApi.post("/api/agent/job-recommendations", {
       userId,
@@ -418,9 +444,12 @@ export const mentorService = {
   // 멘토 신청
   applyForMentor: async (data: {
     userId: number;
+    company: string;
+    job: string;
+    experience: string;
     bio: string;
     career: string;
-    availableTime: Record<string, string[]>;
+    availableTime?: Record<string, object>;
   }) => {
     const response = await api.post('/mentors/apply', data);
     return response.data;
@@ -657,6 +686,24 @@ export const userService = {
     const response = await api.put(`/users/${userId}`, data);
     return response.data;
   },
+
+  // 관리자: 모든 사용자 조회
+  getAllUsers: async () => {
+    const response = await api.get('/users');
+    return response.data;
+  },
+
+  // 관리자: 사용자 역할 변경
+  updateUserRole: async (userId: number, role: string) => {
+    const response = await api.patch(`/users/${userId}/role`, { role });
+    return response.data;
+  },
+
+  // 관리자: 사용자 활성화/비활성화
+  updateUserStatus: async (userId: number, isActive: boolean) => {
+    const response = await api.patch(`/users/${userId}/status`, { isActive });
+    return response.data;
+  },
 };
 
 /* ================================
@@ -777,6 +824,69 @@ export const companyTalentService = {
     const response = await pythonApi.get(
       `/api/company-talent/search?${params.toString()}`
     );
+    return response.data;
+  },
+};
+
+/* ================================
+   AI 지원서 작성 도우미 서비스
+   ================================ */
+export const applicationService = {
+  // 자기소개서 초안 생성
+  generateCoverLetter: async (
+    userId: number,
+    jobInfo: {
+      jobId: string;
+      title: string;
+      company: string;
+      description?: string;
+      location?: string;
+      url?: string;
+    },
+    style: "professional" | "passionate" | "creative" = "professional"
+  ) => {
+    const response = await pythonApi.post("/api/application/generate-cover-letter", {
+      userId,
+      jobInfo,
+      style,
+    });
+    return response.data;
+  },
+
+  // 지원 팁 조회
+  getApplicationTips: async (
+    userId: number,
+    jobInfo: {
+      jobId: string;
+      title: string;
+      company: string;
+      description?: string;
+      location?: string;
+    }
+  ) => {
+    const response = await pythonApi.post("/api/application/tips", {
+      userId,
+      jobInfo,
+    });
+    return response.data;
+  },
+
+  // 자기소개서 피드백
+  reviewCoverLetter: async (
+    coverLetter: string,
+    jobInfo: {
+      jobId: string;
+      title: string;
+      company: string;
+      description?: string;
+    },
+    userId?: number
+  ) => {
+    const response = await pythonApi.post("/api/application/review", {
+      userId,
+      coverLetter,
+      jobInfo,
+    });
     return response.data;
   },
 };

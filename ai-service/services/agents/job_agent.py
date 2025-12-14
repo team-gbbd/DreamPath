@@ -845,11 +845,21 @@ async def run_job_agent_json(
 
             strengths = career_analysis.get("strengths", [])
             if strengths:
-                request_parts.append(f"강점: {', '.join(strengths[:5])}")
+                # dict 리스트인 경우 name 필드 추출, 문자열 리스트면 그대로 사용
+                strength_names = [
+                    s.get("name", str(s)) if isinstance(s, dict) else str(s)
+                    for s in strengths[:5]
+                ]
+                request_parts.append(f"강점: {', '.join(strength_names)}")
 
             interests = career_analysis.get("interests", [])
             if interests:
-                request_parts.append(f"관심분야: {', '.join(interests[:5])}")
+                # dict 리스트인 경우 name 필드 추출, 문자열 리스트면 그대로 사용
+                interest_names = [
+                    i.get("name", str(i)) if isinstance(i, dict) else str(i)
+                    for i in interests[:5]
+                ]
+                request_parts.append(f"관심분야: {', '.join(interest_names)}")
 
         if user_profile:
             skills = user_profile.get("skills", [])
