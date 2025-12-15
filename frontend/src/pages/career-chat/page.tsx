@@ -463,9 +463,16 @@ export default function CareerChatPage() {
     });
   };
 
-  const handlePersonalityPromptAction = (action: 'view' | 'later', messageId: string) => {
+  const handlePersonalityPromptAction = async (action: 'view' | 'later', messageId: string) => {
     if (action === 'view') {
-      navigate('/profile/dashboard');
+      // "네, 확인할래요" 클릭 시 분석 실행 후 대시보드로 이동
+      setMessages(prev =>
+        prev.map(message =>
+          message.id === messageId ? { ...message, ctaResolved: true } : message
+        )
+      );
+      await handleAnalyze();
+      return;
     } else {
       setPersonalityPromptDismissed(true);
     }
@@ -847,33 +854,9 @@ export default function CareerChatPage() {
 
       const userId = JSON.parse(localStorage.getItem('dreampath:user') || '{}').userId;
 
-      if (userId) {
-        try {
-          const analysisCheckResponse = await fetch(`${API_BASE_URL}/profiles/${userId}/analysis`);
-
-          if (analysisCheckResponse.ok) {
-            console.log('기존 분석 결과 발견, 대시보드로 이동');
-            if (sessionId) {
-              markAnalysisUnlocked(sessionId);
-            }
-            setMessages(prev => [...prev, {
-              id: generateMessageId(),
-              role: 'assistant',
-              content: '이미 분석이 완료되어 있습니다! 대시보드로 이동합니다.',
-              timestamp: new Date(),
-            }]);
-
-            setTimeout(() => {
-              navigate('/profile/dashboard');
-            }, 800);
-
-            setIsLoading(false);
-            return;
-          }
-        } catch (error) {
-          console.log('프로파일 없음, 새로 분석 시작');
-        }
-      }
+      // 기존 분석 여부와 관계없이 현재 세션에 대해 새로 분석 실행
+      // (이전 로직: 기존 분석이 있으면 스킵 → 새 진로상담 결과가 반영되지 않는 버그)
+      console.log('현재 세션에 대해 분석 시작:', sessionId);
 
       const response = await fetch(`${API_BASE_URL}/analysis/${sessionId}`, {
         method: 'POST',
@@ -898,6 +881,9 @@ export default function CareerChatPage() {
         content: '분석이 완료되었습니다! 이제 대시보드에서 상세한 결과를 확인할 수 있어요.',
         timestamp: new Date(),
       }]);
+
+      // 진로 분석 완료 이벤트 발생 - Assistant 챗봇 캐시 초기화용
+      window.dispatchEvent(new CustomEvent('dreampath-career-updated'));
 
       setTimeout(() => {
         navigate('/profile/dashboard');
@@ -1761,7 +1747,7 @@ function RightPanel({
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700 text-xs"
+                                    className="flex-1 border-blue-500 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300 text-xs"
                                     disabled={similarMentorLoading === panel.id}
                                     onClick={() => findSimilarMentors(panel.id, session)}
                                   >

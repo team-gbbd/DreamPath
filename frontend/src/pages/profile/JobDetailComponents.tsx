@@ -102,10 +102,12 @@ export const JobIndicatorChart = ({ data }: { data: IndicatorChartItem[] }) => {
 // 2. Bar Chart for Competency (Perform/Knowledge/Skill)
 export const CompetencyBarChart = ({
     data,
-    type
+    type,
+    darkMode = false
 }: {
     data: CompetencyItem[],
-    type: 'perform' | 'knowledge' | 'skill'
+    type: 'perform' | 'knowledge' | 'skill',
+    darkMode?: boolean
 }) => {
     // Sort by importance desc and take top 5
     const sortedData = [...data]
@@ -118,7 +120,9 @@ export const CompetencyBarChart = ({
 
     if (sortedData.length === 0) {
         return (
-            <div className="flex h-40 items-center justify-center rounded-2xl bg-gray-50 text-sm text-gray-400">
+            <div className={`flex h-40 items-center justify-center rounded-2xl text-sm ${
+                darkMode ? 'bg-white/[0.03] text-white/50' : 'bg-gray-50 text-gray-400'
+            }`}>
                 역량 데이터가 없습니다.
             </div>
         );
@@ -137,16 +141,22 @@ export const CompetencyBarChart = ({
                         dataKey="name"
                         type="category"
                         width={100}
-                        tick={{ fontSize: 11, fill: '#374151' }}
+                        tick={{ fontSize: 11, fill: darkMode ? 'rgba(255,255,255,0.6)' : '#374151' }}
                         interval={0}
                     />
                     <Tooltip
-                        cursor={{ fill: '#f3f4f6' }}
-                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+                        cursor={{ fill: darkMode ? 'rgba(255,255,255,0.05)' : '#f3f4f6' }}
+                        contentStyle={{
+                            borderRadius: '8px',
+                            border: 'none',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                            backgroundColor: darkMode ? '#1a1a24' : '#fff',
+                            color: darkMode ? '#fff' : '#000'
+                        }}
                     />
                     <Bar dataKey="value" barSize={12} radius={[0, 4, 4, 0]}>
                         {sortedData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={index < 3 ? '#6366f1' : '#a5b4fc'} />
+                            <Cell key={`cell-${index}`} fill={index < 3 ? '#5A7BFF' : darkMode ? '#5A7BFF50' : '#a5b4fc'} />
                         ))}
                     </Bar>
                 </BarChart>

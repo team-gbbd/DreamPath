@@ -1088,21 +1088,6 @@ export default function NewDashboard() {
           </div>
         )}
 
-        {emotionProgressData && emotionProgressData.length > 0 && (
-          <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
-            <h3 className={`text-lg font-semibold ${theme.text}`}>감정 반응 지표</h3>
-            <div className="mt-4 space-y-4">
-              {emotionProgressData.map((item, index) => (
-                <ProgressBar
-                  key={item.name}
-                  label={item.name}
-                  value={item.score}
-                  color={index % 2 === 0 ? 'bg-[#5A7BFF]' : 'bg-[#8F5CFF]'}
-                />
-              ))}
-            </div>
-          </div>
-        )}
 
         <div className={`backdrop-blur-lg rounded-3xl p-6 border ${darkMode ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-indigo-50/50 border-white/30'}`}>
           <h3 className={`text-lg font-semibold ${darkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>MBTI Insights</h3>

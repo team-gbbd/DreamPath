@@ -118,6 +118,25 @@ export default function AssistantChatbot({
     return () => window.removeEventListener("dreampath-auth-change", handleAuthChange);
   }, []);
 
+  // 진로 상담 완료 시 캐시 초기화 (최신 진로 데이터 기반 응답을 위해)
+  useEffect(() => {
+    const handleCareerUpdated = () => {
+      console.log("🎯 진로 상담 완료 감지 - Assistant 챗봇 세션 초기화");
+      // 캐시 초기화
+      cachedSessionId = null;
+      cachedMessages = [];
+      cachedSelectedCategory = null;
+      // 상태 초기화
+      setSessionId(null);
+      setMessages([]);
+      setSelectedCategory(null);
+      setFaqList([]);
+    };
+
+    window.addEventListener("dreampath-career-updated", handleCareerUpdated);
+    return () => window.removeEventListener("dreampath-career-updated", handleCareerUpdated);
+  }, []);
+
   // 자동 스크롤
   useEffect(() => {
     if (chatRef.current) {
