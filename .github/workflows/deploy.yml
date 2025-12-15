@@ -27,6 +27,7 @@ jobs:
               - 'frontend/**'
             backend:
               - 'backend/**'
+              - '.github/ecs/backend-task-definition.json'
             ai-service:
               - 'ai-service/**'
 
