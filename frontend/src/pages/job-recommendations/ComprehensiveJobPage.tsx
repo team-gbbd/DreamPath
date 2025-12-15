@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { jobRecommendationService, jobSiteService, BACKEND_BASE_URL, authFetch } from "@/lib/api";
 import ApplicationWriterModal from "../../components/application/ApplicationWriterModal";
-import Header from "@/components/layout/Header";
 
 // localStorage에서 userId 가져오기
 const getStoredUserId = (): number | null => {
@@ -496,7 +495,6 @@ export default function ComprehensiveJobPage() {
   if (loadError) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header />
         <div className="max-w-7xl mx-auto px-4 py-12">
           <div className="bg-white rounded-lg shadow p-12 text-center">
             <div className="text-6xl mb-4">⚠️</div>
