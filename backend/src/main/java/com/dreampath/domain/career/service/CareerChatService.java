@@ -81,14 +81,19 @@ public class CareerChatService {
                     })
                     .collect(Collectors.toList());
 
+            log.info("[Chat] 세션 설문 데이터 조회 - surveyCompleted: {}, surveyData 존재: {}",
+                session.getSurveyCompleted(), session.getSurveyData() != null);
             if (session.getSurveyData() != null) {
                 try {
                     @SuppressWarnings("unchecked")
                     Map<String, Object> parsed = objectMapper.readValue(session.getSurveyData(), Map.class);
                     ctx.surveyData = parsed;
+                    log.info("[Chat] 설문 데이터 파싱 성공 - 나이: {}, 이름: {}", parsed.get("age"), parsed.get("name"));
                 } catch (Exception e) {
                     log.warn("설문조사 데이터 파싱 실패: {}", e.getMessage());
                 }
+            } else {
+                log.warn("[Chat] 설문 데이터가 없습니다 - sessionId: {}", session.getSessionId());
             }
 
             if (request.getUserId() != null && !request.getUserId().isEmpty()) {
