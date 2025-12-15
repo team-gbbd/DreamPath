@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface InquiryFormProps {
   onSubmit: (data: InquiryData) => Promise<void>;
@@ -6,6 +7,7 @@ interface InquiryFormProps {
   defaultName?: string;
   defaultEmail?: string;
   isLoggedIn?: boolean;
+  darkMode?: boolean;
 }
 
 export interface InquiryData {
@@ -26,6 +28,7 @@ export default function InquiryForm({
   defaultName = "",
   defaultEmail = "",
   isLoggedIn = false,
+  darkMode = false,
 }: InquiryFormProps) {
   const [data, setData] = useState<InquiryData>({
     name: defaultName,
@@ -88,17 +91,43 @@ export default function InquiryForm({
     }
   };
 
+  const inputBaseClass = "w-full border rounded-lg px-3 py-2 text-sm outline-none transition-all";
+  const inputClass = darkMode
+    ? "bg-white/[0.03] border-white/[0.1] text-white placeholder:text-white/40 focus:border-violet-500/50"
+    : "bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-violet-500";
+  const inputDisabledClass = darkMode
+    ? "bg-white/[0.02] cursor-not-allowed"
+    : "bg-gray-100 cursor-not-allowed";
+
   return (
-    <div className="bg-white rounded-xl p-4 shadow-md max-w-[90%]">
-      <h3 className="text-sm font-semibold mb-3">문의하기</h3>
+    <div className={cn(
+      "rounded-xl p-3 sm:p-4 max-w-[95%] sm:max-w-[90%]",
+      darkMode
+        ? "bg-white/[0.03] border border-white/[0.08]"
+        : "bg-white shadow-md"
+    )}>
+      <h3 className={cn(
+        "text-sm font-semibold mb-3",
+        darkMode ? "text-white" : "text-gray-900"
+      )}>
+        문의하기
+      </h3>
       <div className="space-y-3">
         <div>
-          <label className="block text-xs text-gray-600 mb-1">이름</label>
+          <label className={cn(
+            "block text-xs mb-1",
+            darkMode ? "text-white/60" : "text-gray-600"
+          )}>
+            이름
+          </label>
           <input
             type="text"
-            className={`w-full border rounded-lg px-3 py-2 text-sm ${
-              errors.name ? "border-red-500" : "border-gray-300"
-            } ${isLoggedIn ? "bg-gray-100 cursor-not-allowed" : ""}`}
+            className={cn(
+              inputBaseClass,
+              inputClass,
+              errors.name && "border-red-500",
+              isLoggedIn && inputDisabledClass
+            )}
             placeholder="이름을 입력하세요"
             value={data.name}
             onChange={(e) => handleChange("name", e.target.value)}
@@ -110,12 +139,20 @@ export default function InquiryForm({
         </div>
 
         <div>
-          <label className="block text-xs text-gray-600 mb-1">이메일</label>
+          <label className={cn(
+            "block text-xs mb-1",
+            darkMode ? "text-white/60" : "text-gray-600"
+          )}>
+            이메일
+          </label>
           <input
             type="email"
-            className={`w-full border rounded-lg px-3 py-2 text-sm ${
-              errors.email ? "border-red-500" : "border-gray-300"
-            } ${isLoggedIn ? "bg-gray-100 cursor-not-allowed" : ""}`}
+            className={cn(
+              inputBaseClass,
+              inputClass,
+              errors.email && "border-red-500",
+              isLoggedIn && inputDisabledClass
+            )}
             placeholder="email@example.com"
             value={data.email}
             onChange={(e) => handleChange("email", e.target.value)}
@@ -127,11 +164,19 @@ export default function InquiryForm({
         </div>
 
         <div>
-          <label className="block text-xs text-gray-600 mb-1">문의 내용</label>
+          <label className={cn(
+            "block text-xs mb-1",
+            darkMode ? "text-white/60" : "text-gray-600"
+          )}>
+            문의 내용
+          </label>
           <textarea
-            className={`w-full border rounded-lg px-3 py-2 text-sm resize-none ${
-              errors.content ? "border-red-500" : "border-gray-300"
-            }`}
+            className={cn(
+              inputBaseClass,
+              inputClass,
+              "resize-none",
+              errors.content && "border-red-500"
+            )}
             placeholder="문의 내용을 입력하세요"
             rows={4}
             value={data.content}
@@ -146,14 +191,19 @@ export default function InquiryForm({
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white py-2 rounded-lg text-sm hover:from-purple-600 hover:to-pink-600 disabled:opacity-50"
+            className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white py-2 rounded-lg text-sm font-medium hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 transition-all"
           >
             {submitting ? "보내는 중..." : "보내기"}
           </button>
           <button
             onClick={onCancel}
             disabled={submitting}
-            className="px-4 bg-gray-200 text-gray-700 py-2 rounded-lg text-sm hover:bg-gray-300 disabled:opacity-50"
+            className={cn(
+              "px-4 py-2 rounded-lg text-sm transition-all disabled:opacity-50",
+              darkMode
+                ? "bg-white/[0.05] text-white/70 hover:bg-white/[0.08]"
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+            )}
           >
             취소
           </button>

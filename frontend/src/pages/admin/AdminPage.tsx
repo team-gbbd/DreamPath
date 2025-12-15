@@ -171,14 +171,24 @@ export default function AdminPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           {/* Header */}
           <div className="mb-6 sm:mb-8">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/20">
-                <i className="ri-admin-line text-white text-xl sm:text-2xl"></i>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/20">
+                  <i className="ri-admin-line text-white text-xl sm:text-2xl"></i>
+                </div>
+                <div>
+                  <h1 className={`text-2xl sm:text-3xl font-bold ${theme.text}`}>관리자 대시보드</h1>
+                  <p className={`text-sm sm:text-base ${theme.textMuted}`}>시스템 관리 및 콘텐츠 관리</p>
+                </div>
               </div>
-              <div>
-                <h1 className={`text-2xl sm:text-3xl font-bold ${theme.text}`}>관리자 대시보드</h1>
-                <p className={`text-sm sm:text-base ${theme.textMuted}`}>시스템 관리 및 콘텐츠 관리</p>
-              </div>
+              <button
+                onClick={() => navigate('/admin/crawler')}
+                className="bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] hover:opacity-90 text-white px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl font-medium transition-all flex items-center gap-2 text-sm sm:text-base shadow-lg shadow-purple-500/20"
+              >
+                <i className="ri-search-eye-line"></i>
+                <span className="hidden sm:inline">채용정보 크롤러</span>
+                <span className="sm:hidden">크롤러</span>
+              </button>
             </div>
           </div>
 
