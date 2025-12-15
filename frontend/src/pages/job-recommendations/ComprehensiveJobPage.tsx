@@ -154,6 +154,7 @@ export default function ComprehensiveJobPage() {
   >("talent");
   const [notLoggedIn, setNotLoggedIn] = useState(false);
   const [noAnalysis, setNoAnalysis] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isCached, setIsCached] = useState(false);
   const [calculatedAt, setCalculatedAt] = useState<string | null>(null);
   const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false);
@@ -242,6 +243,7 @@ export default function ComprehensiveJobPage() {
 
   const loadRecommendations = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const userId = getStoredUserId();
       if (!userId) {
@@ -312,6 +314,12 @@ export default function ComprehensiveJobPage() {
       console.error("추천 실패:", error);
       if (error.response?.status === 404) {
         setNoAnalysis(true);
+      } else {
+        // 에러 메시지 설정
+        const errorMessage = error.response?.data?.error
+          || error.message
+          || "채용 추천을 불러오는 데 실패했습니다.";
+        setLoadError(errorMessage);
       }
     } finally {
       setLoading(false);
@@ -473,6 +481,40 @@ export default function ComprehensiveJobPage() {
             )}
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // 에러 발생
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <div className="max-w-7xl mx-auto px-4 py-12">
+          <div className="bg-white rounded-lg shadow p-12 text-center">
+            <div className="text-6xl mb-4">⚠️</div>
+            <h2 className="text-2xl font-bold text-red-600 mb-4">추천 조회 실패</h2>
+            <p className="text-gray-600 mb-4">{loadError}</p>
+            <div className="flex gap-4 justify-center">
+              <button
+                onClick={() => {
+                  setLoadError(null);
+                  loadRecommendations();
+                }}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                다시 시도
+              </button>
+              <button
+                onClick={() => navigate("/profile/input")}
+                className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+              >
+                프로필 분석하기
+              </button>
+            </div>
+          </div>
+        </div>
+        <Footer />
       </div>
     );
   }
