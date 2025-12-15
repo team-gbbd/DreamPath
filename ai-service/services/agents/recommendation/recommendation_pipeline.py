@@ -387,6 +387,10 @@ class RecommendationPipeline:
                                 if isinstance(item, dict):
                                     chart_data_dict.update(item)
                                     
+                        # Ensure metadata exists
+                        if 'metadata' not in m or not isinstance(m.get('metadata'), dict):
+                            m['metadata'] = {}
+
                         # 3. Calculate Advancement Rate (진학률)
                         adv_rate = "정보 없음"
                         if 'after_graduation' in chart_data_dict:
