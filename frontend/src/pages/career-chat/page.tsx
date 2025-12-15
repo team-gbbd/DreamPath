@@ -36,6 +36,8 @@ import SurveyModal from '../../components/profile/SurveyModal';
 import AgentCard, { type AgentAction } from '../../components/career/AgentCard';
 import { API_BASE_URL, PYTHON_AI_SERVICE_URL } from '@/lib/api';
 
+const ANALYSIS_UNLOCK_KEY = 'career_chat_analysis_unlocked';
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -221,6 +223,7 @@ export default function CareerChatPage() {
   const [personalityPromptDismissed, setPersonalityPromptDismissed] = useState(false);
   const [personalityTriggered, setPersonalityTriggered] = useState(false);
   const [isIdentityLoading, setIsIdentityLoading] = useState(false);
+  const [analysisUnlocked, setAnalysisUnlocked] = useState(false);
 
   const promptMessageText = [
     '사용자님의 상담 내용을 기반으로',
@@ -290,6 +293,13 @@ export default function CareerChatPage() {
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    if (analysisUnlocked) {
+      setPersonalityPromptDismissed(true);
+      setPersonalityTriggered(false);
+    }
+  }, [analysisUnlocked]);
+
   // HomePage에서 전달받은 initialMessage 처리
   useEffect(() => {
     const state = location.state as { initialMessage?: string } | null;
@@ -300,6 +310,32 @@ export default function CareerChatPage() {
       sendMessage(state.initialMessage);
     }
   }, [sessionId, location.state]);
+
+  useEffect(() => {
+    if (!sessionId) {
+      setAnalysisUnlocked(false);
+      return;
+    }
+    try {
+      const stored = JSON.parse(localStorage.getItem(ANALYSIS_UNLOCK_KEY) || '{}');
+      setAnalysisUnlocked(Boolean(stored[sessionId]));
+    } catch {
+      setAnalysisUnlocked(false);
+    }
+  }, [sessionId]);
+
+  const markAnalysisUnlocked = (session: string) => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(ANALYSIS_UNLOCK_KEY) || '{}');
+      stored[session] = true;
+      localStorage.setItem(ANALYSIS_UNLOCK_KEY, JSON.stringify(stored));
+    } catch {
+      localStorage.setItem(ANALYSIS_UNLOCK_KEY, JSON.stringify({ [session]: true }));
+    }
+    setAnalysisUnlocked(true);
+    setPersonalityPromptDismissed(true);
+    setPersonalityTriggered(false);
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -706,6 +742,7 @@ export default function CareerChatPage() {
 
       if (
         personalityAgentPayload &&
+        !analysisUnlocked &&
         !personalityPromptDismissed &&
         !messages.some(m => m.ctaType === 'personality-agent' && !m.ctaResolved)
       ) {
@@ -759,6 +796,9 @@ export default function CareerChatPage() {
 
           if (analysisCheckResponse.ok) {
             console.log('기존 분석 결과 발견, 대시보드로 이동');
+            if (sessionId) {
+              markAnalysisUnlocked(sessionId);
+            }
 
             setMessages(prev => [...prev, {
               id: generateMessageId(),
@@ -795,6 +835,9 @@ export default function CareerChatPage() {
 
       const analysisResult = await response.json();
       console.log('분석 완료:', analysisResult);
+      if (sessionId) {
+        markAnalysisUnlocked(sessionId);
+      }
 
       setMessages(prev => [...prev, {
         id: generateMessageId(),
@@ -828,6 +871,7 @@ export default function CareerChatPage() {
     setMessages([]);
     setSessionId(null);
     setIdentityStatus(null);
+    setAnalysisUnlocked(false);
     setShowSurvey(false);
     setSurveyQuestions([]);
     setResearchPanels([]);
@@ -940,7 +984,7 @@ export default function CareerChatPage() {
 
   const stageInfo = identityStatus ? getStageInfo(identityStatus.currentStage) : null;
   const StageIcon = stageInfo?.icon || Compass;
-  const shouldShowAnalyzeButton = messages.length >= 6 && (personalityTriggered || personalityPromptDismissed);
+  const shouldShowAnalyzeButton = analysisUnlocked || (messages.length >= 6 && (personalityTriggered || personalityPromptDismissed));
 
   return (
     <div className="min-h-screen bg-slate-100">

@@ -3,15 +3,17 @@
 대화 내용을 기반으로 감정, 성향, 흥미를 분석하고 진로를 추천합니다.
 """
 import json
-from typing import List
+from typing import List, Optional
 from services.openai_service import OpenAIService
+from services.database_service import DatabaseService
 
 
 class CareerAnalysisService:
     """진로 분석 서비스"""
     
-    def __init__(self, openai_service: OpenAIService):
+    def __init__(self, openai_service: OpenAIService, db_service: Optional[DatabaseService] = None):
         self.openai_service = openai_service
+        self.db_service = db_service or DatabaseService()
     
     async def analyze_session(
         self, 
@@ -46,8 +48,8 @@ class CareerAnalysisService:
         career_recommendations = await self.generate_career_recommendations(
             emotion_analysis, personality_analysis, interest_analysis
         )
-        
-        return {
+
+        analysis_result = {
             "sessionId": session_id,
             "emotion": emotion_analysis,
             "personality": personality_analysis,
@@ -55,6 +57,19 @@ class CareerAnalysisService:
             "comprehensiveAnalysis": comprehensive_analysis,
             "recommendedCareers": career_recommendations
         }
+        
+        # DB 저장
+        try:
+            self.db_service.save_career_analysis(
+                session_id=session_id,
+                user_id=None,
+                analysis_data=analysis_result
+            )
+            print(f"[CareerAnalysisService] 분석 결과 저장 완료 (sessionId={session_id})")
+        except Exception as e:
+            print(f"[CareerAnalysisService] 분석 결과 저장 실패 (sessionId={session_id}): {e}")
+        
+        return analysis_result
     
     async def analyze_emotion(self, conversation_history: str) -> dict:
         """감정 분석"""
@@ -289,4 +304,3 @@ class CareerAnalysisService:
             return []
         except Exception as e:
             return []
-
