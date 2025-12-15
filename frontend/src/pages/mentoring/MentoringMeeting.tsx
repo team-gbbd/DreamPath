@@ -354,7 +354,7 @@ function ProfessionalMeetingUI({
             </div>
 
             {/* 우측 하단 로컬 참가자 PIP */}
-            <div className={`absolute bottom-20 md:bottom-24 right-3 md:right-4 w-32 h-24 md:w-64 md:h-48 rounded-xl overflow-hidden shadow-2xl z-10 ${darkMode ? 'bg-gradient-to-br from-[#5A7BFF]/30 to-[#8F5CFF]/30' : 'bg-gradient-to-br from-pink-300 to-pink-200'}`}>
+            <div className={`absolute bottom-20 md:bottom-24 right-3 md:right-4 w-32 h-24 md:w-64 md:h-48 rounded-xl overflow-hidden shadow-2xl z-10 ${darkMode ? 'bg-gradient-to-br from-[#5A7BFF]/30 to-[#8F5CFF]/30' : 'bg-gradient-to-br from-[#5A7BFF]/30 to-[#8F5CFF]/30'}`}>
               {isCameraOn && localCameraTrack ? (
                 <VideoTrack
                   trackRef={localCameraTrack}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { MessageSquare, Briefcase, Users, Send, Sparkles, Sun, Moon, Menu, X, Mic, Brain, Zap, Target, Bot } from "lucide-react";
+import { MessageSquare, Briefcase, Users, Send, Sparkles, Sun, Moon, Menu, X, Mic, Brain, Zap, Target, Bot, Home, User, BookOpen, LogOut } from "lucide-react";
 import FaqChatbot from "@/components/chatbot/FaqChatbot";
 
 // Typing animation hook
@@ -148,14 +148,24 @@ export default function LandingPage() {
     setTimeout(() => setShowToast(false), 3000);
   };
 
-  const handleSidebarClick = (type: "career" | "job" | "mentoring") => {
+  const handleSidebarClick = (type: "home" | "career" | "profile" | "job" | "mentoring" | "learning") => {
     setSidebarOpen(false);
+
+    // 홈은 페이지 새로고침
+    if (type === "home") {
+      window.location.reload();
+      return;
+    }
+
+    // 진로 상담은 로그인 필요
     if (type === "career") {
       displayToast("로그인이 필요합니다.");
       setTimeout(() => navigate("/login"), 1500);
-    } else {
-      displayToast("성향 프로파일링이 필요합니다. 진로상담을 먼저 진행해주세요!");
+      return;
     }
+
+    // 나머지는 프로파일링 필요 메시지
+    displayToast("성향 프로파일링이 필요합니다. 진로상담을 먼저 진행해주세요!");
   };
 
   const handleSendMessage = () => {
@@ -174,8 +184,10 @@ export default function LandingPage() {
 
   const sidebarItems = [
     { type: "career" as const, icon: MessageSquare, label: "진로 상담" },
+    { type: "profile" as const, icon: User, label: "프로파일링" },
     { type: "job" as const, icon: Briefcase, label: "채용 추천" },
     { type: "mentoring" as const, icon: Users, label: "멘토링" },
+    { type: "learning" as const, icon: BookOpen, label: "학습" },
   ];
 
   const features = [

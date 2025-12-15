@@ -82,6 +82,18 @@ export default {
           "0%": { opacity: "0", transform: "translateY(20px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        "float-particle": {
+          "0%, 100%": { transform: "translate(0, 0)", opacity: "0.3" },
+          "25%": { transform: "translate(10px, -10px)", opacity: "0.5" },
+          "50%": { transform: "translate(5px, 5px)", opacity: "0.3" },
+          "75%": { transform: "translate(-5px, -5px)", opacity: "0.5" },
+        },
+        blob: {
+          "0%": { transform: "translate(0px, 0px) scale(1)" },
+          "33%": { transform: "translate(30px, -50px) scale(1.1)" },
+          "66%": { transform: "translate(-20px, 20px) scale(0.9)" },
+          "100%": { transform: "translate(0px, 0px) scale(1)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -91,6 +103,7 @@ export default {
         pulse: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
         "bounce-slow": "bounce-slow 2s ease-in-out infinite",
         "slide-up": "slide-up 0.3s ease-out",
+        blob: "blob 7s infinite",
       },
     },
   },
