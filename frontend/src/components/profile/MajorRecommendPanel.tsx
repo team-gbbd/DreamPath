@@ -143,14 +143,29 @@ const MajorRecommendPanel = ({ embedded = false, majors = [], isLoading = false,
             const title = item.title || item.name || item.majorName || item.major_name || item.metadata?.deptName || "학과명 미확인";
             const explanation = item.explanation || item.reason || item.description || "추천 이유가 준비 중입니다.";
 
+            // Stats Extraction Helper
+            const parseMetadata = (item: RecommendItem) => {
+              if (item.metadata && typeof item.metadata === 'object') return item.metadata;
+              if (item.metadata_json) { // Assuming RecommendItem interface has metadata_json or allows index access
+                // cast to any to avoid strict type error if interface not updated yet
+                const jsonStr = (item as any).metadata_json;
+                try {
+                  return typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
+                } catch { return {}; }
+              }
+              return {};
+            };
+
+            const metadata = parseMetadata(item as any); // cast for safety
+
             // Badges
-            const field = item.metadata?.lClass || "계열 미확인";
+            const field = metadata.lClass || metadata.field || "계열 미확인";
             const badges = ["대학교", field]; // Implicitly assuming University type as per standard data
 
             // Stats
             // Backend now provides pre-calculated rates
-            const empRate = item.metadata?.employment_rate || "정보 없음";
-            const advRate = item.metadata?.advancement_rate || "정보 없음";
+            const empRate = metadata.employment_rate || metadata.employment || "정보 없음";
+            const advRate = metadata.advancement_rate || metadata.advancement || "정보 없음";
             const imageKey = String(item.id || item.major_id || index);
             const rawCategory = item.metadata?.lClass || item.metadata?.field || item.tag || item.category || "";
             const majorCategoryName = typeof rawCategory === "string" ? rawCategory : "";

@@ -104,10 +104,22 @@ public class RecommendationStorageService {
         try {
             Map<?, ?> metadata = (Map<?, ?>) jobMap.get("metadata");
 
+            String jobName = getStringValue(jobMap, "title");
+            if (jobName == null)
+                jobName = getStringValue(jobMap, "job_name");
+            if (jobName == null)
+                jobName = getStringValue(jobMap, "jobName");
+            if (jobName == null)
+                jobName = getStringValue(jobMap, "job_nm");
+            if (jobName == null)
+                jobName = getStringValue(metadata, "jobName");
+            if (jobName == null)
+                jobName = "이름 미확인";
+
             JobRecommendation recommendation = JobRecommendation.builder()
                     .userId(userId)
                     .jobCode(getStringValue(metadata, "job_code"))
-                    .jobName(getStringValue(jobMap, "title", getStringValue(metadata, "jobName")))
+                    .jobName(jobName)
                     .matchScore(getDoubleValue(jobMap, "score"))
                     .category(getStringValue(metadata, "job_category"))
                     .description(getStringValue(metadata, "description"))
@@ -127,10 +139,22 @@ public class RecommendationStorageService {
         try {
             Map<?, ?> metadata = (Map<?, ?>) majorMap.get("metadata");
 
+            String majorName = getStringValue(majorMap, "title");
+            if (majorName == null)
+                majorName = getStringValue(majorMap, "major_name");
+            if (majorName == null)
+                majorName = getStringValue(majorMap, "majorName");
+            if (majorName == null)
+                majorName = getStringValue(majorMap, "major_nm");
+            if (majorName == null)
+                majorName = getStringValue(metadata, "deptName");
+            if (majorName == null)
+                majorName = "학과명 미확인";
+
             MajorRecommendation recommendation = MajorRecommendation.builder()
                     .userId(userId)
                     .majorCode(getStringValue(metadata, "major_code"))
-                    .majorName(getStringValue(majorMap, "title", getStringValue(metadata, "deptName")))
+                    .majorName(majorName)
                     .matchScore(getDoubleValue(majorMap, "score"))
                     .category(getStringValue(metadata, "lClass", getStringValue(metadata, "field")))
                     .description(getStringValue(metadata, "description"))
