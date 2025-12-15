@@ -279,7 +279,7 @@ export default function NewDashboard() {
     // Main backgrounds
     containerBg: darkMode
       ? "bg-[#0a0a0f]"
-      : "bg-gradient-to-br from-orange-100 via-pink-100 to-purple-200",
+      : "bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-100",
     boxBg: darkMode
       ? "bg-white/[0.03] border-white/[0.06]"
       : "bg-white/60 border-white/80",
@@ -308,7 +308,12 @@ export default function NewDashboard() {
     itemHover: darkMode ? "hover:bg-white/[0.08]" : "hover:bg-white/40",
 
     // Active/Selected states
-    activeBg: darkMode ? "bg-blue-600" : "bg-blue-500",
+    activeBg: darkMode ? "bg-[#5A7BFF]" : "bg-[#5A7BFF]",
+
+    // Brand colors (logo gradient)
+    brandGradient: "from-[#5A7BFF] to-[#8F5CFF]",
+    brandPrimary: "#5A7BFF",
+    brandSecondary: "#8F5CFF",
 
     // Input styles
     inputBg: darkMode
@@ -530,7 +535,7 @@ export default function NewDashboard() {
             || '학과',
           match: Math.round((major.score || 0) * 100),
           tag: major.metadata?.lClass || major.metadata?.field || major.metadata?.category || '학과',
-          color: index === 0 ? 'from-green-500 to-green-600' : index === 1 ? 'from-emerald-500 to-emerald-600' : 'from-teal-500 to-teal-600'
+          color: index === 0 ? 'from-[#5A7BFF] to-[#8F5CFF]' : index === 1 ? 'from-[#8F5CFF] to-purple-600' : 'from-purple-500 to-purple-600'
         })));
       }
     } catch (legacyError) {
@@ -580,7 +585,7 @@ export default function NewDashboard() {
         title: major.title,
         match: toMatchPercent(major.matchScore ?? major.match ?? major.score ?? major.metadata?.matchScore ?? major.metadata?.match ?? major.metadata?.score),
         tag: major.tag || major.category || major.metadata?.lClass || major.metadata?.field || major.metadata?.category || '학과',
-        color: index === 0 ? 'from-green-500 to-green-600' : index === 1 ? 'from-emerald-500 to-emerald-600' : 'from-teal-500 to-teal-600',
+        color: index === 0 ? 'from-[#5A7BFF] to-[#8F5CFF]' : index === 1 ? 'from-[#8F5CFF] to-purple-600' : 'from-purple-500 to-[#5A7BFF]',
       })));
 
     } catch (e) {
@@ -920,7 +925,7 @@ export default function NewDashboard() {
 
         {/* Values Section */}
         {analysisData?.valuesList && analysisData.valuesList.length > 0 && (
-          <div className={`mt-3 p-4 rounded-xl border ${darkMode ? 'bg-purple-500/10 border-purple-500/20' : 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-100'}`}>
+          <div className={`mt-3 p-4 rounded-xl border ${darkMode ? 'bg-[#8F5CFF]/10 border-[#8F5CFF]/20' : 'bg-purple-50 border-purple-100'}`}>
             <h4 className={`text-sm font-bold mb-3 flex items-center gap-2 ${darkMode ? 'text-purple-400' : 'text-purple-700'}`}>
               <Heart size={16} />
               핵심 가치
@@ -983,12 +988,12 @@ export default function NewDashboard() {
         <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${darkMode ? 'bg-green-500/20' : 'bg-gradient-to-br from-green-100 to-green-200'}`}>
-                <GraduationCap size={20} className="text-green-500" />
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${darkMode ? 'bg-[#8F5CFF]/20' : 'bg-gradient-to-br from-purple-100 to-purple-200'}`}>
+                <GraduationCap size={20} className="text-[#8F5CFF]" />
               </div>
               <h3 className={`text-lg font-bold ${theme.text}`}>추천 학과 TOP 3</h3>
             </div>
-            <button onClick={() => setActiveTab('majors')} className={`${theme.textMuted} hover:text-green-500`}>
+            <button onClick={() => setActiveTab('majors')} className={`${theme.textMuted} hover:text-[#8F5CFF]`}>
               <ChevronRight size={20} />
             </button>
           </div>
@@ -1001,12 +1006,12 @@ export default function NewDashboard() {
                     {major.rank}
                   </div>
                   <div>
-                    <p className={`font-bold text-sm group-hover:text-green-500 ${theme.text}`}>{major.title}</p>
+                    <p className={`font-bold text-sm group-hover:text-[#8F5CFF] ${theme.text}`}>{major.title}</p>
                     <p className={`text-xs ${theme.textSubtle}`}>{major.tag}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-base font-bold text-green-500">{major.match}%</span>
+                  <span className="text-base font-bold text-[#8F5CFF]">{major.match}%</span>
                   <p className={`text-[10px] ${theme.textSubtle}`}>일치</p>
                 </div>
               </div>
@@ -1055,11 +1060,11 @@ export default function NewDashboard() {
             {(personalityNarrative.strengths.length > 0 || personalityNarrative.growthAreas.length > 0) && (
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 {personalityNarrative.strengths.length > 0 && (
-                  <div className={`rounded-xl border p-3 ${darkMode ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-emerald-100 bg-emerald-50/60'}`}>
-                    <p className={`text-xs font-semibold uppercase tracking-wide mb-2 ${darkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>강점</p>
+                  <div className={`rounded-xl border p-3 ${darkMode ? 'border-[#5A7BFF]/30 bg-[#5A7BFF]/10' : 'border-blue-100 bg-blue-50/60'}`}>
+                    <p className={`text-xs font-semibold uppercase tracking-wide mb-2 ${darkMode ? 'text-[#5A7BFF]' : 'text-[#5A7BFF]'}`}>강점</p>
                     <div className="flex flex-wrap gap-2">
                       {personalityNarrative.strengths.map((item, idx) => (
-                        <span key={`${item}-${idx}`} className={`rounded-full px-3 py-1 text-xs shadow-sm ${darkMode ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white text-emerald-700'}`}>
+                        <span key={`${item}-${idx}`} className={`rounded-full px-3 py-1 text-xs shadow-sm ${darkMode ? 'bg-[#5A7BFF]/20 text-blue-300' : 'bg-white text-[#5A7BFF]'}`}>
                           {item}
                         </span>
                       ))}
@@ -1092,7 +1097,7 @@ export default function NewDashboard() {
                   key={item.name}
                   label={item.name}
                   value={item.score}
-                  color={index % 2 === 0 ? 'bg-emerald-500' : 'bg-blue-500'}
+                  color={index % 2 === 0 ? 'bg-[#5A7BFF]' : 'bg-[#8F5CFF]'}
                 />
               ))}
             </div>
@@ -1118,14 +1123,14 @@ export default function NewDashboard() {
             {analysisData?.strengths && analysisData.strengths.length > 0 && (
               <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
                 <div className="flex items-center gap-3 mb-4">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-green-500/20' : 'bg-gradient-to-br from-green-100 to-green-200'}`}>
-                    <Check size={20} className="text-green-500" />
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-[#5A7BFF]/20' : 'bg-gradient-to-br from-blue-100 to-purple-200'}`}>
+                    <Check size={20} className="text-[#5A7BFF]" />
                   </div>
                   <h3 className={`text-lg font-bold ${theme.text}`}>나의 강점</h3>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {analysisData.strengths.map((strength, idx) => (
-                    <span key={idx} className={`px-3 py-1.5 rounded-full text-sm font-medium border shadow-sm transition-colors ${darkMode ? 'bg-green-500/20 text-green-300 border-green-500/30 hover:bg-green-500/30' : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'}`}>
+                    <span key={idx} className={`px-3 py-1.5 rounded-full text-sm font-medium border shadow-sm transition-colors ${darkMode ? 'bg-[#5A7BFF]/20 text-blue-300 border-[#5A7BFF]/30 hover:bg-[#5A7BFF]/30' : 'bg-blue-50 text-[#5A7BFF] border-blue-200 hover:bg-blue-100'}`}>
                       {strength}
                     </span>
                   ))}
@@ -1189,10 +1194,21 @@ export default function NewDashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={valuesChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? 'rgba(255,255,255,0.1)' : '#e5e7eb'} />
-                <XAxis dataKey="name" tick={{ fill: darkMode ? 'rgba(255,255,255,0.7)' : '#374151' }} />
-                <YAxis tick={{ fill: darkMode ? 'rgba(255,255,255,0.7)' : '#374151' }} />
-                <Tooltip contentStyle={{ backgroundColor: darkMode ? '#1f1f2e' : '#fff', border: darkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e5e7eb', color: darkMode ? '#fff' : '#374151' }} />
-                <Bar dataKey="score">
+                <XAxis dataKey="name" tick={{ fill: darkMode ? 'rgba(255,255,255,0.7)' : '#374151', fontSize: 12 }} />
+                <YAxis tick={{ fill: darkMode ? 'rgba(255,255,255,0.7)' : '#374151', fontSize: 12 }} />
+                <Tooltip
+                  cursor={{ fill: darkMode ? 'rgba(90, 123, 255, 0.15)' : 'rgba(90, 123, 255, 0.1)' }}
+                  contentStyle={{
+                    backgroundColor: darkMode ? 'rgba(15, 15, 20, 0.95)' : 'rgba(255, 255, 255, 0.98)',
+                    border: darkMode ? '1px solid rgba(143, 92, 255, 0.3)' : '1px solid rgba(90, 123, 255, 0.3)',
+                    borderRadius: '12px',
+                    boxShadow: darkMode ? '0 8px 32px rgba(143, 92, 255, 0.2)' : '0 8px 32px rgba(90, 123, 255, 0.15)',
+                    padding: '12px 16px',
+                  }}
+                  labelStyle={{ color: darkMode ? '#fff' : '#1f2937', fontWeight: 600, marginBottom: '4px' }}
+                  itemStyle={{ color: darkMode ? 'rgba(255,255,255,0.8)' : '#4b5563' }}
+                />
+                <Bar dataKey="score" radius={[8, 8, 0, 0]}>
                   {valuesChartData.map((entry) => (
                     <Cell key={`cell-${entry.key}`} fill={entry.color} />
                   ))}
@@ -1207,7 +1223,7 @@ export default function NewDashboard() {
       {analysisData?.valuesList && analysisData.valuesList.length > 0 && (
         <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
           <div className="flex items-center gap-3 mb-4">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-purple-500/20' : 'bg-gradient-to-br from-purple-100 to-pink-200'}`}>
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-[#8F5CFF]/20' : 'bg-purple-100'}`}>
               <Heart size={20} className="text-purple-500" />
             </div>
             <h3 className={`text-lg font-bold ${theme.text}`}>나의 핵심 가치</h3>
@@ -1217,7 +1233,7 @@ export default function NewDashboard() {
           </p>
           <div className="flex flex-wrap gap-2">
             {analysisData.valuesList.map((value, idx) => (
-              <span key={idx} className={`px-4 py-2 rounded-full text-sm font-medium border shadow-sm hover:shadow-md hover:scale-105 transition-all ${darkMode ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'bg-gradient-to-r from-purple-50 to-pink-50 text-purple-700 border-purple-200'}`}>
+              <span key={idx} className={`px-4 py-2 rounded-full text-sm font-medium border shadow-sm hover:shadow-md hover:scale-105 transition-all ${darkMode ? 'bg-[#8F5CFF]/20 text-purple-300 border-[#8F5CFF]/30' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>
                 {value}
               </span>
             ))}
@@ -1275,7 +1291,7 @@ export default function NewDashboard() {
             </div>
             <p className={`text-3xl font-bold mb-1 ${theme.text}`}>{totalProgress}%</p>
             <div className={`h-1.5 rounded-full overflow-hidden ${darkMode ? 'bg-white/10' : 'bg-slate-200'}`}>
-              <div className="h-full bg-pink-500 rounded-full" style={{ width: `${totalProgress}%` }} />
+              <div className="h-full bg-[#5A7BFF] rounded-full" style={{ width: `${totalProgress}%` }} />
             </div>
           </div>
 
@@ -1304,8 +1320,8 @@ export default function NewDashboard() {
         <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-pink-500/20' : 'bg-pink-100'}`}>
-                <GraduationCap size={20} className={darkMode ? 'text-pink-400' : 'text-pink-600'} />
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-[#5A7BFF]/20' : 'bg-blue-100'}`}>
+                <GraduationCap size={20} className={darkMode ? 'text-[#5A7BFF]' : 'text-[#5A7BFF]'} />
               </div>
               <h3 className={`text-sm font-bold ${theme.textSecondary}`}>가장 잘하는 학습</h3>
             </div>
@@ -1327,7 +1343,7 @@ export default function NewDashboard() {
                 </div>
                 <Link
                   to={`/learning?career=${encodeURIComponent(bestPath.domain)}`}
-                  className="px-3 py-1.5 bg-pink-500 text-white text-xs font-medium rounded-lg hover:bg-pink-600 transition-colors"
+                  className="px-3 py-1.5 bg-[#5A7BFF] text-white text-xs font-medium rounded-lg hover:bg-[#4A6BEF] transition-colors"
                 >
                   학습하기
                 </Link>
@@ -1338,7 +1354,7 @@ export default function NewDashboard() {
               <p className={`text-sm mb-4 ${theme.textSubtle}`}>아직 시작한 학습이 없습니다</p>
               <button
                 onClick={() => setActiveTab('roadmap')}
-                className="px-4 py-2 bg-pink-500 text-white text-sm font-medium rounded-lg hover:bg-pink-600 transition-colors"
+                className="px-4 py-2 bg-[#5A7BFF] text-white text-sm font-medium rounded-lg hover:bg-[#4A6BEF] transition-colors"
               >
                 학습 시작하기
               </button>
@@ -1405,12 +1421,12 @@ export default function NewDashboard() {
             {/* 내 예약 */}
             <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
               <div className="flex items-center gap-3 mb-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-pink-500/20' : 'bg-gradient-to-br from-pink-100 to-pink-200'}`}>
-                  <Heart size={20} className={darkMode ? 'text-pink-400' : 'text-pink-600'} />
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-[#5A7BFF]/20' : 'bg-blue-100'}`}>
+                  <Heart size={20} className={darkMode ? 'text-[#5A7BFF]' : 'text-[#5A7BFF]'} />
                 </div>
                 <h3 className={`text-sm font-bold ${theme.textSecondary}`}>내 예약</h3>
               </div>
-              <p className={`text-3xl font-bold mb-1 ${darkMode ? 'text-pink-400' : 'text-pink-600'}`}>{myBookings.length}건</p>
+              <p className={`text-3xl font-bold mb-1 ${darkMode ? 'text-[#5A7BFF]' : 'text-[#5A7BFF]'}`}>{myBookings.length}건</p>
             </div>
           </div>
         )}
@@ -1419,7 +1435,7 @@ export default function NewDashboard() {
         {!isMentor && (
           <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-pink-500 rounded-xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-[#5A7BFF] rounded-xl flex items-center justify-center">
                 <Heart size={24} className="text-white" />
               </div>
               <div>
@@ -1434,7 +1450,7 @@ export default function NewDashboard() {
                   <Heart size={32} className={darkMode ? 'text-white/40' : 'text-slate-400'} />
                 </div>
                 <p className={`text-sm mb-6 ${theme.textSecondary}`}>예약한 세션이 없습니다</p>
-                <button onClick={() => navigate('/mentoring')} className="px-6 py-3 bg-gradient-to-r from-pink-400 to-pink-500 text-white rounded-xl text-sm font-bold hover:opacity-90 transition-opacity shadow-lg">
+                <button onClick={() => navigate('/mentoring')} className="px-6 py-3 bg-[#5A7BFF] text-white rounded-xl text-sm font-bold hover:bg-[#4A6BEF] transition-colors shadow-lg">
                   세션 찾아보기
                 </button>
               </div>
@@ -1446,7 +1462,7 @@ export default function NewDashboard() {
                     <div key={booking.bookingId} className={`border rounded-xl p-4 ${darkMode ? 'bg-white/[0.03] border-white/[0.08]' : `${status.bg} ${status.border}`}`}>
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-pink-400 to-pink-500 rounded-full flex items-center justify-center">
+                          <div className="w-10 h-10 bg-[#5A7BFF] rounded-full flex items-center justify-center">
                             <User size={20} className="text-white" />
                           </div>
                           <div>
@@ -1611,17 +1627,17 @@ export default function NewDashboard() {
 
         {/* Become a Mentor CTA - 멘토가 아닐 때만 표시 */}
         {!isMentor && (
-          <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
             <div className="relative z-10 flex flex-col items-center text-center">
               <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4">
                 <User size={32} className="text-white" />
               </div>
               <h3 className="text-2xl font-bold mb-2">멘토가 되어보세요!</h3>
-              <p className="text-purple-100 mb-6 max-w-md">
+              <p className="text-blue-100 mb-6 max-w-md">
                 후배들의 성장을 도와주실 멘토를 모집합니다.
               </p>
-              <button onClick={() => setShowMentorModal(true)} className="px-6 py-3 bg-white text-purple-600 rounded-xl text-sm font-bold hover:bg-purple-50 transition-colors shadow-lg">
+              <button onClick={() => setShowMentorModal(true)} className="px-6 py-3 bg-white text-[#5A7BFF] rounded-xl text-sm font-bold hover:bg-blue-50 transition-colors shadow-lg">
                 멘토 신청하기
               </button>
             </div>
@@ -1636,7 +1652,7 @@ export default function NewDashboard() {
       <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-pink-500 rounded-xl flex items-center justify-center">
+            <div className="w-12 h-12 bg-[#5A7BFF] rounded-xl flex items-center justify-center">
               <Settings size={24} className="text-white" />
             </div>
             <div>
@@ -1644,7 +1660,7 @@ export default function NewDashboard() {
               <p className={`text-sm ${theme.textSubtle}`}>개인정보 확인 및 관리</p>
             </div>
           </div>
-          <button disabled className={`px-4 py-2 text-sm ${darkMode ? 'text-pink-400 hover:text-pink-300 disabled:text-white/30' : 'text-pink-600 hover:text-pink-700 disabled:text-gray-400'} disabled:cursor-not-allowed flex items-center gap-1`}>
+          <button disabled className={`px-4 py-2 text-sm ${darkMode ? 'text-[#5A7BFF] hover:text-[#7A9BFF] disabled:text-white/30' : 'text-[#5A7BFF] hover:text-[#4A6BEF] disabled:text-gray-400'} disabled:cursor-not-allowed flex items-center gap-1`}>
             <FileText size={16} />
             수정하기
           </button>
@@ -1698,7 +1714,7 @@ export default function NewDashboard() {
           {/* 역할 */}
           <div className={`border rounded-lg p-4 ${darkMode ? 'border-white/10 bg-white/[0.02]' : 'border-gray-200'}`}>
             <p className={`text-xs mb-1 ${theme.textSubtle}`}>역할</p>
-            <span className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-pink-500/20 text-pink-400' : 'bg-pink-50 text-pink-600'}`}>
+            <span className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-[#5A7BFF]/20 text-[#5A7BFF]' : 'bg-blue-50 text-[#5A7BFF]'}`}>
               {mentorInfo?.status === 'APPROVED' ? '멘토' : currentUser?.role === 'ADMIN' ? '관리자' : '학생'}
             </span>
           </div>
@@ -1760,7 +1776,7 @@ export default function NewDashboard() {
           </div>
 
           {/* Mobile Menu */}
-          <div className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
+          <div className={`flex-1 overflow-y-auto py-4 px-3 space-y-6 ${darkMode ? styles['custom-scrollbar-dark'] : styles['custom-scrollbar']}`}>
             <div>
               <h3 className={`text-xs font-bold ${theme.textMuted} uppercase tracking-wider mb-3 px-3`}>
                 Career & AI Analysis
@@ -1803,7 +1819,7 @@ export default function NewDashboard() {
       </div>
 
       {/* Main Dashboard Container - 헤더(64px) 제외 */}
-      <div className={`min-h-[calc(100vh-4rem)] overflow-y-auto ${theme.containerBg} relative flex flex-col`}>
+      <div className={`min-h-[calc(100vh-4rem)] overflow-y-auto ${theme.containerBg} relative flex flex-col ${darkMode ? styles['custom-scrollbar-dark'] : styles['custom-scrollbar']}`}>
         {/* Background Effects */}
         <BackgroundEffects />
 
@@ -1828,7 +1844,7 @@ export default function NewDashboard() {
             </div>
 
             {/* Menu Sections */}
-            <div className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
+            <div className={`flex-1 overflow-y-auto py-4 px-3 space-y-6 ${darkMode ? styles['custom-scrollbar-dark'] : styles['custom-scrollbar']}`}>
               {/* Career & AI Analysis */}
               <div>
                 {sidebarOpen && (
@@ -1888,7 +1904,7 @@ export default function NewDashboard() {
             <header className={`hidden lg:block h-20 flex-shrink-0 border-b ${theme.border} px-4 sm:px-8`} />
 
             {/* Scrollable Content */}
-            <main className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-6">
+            <main className={`flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-6 ${darkMode ? styles['custom-scrollbar-dark'] : styles['custom-scrollbar']}`}>
               <div className="max-w-7xl mx-auto">
                 {isLoading && <p className={theme.textSubtle}>데이터를 불러오는 중입니다...</p>}
                 {!isLoading && error && <p className="text-red-500">{error}</p>}
@@ -1954,9 +1970,19 @@ export default function NewDashboard() {
       {/* Chat Panel */}
       {showAssistantChat && (
         <div
-          className={`fixed bottom-32 right-9 w-[420px] h-[600px] bg-white rounded-3xl shadow-xl z-50 p-0 overflow-hidden border border-gray-200 transform transition-all duration-300 ${showAssistantChat
-            ? "scale-100 opacity-100"
-            : "scale-90 opacity-0 pointer-events-none"
+          className={`fixed z-50 p-0 overflow-hidden transform transition-all duration-300
+            bottom-4 right-4 left-4 top-20
+            sm:bottom-32 sm:right-6 sm:left-auto sm:top-auto
+            sm:w-[380px] sm:h-[550px]
+            md:w-[420px] md:h-[600px]
+            rounded-2xl sm:rounded-3xl shadow-2xl
+            ${darkMode
+              ? 'bg-[#0f0f14] border border-white/10'
+              : 'bg-white border border-gray-200'
+            }
+            ${showAssistantChat
+              ? "scale-100 opacity-100"
+              : "scale-90 opacity-0 pointer-events-none"
             }`}
         >
           <AssistantChatbot onClose={() => setShowAssistantChat(false)} />
@@ -1965,142 +1991,245 @@ export default function NewDashboard() {
 
       {/* Mentor Application Modal */}
       {showMentorModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowMentorModal(false)}>
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
-          <div className="relative bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4" onClick={() => setShowMentorModal(false)}>
+          {/* Overlay */}
+          <div className={`absolute inset-0 backdrop-blur-md ${darkMode ? 'bg-black/60' : 'bg-black/40'}`}></div>
+
+          {/* Modal Container */}
+          <div
+            className={`relative w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden rounded-2xl sm:rounded-3xl shadow-2xl border ${
+              darkMode
+                ? 'bg-[#0f0f14] border-white/10'
+                : 'bg-white border-gray-200'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Modal Header */}
-            <div className="sticky top-0 bg-white border-b border-slate-200 px-8 py-6 rounded-t-3xl">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-800">멘토 신청하기</h2>
-                  <p className="text-sm text-slate-500 mt-1">후배들의 성장을 도와주세요</p>
+            <div className={`sticky top-0 z-10 px-4 sm:px-8 py-4 sm:py-6 border-b backdrop-blur-xl ${
+              darkMode
+                ? 'bg-[#0f0f14]/95 border-white/10'
+                : 'bg-white/95 border-gray-200'
+            }`}>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-[#5A7BFF] to-[#8F5CFF] flex items-center justify-center shadow-lg">
+                    <User size={20} className="text-white sm:hidden" />
+                    <User size={24} className="text-white hidden sm:block" />
+                  </div>
+                  <div>
+                    <h2 className={`text-lg sm:text-2xl font-bold ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                      멘토 신청하기
+                    </h2>
+                    <p className={`text-xs sm:text-sm mt-0.5 ${darkMode ? 'text-white/50' : 'text-slate-500'}`}>
+                      후배들의 성장을 도와주세요
+                    </p>
+                  </div>
                 </div>
-                <button onClick={() => setShowMentorModal(false)} className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors">
-                  <X size={20} className="text-slate-600" />
+                <button
+                  onClick={() => setShowMentorModal(false)}
+                  className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center transition-colors ${
+                    darkMode
+                      ? 'bg-white/10 hover:bg-white/20 text-white/70'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                  }`}
+                >
+                  <X size={18} className="sm:hidden" />
+                  <X size={20} className="hidden sm:block" />
                 </button>
               </div>
             </div>
 
-            {/* Modal Content */}
-            <div className="px-8 py-6 space-y-6">
+            {/* Modal Content - Scrollable */}
+            <div className={`overflow-y-auto max-h-[calc(95vh-180px)] sm:max-h-[calc(90vh-200px)] px-4 sm:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 ${darkMode ? styles['custom-scrollbar-dark'] : styles['custom-scrollbar']}`}>
+
               {/* Company Info Section */}
-              <div className="bg-gray-50 rounded-lg p-6">
-                <div className="flex items-center mb-4">
-                  <Briefcase size={24} className="text-pink-500 mr-2" />
+              <div className={`rounded-xl sm:rounded-2xl p-4 sm:p-6 border ${
+                darkMode
+                  ? 'bg-white/[0.03] border-white/10'
+                  : 'bg-gray-50 border-gray-100'
+              }`}>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    darkMode ? 'bg-[#5A7BFF]/20' : 'bg-gradient-to-br from-blue-100 to-purple-100'
+                  }`}>
+                    <Briefcase size={20} className="text-[#5A7BFF]" />
+                  </div>
                   <div>
-                    <h3 className="text-lg font-bold text-gray-800">회사 정보</h3>
-                    <p className="text-sm text-gray-600">현재 재직 중인 회사와 직업을 입력해주세요</p>
+                    <h3 className={`text-base sm:text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      회사 정보
+                    </h3>
+                    <p className={`text-xs sm:text-sm ${darkMode ? 'text-white/50' : 'text-gray-500'}`}>
+                      현재 재직 중인 회사와 직업을 입력해주세요
+                    </p>
                   </div>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {/* 회사명 */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      회사명 <span className="text-red-500">*</span>
+                    <label className={`block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2 ${darkMode ? 'text-white/70' : 'text-gray-700'}`}>
+                      회사명 <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
                       value={company}
                       onChange={(e) => setCompany(e.target.value)}
-                      className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-pink-500 focus:outline-none transition-colors"
+                      className={`w-full p-3 sm:p-3.5 rounded-xl border-2 transition-all text-sm sm:text-base ${
+                        darkMode
+                          ? 'bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#5A7BFF] focus:bg-white/10'
+                          : 'bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-[#5A7BFF]'
+                      } focus:outline-none focus:ring-2 focus:ring-[#5A7BFF]/20`}
                       placeholder="예) 카카오"
                     />
                   </div>
 
                   {/* 직업 */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      직업 <span className="text-red-500">*</span>
+                    <label className={`block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2 ${darkMode ? 'text-white/70' : 'text-gray-700'}`}>
+                      직업 <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="text"
                       value={job}
                       onChange={(e) => setJob(e.target.value)}
-                      className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-pink-500 focus:outline-none transition-colors"
+                      className={`w-full p-3 sm:p-3.5 rounded-xl border-2 transition-all text-sm sm:text-base ${
+                        darkMode
+                          ? 'bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#5A7BFF] focus:bg-white/10'
+                          : 'bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-[#5A7BFF]'
+                      } focus:outline-none focus:ring-2 focus:ring-[#5A7BFF]/20`}
                       placeholder="예) 백엔드 개발자"
                     />
                   </div>
 
                   {/* 경력 */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      경력 <span className="text-red-500">*</span>
+                    <label className={`block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2 ${darkMode ? 'text-white/70' : 'text-gray-700'}`}>
+                      경력 <span className="text-rose-500">*</span>
                     </label>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 sm:gap-3">
                       <input
                         type="number"
                         value={yearsOfExperience}
                         onChange={(e) => setYearsOfExperience(e.target.value)}
-                        className="flex-1 p-3 border-2 border-gray-200 rounded-lg focus:border-pink-500 focus:outline-none transition-colors"
+                        className={`flex-1 p-3 sm:p-3.5 rounded-xl border-2 transition-all text-sm sm:text-base ${
+                          darkMode
+                            ? 'bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#5A7BFF] focus:bg-white/10'
+                            : 'bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-[#5A7BFF]'
+                        } focus:outline-none focus:ring-2 focus:ring-[#5A7BFF]/20`}
                         placeholder="예) 3"
                         min="1"
                         max="50"
                       />
-                      <span className="text-gray-700 font-medium">년</span>
+                      <span className={`text-sm sm:text-base font-medium ${darkMode ? 'text-white/70' : 'text-gray-600'}`}>년</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Bio Section */}
-              <div className="bg-gray-50 rounded-lg p-6">
-                <div className="flex items-center mb-4">
-                  <FileText size={24} className="text-pink-500 mr-2" />
+              <div className={`rounded-xl sm:rounded-2xl p-4 sm:p-6 border ${
+                darkMode
+                  ? 'bg-white/[0.03] border-white/10'
+                  : 'bg-gray-50 border-gray-100'
+              }`}>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    darkMode ? 'bg-[#8F5CFF]/20' : 'bg-purple-100'
+                  }`}>
+                    <FileText size={20} className="text-[#8F5CFF]" />
+                  </div>
                   <div>
-                    <h3 className="text-lg font-bold text-gray-800">자기소개</h3>
-                    <p className="text-sm text-gray-600">전문 분야와 멘토링 철학을 소개해주세요 (최소 50자)</p>
+                    <h3 className={`text-base sm:text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      자기소개
+                    </h3>
+                    <p className={`text-xs sm:text-sm ${darkMode ? 'text-white/50' : 'text-gray-500'}`}>
+                      전문 분야와 멘토링 철학을 소개해주세요 (최소 50자)
+                    </p>
                   </div>
                 </div>
                 <textarea
                   value={mentorBio}
                   onChange={(e) => setMentorBio(e.target.value)}
-                  className="w-full h-40 p-4 border-2 border-gray-200 rounded-lg focus:border-pink-500 focus:outline-none resize-none transition-colors"
-                  placeholder="예시) 저는 10년 경력의 백엔드 개발자로, Spring Boot와 MSA 아키텍처에 전문성을 갖추고 있습니다. 실무 경험을 바탕으로 후배 개발자들이 올바른 방향으로 성장할 수 있도록 돕고 싶습니다."
+                  className={`w-full h-32 sm:h-40 p-3 sm:p-4 rounded-xl border-2 transition-all resize-none text-sm sm:text-base ${
+                    darkMode
+                      ? 'bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#8F5CFF] focus:bg-white/10'
+                      : 'bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-[#8F5CFF]'
+                  } focus:outline-none focus:ring-2 focus:ring-[#8F5CFF]/20`}
+                  placeholder="예시) 저는 10년 경력의 백엔드 개발자로, Spring Boot와 MSA 아키텍처에 전문성을 갖추고 있습니다..."
                 />
                 <div className="flex justify-between items-center mt-2">
-                  <p className={`text-sm ${mentorBio.length >= 50 ? 'text-green-600' : 'text-gray-500'}`}>
+                  <p className={`text-xs sm:text-sm ${mentorBio.length >= 50 ? 'text-emerald-500' : darkMode ? 'text-white/40' : 'text-gray-400'}`}>
                     {mentorBio.length} / 50자 이상
                   </p>
                   {mentorBio.length >= 50 && (
-                    <Check size={20} className="text-green-500" />
+                    <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                      <Check size={14} className="text-emerald-500" />
+                    </div>
                   )}
                 </div>
               </div>
 
               {/* Career Section */}
-              <div className="bg-gray-50 rounded-lg p-6">
-                <div className="flex items-center mb-4">
-                  <Briefcase size={24} className="text-pink-500 mr-2" />
+              <div className={`rounded-xl sm:rounded-2xl p-4 sm:p-6 border ${
+                darkMode
+                  ? 'bg-white/[0.03] border-white/10'
+                  : 'bg-gray-50 border-gray-100'
+              }`}>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    darkMode ? 'bg-[#5A7BFF]/20' : 'bg-gradient-to-br from-blue-100 to-indigo-100'
+                  }`}>
+                    <Briefcase size={20} className="text-[#5A7BFF]" />
+                  </div>
                   <div>
-                    <h3 className="text-lg font-bold text-gray-800">경력 사항</h3>
-                    <p className="text-sm text-gray-600">주요 경력과 프로젝트 경험을 작성해주세요 (최소 20자)</p>
+                    <h3 className={`text-base sm:text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      경력 사항
+                    </h3>
+                    <p className={`text-xs sm:text-sm ${darkMode ? 'text-white/50' : 'text-gray-500'}`}>
+                      주요 경력과 프로젝트 경험을 작성해주세요 (최소 20자)
+                    </p>
                   </div>
                 </div>
                 <textarea
                   value={mentorCareer}
                   onChange={(e) => setMentorCareer(e.target.value)}
-                  className="w-full h-40 p-4 border-2 border-gray-200 rounded-lg focus:border-pink-500 focus:outline-none resize-none transition-colors"
-                  placeholder="예시) • 삼성전자 SW 센터 (2015-2020): 대규모 분산 시스템 설계 및 개발&#10;• 네이버 검색 개발팀 (2020-현재): 검색 엔진 최적화 및 성능 개선&#10;• 주요 기술: Java, Spring Boot, Kubernetes, Redis, Kafka"
+                  className={`w-full h-32 sm:h-40 p-3 sm:p-4 rounded-xl border-2 transition-all resize-none text-sm sm:text-base ${
+                    darkMode
+                      ? 'bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#5A7BFF] focus:bg-white/10'
+                      : 'bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-[#5A7BFF]'
+                  } focus:outline-none focus:ring-2 focus:ring-[#5A7BFF]/20`}
+                  placeholder="예시) • 삼성전자 SW 센터 (2015-2020): 대규모 분산 시스템 설계 및 개발..."
                 />
                 <div className="flex justify-between items-center mt-2">
-                  <p className={`text-sm ${mentorCareer.length >= 20 ? 'text-green-600' : 'text-gray-500'}`}>
+                  <p className={`text-xs sm:text-sm ${mentorCareer.length >= 20 ? 'text-emerald-500' : darkMode ? 'text-white/40' : 'text-gray-400'}`}>
                     {mentorCareer.length} / 20자 이상
                   </p>
                   {mentorCareer.length >= 20 && (
-                    <Check size={20} className="text-green-500" />
+                    <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                      <Check size={14} className="text-emerald-500" />
+                    </div>
                   )}
                 </div>
               </div>
 
               {/* Info Notice */}
-              <div className="bg-blue-50 rounded-lg p-5 border-2 border-blue-200">
-                <div className="flex items-start">
-                  <AlertCircle size={24} className="text-blue-500 mr-3 mt-0.5" />
+              <div className={`rounded-xl sm:rounded-2xl p-4 sm:p-5 border-2 ${
+                darkMode
+                  ? 'bg-[#5A7BFF]/10 border-[#5A7BFF]/30'
+                  : 'bg-blue-50 border-blue-200'
+              }`}>
+                <div className="flex items-start gap-3">
+                  <div className={`w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center ${
+                    darkMode ? 'bg-[#5A7BFF]/20' : 'bg-blue-100'
+                  }`}>
+                    <AlertCircle size={18} className="text-[#5A7BFF]" />
+                  </div>
                   <div>
-                    <h3 className="font-bold text-gray-800 mb-1">멘토링 일정 등록 안내</h3>
-                    <p className="text-sm text-gray-700 leading-relaxed">
-                      멘토 신청이 승인되면, <span className="font-bold text-pink-600">/mentoring 페이지</span>에서
+                    <h3 className={`font-bold text-sm sm:text-base mb-1 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      멘토링 일정 등록 안내
+                    </h3>
+                    <p className={`text-xs sm:text-sm leading-relaxed ${darkMode ? 'text-white/60' : 'text-gray-600'}`}>
+                      멘토 신청이 승인되면, <span className="font-bold text-[#8F5CFF]">/mentoring 페이지</span>에서
                       멘토링 가능 시간을 등록하실 수 있습니다.
                     </p>
                   </div>
@@ -2109,15 +2238,25 @@ export default function NewDashboard() {
             </div>
 
             {/* Modal Footer */}
-            <div className="sticky bottom-0 bg-white border-t-2 border-pink-300 px-8 py-6 rounded-b-3xl">
-              <div className="flex gap-4">
-                <button onClick={() => setShowMentorModal(false)} className="flex-1 bg-gray-200 text-gray-700 py-4 rounded-lg font-bold hover:bg-gray-300 transition-colors">
+            <div className={`sticky bottom-0 px-4 sm:px-8 py-4 sm:py-6 border-t ${
+              darkMode
+                ? 'bg-[#0f0f14] border-white/10'
+                : 'bg-white border-gray-200'
+            }`}>
+              <div className="flex gap-3 sm:gap-4">
+                <button
+                  onClick={() => setShowMentorModal(false)}
+                  className={`flex-1 py-3 sm:py-4 rounded-xl font-bold text-sm sm:text-base transition-all ${
+                    darkMode
+                      ? 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-800'
+                  }`}
+                >
                   취소
                 </button>
                 <button
                   disabled={!company || !job || !yearsOfExperience || mentorBio.length < 50 || mentorCareer.length < 20}
                   onClick={async () => {
-                    // 유효성 검사
                     if (!company || !job || !yearsOfExperience || mentorBio.length < 50 || mentorCareer.length < 20) {
                       showToast('모든 필드를 올바르게 입력해주세요.', 'warning');
                       return;
@@ -2137,7 +2276,6 @@ export default function NewDashboard() {
                       });
                       showToast('멘토 신청이 완료되었습니다! 관리자 승인 후 멘토 활동이 가능합니다.', 'success');
                       setShowMentorModal(false);
-                      // 폼 초기화
                       setCompany('');
                       setJob('');
                       setYearsOfExperience('');
@@ -2149,10 +2287,16 @@ export default function NewDashboard() {
                       showToast(apiError.response?.data?.message || '멘토 신청 중 오류가 발생했습니다.', 'error');
                     }
                   }}
-                  className="flex-1 bg-pink-500 text-white py-4 rounded-lg font-bold hover:bg-pink-600 transition-colors disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed shadow-lg flex items-center justify-center gap-2"
+                  className={`flex-1 py-3 sm:py-4 rounded-xl font-bold text-sm sm:text-base transition-all flex items-center justify-center gap-2 shadow-lg ${
+                    !company || !job || !yearsOfExperience || mentorBio.length < 50 || mentorCareer.length < 20
+                      ? darkMode
+                        ? 'bg-white/10 text-white/30 cursor-not-allowed shadow-none'
+                        : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
+                      : 'bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white hover:shadow-xl hover:shadow-purple-500/25 hover:scale-[1.02]'
+                  }`}
                 >
-                  <Send size={20} />
-                  멘토 신청하기
+                  <Send size={18} />
+                  <span>멘토 신청하기</span>
                 </button>
               </div>
             </div>

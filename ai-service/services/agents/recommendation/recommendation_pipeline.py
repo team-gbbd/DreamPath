@@ -130,7 +130,11 @@ class RecommendationPipeline:
             
             # Import logic functions directly
             from .recommendation_tools import search_jobs_logic, search_majors_logic
-            
+            from services.vector.supabase_vector_repository import SupabaseVectorRepository
+
+            # Initialize repo for job name lookup
+            job_repo = SupabaseVectorRepository()
+
             summary = user_profile.get("summary", "")
             goals = user_profile.get("goals", [])
 
@@ -139,35 +143,35 @@ class RecommendationPipeline:
                 print("🔄 Executing Fallback Search for JOBS (Metadata Mode)...")
                 try:
                     raw_res = search_jobs_logic(summary=summary, goals=goals, top_k=20)
-                    
+
                     # Normalize response (handle QueryResponse object)
                     if hasattr(raw_res, "to_dict"):
                         raw_res = raw_res.to_dict()
                     matches = raw_res.get('matches', []) if isinstance(raw_res, dict) else getattr(raw_res, 'matches', [])
-                    
+
                     # Filter: type='job' OR id starts with 'job_'
                     job_matches = []
                     for m in matches:
                         if hasattr(m, "to_dict"):
                             m = m.to_dict()
-                        
+
                         meta = m.get("metadata") or {} # handle None
                         if meta.get('type') == 'job' or m.get('id', '').startswith('job_'):
                             job_matches.append(m)
-                    
+
                     # Pre-generate list for LLM
                     candidates_for_llm = []
                     normalized_jobs = []
-                    
+
                     # First pass: Collect data
                     temp_matches = []
                     for m in job_matches[:6]:
                         meta = m.get('metadata') or {}
                         score = m.get('score', 0)
                         match_pct = int(score * 100) if score <= 1.0 else int(score)
-                        
+
                         job_name = meta.get('jobName') or meta.get('title') or f"Job {m['id']}"
-                        
+
                         # ID Normalization for Detail Page (Strip 'job_' prefix or use original_id)
                         raw_id = str(m['id'])
                         real_id = meta.get('original_id') or (raw_id.split('_')[1] if '_' in raw_id else raw_id)

@@ -14,6 +14,7 @@ import {
   User,
   BookOpen,
   Home,
+  AlertCircle,
 } from "lucide-react";
 import FaqChatbot from "@/components/chatbot/FaqChatbot";
 
@@ -31,6 +32,7 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
   const [userName, setUserName] = useState("");
   const [userRole, setUserRole] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showProfileRequiredModal, setShowProfileRequiredModal] = useState(false);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("dreampath:theme");
@@ -98,12 +100,36 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
 
   const handleSidebarClick = (type: string) => {
     setSidebarOpen(false);
+
+    // 로그인하지 않은 상태에서의 처리
+    if (!isLoggedIn) {
+      // 홈은 누구나 접근 가능
+      if (type === "home") {
+        navigate("/home");
+        return;
+      }
+
+      // 진로 상담은 로그인 필요 메시지 후 로그인 페이지로
+      if (type === "career") {
+        navigate("/career-chat"); // career-chat 페이지에서 자체적으로 로그인 필요 처리
+        return;
+      }
+
+      // 그 외 메뉴는 프로파일링 필요 모달 표시
+      setShowProfileRequiredModal(true);
+      return;
+    }
+
+    // 로그인된 상태에서의 정상 동작
     switch (type) {
       case "home":
         navigate("/home");
         break;
       case "career":
         navigate("/career-chat");
+        break;
+      case "profile":
+        navigate(userRole === 'ADMIN' ? "/admin" : "/profile/dashboard");
         break;
       case "job":
         navigate("/job-recommendations");
@@ -122,6 +148,7 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
   const sidebarItems = [
     { type: "home", icon: Home, label: "홈" },
     { type: "career", icon: MessageSquare, label: "진로 상담" },
+    { type: "profile", icon: User, label: userRole === 'ADMIN' ? '대시보드' : '프로파일링' },
     { type: "job", icon: Briefcase, label: "채용 추천" },
     { type: "mentoring", icon: Users, label: "멘토링" },
     { type: "learning", icon: BookOpen, label: "학습" },
@@ -197,15 +224,6 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
 
         <div className="px-3 mt-auto space-y-2">
           <button
-            onClick={() => navigate(userRole === 'ADMIN' ? "/admin" : "/profile/dashboard")}
-            className={`w-full flex items-center gap-4 px-3 py-4 rounded-xl transition-all duration-300 ${theme.sidebarText} ${theme.sidebarHover}`}
-          >
-            <User className="w-6 h-6 flex-shrink-0" />
-            <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap font-medium text-sm">
-              {userRole === 'ADMIN' ? '대시보드' : '프로파일링'}
-            </span>
-          </button>
-          <button
             onClick={isLoggedIn ? handleLogout : () => navigate("/login")}
             className={`w-full flex items-center gap-4 px-3 py-4 rounded-xl transition-all duration-300 ${theme.sidebarText} ${theme.sidebarHover}`}
           >
@@ -251,18 +269,6 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
         </nav>
 
         <div className="px-3 pt-2 flex-shrink-0 space-y-2">
-          {isLoggedIn && (
-            <button
-              onClick={() => {
-                setSidebarOpen(false);
-                navigate(userRole === 'ADMIN' ? "/admin" : "/profile/dashboard");
-              }}
-              className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 ${theme.sidebarText} ${theme.sidebarHover}`}
-            >
-              <User className="w-5 h-5 flex-shrink-0" />
-              <span className="font-medium text-sm">{userRole === 'ADMIN' ? '대시보드' : '프로파일링'}</span>
-            </button>
-          )}
           {isLoggedIn ? (
             <button
               onClick={handleLogout}
@@ -336,8 +342,8 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
           </div>
         </header>
 
-        {/* Page Content - profile 페이지에서는 스크롤 비활성화 */}
-        <div className={`flex-1 overflow-x-hidden w-full max-w-full ${location.pathname.startsWith('/profile') ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+        {/* Page Content */}
+        <div className={`flex-1 overflow-x-hidden overflow-y-auto w-full max-w-full`}>
           {children}
         </div>
 
@@ -378,6 +384,56 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
         `}>
           <FaqChatbot onClose={() => setChatbotOpen(false)} />
         </div>
+      )}
+
+      {/* Profile Required Modal */}
+      {showProfileRequiredModal && (
+        <>
+          <div
+            className={`fixed inset-0 z-[60] ${theme.mobileOverlay}`}
+            onClick={() => setShowProfileRequiredModal(false)}
+          />
+          <div className={`fixed z-[70] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
+            w-[90%] max-w-md p-6 rounded-2xl shadow-2xl border
+            ${darkMode ? "bg-[#0f0f14] border-white/10" : "bg-white border-gray-200"}
+          `}>
+            <div className="flex flex-col items-center text-center">
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${
+                darkMode ? "bg-amber-500/20" : "bg-amber-100"
+              }`}>
+                <AlertCircle className="w-8 h-8 text-amber-500" />
+              </div>
+              <h3 className={`text-xl font-bold mb-2 ${darkMode ? "text-white" : "text-slate-900"}`}>
+                성향 프로파일링이 필요합니다
+              </h3>
+              <p className={`text-sm mb-6 leading-relaxed ${darkMode ? "text-white/60" : "text-slate-600"}`}>
+                이 기능을 이용하려면 먼저 진로상담을 통해<br />
+                성향 프로파일링을 진행해주세요!
+              </p>
+              <div className="flex gap-3 w-full">
+                <button
+                  onClick={() => setShowProfileRequiredModal(false)}
+                  className={`flex-1 py-3 rounded-xl font-medium transition-all ${
+                    darkMode
+                      ? "bg-white/10 text-white/70 hover:bg-white/20"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  닫기
+                </button>
+                <button
+                  onClick={() => {
+                    setShowProfileRequiredModal(false);
+                    navigate("/career-chat");
+                  }}
+                  className="flex-1 py-3 rounded-xl font-medium bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white hover:shadow-lg transition-all"
+                >
+                  진로상담 하기
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       {/* CSS for animations */}

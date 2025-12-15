@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { ImageOff } from "lucide-react";
 import { fetchJobDetail, type JobDetailData } from "@/lib/api";
 import DetailModal from "@/pages/profile/DetailModal";
@@ -23,6 +23,28 @@ interface HybridJobRecommendPanelProps {
   isLoading?: boolean;
   errorMessage?: string | null;
 }
+
+// Theme hook
+const useDarkMode = () => {
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem("dreampath:theme") !== "light";
+  });
+
+  useEffect(() => {
+    const handleThemeChange = () => {
+      setDarkMode(localStorage.getItem("dreampath:theme") !== "light");
+    };
+    window.addEventListener("dreampath-theme-change", handleThemeChange);
+    window.addEventListener("storage", handleThemeChange);
+    return () => {
+      window.removeEventListener("dreampath-theme-change", handleThemeChange);
+      window.removeEventListener("storage", handleThemeChange);
+    };
+  }, []);
+
+  return darkMode;
+};
 
 // Utility for formatting wage
 const formatWageText = (value?: string | number | null): string | null => {
@@ -49,12 +71,32 @@ const formatWageText = (value?: string | number | null): string | null => {
 };
 
 const HybridJobRecommendPanel = ({ embedded = false, jobs = [], isLoading = false, errorMessage = null }: HybridJobRecommendPanelProps) => {
+  const darkMode = useDarkMode();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedJob, setSelectedJob] = useState<HybridResultItem | null>(null);
   const [jobDetail, setJobDetail] = useState<JobDetailData | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
+
+  // Theme styles
+  const theme = {
+    cardBg: darkMode ? "bg-white/[0.03] border-white/[0.08]" : "bg-white border-gray-100",
+    cardHover: darkMode ? "hover:border-[#5A7BFF] hover:bg-white/[0.06]" : "hover:border-indigo-500 hover:shadow-xl",
+    cardSelected: darkMode ? "border-[#5A7BFF] ring-2 ring-[#5A7BFF]/20" : "border-indigo-600 ring-2 ring-indigo-100",
+    text: darkMode ? "text-white" : "text-gray-900",
+    textSecondary: darkMode ? "text-white/70" : "text-gray-700",
+    textMuted: darkMode ? "text-white/50" : "text-gray-500",
+    statBorder: darkMode ? "border-white/[0.08]" : "border-gray-100",
+    imageBg: darkMode ? "bg-white/[0.05] border-white/[0.1]" : "bg-gray-100 border-gray-100",
+    explanationBg: darkMode ? "bg-[#5A7BFF]/10 border border-[#5A7BFF]/20" : "bg-gray-50",
+    loadingBg: darkMode ? "bg-white/[0.05]" : "bg-gray-50",
+    emptyBorder: darkMode ? "border-white/[0.1]" : "border-gray-200",
+    emptyText: darkMode ? "text-white/50" : "text-gray-500",
+    badge: darkMode ? "bg-[#5A7BFF]/20 text-[#5A7BFF]" : "bg-indigo-50 text-indigo-600",
+    titleHover: darkMode ? "group-hover:text-[#5A7BFF]" : "group-hover:text-indigo-600",
+    accent: darkMode ? "text-[#5A7BFF]" : "text-indigo-500",
+  };
 
   // Filter Results
   const filteredResults = useMemo(() => {
@@ -127,11 +169,11 @@ const HybridJobRecommendPanel = ({ embedded = false, jobs = [], isLoading = fals
   return (
     <div className={wrapperClass}>
       {(isLoading || errorMessage) && (
-        <div className="rounded-xl bg-gray-50 p-4 mb-4">
+        <div className={`rounded-xl p-4 mb-4 ${theme.loadingBg}`}>
           {isLoading && (
-            <div className="flex items-center gap-2 text-blue-600">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
-              <p className="text-sm font-medium">
+            <div className={`flex items-center gap-2 ${theme.accent}`}>
+              <div className={`h-4 w-4 animate-spin rounded-full border-2 ${darkMode ? 'border-[#5A7BFF] border-t-transparent' : 'border-blue-600 border-t-transparent'}`}></div>
+              <p className={`text-sm font-medium ${theme.textSecondary}`}>
                 추천 결과를 불러오는 중입니다...
               </p>
             </div>
@@ -145,13 +187,13 @@ const HybridJobRecommendPanel = ({ embedded = false, jobs = [], isLoading = fals
       {/* Search Bar */}
 
       {!isLoading && !hasResults && (
-        <div className="rounded-2xl border border-dashed border-gray-200 p-10 text-center text-gray-500">
+        <div className={`rounded-2xl border border-dashed p-6 sm:p-10 text-center ${theme.emptyBorder} ${theme.emptyText}`}>
           추천 결과가 여기에 표시됩니다.
         </div>
       )}
 
       {hasResults && (
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2">
           {filteredResults.map((item, index) => {
             const title = item.title || item.jobName || item.metadata?.jobName || "제목 미확인";
             const explanation = item.explanation || item.reason || item.description || "추천 이유가 준비 중입니다.";
@@ -171,28 +213,27 @@ const HybridJobRecommendPanel = ({ embedded = false, jobs = [], isLoading = fals
 
             return (
               <div
-                key={item.job_id || index}
+                key={`job-${item.job_id || 'unknown'}-${index}`}
                 role="button"
-                className={`group relative flex flex-col justify-between rounded-3xl border bg-white p-6 transition-all hover:border-indigo-500 hover:shadow-xl ${selectedJob === item ? "border-indigo-600 ring-2 ring-indigo-100" : "border-gray-100"
-                  }`}
+                className={`group relative flex flex-col justify-between rounded-2xl sm:rounded-3xl border p-4 sm:p-6 transition-all cursor-pointer ${theme.cardBg} ${theme.cardHover} ${selectedJob === item ? theme.cardSelected : ""}`}
                 onClick={() => handleCardClick(item)}
               >
                 {/* Header: Title & Match Score */}
-                <div className="flex justify-between items-start mb-6">
-                  <h3 className="text-2xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">
+                <div className="flex justify-between items-start gap-3 mb-4 sm:mb-6">
+                  <h3 className={`text-lg sm:text-2xl font-bold ${theme.text} ${theme.titleHover} transition-colors line-clamp-2`}>
                     {title}
                   </h3>
                   {(item.matchScore !== undefined || item.match) && (
-                    <span className="inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-sm font-bold text-indigo-600">
-                      {Math.round(item.matchScore ?? item.match ?? 0)}% 일치
+                    <span className={`inline-flex items-center rounded-full px-2.5 sm:px-3 py-1 text-xs sm:text-sm font-bold flex-shrink-0 ${theme.badge}`}>
+                      {Math.round(item.matchScore ?? item.match ?? 0)}%
                     </span>
                   )}
                 </div>
 
                 {/* Body: Image + Stats */}
-                <div className="flex gap-6 mb-6">
+                <div className="flex gap-4 sm:gap-6 mb-4 sm:mb-6">
                   {/* Career Image */}
-                  <div className="w-32 h-32 flex-shrink-0 rounded-2xl bg-gray-100 text-gray-400 relative overflow-hidden border border-gray-100 flex items-center justify-center">
+                  <div className={`w-20 h-20 sm:w-32 sm:h-32 flex-shrink-0 rounded-xl sm:rounded-2xl relative overflow-hidden border flex items-center justify-center ${theme.imageBg}`}>
                     {jobImageUrl ? (
                       <img
                         src={jobImageUrl}
@@ -202,30 +243,31 @@ const HybridJobRecommendPanel = ({ embedded = false, jobs = [], isLoading = fals
                         onError={() => handleImageError(imageKey)}
                       />
                     ) : (
-                      <div className="flex flex-col items-center text-gray-400">
-                        <ImageOff size={30} className="mb-1 opacity-60" />
-                        <span className="text-xs font-medium">사진 없음</span>
+                      <div className={`flex flex-col items-center ${theme.textMuted}`}>
+                        <ImageOff size={24} className="mb-1 opacity-60 sm:hidden" />
+                        <ImageOff size={30} className="mb-1 opacity-60 hidden sm:block" />
+                        <span className="text-[10px] sm:text-xs font-medium">사진 없음</span>
                       </div>
                     )}
                   </div>
 
                   {/* Stats List */}
-                  <div className="flex-1 space-y-3 py-1">
-                    <div className="border-b border-gray-100 pb-2 last:border-0 last:pb-0">
-                      <p className="text-xs text-gray-500 mb-1">평균연봉</p>
-                      <p className="text-base font-bold text-gray-900">{wage}</p>
+                  <div className="flex-1 space-y-2 sm:space-y-3 py-1">
+                    <div className={`border-b pb-2 last:border-0 last:pb-0 ${theme.statBorder}`}>
+                      <p className={`text-[10px] sm:text-xs mb-0.5 sm:mb-1 ${theme.textMuted}`}>평균연봉</p>
+                      <p className={`text-sm sm:text-base font-bold ${theme.text}`}>{wage}</p>
                     </div>
-                    <div className="border-b border-gray-100 pb-2 last:border-0 last:pb-0">
-                      <p className="text-xs text-gray-500 mb-1">일가정균형</p>
-                      <p className="text-base font-bold text-gray-900">{wlb}</p>
+                    <div className={`border-b pb-2 last:border-0 last:pb-0 ${theme.statBorder}`}>
+                      <p className={`text-[10px] sm:text-xs mb-0.5 sm:mb-1 ${theme.textMuted}`}>일가정균형</p>
+                      <p className={`text-sm sm:text-base font-bold ${theme.text}`}>{wlb}</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Bottom: Explanation */}
-                <div className="rounded-xl bg-gray-50 p-4 text-sm leading-relaxed text-gray-700">
-                  <span className="font-bold text-indigo-500 block mb-1">💡 AI 추천 이유</span>
-                  {explanation}
+                <div className={`rounded-lg sm:rounded-xl p-3 sm:p-4 text-xs sm:text-sm leading-relaxed ${theme.explanationBg} ${theme.textSecondary}`}>
+                  <span className={`font-bold block mb-1 ${theme.accent}`}>💡 AI 추천 이유</span>
+                  <span className="line-clamp-3">{explanation}</span>
                 </div>
               </div>
             );

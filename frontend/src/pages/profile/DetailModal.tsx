@@ -16,14 +16,37 @@ interface DetailModalProps {
 
 type GenericRecord = Record<string, any>;
 
+// Theme hook
+const useDarkMode = () => {
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem("dreampath:theme") !== "light";
+  });
+
+  useEffect(() => {
+    const handleThemeChange = () => {
+      setDarkMode(localStorage.getItem("dreampath:theme") !== "light");
+    };
+    window.addEventListener("dreampath-theme-change", handleThemeChange);
+    window.addEventListener("storage", handleThemeChange);
+    return () => {
+      window.removeEventListener("dreampath-theme-change", handleThemeChange);
+      window.removeEventListener("storage", handleThemeChange);
+    };
+  }, []);
+
+  return darkMode;
+};
+
 const ModalOverlay = ({
   children,
   className = '',
+  darkMode = false,
   ...rest
-}: React.HTMLAttributes<HTMLDivElement>) => (
+}: React.HTMLAttributes<HTMLDivElement> & { darkMode?: boolean }) => (
   <div
     {...rest}
-    className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 ${className}`}
+    className={`fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md p-2 sm:p-4 ${darkMode ? 'bg-black/70' : 'bg-black/50'} ${className}`}
   >
     {children}
   </div>
@@ -32,21 +55,22 @@ const ModalOverlay = ({
 const ModalContainer = ({
   children,
   className = '',
+  darkMode = false,
   ...rest
-}: React.HTMLAttributes<HTMLDivElement>) => (
+}: React.HTMLAttributes<HTMLDivElement> & { darkMode?: boolean }) => (
   <div
     role="dialog"
     aria-modal="true"
     {...rest}
-    className={`relative flex w-full max-w-5xl max-h-[90vh] flex-col overflow-hidden rounded-3xl bg-white shadow-2xl ${className}`}
+    className={`relative flex w-full max-w-5xl max-h-[95vh] sm:max-h-[90vh] flex-col overflow-hidden rounded-2xl sm:rounded-3xl shadow-2xl border ${darkMode ? 'bg-[#0f0f14] border-white/10' : 'bg-white border-gray-200'} ${className}`}
   >
     {children}
   </div>
 );
 
-const SectionTitle = ({ children }: { children: React.ReactNode }) => (
-  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-    <span className="h-6 w-1 rounded-full bg-indigo-500 block"></span>
+const SectionTitle = ({ children, darkMode = false }: { children: React.ReactNode; darkMode?: boolean }) => (
+  <h3 className={`text-base sm:text-lg font-bold mb-3 sm:mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+    <span className="h-5 sm:h-6 w-1 rounded-full bg-gradient-to-b from-[#5A7BFF] to-[#8F5CFF] block"></span>
     {children}
   </h3>
 );
@@ -106,8 +130,25 @@ export default function DetailModal({
   loading,
   errorMessage
 }: DetailModalProps) {
+  const darkMode = useDarkMode();
   const isJob = type === 'job';
   const [activeTab, setActiveTab] = useState(0);
+
+  // Theme styles
+  const theme = {
+    bg: darkMode ? 'bg-[#0f0f14]' : 'bg-white',
+    text: darkMode ? 'text-white' : 'text-gray-900',
+    textSecondary: darkMode ? 'text-white/70' : 'text-gray-700',
+    textMuted: darkMode ? 'text-white/50' : 'text-gray-500',
+    border: darkMode ? 'border-white/10' : 'border-gray-100',
+    cardBg: darkMode ? 'bg-white/[0.03]' : 'bg-gray-50',
+    infoBg: darkMode ? 'bg-[#5A7BFF]/10' : 'bg-indigo-50',
+    infoText: darkMode ? 'text-[#5A7BFF]' : 'text-indigo-500',
+    footerBg: darkMode ? 'bg-white/[0.02]' : 'bg-gray-50',
+    closeBtn: darkMode ? 'bg-white/10 text-white/70 hover:bg-white/20' : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-700',
+    tabBg: darkMode ? 'bg-[#0f0f14]' : 'bg-white',
+    tabBorder: darkMode ? 'border-white/10' : 'border-gray-200',
+  };
 
   useEffect(() => {
     if (!open) {
@@ -574,7 +615,7 @@ export default function DetailModal({
         {characteristics && (
           <section>
             <SectionTitle>학과 특성</SectionTitle>
-            <div className="rounded-2xl border border-gray-100 bg-gradient-to-br from-purple-50 to-pink-50 p-6 text-base leading-relaxed text-gray-700">
+            <div className="rounded-2xl border border-gray-100 bg-purple-50 p-6 text-base leading-relaxed text-gray-700">
               {characteristics}
             </div>
           </section>
@@ -676,7 +717,7 @@ export default function DetailModal({
                     <span className="text-sm text-gray-600 w-20">{item.item}</span>
                     <div className="flex-1 h-10 bg-gray-100 rounded-lg overflow-hidden">
                       <div
-                        className="h-full bg-gradient-to-r from-pink-400 to-purple-600 flex items-center justify-end pr-3"
+                        className="h-full bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] flex items-center justify-end pr-3"
                         style={{ width: `${item.data}%` }}
                       >
                         <span className="text-xs font-bold text-white">{item.data}%</span>
@@ -776,38 +817,47 @@ export default function DetailModal({
   if (!open) return null;
 
   return (
-    <ModalOverlay onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <ModalContainer className="h-[85vh]">
+    <ModalOverlay darkMode={darkMode} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <ModalContainer darkMode={darkMode} className="h-[85vh] sm:h-[85vh]">
         {/* Header */}
-        <header className="flex-none flex items-start justify-between border-b border-gray-100 px-8 py-6 bg-white z-10">
-          <div>
-            <h2 className="text-3xl font-extrabold text-gray-900">{title}</h2>
+        <header className={`flex-none flex items-start justify-between border-b px-4 sm:px-8 py-4 sm:py-6 z-10 ${theme.border} ${theme.bg}`}>
+          <div className="flex-1 min-w-0 pr-4">
+            <h2 className={`text-xl sm:text-3xl font-extrabold truncate ${theme.text}`}>{title}</h2>
           </div>
           <button
             onClick={onClose}
-            className="rounded-full bg-gray-100 p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-700 transition"
+            className={`rounded-full p-2 transition flex-shrink-0 ${theme.closeBtn}`}
           >
-            <i className="ri-close-line text-2xl" />
+            <i className="ri-close-line text-xl sm:text-2xl" />
           </button>
         </header>
 
         {/* Tab Navigation (Sticky) */}
-        <div className="flex-none flex border-b border-gray-200 bg-white px-8">
+        <div className={`flex-none flex border-b px-4 sm:px-8 overflow-x-auto ${theme.tabBorder} ${theme.tabBg}`}>
           {tabs.map((tab, idx) => (
-            <TabButton
+            <button
               key={idx}
-              label={tab}
-              isActive={activeTab === idx}
               onClick={() => setActiveTab(idx)}
-            />
+              className={`px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
+                activeTab === idx
+                  ? darkMode
+                    ? 'border-[#5A7BFF] text-[#5A7BFF]'
+                    : 'border-indigo-600 text-indigo-600'
+                  : darkMode
+                    ? 'border-transparent text-white/50 hover:text-white/80'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {tab}
+            </button>
           ))}
         </div>
 
         {/* Content Scroll Area */}
-        <div className="flex-1 overflow-y-auto px-8 py-8 bg-white custom-scroll">
+        <div className={`flex-1 overflow-y-auto px-4 sm:px-8 py-4 sm:py-8 custom-scroll ${theme.bg}`}>
           {loading ? (
             <div className="flex h-full items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+              <div className={`h-8 w-8 animate-spin rounded-full border-4 border-t-transparent ${darkMode ? 'border-[#5A7BFF]' : 'border-indigo-500'}`} />
             </div>
           ) : isJob ? (
             <>
@@ -824,7 +874,7 @@ export default function DetailModal({
         </div>
 
         {/* Footer */}
-        <footer className="flex-none border-t border-gray-50 px-8 py-4 bg-gray-50 flex justify-between items-center text-xs text-gray-400">
+        <footer className={`flex-none border-t px-4 sm:px-8 py-3 sm:py-4 flex flex-col sm:flex-row justify-between items-center gap-1 text-xs ${theme.border} ${theme.footerBg} ${theme.textMuted}`}>
           <p>Data Source: CareerNet (2025 Updated)</p>
           <p>DreamPath AI Analysis</p>
         </footer>
