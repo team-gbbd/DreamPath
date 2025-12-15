@@ -102,7 +102,7 @@ class ApplicationWriterService:
                 ],
                 response_format={"type": "json_object"},
                 temperature=0.7,
-                max_tokens=3000
+                max_completion_tokens=3000
             )
 
             result = json.loads(response.choices[0].message.content)
@@ -187,7 +187,7 @@ class ApplicationWriterService:
                 ],
                 response_format={"type": "json_object"},
                 temperature=0.7,
-                max_tokens=2000
+                max_completion_tokens=2000
             )
 
             result = json.loads(response.choices[0].message.content)
@@ -286,7 +286,7 @@ class ApplicationWriterService:
                 ],
                 response_format={"type": "json_object"},
                 temperature=0.5,
-                max_tokens=2500
+                max_completion_tokens=2500
             )
 
             result = json.loads(response.choices[0].message.content)

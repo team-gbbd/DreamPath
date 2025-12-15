@@ -177,10 +177,12 @@ class JobRecommendationCalculator:
     ) -> List[Dict]:
         """
         추천 직업명을 기반으로 job_listings에서 채용공고를 검색합니다.
+        중복 공고는 회사명+제목 조합으로 필터링합니다.
         """
         try:
             recommendations = []
             seen_job_ids = set()
+            seen_job_keys = set()  # 회사명+제목 조합으로 중복 체크
 
             for career in recommended_careers:
                 career_name = career.get("careerName", "")
@@ -208,14 +210,25 @@ class JobRecommendationCalculator:
                     search_pattern = f"%{keyword}%"
                     results = self.db.execute_query(
                         search_query,
-                        (search_pattern, search_pattern, max_recommendations - len(recommendations))
+                        (search_pattern, search_pattern, max_recommendations * 2)  # 중복 제거 후 부족하지 않도록 여유있게
                     )
 
                     for row in results:
                         job_id = row.get("id")
+                        title = row.get("title", "")
+                        company = row.get("company", "")
+
+                        # 1차: ID 기준 중복 체크
                         if job_id in seen_job_ids:
                             continue
+
+                        # 2차: 회사명+제목 조합으로 중복 체크 (같은 공고가 다른 사이트에 있는 경우)
+                        job_key = f"{company.lower().strip()}|{title.lower().strip()}"
+                        if job_key in seen_job_keys:
+                            continue
+
                         seen_job_ids.add(job_id)
+                        seen_job_keys.add(job_key)
 
                         # 매칭 점수 계산 (직업 추천 점수 기반)
                         base_score = career_score if isinstance(career_score, (int, float)) else 0.5
@@ -223,8 +236,8 @@ class JobRecommendationCalculator:
 
                         recommendations.append({
                             "id": job_id,
-                            "title": row.get("title"),
-                            "company": row.get("company"),
+                            "title": title,
+                            "company": company,
                             "location": row.get("location"),
                             "url": row.get("url"),
                             "description": row.get("description"),
@@ -236,10 +249,13 @@ class JobRecommendationCalculator:
                             "careerCategory": career.get("category")
                         })
 
+                        if len(recommendations) >= max_recommendations:
+                            break
+
             # 매칭 점수 기준 정렬
             recommendations.sort(key=lambda x: x.get("matchScore", 0), reverse=True)
 
-            print(f"[JobRecommendationCalculator] 사용자 {user_id}: 총 {len(recommendations)}개 채용공고 검색됨")
+            print(f"[JobRecommendationCalculator] 사용자 {user_id}: 총 {len(recommendations)}개 채용공고 검색됨 (중복 제거됨)")
             return recommendations[:max_recommendations]
 
         except Exception as e:
@@ -298,7 +314,7 @@ class JobRecommendationCalculator:
                     {"role": "system", "content": "당신은 한국 채용시장 전문가입니다. 키워드만 간결하게 응답하세요."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=200,
+                max_completion_tokens=200,
                 temperature=0.3
             )
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, authFetch } from '@/lib/api';
 
 const defaultFormState = (initial) => ({
   name: initial?.user?.name ?? initial?.name ?? '',
@@ -57,7 +57,7 @@ const EditProfileModal = ({ isOpen, onClose, onSubmit, initialData }) => {
     try {
       setIsSubmitting(true);
       setErrorMessage(null);
-      const response = await fetch(`${API_BASE_URL}/profiles/${profileId}`, {
+      const response = await authFetch(`${API_BASE_URL}/profiles/${profileId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
