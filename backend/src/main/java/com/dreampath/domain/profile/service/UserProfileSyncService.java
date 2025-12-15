@@ -55,6 +55,9 @@ public class UserProfileSyncService {
         profile.setEmotions(extractTextFromJson(analysis.getEmotions()));
         profile.setInterests(extractTextFromJson(analysis.getInterests()));
 
+        // 🔄 강제 업데이트: 내용 변경이 없어도 타임스탬프를 갱신하여 추천 캐시 무효화
+        profile.setUpdatedAt(java.time.LocalDateTime.now());
+
         // 3. UserProfile 저장
         UserProfile savedProfile = userProfileRepository.save(profile);
         log.info("✅ UserProfile saved: profileId={}", savedProfile.getProfileId());

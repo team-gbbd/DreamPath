@@ -784,7 +784,6 @@ export default function NewDashboard() {
                   </div>
                   <div>
                     <p className="font-bold text-slate-800 group-hover:text-indigo-700 text-sm">{job.title}</p>
-                    <p className="text-xs text-slate-500">{job.tag}</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -819,7 +818,6 @@ export default function NewDashboard() {
                   </div>
                   <div>
                     <p className="font-bold text-slate-800 group-hover:text-green-700 text-sm">{major.title}</p>
-                    <p className="text-xs text-slate-500">{major.tag}</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -1075,8 +1073,8 @@ export default function NewDashboard() {
     // 가장 잘하는 학습 (평균 점수 가장 높은 경로)
     const bestPath = learningPaths.length > 0
       ? learningPaths.reduce((best, current) => {
-          return getAvgScore(current) > getAvgScore(best) ? current : best;
-        }, learningPaths[0])
+        return getAvgScore(current) > getAvgScore(best) ? current : best;
+      }, learningPaths[0])
       : null;
     const bestPathAvgScore = bestPath ? getAvgScore(bestPath) : 0;
 
@@ -1621,7 +1619,7 @@ export default function NewDashboard() {
       <ToastContainer />
 
       {/* Main Page Header */}
-      
+
 
       {/* Main Dashboard Container */}
       <div className={styles['glass-container']}>

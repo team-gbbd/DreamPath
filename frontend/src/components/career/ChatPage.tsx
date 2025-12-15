@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { chatService } from '@/lib/api';
+import { chatService, API_BASE_URL } from '@/lib/api';
 import { Send, BarChart3, Loader2 } from 'lucide-react';
 import type { ChatMessage } from '@/types';
 import IdentityPanel from './IdentityPanel';
 import './ChatPage.css';
+
+const ANALYSIS_UNLOCK_KEY = 'career_chat_analysis_completed';
 
 interface ChatPageProps {
   sessionId: string | null;
@@ -20,6 +22,9 @@ export default function ChatPage({ sessionId, setSessionId }: ChatPageProps) {
   const [isInitializing, setIsInitializing] = useState(true);
   const [identityStatus, setIdentityStatus] = useState<any>(null);
   const [stageChanged, setStageChanged] = useState(false);
+  const [analysisUnlocked, setAnalysisUnlocked] = useState(false);
+  const [personalityPromptDismissed, setPersonalityPromptDismissed] = useState(false);
+  const [personalityTriggered, setPersonalityTriggered] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -33,7 +38,44 @@ export default function ChatPage({ sessionId, setSessionId }: ChatPageProps) {
 
   useEffect(() => {
     initializeChat();
+    checkExistingAnalysis();
   }, []);
+
+  useEffect(() => {
+    if (analysisUnlocked) {
+      setPersonalityPromptDismissed(true);
+      setPersonalityTriggered(false);
+    }
+  }, [analysisUnlocked]);
+
+  const checkExistingAnalysis = async () => {
+    try {
+      const storedFlag = localStorage.getItem(ANALYSIS_UNLOCK_KEY);
+      if (storedFlag === 'true') {
+        setAnalysisUnlocked(true);
+        return;
+      }
+
+      const user = JSON.parse(localStorage.getItem('dreampath:user') || '{}');
+      if (!user?.userId) return;
+
+      const response = await fetch(`${API_BASE_URL}/profiles/${user.userId}/analysis`, {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        markAnalysisUnlocked();
+      }
+    } catch (error) {
+      console.warn('기존 분석 확인 실패:', error);
+    }
+  };
+
+  const markAnalysisUnlocked = () => {
+    localStorage.setItem(ANALYSIS_UNLOCK_KEY, 'true');
+    setAnalysisUnlocked(true);
+    setPersonalityPromptDismissed(true);
+    setPersonalityTriggered(false);
+  };
 
   const initializeChat = async () => {
     try {
@@ -123,10 +165,11 @@ export default function ChatPage({ sessionId, setSessionId }: ChatPageProps) {
   };
 
   const handleAnalyze = () => {
-    if (messages.length < 5) {
+    if (!analysisUnlocked && messages.length < 5) {
       alert('분석을 위해 더 많은 대화가 필요합니다.');
       return;
     }
+    markAnalysisUnlocked();
     router.push(`/analysis?sessionId=${sessionId}`);
   };
 
@@ -149,8 +192,8 @@ export default function ChatPage({ sessionId, setSessionId }: ChatPageProps) {
           <button
             className="analyze-button"
             onClick={handleAnalyze}
-            disabled={messages.length < 5}
-            title={messages.length < 5 ? '더 많은 대화가 필요합니다' : '분석 결과 보기'}
+            disabled={!sessionId || (!analysisUnlocked && messages.length < 5)}
+            title={!sessionId ? '세션을 불러오는 중입니다' : (!analysisUnlocked && messages.length < 5 ? '더 많은 대화가 필요합니다' : '분석 결과 보기')}
           >
             <BarChart3 size={20} />
             분석하기
@@ -218,4 +261,3 @@ export default function ChatPage({ sessionId, setSessionId }: ChatPageProps) {
     </div>
   );
 }
-
