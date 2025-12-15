@@ -1273,8 +1273,8 @@ export default function NewDashboard() {
     // 가장 잘하는 학습 (평균 점수 가장 높은 경로)
     const bestPath = learningPaths.length > 0
       ? learningPaths.reduce((best, current) => {
-          return getAvgScore(current) > getAvgScore(best) ? current : best;
-        }, learningPaths[0])
+        return getAvgScore(current) > getAvgScore(best) ? current : best;
+      }, learningPaths[0])
       : null;
     const bestPathAvgScore = bestPath ? getAvgScore(bestPath) : 0;
 
@@ -1728,7 +1728,7 @@ export default function NewDashboard() {
       <ToastContainer />
 
       {/* Main Page Header */}
-      
+
 
       {/* Mobile Header with Hamburger */}
       <div className={`lg:hidden fixed top-0 left-0 right-0 z-40 ${darkMode ? 'bg-[#0a0a0f]/95' : 'bg-white/95'} backdrop-blur-md border-b ${theme.border} px-4 py-3`}>

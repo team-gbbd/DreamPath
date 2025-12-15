@@ -1,3 +1,5 @@
+from typing import Any, Dict, List, Optional
+
 from agents import Agent
 from agents.agent_output import AgentOutputSchema
 from .recommendation_tools import (
@@ -14,9 +16,22 @@ from .recommendation_tools import (
 from agents import function_tool
 
 # Forward declaration for handoffs
-@function_tool
-def transfer_to_main():
-    print("🔄 [transfer_to_main] Called - returning to RecommendationAgent")
+@function_tool(strict_mode=False)
+def transfer_to_main(
+    jobs: Optional[List[Dict[str, Any]]] = None,
+    majors: Optional[List[Dict[str, Any]]] = None,
+):
+    """
+    Transfers control back to the RecommendationAgent.
+    Agents can pass data (e.g., jobs, majors) as arguments, which will be
+    recorded in the conversation history.
+    """
+    payload = {
+        "jobs": jobs or [],
+        "majors": majors or [],
+    }
+    print(f"🔄 [transfer_to_main] Reporting to RecommendationAgent "
+          f"(jobs={len(payload['jobs'])}, majors={len(payload['majors'])})")
     return recommendation_agent
 
 @function_tool
@@ -32,6 +47,7 @@ def transfer_to_major_expert():
 # --- Job Expert ---
 job_agent = Agent(
     name="JobExpert",
+    model="gpt-4o",
     instructions="""
     You are a Job Search Expert. You represent the CRITICAL FIRST STEP of the recommendation process.
     
@@ -62,6 +78,7 @@ job_agent = Agent(
 # --- Major Expert ---
 major_agent = Agent(
     name="MajorExpert",
+    model="gpt-4o",
     instructions="""
     You are a Major (Academic Dept) Search Expert.
     
@@ -90,6 +107,7 @@ major_agent = Agent(
 # --- Main Orchestrator ---
 recommendation_agent = Agent(
     name="RecommendationAgent",
+    model="gpt-4o",
     instructions="""
     You are the Main Career Recommendation Orchestrator and FINAL JUDGE.
     

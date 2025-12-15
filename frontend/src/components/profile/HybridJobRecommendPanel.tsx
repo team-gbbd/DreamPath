@@ -114,6 +114,7 @@ const HybridJobRecommendPanel = ({ embedded = false, jobs = [], isLoading = fals
   const resolveJobId = (item: HybridResultItem): string | number | null => {
     const metadata = (item?.metadata ?? {}) as Record<string, any>;
     let id = (
+      item.id ||
       item.job_id ||
       metadata?.job_id ||
       metadata?.jobId ||
@@ -198,10 +199,25 @@ const HybridJobRecommendPanel = ({ embedded = false, jobs = [], isLoading = fals
             const title = item.title || item.jobName || item.metadata?.jobName || "제목 미확인";
             const explanation = item.explanation || item.reason || item.description || "추천 이유가 준비 중입니다.";
 
-            // Stats Extraction
-            const rawWage = item.metadata?.wage;
+            // Stats Extraction Helper
+            const parseMetadata = (item: HybridResultItem) => {
+              if (item.metadata && typeof item.metadata === 'object') return item.metadata;
+              if (item.metadata_json) {
+                try {
+                  return typeof item.metadata_json === 'string'
+                    ? JSON.parse(item.metadata_json)
+                    : item.metadata_json;
+                } catch {
+                  return {};
+                }
+              }
+              return {};
+            };
+
+            const metadata = parseMetadata(item);
+            const rawWage = metadata.wage || metadata.salary;
             const wage = formatWageText(rawWage) || "정보 없음";
-            const wlb = item.metadata?.wlb || "정보 없음";
+            const wlb = metadata.wlb || metadata.workLifeBalance || "정보 없음";
             const imageKey = String(item.job_id || item.metadata?.job_id || index);
             const rawCategory = item.metadata?.job_category || item.category || item.tag || "";
             const jobCategoryName = typeof rawCategory === "string" ? rawCategory : "";
