@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { MessageSquare, Briefcase, Users, Send, Sparkles, Sun, Moon, Menu, X, Mic, Brain, Zap, Target, Bot, Home, User, BookOpen, LogOut } from "lucide-react";
+import { MessageSquare, Briefcase, Users, Send, Sparkles, Sun, Moon, Menu, X, Brain, Zap, Target, Bot, User, BookOpen } from "lucide-react";
 import FaqChatbot from "@/components/chatbot/FaqChatbot";
 
 // Typing animation hook
@@ -468,12 +468,6 @@ export default function LandingPage() {
                 rows={1}
               />
               <div className="absolute right-3 bottom-3 flex items-center gap-2">
-                <button
-                  onClick={() => displayToast("로그인이 필요합니다.")}
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 ${theme.sidebarText} ${theme.sidebarHover} hover:scale-105`}
-                >
-                  <Mic className="w-5 h-5" />
-                </button>
                 <button
                   onClick={handleSendMessage}
                   className="w-10 h-10 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] rounded-xl flex items-center justify-center text-white hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-300 disabled:opacity-50 hover:scale-105 relative overflow-hidden group/send"
