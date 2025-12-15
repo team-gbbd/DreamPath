@@ -249,8 +249,14 @@ export default function ComprehensiveJobPage() {
           setLoading(false);
           return;
         }
-      } catch (cacheError) {
+      } catch (cacheError: any) {
         console.log("캐시된 추천 조회 실패:", cacheError);
+        // 캐시 조회 실패 시 에러 메시지 표시
+        const errorMessage = cacheError.response?.data?.error
+          || cacheError.message
+          || "채용 추천을 불러오는 데 실패했습니다.";
+        setLoadError(errorMessage);
+        return;
       }
 
       // 4. 캐시가 없으면 "준비 중" 표시 (프로파일링 시점에 이미 계산 트리거됨)
