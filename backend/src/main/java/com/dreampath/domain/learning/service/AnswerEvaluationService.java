@@ -27,10 +27,27 @@ public class AnswerEvaluationService {
     @Value("${python.ai.service.url:http://localhost:8000}")
     private String pythonServiceUrl;
 
-    @Transactional
+    // Self-injection for @Transactional proxy to work
+    @org.springframework.context.annotation.Lazy
+    @org.springframework.beans.factory.annotation.Autowired
+    private AnswerEvaluationService self;
+
+    /**
+     * 답안 제출 및 채점 - 커넥션 누수 방지를 위해 트랜잭션 분리
+     * HTTP 호출은 트랜잭션 밖에서 수행
+     */
     public StudentAnswer submitAnswer(WeeklyQuestion question, User user, String userAnswer) {
         log.info("답안 제출 - 문제: {}, 학생: {}", question.getQuestionId(), user.getUserId());
 
+        // 1. Python AI Service로 채점 (트랜잭션 밖 - 시간이 오래 걸릴 수 있음)
+        EvaluationResult result = callPythonEvaluationService(question, userAnswer);
+
+        // 2. 답안 저장 (짧은 트랜잭션 - self를 통해 호출해야 프록시가 동작)
+        return self.saveAnswer(question, user, userAnswer, result);
+    }
+
+    @Transactional
+    public StudentAnswer saveAnswer(WeeklyQuestion question, User user, String userAnswer, EvaluationResult result) {
         // 중복 제출 확인
         Optional<StudentAnswer> existing = answerRepository
                 .findByQuestionQuestionIdAndUserUserId(question.getQuestionId(), user.getUserId());
@@ -46,8 +63,6 @@ public class AnswerEvaluationService {
             answer.setUserAnswer(userAnswer);
         }
 
-        // Python AI Service로 채점
-        EvaluationResult result = callPythonEvaluationService(question, userAnswer);
         answer.setScore(result.score);
         answer.setAiFeedback(result.feedback);
 

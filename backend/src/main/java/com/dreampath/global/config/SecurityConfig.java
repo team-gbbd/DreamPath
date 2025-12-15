@@ -41,6 +41,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/health").permitAll()
                         // 직업/전공 정보 (참고용 데이터)
                         .requestMatchers("/api/job/**", "/api/major/**").permitAll()
+                        // 추천 API (임시 공개 - 디버깅용)
+                        .requestMatchers("/api/recommendation/**").permitAll()
                         // 멘토/세션 목록 조회 (비회원도 열람 가능)
                         .requestMatchers("/api/mentors/approved").permitAll()
                         .requestMatchers("/api/mentors/{mentorId}").permitAll()
