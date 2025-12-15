@@ -239,7 +239,7 @@ class WebCrawlerService:
             all_job_listings = []
             offset = 0
             page_size = 100  # 한 번에 가져올 최대 개수
-            max_pages = 10  # 최대 페이지 수 (테스트용)
+            max_pages = 100  # 최대 페이지 수
             page = 0
             
             while page < max_pages:
@@ -1040,7 +1040,7 @@ class WebCrawlerService:
             
             all_job_listings = []
             page = 1
-            max_pages = 30  # 최대 30페이지까지 크롤링
+            max_pages = 300  # 최대 300페이지까지 크롤링
             
             # 타임아웃을 더 길게 설정하고 재시도 로직 추가
             timeout = httpx.Timeout(60.0, connect=30.0)  # 전체 60초, 연결 30초
@@ -1488,7 +1488,7 @@ class WebCrawlerService:
             
             all_job_listings = []
             page = 1
-            max_pages = 10  # 최대 페이지 수 (테스트용)
+            max_pages = 100  # 최대 페이지 수
             
             # 타임아웃을 더 길게 설정하고 재시도 로직 추가
             timeout = httpx.Timeout(60.0, connect=30.0)  # 전체 60초, 연결 30초
