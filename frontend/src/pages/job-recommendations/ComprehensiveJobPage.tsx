@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { jobRecommendationService, jobSiteService, BACKEND_BASE_URL, authFetch } from "@/lib/api";
 import ApplicationWriterModal from "../../components/application/ApplicationWriterModal";
+import Header from "@/components/layout/Header";
 
 // localStorage에서 userId 가져오기
 const getStoredUserId = (): number | null => {
