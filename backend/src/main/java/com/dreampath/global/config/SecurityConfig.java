@@ -38,7 +38,7 @@ public class SecurityConfig {
                         // === 공개 엔드포인트 ===
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/oauth2/**", "/login/**").permitAll()
-                        .requestMatchers("/api/health").permitAll()
+                        .requestMatchers("/api/health", "/actuator/health").permitAll()
                         // 직업/전공 정보 (참고용 데이터)
                         .requestMatchers("/api/job/**", "/api/major/**").permitAll()
                         // 추천 API (임시 공개 - 디버깅용)
