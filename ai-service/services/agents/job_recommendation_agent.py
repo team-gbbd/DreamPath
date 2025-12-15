@@ -1212,18 +1212,28 @@ class JobRecommendationAgent:
 """
 
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "당신은 채용 분석 전문가입니다. 여러 채용공고를 한 번에 분석합니다. 반드시 JSON 배열로만 응답하세요."
-                    },
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.4,
-                max_completion_tokens=4000
-            )
+            messages = [
+                {
+                    "role": "system",
+                    "content": "당신은 채용 분석 전문가입니다. 여러 채용공고를 한 번에 분석합니다. 반드시 JSON 배열로만 응답하세요."
+                },
+                {"role": "user", "content": prompt}
+            ]
+
+            # gpt-5/o1/o3 모델은 temperature 미지원
+            if self.model.startswith(("o1", "o3", "gpt-5")):
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    max_completion_tokens=4000
+                )
+            else:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    temperature=0.4,
+                    max_completion_tokens=4000
+                )
 
             result_text = response.choices[0].message.content
 
