@@ -39,12 +39,26 @@ interface HiringTrends {
   industryPosition: string;
 }
 
+interface HiringProcess {
+  steps: string[];
+  timeline: string;
+  tips: string;
+}
+
+interface UserSpecificAdvice {
+  strengthsToHighlight: string[];
+  areasToImprove: string[];
+  preparationPlan: string[];
+}
+
 interface TalentAnalysis {
   idealCandidate: IdealCandidate;
   requirements: Requirements;
   companyCulture: CompanyCulture;
   hiringTrends: HiringTrends;
+  hiringProcess?: HiringProcess;
   interviewTips: string[];
+  userSpecificAdvice?: UserSpecificAdvice;
 }
 
 interface StrengthMatch {
@@ -57,12 +71,31 @@ interface GapItem {
   area: string;
   gap: string;
   priority: string;
+  improvementTip?: string;
 }
 
 interface ActionItem {
   action: string;
   reason: string;
-  timeline: string;
+  timeline?: string;
+  priority?: string;
+}
+
+interface VerificationCriteria {
+  passLikelihood: string;
+  keyFactors: string[];
+  riskFactors: string[];
+}
+
+interface HiringStatus {
+  competitiveness: string;
+  positionInPool: string;
+}
+
+interface InterviewPreparation {
+  expectedQuestions: string[];
+  answerTips: string[];
+  technicalTopics: string[];
 }
 
 interface FitAssessment {
@@ -78,6 +111,9 @@ interface UserMatching {
   gapAnalysis: GapItem[];
   actionItems: ActionItem[];
   fitAssessment: FitAssessment;
+  verificationCriteria?: VerificationCriteria;
+  hiringStatus?: HiringStatus;
+  interviewPreparation?: InterviewPreparation;
 }
 
 interface CompanyInfo {
@@ -113,16 +149,40 @@ export default function CompanyTalentPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'talent' | 'requirements' | 'culture' | 'matching'>('talent');
 
-  // localStorage에서 커리어 분석 결과 가져오기
+  // localStorage에서 커리어 분석 결과 및 사용자 프로필 가져오기
   const [careerAnalysis, setCareerAnalysis] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
 
   useEffect(() => {
+    // 커리어 분석 결과
     const savedAnalysis = localStorage.getItem('careerAnalysis');
     if (savedAnalysis) {
       try {
         setCareerAnalysis(JSON.parse(savedAnalysis));
       } catch (e) {
         console.error('커리어 분석 결과 파싱 실패:', e);
+      }
+    }
+
+    // 사용자 프로필 정보
+    const savedProfile = localStorage.getItem('userProfile');
+    if (savedProfile) {
+      try {
+        setUserProfile(JSON.parse(savedProfile));
+      } catch (e) {
+        console.error('사용자 프로필 파싱 실패:', e);
+      }
+    }
+
+    // profileData도 확인 (다른 키로 저장되어 있을 수 있음)
+    if (!savedProfile) {
+      const profileData = localStorage.getItem('profileData');
+      if (profileData) {
+        try {
+          setUserProfile(JSON.parse(profileData));
+        } catch (e) {
+          console.error('프로필 데이터 파싱 실패:', e);
+        }
       }
     }
   }, []);
@@ -140,8 +200,8 @@ export default function CompanyTalentPage() {
     try {
       const response = await companyTalentService.analyzeCompanyTalent(
         companyName,
-        null, // userProfile
-        careerAnalysis // 커리어 분석 결과가 있으면 매칭 분석도 수행
+        userProfile, // 사용자 프로필 (학력, 경력, 스킬 등)
+        careerAnalysis // 커리어 분석 결과 (강점, 가치관, 추천 직업 등)
       );
 
       if (response.success) {
@@ -205,13 +265,20 @@ export default function CompanyTalentPage() {
           </div>
 
           {/* 커리어 분석 상태 알림 */}
-          {careerAnalysis ? (
+          {(careerAnalysis || userProfile) ? (
             <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
-              커리어 분석 결과가 있어 매칭 분석이 함께 제공됩니다.
+              {careerAnalysis && userProfile ? (
+                '커리어 분석과 프로필 정보가 있어 맞춤형 매칭 분석이 함께 제공됩니다.'
+              ) : careerAnalysis ? (
+                '커리어 분석 결과가 있어 매칭 분석이 함께 제공됩니다. 프로필을 완성하면 더 정확한 분석이 가능합니다.'
+              ) : (
+                '프로필 정보가 있어 기본 매칭 분석이 함께 제공됩니다.'
+              )}
             </div>
           ) : (
             <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700">
-              <Link to="/career-chat" className="underline hover:no-underline">커리어 분석</Link>을 먼저 완료하면 나와의 매칭도도 분석해드립니다.
+              <Link to="/career-chat" className="underline hover:no-underline">커리어 분석</Link>을 완료하거나
+              <Link to="/profile" className="underline hover:no-underline ml-1">프로필</Link>을 입력하면 나와의 매칭도도 분석해드립니다.
             </div>
           )}
         </div>
@@ -382,7 +449,7 @@ export default function CompanyTalentPage() {
 
 // ============== 인재상 탭 ==============
 function TalentTab({ analysis }: { analysis: TalentAnalysis }) {
-  const { idealCandidate, hiringTrends, interviewTips } = analysis;
+  const { idealCandidate, hiringTrends, hiringProcess, interviewTips, userSpecificAdvice } = analysis;
 
   return (
     <div className="space-y-6">
@@ -414,6 +481,44 @@ function TalentTab({ analysis }: { analysis: TalentAnalysis }) {
                 <span>{trait}</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* 채용 프로세스 (새로 추가) */}
+      {hiringProcess && (
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">채용 프로세스</h3>
+          <div className="bg-indigo-50 rounded-lg p-4">
+            {hiringProcess.steps?.length > 0 && (
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-2">전형 단계</p>
+                <div className="flex flex-wrap gap-2 items-center">
+                  {hiringProcess.steps.map((step, idx) => (
+                    <div key={idx} className="flex items-center">
+                      <span className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">
+                        {step}
+                      </span>
+                      {idx < hiringProcess.steps.length - 1 && (
+                        <span className="mx-1 text-gray-400">→</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {hiringProcess.timeline && (
+              <div className="mb-3">
+                <p className="text-sm text-gray-600">예상 소요 기간</p>
+                <p className="text-indigo-800">{hiringProcess.timeline}</p>
+              </div>
+            )}
+            {hiringProcess.tips && (
+              <div>
+                <p className="text-sm text-gray-600">전형별 팁</p>
+                <p className="text-indigo-800 text-sm">{hiringProcess.tips}</p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -466,6 +571,51 @@ function TalentTab({ analysis }: { analysis: TalentAnalysis }) {
                 </li>
               ))}
             </ul>
+          </div>
+        </div>
+      )}
+
+      {/* 나를 위한 맞춤 조언 (새로 추가) */}
+      {userSpecificAdvice && (
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">나를 위한 맞춤 조언</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {userSpecificAdvice.strengthsToHighlight?.length > 0 && (
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <h4 className="font-medium text-green-900 mb-2 flex items-center gap-2">
+                  <span className="text-green-500">✓</span> 강조할 강점
+                </h4>
+                <ul className="space-y-1">
+                  {userSpecificAdvice.strengthsToHighlight.map((item, idx) => (
+                    <li key={idx} className="text-green-800 text-sm">• {item}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {userSpecificAdvice.areasToImprove?.length > 0 && (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <h4 className="font-medium text-amber-900 mb-2 flex items-center gap-2">
+                  <span className="text-amber-500">⚠</span> 보완할 부분
+                </h4>
+                <ul className="space-y-1">
+                  {userSpecificAdvice.areasToImprove.map((item, idx) => (
+                    <li key={idx} className="text-amber-800 text-sm">• {item}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {userSpecificAdvice.preparationPlan?.length > 0 && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h4 className="font-medium text-blue-900 mb-2 flex items-center gap-2">
+                  <span className="text-blue-500">📋</span> 준비 계획
+                </h4>
+                <ul className="space-y-1">
+                  {userSpecificAdvice.preparationPlan.map((item, idx) => (
+                    <li key={idx} className="text-blue-800 text-sm">• {item}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -652,6 +802,63 @@ function MatchingTab({ matching }: { matching: UserMatching }) {
         </div>
       )}
 
+      {/* 검증 기준 / 합격 가능성 (새로 추가) */}
+      {matching.verificationCriteria && (
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <span className="text-indigo-500">📊</span> 검증 기준
+          </h3>
+          <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="text-center p-3 bg-white rounded-lg">
+                <p className="text-sm text-gray-600">합격 가능성</p>
+                <p className={`text-xl font-bold ${
+                  matching.verificationCriteria.passLikelihood === '상' ? 'text-green-600' :
+                  matching.verificationCriteria.passLikelihood === '중' ? 'text-yellow-600' : 'text-red-600'
+                }`}>
+                  {matching.verificationCriteria.passLikelihood}
+                </p>
+              </div>
+              <div className="p-3 bg-white rounded-lg">
+                <p className="text-sm text-gray-600 mb-1">합격 핵심 요소</p>
+                <ul className="text-sm text-green-700">
+                  {matching.verificationCriteria.keyFactors?.map((factor, idx) => (
+                    <li key={idx}>✓ {factor}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="p-3 bg-white rounded-lg">
+                <p className="text-sm text-gray-600 mb-1">위험 요소</p>
+                <ul className="text-sm text-red-700">
+                  {matching.verificationCriteria.riskFactors?.map((risk, idx) => (
+                    <li key={idx}>⚠ {risk}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 채용 현황 / 경쟁력 (새로 추가) */}
+      {matching.hiringStatus && (
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <span className="text-purple-500">📈</span> 채용 현황
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+              <h4 className="font-medium text-purple-900 mb-2">경쟁력 수준</h4>
+              <p className="text-sm text-purple-800">{matching.hiringStatus.competitiveness}</p>
+            </div>
+            <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+              <h4 className="font-medium text-purple-900 mb-2">지원자 풀에서의 위치</h4>
+              <p className="text-sm text-purple-800">{matching.hiringStatus.positionInPool}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 갭 분석 */}
       {matching.gapAnalysis?.length > 0 && (
         <div>
@@ -673,6 +880,9 @@ function MatchingTab({ matching }: { matching: UserMatching }) {
                   </span>
                 </div>
                 <p className="text-sm text-yellow-800">{gap.gap}</p>
+                {gap.improvementTip && (
+                  <p className="text-sm text-yellow-700 mt-2 italic">💡 {gap.improvementTip}</p>
+                )}
               </div>
             ))}
           </div>
@@ -701,6 +911,47 @@ function MatchingTab({ matching }: { matching: UserMatching }) {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* 면접 준비 (새로 추가) */}
+      {matching.interviewPreparation && (
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <span className="text-cyan-500">🎯</span> 면접 준비
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {matching.interviewPreparation.expectedQuestions?.length > 0 && (
+              <div className="p-4 bg-cyan-50 border border-cyan-200 rounded-lg">
+                <h4 className="font-medium text-cyan-900 mb-2">예상 면접 질문</h4>
+                <ul className="space-y-2">
+                  {matching.interviewPreparation.expectedQuestions.map((q, idx) => (
+                    <li key={idx} className="text-sm text-cyan-800">• {q}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {matching.interviewPreparation.answerTips?.length > 0 && (
+              <div className="p-4 bg-cyan-50 border border-cyan-200 rounded-lg">
+                <h4 className="font-medium text-cyan-900 mb-2">답변 팁</h4>
+                <ul className="space-y-2">
+                  {matching.interviewPreparation.answerTips.map((tip, idx) => (
+                    <li key={idx} className="text-sm text-cyan-800">• {tip}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {matching.interviewPreparation.technicalTopics?.length > 0 && (
+              <div className="p-4 bg-cyan-50 border border-cyan-200 rounded-lg">
+                <h4 className="font-medium text-cyan-900 mb-2">준비할 기술 주제</h4>
+                <ul className="space-y-2">
+                  {matching.interviewPreparation.technicalTopics.map((topic, idx) => (
+                    <li key={idx} className="text-sm text-cyan-800">• {topic}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         </div>
       )}

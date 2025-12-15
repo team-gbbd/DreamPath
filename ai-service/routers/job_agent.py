@@ -903,7 +903,7 @@ async def get_recommendations_by_career_analysis(
         # 2. job_recommendations가 없으면 career_analyses에서 조회 (우선순위 2)
         if not career_names:
             career_query = '''
-                SELECT ca.recommended_careers, ca.strengths, ca.values, ca.interests
+                SELECT ca.recommended_careers, ca.interest_areas, ca.personality_type
                 FROM career_analyses ca
                 INNER JOIN career_sessions cs ON ca.session_id = cs.id
                 WHERE cs.user_id = %s
@@ -931,12 +931,18 @@ async def get_recommendations_by_career_analysis(
 
                 if career_names:
                     data_source = "career_analyses"
-                    # AI 분석용 데이터 구성
+                    # AI 분석용 데이터 구성 (career_analyses 테이블 컬럼 사용)
+                    interest_areas = row.get("interest_areas") or []
+                    if isinstance(interest_areas, str):
+                        try:
+                            interest_areas = json.loads(interest_areas)
+                        except:
+                            interest_areas = []
+
                     career_analysis_data = {
                         "recommendedCareers": [{"careerName": name} for name in career_names],
-                        "strengths": row.get("strengths") or [],
-                        "values": row.get("values") or [],
-                        "interests": row.get("interests") or []
+                        "interests": interest_areas,
+                        "personalityType": row.get("personality_type") or ""
                     }
                     print(f"[JobRecommendation] career_analyses에서 직업 조회: {career_names}")
 

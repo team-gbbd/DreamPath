@@ -50,9 +50,9 @@ class CompanyTalentAgent:
         # 1. DB에서 해당 기업의 채용공고 및 정보 조회
         company_data = await self._get_company_data(company_name)
 
-        # 2. AI로 인재상 분석
+        # 2. AI로 인재상 분석 (사용자 데이터 포함)
         talent_analysis = await self._analyze_talent_requirements(
-            company_name, company_data
+            company_name, company_data, user_profile, career_analysis
         )
 
         # 3. 사용자 매칭 분석 (프로필이 있는 경우)
@@ -167,9 +167,11 @@ class CompanyTalentAgent:
     async def _analyze_talent_requirements(
         self,
         company_name: str,
-        company_data: Dict
+        company_data: Dict,
+        user_profile: Optional[Dict] = None,
+        career_analysis: Optional[Dict] = None
     ) -> Dict:
-        """AI를 사용하여 기업의 인재상 분석"""
+        """AI를 사용하여 기업의 인재상 분석 (사용자 맞춤형)"""
 
         company_info = company_data.get("company_info", {})
         job_postings = company_data.get("job_postings", [])
@@ -192,12 +194,15 @@ class CompanyTalentAgent:
         tech_stack_text = ", ".join(list(all_tech_stacks)[:20]) if all_tech_stacks else "정보 없음"
         skills_text = ", ".join(list(all_skills)[:20]) if all_skills else "정보 없음"
 
-        prompt = f"""다음 기업의 인재상과 채용 기준을 분석해주세요.
+        # 사용자 정보 구성 (핵심 개선!)
+        user_context = self._build_user_context(user_profile, career_analysis)
+
+        prompt = f"""다음 기업의 인재상과 채용 기준을 분석하고, 지원자에게 맞춤형 조언을 제공해주세요.
 
 【기업 정보】
 - 기업명: {company_name}
 - 산업: {company_info.get('industry', '정보 없음')}
-- 기업규모: {company_info.get('employeeCount', '정보 없음')}
+- 기업규모: {company_info.get('employeeCount', '정보 없음')}명
 - 기업유형: {company_info.get('companyType', '정보 없음')}
 - 기업소개: {(company_info.get('description') or '정보 없음')[:500]}
 - 비전/주요사업: {company_info.get('vision', '정보 없음')}
@@ -211,47 +216,60 @@ class CompanyTalentAgent:
 【요구 스킬】
 {skills_text}
 
+{user_context}
+
 다음 JSON 형식으로 분석 결과를 제공해주세요:
 {{
   "idealCandidate": {{
-    "summary": "이 기업이 원하는 인재상 한 문장 요약",
+    "summary": "이 기업이 원하는 인재상 한 문장 요약 (구체적으로)",
     "coreValues": ["핵심가치1", "핵심가치2", "핵심가치3"],
     "keyTraits": ["원하는 인재 특성1", "특성2", "특성3", "특성4", "특성5"]
   }},
   "requirements": {{
     "essential": [
-      {{"category": "학력/전공", "items": ["요구사항1", "요구사항2"]}},
-      {{"category": "경력", "items": ["요구사항1"]}},
-      {{"category": "기술역량", "items": ["요구사항1", "요구사항2", "요구사항3"]}},
-      {{"category": "자격증", "items": ["요구사항1"]}}
+      {{"category": "학력/전공", "items": ["구체적 요구사항1", "요구사항2"]}},
+      {{"category": "경력", "items": ["구체적 경력 요구사항"]}},
+      {{"category": "기술역량", "items": ["필수 기술1", "필수 기술2", "필수 기술3"]}},
+      {{"category": "자격증", "items": ["관련 자격증"]}}
     ],
     "preferred": [
-      {{"category": "경험", "items": ["우대사항1", "우대사항2"]}},
-      {{"category": "역량", "items": ["우대사항1", "우대사항2"]}}
+      {{"category": "경험", "items": ["우대 경험1", "우대 경험2"]}},
+      {{"category": "역량", "items": ["우대 역량1", "우대 역량2"]}}
     ]
   }},
   "companyCulture": {{
-    "workStyle": "업무 스타일 설명",
-    "environment": "근무 환경 설명",
-    "growthOpportunity": "성장 기회 설명",
-    "keywords": ["문화 키워드1", "문화 키워드2", "문화 키워드3"]
+    "workStyle": "구체적인 업무 스타일 설명",
+    "environment": "실제 근무 환경 설명",
+    "growthOpportunity": "성장 기회와 커리어 패스",
+    "keywords": ["문화 키워드1", "키워드2", "키워드3"]
+  }},
+  "hiringProcess": {{
+    "steps": ["서류 전형", "코딩 테스트", "기술 면접", "임원 면접"],
+    "timeline": "보통 2-4주 소요",
+    "tips": "전형별 준비 팁"
   }},
   "hiringTrends": {{
     "mainPositions": ["주로 채용하는 포지션1", "포지션2", "포지션3"],
     "techFocus": ["주력 기술1", "기술2", "기술3"],
-    "industryPosition": "업계에서의 위치 및 특징"
+    "industryPosition": "업계에서의 위치 및 경쟁력"
   }},
   "interviewTips": [
-    "면접 준비 팁1",
+    "구체적인 면접 준비 팁1 (예상 질문 포함)",
     "면접 준비 팁2",
     "면접 준비 팁3"
-  ]
+  ],
+  "userSpecificAdvice": {{
+    "strengthsToHighlight": ["지원자가 강조해야 할 강점"],
+    "areasToImprove": ["보완이 필요한 부분"],
+    "preparationPlan": ["단기 준비 사항", "중기 준비 사항"]
+  }}
 }}
 
 분석 시 주의사항:
-- 채용공고와 기업정보를 기반으로 실제적인 분석을 해주세요
-- 정보가 부족한 경우 일반적인 업계 특성을 참고하여 추론해주세요
-- 구직자에게 실질적으로 도움이 되는 구체적인 정보를 제공해주세요
+- 채용공고와 기업정보를 기반으로 실제적이고 구체적인 분석을 해주세요
+- 일반적인 내용보다는 해당 기업/산업에 특화된 인사이트를 제공해주세요
+- 지원자 정보가 있다면, 그에 맞춘 맞춤형 조언을 반드시 포함해주세요
+- 예상 면접 질문, 실제 준비해야 할 기술 등 실질적으로 도움이 되는 정보 제공
 """
 
         try:
@@ -264,7 +282,7 @@ class CompanyTalentAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=1,
+                temperature=0.3,
                 max_completion_tokens=2000
             )
 
@@ -288,74 +306,129 @@ class CompanyTalentAgent:
         user_profile: Optional[Dict],
         career_analysis: Optional[Dict]
     ) -> Dict:
-        """사용자와 기업 인재상 매칭 분석"""
+        """사용자와 기업 인재상 매칭 분석 (상세 버전)"""
 
-        # 사용자 정보 요약
+        # 사용자 정보를 더 상세하게 구성
         user_info_parts = []
 
         if career_analysis:
             if career_analysis.get("recommendedCareers"):
-                careers = [c.get("careerName", "") for c in career_analysis["recommendedCareers"][:3]]
-                user_info_parts.append(f"추천 직업: {', '.join(careers)}")
+                careers = [c.get("careerName", "") for c in career_analysis["recommendedCareers"][:3] if c.get("careerName")]
+                if careers:
+                    user_info_parts.append(f"- AI 추천 직업: {', '.join(careers)}")
 
             if career_analysis.get("strengths"):
-                user_info_parts.append(f"강점: {', '.join(career_analysis['strengths'][:5])}")
+                user_info_parts.append(f"- 핵심 강점: {', '.join(career_analysis['strengths'][:5])}")
+
+            if career_analysis.get("weaknesses"):
+                user_info_parts.append(f"- 개선 필요 영역: {', '.join(career_analysis['weaknesses'][:3])}")
 
             if career_analysis.get("values"):
-                user_info_parts.append(f"가치관: {', '.join(career_analysis['values'][:3])}")
+                user_info_parts.append(f"- 직업 가치관: {', '.join(career_analysis['values'][:3])}")
 
             if career_analysis.get("interests"):
-                user_info_parts.append(f"관심사: {', '.join(career_analysis['interests'][:5])}")
+                user_info_parts.append(f"- 관심 분야: {', '.join(career_analysis['interests'][:5])}")
+
+            if career_analysis.get("personalityType"):
+                user_info_parts.append(f"- 성격 유형: {career_analysis['personalityType']}")
+
+            if career_analysis.get("mbti"):
+                user_info_parts.append(f"- MBTI: {career_analysis['mbti']}")
 
         if user_profile:
-            if user_profile.get("experience"):
-                user_info_parts.append(f"경력: {user_profile['experience']}")
             if user_profile.get("education"):
-                user_info_parts.append(f"학력: {user_profile['education']}")
+                user_info_parts.append(f"- 학력: {user_profile['education']}")
+            if user_profile.get("major"):
+                user_info_parts.append(f"- 전공: {user_profile['major']}")
+            if user_profile.get("experience"):
+                user_info_parts.append(f"- 경력: {user_profile['experience']}")
             if user_profile.get("skills"):
-                user_info_parts.append(f"보유 스킬: {', '.join(user_profile['skills'][:10])}")
+                skills = user_profile["skills"][:10] if isinstance(user_profile["skills"], list) else [user_profile["skills"]]
+                user_info_parts.append(f"- 보유 스킬: {', '.join(skills)}")
+            if user_profile.get("certifications"):
+                certs = user_profile["certifications"][:5] if isinstance(user_profile["certifications"], list) else [user_profile["certifications"]]
+                user_info_parts.append(f"- 자격증: {', '.join(certs)}")
+            if user_profile.get("projects"):
+                user_info_parts.append(f"- 프로젝트 경험: 있음")
 
-        user_summary = "\n".join(user_info_parts) if user_info_parts else "정보 없음"
+        user_summary = "\n".join(user_info_parts) if user_info_parts else "상세 정보 없음"
 
         # 기업 인재상 요약
         ideal_candidate = talent_analysis.get("idealCandidate", {})
         requirements = talent_analysis.get("requirements", {})
 
-        prompt = f"""사용자와 기업 인재상의 매칭도를 분석해주세요.
+        # 채용프로세스 정보
+        hiring_process = talent_analysis.get("hiringProcess", {})
+        company_culture = talent_analysis.get("companyCulture", {})
 
-【사용자 정보】
+        prompt = f"""지원자와 기업의 상세 매칭 분석을 수행해주세요. 실제 데이터를 기반으로 구체적이고 실용적인 분석을 제공해주세요.
+
+【지원자 상세 정보】
 {user_summary}
 
-【기업 인재상】
-- 요약: {ideal_candidate.get('summary', '')}
-- 핵심가치: {', '.join(ideal_candidate.get('coreValues', []))}
-- 원하는 특성: {', '.join(ideal_candidate.get('keyTraits', []))}
+【기업이 원하는 인재상】
+- 인재상 요약: {ideal_candidate.get('summary', '정보 없음')}
+- 핵심 가치: {', '.join(ideal_candidate.get('coreValues', [])) or '정보 없음'}
+- 원하는 특성: {', '.join(ideal_candidate.get('keyTraits', [])) or '정보 없음'}
 
 【필수 요건】
-{json.dumps(requirements.get('essential', []), ensure_ascii=False)}
+{json.dumps(requirements.get('essential', []), ensure_ascii=False, indent=2)}
 
 【우대 사항】
-{json.dumps(requirements.get('preferred', []), ensure_ascii=False)}
+{json.dumps(requirements.get('preferred', []), ensure_ascii=False, indent=2)}
 
-다음 JSON 형식으로 매칭 분석 결과를 제공해주세요:
+【기업 문화】
+- 업무 스타일: {company_culture.get('workStyle', '정보 없음')}
+- 근무 환경: {company_culture.get('environment', '정보 없음')}
+- 문화 키워드: {', '.join(company_culture.get('keywords', [])) or '정보 없음'}
+
+【채용 프로세스】
+- 전형 단계: {', '.join(hiring_process.get('steps', [])) or '정보 없음'}
+- 예상 소요 기간: {hiring_process.get('timeline', '정보 없음')}
+
+다음 JSON 형식으로 상세 매칭 분석 결과를 제공해주세요:
 {{
   "overallMatchScore": 75,
-  "matchSummary": "매칭 결과 한 문장 요약",
+  "matchSummary": "구체적인 매칭 결과 요약 (지원자의 실제 강점과 연계)",
   "strengthMatches": [
-    {{"area": "강점 영역", "match": "어떻게 부합하는지", "score": 85}}
+    {{"area": "부합하는 구체적 영역", "match": "지원자의 어떤 점이 어떻게 부합하는지 상세 설명", "score": 85}},
+    {{"area": "두번째 강점 영역", "match": "상세 설명", "score": 80}}
   ],
   "gapAnalysis": [
-    {{"area": "부족한 영역", "gap": "무엇이 부족한지", "priority": "HIGH/MEDIUM/LOW"}}
+    {{"area": "부족한 구체적 영역", "gap": "무엇이 왜 부족한지 상세 설명", "priority": "HIGH", "improvementTip": "개선 방법"}},
+    {{"area": "두번째 부족 영역", "gap": "상세 설명", "priority": "MEDIUM", "improvementTip": "개선 방법"}}
   ],
+  "verificationCriteria": {{
+    "passLikelihood": "합격 가능성 (상/중/하)",
+    "keyFactors": ["합격에 영향을 미칠 핵심 요소들"],
+    "riskFactors": ["탈락 위험 요소들"]
+  }},
+  "hiringStatus": {{
+    "competitiveness": "경쟁력 수준 설명",
+    "positionInPool": "지원자 풀에서의 예상 위치"
+  }},
   "actionItems": [
-    {{"action": "구체적인 준비 항목", "reason": "왜 필요한지", "timeline": "추천 준비 기간"}}
+    {{"action": "당장 해야 할 구체적 준비 사항", "reason": "왜 필요한지", "priority": "HIGH"}},
+    {{"action": "중기적 준비 사항", "reason": "이유", "priority": "MEDIUM"}},
+    {{"action": "장기적 준비 사항", "reason": "이유", "priority": "LOW"}}
   ],
+  "interviewPreparation": {{
+    "expectedQuestions": ["예상 면접 질문1 (지원자 경험 기반)", "질문2", "질문3"],
+    "answerTips": ["질문별 답변 팁"],
+    "technicalTopics": ["준비해야 할 기술 주제들"]
+  }},
   "fitAssessment": {{
-    "cultureFit": "문화 적합도 설명",
-    "skillFit": "역량 적합도 설명",
-    "growthPotential": "성장 가능성 설명"
+    "cultureFit": "문화 적합도 상세 설명 (구체적 근거 포함)",
+    "skillFit": "역량 적합도 상세 설명",
+    "growthPotential": "이 회사에서의 성장 가능성과 커리어 전망"
   }}
 }}
+
+분석 시 반드시:
+- 지원자의 실제 데이터를 기반으로 구체적인 분석 제공
+- 일반론이 아닌 해당 지원자에게 특화된 조언 제공
+- 합격 가능성과 위험 요소를 솔직하게 평가
+- 실제로 도움이 되는 구체적인 액션 아이템 제시
 """
 
         try:
@@ -368,7 +441,7 @@ class CompanyTalentAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=1,
+                temperature=0.3,
                 max_completion_tokens=1500
             )
 
@@ -452,7 +525,7 @@ class CompanyTalentAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=1,
+                temperature=0.3,
                 max_completion_tokens=1500
             )
 
@@ -611,7 +684,7 @@ class CompanyTalentAgent:
                     },
                     {"role": "user", "content": prompt}
                 ],
-                temperature=1,
+                temperature=0.3,
                 max_completion_tokens=1500
             )
 
@@ -699,6 +772,96 @@ class CompanyTalentAgent:
             return []
 
     # ==================== 유틸리티 ====================
+
+    def _build_user_context(
+        self,
+        user_profile: Optional[Dict],
+        career_analysis: Optional[Dict]
+    ) -> str:
+        """사용자 데이터를 AI 프롬프트용 컨텍스트로 구성"""
+
+        if not user_profile and not career_analysis:
+            return ""
+
+        parts = ["【지원자 정보 (맞춤 분석용)】"]
+
+        # 커리어 분석 결과에서 정보 추출
+        if career_analysis:
+            # 추천 직업
+            if career_analysis.get("recommendedCareers"):
+                careers = [c.get("careerName", "") for c in career_analysis["recommendedCareers"][:3] if c.get("careerName")]
+                if careers:
+                    parts.append(f"- AI 추천 직업: {', '.join(careers)}")
+
+            # 강점
+            if career_analysis.get("strengths"):
+                strengths = career_analysis["strengths"][:5]
+                parts.append(f"- 강점: {', '.join(strengths)}")
+
+            # 약점/개선점
+            if career_analysis.get("weaknesses"):
+                weaknesses = career_analysis["weaknesses"][:3]
+                parts.append(f"- 개선 필요 영역: {', '.join(weaknesses)}")
+
+            # 가치관
+            if career_analysis.get("values"):
+                values = career_analysis["values"][:3]
+                parts.append(f"- 직업 가치관: {', '.join(values)}")
+
+            # 관심사
+            if career_analysis.get("interests"):
+                interests = career_analysis["interests"][:5]
+                parts.append(f"- 관심 분야: {', '.join(interests)}")
+
+            # 성격 유형
+            if career_analysis.get("personalityType"):
+                parts.append(f"- 성격 유형: {career_analysis['personalityType']}")
+
+            # MBTI
+            if career_analysis.get("mbti"):
+                parts.append(f"- MBTI: {career_analysis['mbti']}")
+
+        # 사용자 프로필에서 정보 추출
+        if user_profile:
+            # 학력
+            if user_profile.get("education"):
+                parts.append(f"- 학력: {user_profile['education']}")
+
+            # 전공
+            if user_profile.get("major"):
+                parts.append(f"- 전공: {user_profile['major']}")
+
+            # 경력
+            if user_profile.get("experience"):
+                parts.append(f"- 경력: {user_profile['experience']}")
+
+            # 보유 스킬
+            if user_profile.get("skills"):
+                skills = user_profile["skills"][:10] if isinstance(user_profile["skills"], list) else [user_profile["skills"]]
+                parts.append(f"- 보유 스킬: {', '.join(skills)}")
+
+            # 자격증
+            if user_profile.get("certifications"):
+                certs = user_profile["certifications"][:5] if isinstance(user_profile["certifications"], list) else [user_profile["certifications"]]
+                parts.append(f"- 자격증: {', '.join(certs)}")
+
+            # 프로젝트 경험
+            if user_profile.get("projects"):
+                projects = user_profile["projects"][:3] if isinstance(user_profile["projects"], list) else [user_profile["projects"]]
+                parts.append(f"- 프로젝트 경험: {', '.join(str(p) for p in projects)}")
+
+            # 희망 직무
+            if user_profile.get("desiredPosition"):
+                parts.append(f"- 희망 직무: {user_profile['desiredPosition']}")
+
+            # 희망 연봉
+            if user_profile.get("desiredSalary"):
+                parts.append(f"- 희망 연봉: {user_profile['desiredSalary']}")
+
+        if len(parts) <= 1:
+            return ""
+
+        return "\n".join(parts)
 
     def _get_default_talent_analysis(self) -> Dict:
         """기본 인재상 분석 결과"""
