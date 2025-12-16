@@ -85,28 +85,61 @@ class RecommendationPipeline:
         major_explanations = final_output.get("major_explanations") or final_output.get("majorExplanations") or []
         
         # Normalize Data Keys for Frontend/Backend Compatibility
+        # ⚠️ CRITICAL: LLM output의 title/jobName은 신뢰하지 않음
+        # Pinecone metadata가 유일한 source of truth
         jobs = final_output.get("jobs", [])
         majors = final_output.get("majors", [])
-        
+
         normalized_jobs = []
         for j in jobs:
             new_j = j.copy()
-            # Ensure proper keys
-            if 'title' in new_j and 'jobName' not in new_j:
-                new_j['jobName'] = new_j['title']
-            if 'job_nm' in new_j and 'jobName' not in new_j:
-                new_j['jobName'] = new_j['job_nm']
+
+            # 🛡️ TRUST ONLY METADATA: LLM이 생성한 title은 무시
+            # metadata에서 jobName을 가져오고, 없으면 job_nm, 그래도 없으면 LLM title (최후의 수단)
+            meta = new_j.get('metadata', {})
+            if isinstance(meta, dict):
+                trusted_name = meta.get('jobName') or meta.get('job_nm') or meta.get('title')
+                if trusted_name:
+                    new_j['jobName'] = trusted_name
+                    # LLM이 생성한 title과 metadata의 실제 이름이 다르면 경고 로그
+                    llm_title = new_j.get('title', '')
+                    if llm_title and llm_title != trusted_name:
+                        print(f"⚠️ [ID/Name Mismatch] LLM title='{llm_title}' ≠ metadata='{trusted_name}'")
+
+            # metadata에서 못 가져온 경우에만 job_nm → jobName 매핑 (레거시 호환)
+            if 'jobName' not in new_j:
+                if 'job_nm' in new_j:
+                    new_j['jobName'] = new_j['job_nm']
+                elif 'title' in new_j:
+                    # 최후의 수단: LLM title 사용 (경고와 함께)
+                    print(f"⚠️ [No Metadata] Using LLM-generated title: {new_j['title']}")
+                    new_j['jobName'] = new_j['title']
+
             if 'score' in new_j and 'match' not in new_j:
                 new_j['match'] = int(float(new_j['score']) * 100) if new_j['score'] <= 1 else int(new_j['score'])
             normalized_jobs.append(new_j)
-            
+
         normalized_majors = []
         for m in majors:
             new_m = m.copy()
-            if 'title' in new_m and 'name' not in new_m:
-                new_m['name'] = new_m['title']
-            if 'major_nm' in new_m and 'name' not in new_m:
-                 new_m['name'] = new_m['major_nm']
+
+            # 🛡️ TRUST ONLY METADATA: 학과명도 동일한 규칙 적용
+            meta = new_m.get('metadata', {})
+            if isinstance(meta, dict):
+                trusted_name = meta.get('majorName') or meta.get('major_nm') or meta.get('name')
+                if trusted_name:
+                    new_m['name'] = trusted_name
+                    llm_title = new_m.get('title', '')
+                    if llm_title and llm_title != trusted_name:
+                        print(f"⚠️ [ID/Name Mismatch] LLM title='{llm_title}' ≠ metadata='{trusted_name}'")
+
+            if 'name' not in new_m:
+                if 'major_nm' in new_m:
+                    new_m['name'] = new_m['major_nm']
+                elif 'title' in new_m:
+                    print(f"⚠️ [No Metadata] Using LLM-generated title: {new_m['title']}")
+                    new_m['name'] = new_m['title']
+
             if 'score' in new_m and 'match' not in new_m:
                  new_m['match'] = int(float(new_m['score']) * 100) if new_m['score'] <= 1 else int(new_m['score'])
             normalized_majors.append(new_m)
