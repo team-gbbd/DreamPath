@@ -13,7 +13,6 @@ import {
   LogOut,
   User,
   BookOpen,
-  Home,
   AlertCircle,
   ChevronDown,
   ChevronUp,
@@ -21,6 +20,8 @@ import {
   PieChart,
   GraduationCap,
   BarChart3,
+  Settings,
+  Home,
 } from "lucide-react";
 import FaqChatbot from "@/components/chatbot/FaqChatbot";
 
@@ -39,7 +40,7 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
   const [userRole, setUserRole] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showProfileRequiredModal, setShowProfileRequiredModal] = useState(false);
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(["profile"]); // Default expanded for demo/convenience
+  const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("dreampath:theme");
@@ -74,6 +75,29 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
       window.removeEventListener("storage", syncUser);
     };
   }, []);
+
+  useEffect(() => {
+    const profileRelatedPaths = [
+      "/profile",
+      "/job-analysis",
+      "/job-recommendations",
+      "/major-recommendations",
+    ];
+    const shouldExpandProfile = profileRelatedPaths.some(path =>
+      location.pathname.startsWith(path)
+    );
+
+    setExpandedMenus(prev => {
+      const hasProfile = prev.includes("profile");
+      if (shouldExpandProfile && !hasProfile) {
+        return [...prev, "profile"];
+      }
+      if (!shouldExpandProfile && hasProfile) {
+        return prev.filter(item => item !== "profile");
+      }
+      return prev;
+    });
+  }, [location.pathname]);
 
   const toggleTheme = () => {
     const newMode = !darkMode;
@@ -113,19 +137,13 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
           ? prev.filter(t => t !== item.type)
           : [...prev, item.type]
       );
-      return;
+      // Removed return to allow navigation
     }
 
     setSidebarOpen(false); // Close mobile sidebar on navigation
 
     // 로그인하지 않은 상태에서의 처리
     if (!isLoggedIn) {
-      // 홈은 누구나 접근 가능
-      if (item.type === "home") {
-        navigate("/home");
-        return;
-      }
-
       // 진로 상담은 로그인 필요 메시지 후 로그인 페이지로
       if (item.type === "career") {
         navigate("/career-chat"); // career-chat 페이지에서 자체적으로 로그인 필요 처리
@@ -150,24 +168,40 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
   };
 
   const sidebarItems = [
-    { type: "home", icon: Home, label: "홈", path: "/home" },
+    { type: "home", icon: Home, label: "홈", path: "/" },
     { type: "career", icon: MessageSquare, label: "진로 상담", path: "/career-chat" },
     {
       type: "profile",
       icon: BarChart3,
-      label: userRole === 'ADMIN' ? '대시보드' : '성향 프로파일링',
-      path: userRole === 'ADMIN' ? "/admin" : undefined,
+      label: userRole === 'ADMIN' ? '대시보드' : '프로파일링',
+      path: userRole === 'ADMIN' ? "/admin" : "/profile/dashboard",
       subItems: userRole === 'ADMIN' ? undefined : [
-        { label: "대시보드", path: "/profile/dashboard", icon: LayoutDashboard },
-        { label: "성향 및 가치관 분석", path: "/job-analysis", icon: PieChart },
-        { label: "직업 추천", path: "/job-recommendations", icon: Briefcase },
-        { label: "학과 추천", path: "/major-recommendations", icon: GraduationCap },
+        { label: "대시보드", path: "/profile/dashboard?tab=dashboard", icon: LayoutDashboard },
+        { label: "성향 및 가치관 분석", path: "/profile/dashboard?tab=personality", icon: PieChart },
+        { label: "직업 추천", path: "/profile/dashboard?tab=jobs", icon: Briefcase },
+        { label: "학과 추천", path: "/profile/dashboard?tab=majors", icon: GraduationCap },
       ]
     },
-    // Job Removed from top level as it is now in subItems
-    { type: "learning", icon: BookOpen, label: "학습 현황", path: "/learning" }, // user asked for "학습 현황"
-    { type: "mentoring", icon: Users, label: "멘토링", path: "/mentoring" },
-    { type: "settings", icon: User, label: "계정 설정", path: "/settings" }, // Added to match image
+    { type: "job", icon: Briefcase, label: "채용 추천", path: "/job-recommendations" },
+    {
+      type: "mentoring",
+      icon: Users,
+      label: "멘토링",
+      path: "/mentoring",
+      subItems: [
+        { label: "멘토링 현황", path: "/profile/dashboard?tab=mentoring", icon: Users }
+      ]
+    },
+    {
+      type: "learning",
+      icon: BookOpen,
+      label: "학습",
+      path: "/learning",
+      subItems: [
+        { label: "학습 현황", path: "/profile/dashboard?tab=learning", icon: BookOpen }
+      ]
+    },
+    { type: "settings", icon: Settings, label: "계정 정보", path: "/profile/dashboard?tab=settings" },
   ];
 
   const theme = {
@@ -194,6 +228,7 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
     mobileOverlay: darkMode
       ? "bg-black/60 backdrop-blur-sm"
       : "bg-black/30 backdrop-blur-sm",
+    border: darkMode ? "border-white/20" : "border-slate-200",
   };
 
   return (
@@ -223,51 +258,59 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
         <nav className="flex-1 px-3 space-y-2">
           {sidebarItems.map((item) => {
             const isExpanded = expandedMenus.includes(item.type);
-            const isActive = location.pathname === item.path || (item.subItems && item.subItems.some(sub => location.pathname === sub.path));
+            const isActive = item.path === '/'
+              ? location.pathname === '/'
+              : (item.path && location.pathname.startsWith(item.path));
 
             return (
               <div key={item.type} className="w-full">
                 <button
                   onClick={() => handleSidebarClick(item)}
-                  className={`w-full flex items-center justify-between px-3 py-4 rounded-xl transition-all duration-300 group/nav relative
-                    ${(isExpanded || isActive) && item.subItems ? "bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white shadow-lg shadow-purple-500/20" : `${theme.sidebarText} ${theme.sidebarHover}`}
+                  className={`w-full flex items-center gap-4 px-3 py-4 rounded-xl transition-all duration-300 group/nav relative
+                    ${(isActive && !item.subItems && item.type !== 'profile' && item.type !== 'mentoring' && item.type !== 'learning')
+                      ? (darkMode ? "bg-white/10 text-white shadow-lg shadow-white/5" : "bg-indigo-50 text-indigo-600 shadow-sm")
+                      : `${theme.sidebarText} ${theme.sidebarHover}`
+                    }
                   `}
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="relative">
-                      <item.icon className={`w-6 h-6 flex-shrink-0 transition-transform group-hover/nav:scale-110 ${(isExpanded || isActive) && item.subItems ? "text-white" : ""}`} />
-                      {!(isExpanded || isActive) && (
-                        <div className="absolute -inset-2 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] rounded-lg opacity-0 group-hover/nav:opacity-20 blur transition-opacity" />
-                      )}
-                    </div>
-                    <span className={`opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap font-medium text-sm ${(isExpanded || isActive) && item.subItems ? "text-white font-bold" : ""}`}>
+                  <div className="relative">
+                    <item.icon className={`w-6 h-6 flex-shrink-0 transition-transform group-hover/nav:scale-110 ${(isActive && !item.subItems && item.type !== 'profile' && item.type !== 'mentoring' && item.type !== 'learning') ? (darkMode ? "text-white" : "text-indigo-600") : ""}`} />
+                    {!(isActive && !item.subItems && item.type !== 'profile' && item.type !== 'mentoring' && item.type !== 'learning') && (
+                      <div className="absolute -inset-2 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] rounded-lg opacity-0 group-hover/nav:opacity-20 blur transition-opacity" />
+                    )}
+                  </div>
+
+                  <div className="flex-1 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-200 overflow-hidden">
+                    <span className={`whitespace-nowrap font-medium text-sm ${(isActive && !item.subItems && item.type !== 'profile' && item.type !== 'mentoring' && item.type !== 'learning') ? "font-bold" : ""}`}>
                       {item.label}
                     </span>
+                    {item.subItems && (
+                      <div>
+                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </div>
+                    )}
                   </div>
-                  {item.subItems && (
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                    </div>
-                  )}
                 </button>
 
                 {/* Submenu */}
                 {item.subItems && isExpanded && (
-                  <div className="ml-4 mt-2 mb-2 pl-4 border-l-2 border-purple-500/20 space-y-1 bg-purple-50/50 dark:bg-white/5 rounded-r-xl py-2 overflow-hidden animate-slide-up">
+                  <div className={`opacity-0 group-hover:opacity-100 transition-opacity duration-200 ml-6 pl-4 space-y-1 mt-1 ${(item.type === 'mentoring' || item.type === 'learning') ? '' : `border-l-2 ${theme.border}`}`}>
                     {item.subItems.map((subItem) => {
-                      const isSubActive = location.pathname === subItem.path;
+                      // Sub-items now mimic the main item design but smaller/indented
                       return (
                         <button
                           key={subItem.path}
                           onClick={() => navigate(subItem.path)}
-                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm
-                            ${isSubActive
-                              ? "text-[#6C5CE7] font-bold bg-purple-100 dark:bg-white/10"
-                              : darkMode ? "text-white/50 hover:text-white hover:bg-white/5" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"}
-                          `}
+                          className={`w-full flex items-center gap-4 px-3 py-3 rounded-xl transition-all duration-300 group/subnav ${theme.sidebarText} ${theme.sidebarHover}`}
                         >
-                          <subItem.icon className={`w-4 h-4 ${isSubActive ? "text-[#6C5CE7] dark:text-[#8F5CFF]" : ""}`} />
-                          <span className="whitespace-nowrap">{subItem.label}</span>
+                          {/* Icon removed as per request */}
+                          {/* <div className="relative">
+                            <subItem.icon className="w-5 h-5 flex-shrink-0 transition-transform group-hover/subnav:scale-110" />
+                            <div className="absolute -inset-2 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] rounded-lg opacity-0 group-hover/subnav:opacity-10 blur transition-opacity" />
+                          </div> */}
+                          <span className="whitespace-nowrap font-medium text-sm">
+                            {subItem.label}
+                          </span>
                         </button>
                       );
                     })}

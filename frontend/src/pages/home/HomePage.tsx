@@ -12,8 +12,14 @@ import {
   X,
   Bot,
   LogOut,
-  User,
   BookOpen,
+  BarChart3,
+  LayoutDashboard,
+  PieChart,
+  GraduationCap,
+  ChevronDown,
+  ChevronUp,
+  Settings,
 } from "lucide-react";
 import FaqChatbot from "@/components/chatbot/FaqChatbot";
 
@@ -62,9 +68,8 @@ function FloatingParticles({ darkMode }: { darkMode: boolean }) {
       {particles.map((p) => (
         <div
           key={p.id}
-          className={`absolute rounded-full ${
-            darkMode ? "bg-[#5A7BFF]" : "bg-[#8F5CFF]"
-          }`}
+          className={`absolute rounded-full ${darkMode ? "bg-[#5A7BFF]" : "bg-[#8F5CFF]"
+            }`}
           style={{
             width: darkMode ? p.size : p.size + 1,
             height: darkMode ? p.size : p.size + 1,
@@ -189,6 +194,7 @@ export default function HomePage() {
   const [darkMode, setDarkMode] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatbotOpen, setChatbotOpen] = useState(false);
+  const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
   const [userName, setUserName] = useState("");
   const [userRole, setUserRole] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -235,19 +241,31 @@ export default function HomePage() {
     navigate("/");
   };
 
-  const handleSidebarClick = (type: "career" | "profile" | "job" | "mentoring" | "learning") => {
+  const handleSidebarClick = (item: any) => {
+    // If item has subitems, toggle expansion
+    if (item.subItems) {
+      setExpandedMenus(prev =>
+        prev.includes(item.type)
+          ? prev.filter(t => t !== item.type)
+          : [...prev, item.type]
+      );
+      // Removed return
+    }
+
     setSidebarOpen(false);
-    if (type === "career") {
-      navigate("/career-chat");
-    } else if (type === "profile") {
-      navigate(userRole === 'ADMIN' ? "/admin" : "/profile/dashboard");
-    } else if (type === "job") {
-      navigate("/job-recommendations");
-    } else if (type === "learning") {
-      navigate("/learning");
-    } else {
+
+    // Navigate using item path if available or enforce mentoring route
+    if (item.path) {
+      navigate(item.path);
+      return;
+    }
+    if (item.type === "mentoring") {
       navigate("/mentoring");
     }
+  };
+
+  const handleError = () => {
+    // Placeholder for unused function if user asks, but we are just removing the old typed handler
   };
 
   const handleSendMessage = () => {
@@ -264,11 +282,39 @@ export default function HomePage() {
   };
 
   const sidebarItems = [
-    { type: "career" as const, icon: MessageSquare, label: "진로 상담" },
-    { type: "profile" as const, icon: User, label: userRole === 'ADMIN' ? '대시보드' : '프로파일링' },
-    { type: "job" as const, icon: Briefcase, label: "채용 추천" },
-    { type: "mentoring" as const, icon: Users, label: "멘토링" },
-    { type: "learning" as const, icon: BookOpen, label: "학습" },
+    { type: "career", icon: MessageSquare, label: "진로 상담", path: "/career-chat" },
+    {
+      type: "profile",
+      icon: BarChart3,
+      label: userRole === 'ADMIN' ? '대시보드' : '프로파일링',
+      path: userRole === 'ADMIN' ? "/admin" : "/profile/dashboard",
+      subItems: userRole === 'ADMIN' ? undefined : [
+        { label: "대시보드", path: "/profile/dashboard?tab=dashboard", icon: LayoutDashboard },
+        { label: "성향 및 가치관 분석", path: "/profile/dashboard?tab=personality", icon: PieChart },
+        { label: "직업 추천", path: "/profile/dashboard?tab=jobs", icon: Briefcase },
+        { label: "학과 추천", path: "/profile/dashboard?tab=majors", icon: GraduationCap },
+      ]
+    },
+    { type: "job", icon: Briefcase, label: "채용 추천", path: "/job-recommendations" },
+    {
+      type: "mentoring",
+      icon: Users,
+      label: "멘토링",
+      path: "/mentoring",
+      subItems: [
+        { label: "멘토링 현황", path: "/profile/dashboard?tab=mentoring", icon: Users }
+      ]
+    },
+    {
+      type: "learning",
+      icon: BookOpen,
+      label: "학습",
+      path: "/learning",
+      subItems: [
+        { label: "학습 현황", path: "/profile/dashboard?tab=learning", icon: BookOpen }
+      ]
+    },
+    { type: "settings", icon: Settings, label: "계정 정보", path: "/profile/dashboard?tab=settings" },
   ];
 
   const theme = {
@@ -311,6 +357,7 @@ export default function HomePage() {
     featureCard: darkMode
       ? "bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.05] hover:border-[#5A7BFF]/30"
       : "bg-white/60 border-slate-200 hover:bg-white hover:shadow-lg",
+    border: darkMode ? "border-white/20" : "border-slate-200",
   };
 
   return (
@@ -322,21 +369,18 @@ export default function HomePage() {
       {/* Animated gradient orbs */}
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', maxWidth: '100%', overflow: 'hidden', pointerEvents: 'none' }}>
         <div
-          className={`absolute top-1/4 left-1/4 rounded-full animate-blob ${
-            darkMode ? "bg-[#5A7BFF]/10" : "bg-[#5A7BFF]/25"
-          }`}
+          className={`absolute top-1/4 left-1/4 rounded-full animate-blob ${darkMode ? "bg-[#5A7BFF]/10" : "bg-[#5A7BFF]/25"
+            }`}
           style={{ width: 'min(60vw, 600px)', height: 'min(60vw, 600px)', filter: 'blur(120px)' }}
         />
         <div
-          className={`absolute bottom-1/4 right-1/4 rounded-full animate-blob animation-delay-2000 ${
-            darkMode ? "bg-[#8F5CFF]/10" : "bg-[#8F5CFF]/25"
-          }`}
+          className={`absolute bottom-1/4 right-1/4 rounded-full animate-blob animation-delay-2000 ${darkMode ? "bg-[#8F5CFF]/10" : "bg-[#8F5CFF]/25"
+            }`}
           style={{ width: 'min(50vw, 500px)', height: 'min(50vw, 500px)', filter: 'blur(120px)' }}
         />
         <div
-          className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full ${
-            darkMode ? "bg-[#5A7BFF]/[0.05]" : "bg-[#5A7BFF]/15"
-          }`}
+          className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full ${darkMode ? "bg-[#5A7BFF]/[0.05]" : "bg-[#5A7BFF]/15"
+            }`}
           style={{ width: 'min(80vw, 800px)', height: 'min(60vw, 600px)', filter: 'blur(150px)' }}
         />
       </div>
@@ -380,21 +424,61 @@ export default function HomePage() {
         </div>
 
         <nav className="flex-1 px-3 space-y-2">
-          {sidebarItems.map((item) => (
-            <button
-              key={item.type}
-              onClick={() => handleSidebarClick(item.type)}
-              className={`w-full flex items-center gap-4 px-3 py-4 rounded-xl transition-all duration-300 group/nav ${theme.sidebarText} ${theme.sidebarHover}`}
-            >
-              <div className="relative">
-                <item.icon className="w-6 h-6 flex-shrink-0 transition-transform group-hover/nav:scale-110" />
-                <div className="absolute -inset-2 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] rounded-lg opacity-0 group-hover/nav:opacity-20 blur transition-opacity" />
+          {sidebarItems.map((item) => {
+            const isExpanded = expandedMenus.includes(item.type);
+            const isActive = item.path === '/'
+              ? location.pathname === '/'
+              : (item.path && location.pathname.startsWith(item.path));
+
+            return (
+              <div key={item.type} className="w-full">
+                <button
+                  onClick={() => handleSidebarClick(item)}
+                  className={`w-full flex items-center gap-4 px-3 py-4 rounded-xl transition-all duration-300 group/nav relative
+                    ${(isActive && !item.subItems && item.type !== 'profile' && item.type !== 'mentoring' && item.type !== 'learning')
+                      ? (darkMode ? "bg-white/10 text-white shadow-lg shadow-white/5" : "bg-indigo-50 text-indigo-600 shadow-sm")
+                      : `${theme.sidebarText} ${theme.sidebarHover}`
+                    }
+                  `}
+                >
+                  <div className="relative">
+                    <item.icon className={`w-6 h-6 flex-shrink-0 transition-transform group-hover/nav:scale-110 ${(isActive && !item.subItems && item.type !== 'profile' && item.type !== 'mentoring' && item.type !== 'learning') ? (darkMode ? "text-white" : "text-indigo-600") : ""}`} />
+                    {!(isActive && !item.subItems && item.type !== 'profile' && item.type !== 'mentoring' && item.type !== 'learning') && (
+                      <div className="absolute -inset-2 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] rounded-lg opacity-0 group-hover/nav:opacity-20 blur transition-opacity" />
+                    )}
+                  </div>
+
+                  <div className="flex-1 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-200 overflow-hidden">
+                    <span className={`whitespace-nowrap font-medium text-sm ${(isActive && !item.subItems && item.type !== 'profile' && item.type !== 'mentoring' && item.type !== 'learning') ? "font-bold" : ""}`}>
+                      {item.label}
+                    </span>
+                    {item.subItems && (
+                      <div>
+                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </div>
+                    )}
+                  </div>
+                </button>
+
+                {/* Submenu */}
+                {item.subItems && isExpanded && (
+                  <div className={`opacity-0 group-hover:opacity-100 transition-opacity duration-200 ml-6 pl-4 space-y-1 mt-1 ${(item.type === 'mentoring' || item.type === 'learning') ? '' : `border-l-2 ${theme.border}`}`}>
+                    {item.subItems.map((subItem) => (
+                      <button
+                        key={subItem.path}
+                        onClick={() => navigate(subItem.path)}
+                        className={`w-full flex items-center gap-4 px-3 py-3 rounded-xl transition-all duration-300 group/subnav ${theme.sidebarText} ${theme.sidebarHover}`}
+                      >
+                        <span className="whitespace-nowrap font-medium text-sm">
+                          {subItem.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-              <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap font-medium text-sm">
-                {item.label}
-              </span>
-            </button>
-          ))}
+            );
+          })}
         </nav>
 
         <div className="px-3 mt-auto space-y-2">
@@ -412,9 +496,8 @@ export default function HomePage() {
 
       {/* Left Sidebar - Mobile */}
       <div
-        className={`fixed left-0 top-0 h-full w-72 z-50 lg:hidden transform transition-transform duration-300 border-r flex flex-col py-6 ${
-          theme.sidebar
-        } ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`fixed left-0 top-0 h-full w-72 z-50 lg:hidden transform transition-transform duration-300 border-r flex flex-col py-6 ${theme.sidebar
+          } ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="flex items-center justify-between px-4 mb-8">
           <div className="flex items-center gap-3">
@@ -422,9 +505,8 @@ export default function HomePage() {
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             <span
-              className={`font-bold text-lg ${
-                darkMode ? "text-white" : "text-slate-900"
-              }`}
+              className={`font-bold text-lg ${darkMode ? "text-white" : "text-slate-900"
+                }`}
             >
               DreamPath
             </span>
@@ -437,17 +519,48 @@ export default function HomePage() {
           </button>
         </div>
 
-        <nav className="flex-1 px-3 space-y-2">
-          {sidebarItems.map((item) => (
-            <button
-              key={item.type}
-              onClick={() => handleSidebarClick(item.type)}
-              className={`w-full flex items-center gap-4 px-4 py-4 rounded-xl transition-all duration-200 ${theme.sidebarText} ${theme.sidebarHover}`}
-            >
-              <item.icon className="w-6 h-6 flex-shrink-0" />
-              <span className="font-medium text-sm">{item.label}</span>
-            </button>
-          ))}
+        <nav className="flex-1 px-3 space-y-2 overflow-y-auto min-h-0">
+          {sidebarItems.map((item) => {
+            const isExpanded = expandedMenus.includes(item.type);
+
+            return (
+              <div key={item.type}>
+                <button
+                  onClick={() => handleSidebarClick(item)}
+                  className={`w-full flex items-center justify-between px-4 py-4 rounded-xl transition-all duration-200 ${theme.sidebarText} ${theme.sidebarHover}`}
+                >
+                  <div className="flex items-center gap-4">
+                    <item.icon className="w-6 h-6 flex-shrink-0" />
+                    <span className="font-medium text-sm">{item.label}</span>
+                  </div>
+                  {item.subItems && (
+                    <div>
+                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </div>
+                  )}
+                </button>
+
+                {/* Mobile Submenu */}
+                {item.subItems && isExpanded && (
+                  <div className="ml-8 mt-2 space-y-1 border-l-2 border-purple-500/20 pl-4 py-2">
+                    {item.subItems.map((subItem) => (
+                      <button
+                        key={subItem.path}
+                        onClick={() => {
+                          navigate(subItem.path);
+                          setSidebarOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200 text-sm ${darkMode ? "text-white/60" : "text-slate-600"}`}
+                      >
+                        <subItem.icon className="w-4 h-4" />
+                        <span className="font-medium">{subItem.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
 
         <div className="px-3 space-y-2">
@@ -546,13 +659,11 @@ export default function HomePage() {
           {/* Chat Input */}
           <div className="max-w-3xl w-full">
             <div
-              className={`relative border rounded-2xl transition-all duration-300 ${
-                theme.input
-              } ${
-                darkMode
+              className={`relative border rounded-2xl transition-all duration-300 ${theme.input
+                } ${darkMode
                   ? "shadow-[0_0_40px_rgba(90,123,255,0.1)]"
                   : "shadow-lg"
-              }`}
+                }`}
             >
               <div className="absolute -inset-[1px] bg-gradient-to-r from-[#5A7BFF]/50 via-[#8F5CFF]/50 to-[#5A7BFF]/50 rounded-2xl opacity-0 hover:opacity-100 transition-opacity duration-300 -z-10 blur-sm" />
               <textarea

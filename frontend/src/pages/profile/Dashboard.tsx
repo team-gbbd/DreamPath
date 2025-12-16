@@ -77,6 +77,7 @@ const traitLabels: Record<string, string> = {
   openness: '개방성',
   conscientiousness: '성실성',
   stability: '정서 안정성',
+  neuroticism: '정서 불안정',
   agreeableness: '우호성',
   extraversion: '외향성',
 };
@@ -251,6 +252,15 @@ export default function NewDashboard() {
   // URL 쿼리 파라미터에서 초기 탭 설정 (예: ?tab=mentoring)
   const initialTab = (searchParams.get('tab') as TabKey) || 'dashboard';
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
+
+  // Sync tab state with URL changes
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab') as TabKey;
+    if (tabFromUrl) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [searchParams]);
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [showMentorModal, setShowMentorModal] = useState(false);
@@ -411,21 +421,18 @@ export default function NewDashboard() {
       {/* Animated gradient orbs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
-          className={`absolute top-1/4 left-1/4 rounded-full animate-blob ${
-            darkMode ? "bg-blue-600/10" : "bg-blue-500/20"
-          }`}
+          className={`absolute top-1/4 left-1/4 rounded-full animate-blob ${darkMode ? "bg-blue-600/10" : "bg-blue-500/20"
+            }`}
           style={{ width: 'min(50vw, 500px)', height: 'min(50vw, 500px)', filter: 'blur(120px)' }}
         />
         <div
-          className={`absolute bottom-1/4 right-1/4 rounded-full animate-blob animation-delay-2000 ${
-            darkMode ? "bg-purple-600/10" : "bg-purple-500/20"
-          }`}
+          className={`absolute bottom-1/4 right-1/4 rounded-full animate-blob animation-delay-2000 ${darkMode ? "bg-purple-600/10" : "bg-purple-500/20"
+            }`}
           style={{ width: 'min(40vw, 400px)', height: 'min(40vw, 400px)', filter: 'blur(100px)' }}
         />
         <div
-          className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full ${
-            darkMode ? "bg-indigo-500/[0.05]" : "bg-indigo-400/15"
-          }`}
+          className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full ${darkMode ? "bg-indigo-500/[0.05]" : "bg-indigo-400/15"
+            }`}
           style={{ width: 'min(70vw, 700px)', height: 'min(50vw, 500px)', filter: 'blur(150px)' }}
         />
       </div>
@@ -496,36 +503,36 @@ export default function NewDashboard() {
     [],
   );
 
-const showToastRef = useRef(showToast);
-useEffect(() => {
-  showToastRef.current = showToast;
-}, [showToast]);
+  const showToastRef = useRef(showToast);
+  useEffect(() => {
+    showToastRef.current = showToast;
+  }, [showToast]);
 
-const fetchAnalysisData = useCallback(
-  async (targetUserId: number, options: FetchOptions = {}): Promise<AnalysisData | null> => {
-    const { signal } = options;
-    const response = await authFetch(
-      `${BACKEND_BASE_URL}/api/profiles/${targetUserId}/analysis`,
-      { signal }
-    );
-
-    if (response.status === 404) {
-      showToastRef.current?.(
-        '아직 성향 분석 결과가 없습니다. AI 분석을 먼저 실행해주세요.',
-        'warning'
+  const fetchAnalysisData = useCallback(
+    async (targetUserId: number, options: FetchOptions = {}): Promise<AnalysisData | null> => {
+      const { signal } = options;
+      const response = await authFetch(
+        `${BACKEND_BASE_URL}/api/profiles/${targetUserId}/analysis`,
+        { signal }
       );
-      return null;
-    }
 
-    if (!response.ok) {
-      const message = await response.text();
-      throw new Error(message || '분석 데이터를 불러오지 못했습니다.');
-    }
+      if (response.status === 404) {
+        showToastRef.current?.(
+          '아직 성향 분석 결과가 없습니다. AI 분석을 먼저 실행해주세요.',
+          'warning'
+        );
+        return null;
+      }
 
-    return (await response.json()) as AnalysisData;
-  },
-  []
-);
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(message || '분석 데이터를 불러오지 못했습니다.');
+      }
+
+      return (await response.json()) as AnalysisData;
+    },
+    []
+  );
 
   const fetchLegacyTopRecommendations = useCallback(async (profileId: number) => {
     try {
@@ -541,8 +548,7 @@ const fetchAnalysisData = useCallback(
           rank: index + 1,
           title: job.title || job.metadata?.jobName || '직업',
           match: Math.round((job.score || 0) * 100),
-          tag: job.metadata?.job_category || '직업',
-          color: index === 0 ? 'from-indigo-500 to-indigo-600' : index === 1 ? 'from-purple-500 to-purple-600' : 'from-blue-500 to-blue-600'
+          color: index === 0 ? 'from-[#5A7BFF] to-[#8F5CFF]' : index === 1 ? 'from-[#8F5CFF] to-purple-600' : 'from-purple-500 to-[#5A7BFF]'
         })));
       }
 
@@ -600,8 +606,7 @@ const fetchAnalysisData = useCallback(
         rank: index + 1,
         title: job.title,
         match: toMatchPercent(job.matchScore ?? job.match ?? job.score ?? job.metadata?.matchScore ?? job.metadata?.match ?? job.metadata?.score),
-        tag: job.tag || job.category || job.metadata?.job_category || '직업',
-        color: index === 0 ? 'from-indigo-500 to-indigo-600' : index === 1 ? 'from-purple-500 to-purple-600' : 'from-blue-500 to-blue-600',
+        color: index === 0 ? 'from-[#5A7BFF] to-[#8F5CFF]' : index === 1 ? 'from-[#8F5CFF] to-purple-600' : 'from-purple-500 to-[#5A7BFF]',
       })));
 
       setTopMajors(majors.slice(0, 3).map((major: any, index: number) => ({
@@ -920,41 +925,87 @@ const fetchAnalysisData = useCallback(
           </p>
         </div>
 
-        {/* Goals Section */}
-        {analysisData?.goals && analysisData.goals.length > 0 && (
-          <div className={`mt-4 p-4 rounded-xl border ${darkMode ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-100'}`}>
+        {/* 4-Box Grid: Goals, Values, Strengths, Risks */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+          {/* 1. Goals */}
+          <div className={`p-4 rounded-xl border h-full ${darkMode ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-100'}`}>
             <h4 className={`text-sm font-bold mb-3 flex items-center gap-2 ${darkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>
               <Target size={16} />
               나의 목표
             </h4>
-            <ul className="space-y-2">
-              {analysisData.goals.map((goal, idx) => (
-                <li key={idx} className={`text-sm flex items-start gap-2 ${theme.textSecondary}`}>
-                  <span className="text-indigo-500 mt-0.5">•</span>
-                  <span>{goal}</span>
-                </li>
-              ))}
-            </ul>
+            {analysisData?.goals && analysisData.goals.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {analysisData.goals.slice(0, 3).map((goal, idx) => (
+                  <span key={idx} className={`px-3 py-1.5 rounded-xl text-xs font-medium border shadow-sm ${darkMode ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' : 'bg-white text-indigo-700 border-indigo-200'}`}>
+                    {goal}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className={`text-xs ${theme.textSubtle}`}>목표 데이터가 없습니다.</p>
+            )}
           </div>
-        )}
 
-        {/* Values Section */}
-        {analysisData?.valuesList && analysisData.valuesList.length > 0 && (
-          <div className={`mt-3 p-4 rounded-xl border ${darkMode ? 'bg-[#8F5CFF]/10 border-[#8F5CFF]/20' : 'bg-purple-50 border-purple-100'}`}>
+          {/* 2. Values */}
+          <div className={`p-4 rounded-xl border h-full ${darkMode ? 'bg-[#8F5CFF]/10 border-[#8F5CFF]/20' : 'bg-purple-50 border-purple-100'}`}>
             <h4 className={`text-sm font-bold mb-3 flex items-center gap-2 ${darkMode ? 'text-purple-400' : 'text-purple-700'}`}>
               <Heart size={16} />
               핵심 가치
             </h4>
-            <div className="flex flex-wrap gap-2">
-              {analysisData.valuesList.map((value, idx) => (
-                <span key={idx} className={`px-3 py-1.5 rounded-full text-xs font-medium shadow-sm ${darkMode ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-white text-purple-700 border border-purple-200'}`}>
-                  {value}
-                </span>
-              ))}
-            </div>
+            {analysisData?.valuesList && analysisData.valuesList.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {analysisData.valuesList.slice(0, 5).map((value, idx) => (
+                  <span key={idx} className={`px-2 py-1 rounded-full text-xs font-medium shadow-sm ${darkMode ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-white text-purple-700 border border-purple-200'}`}>
+                    {value}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className={`text-xs ${theme.textSubtle}`}>가치관 데이터가 없습니다.</p>
+            )}
           </div>
-        )}
 
+          {/* 3. Strengths */}
+          <div className={`p-4 rounded-xl border h-full ${darkMode ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-50 border-blue-100'}`}>
+            <h4 className={`text-sm font-bold mb-3 flex items-center gap-2 ${darkMode ? 'text-blue-400' : 'text-blue-700'}`}>
+              <Check size={16} />
+              나의 강점
+            </h4>
+            {analysisData?.strengths && analysisData.strengths.length > 0 ? (
+              <div className="flex flex-col gap-2 items-start">
+                {analysisData.strengths.slice(0, 5).map((strength, idx) => (
+                  <span key={idx} className={`px-2 py-1 rounded-full text-xs font-medium shadow-sm ${darkMode ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'bg-white text-blue-700 border border-blue-200'}`}>
+                    {strength}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className={`text-xs ${theme.textSubtle}`}>강점 데이터가 없습니다.</p>
+            )}
+          </div>
+
+          {/* 4. Risks (Points to Watch) */}
+          <div className={`p-4 rounded-xl border h-full ${darkMode ? 'bg-amber-500/10 border-amber-500/20' : 'bg-amber-50 border-amber-100'}`}>
+            <h4 className={`text-sm font-bold mb-3 flex items-center gap-2 ${darkMode ? 'text-amber-400' : 'text-amber-700'}`}>
+              <AlertCircle size={16} />
+              주의할 점
+            </h4>
+            {analysisData?.risks && analysisData.risks.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {analysisData.risks.slice(0, 5).map((risk, idx) => (
+                  <span key={idx} className={`px-2 py-1 rounded-full text-xs font-medium shadow-sm ${darkMode ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-white text-amber-700 border border-amber-200'}`}>
+                    {risk}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className={`text-xs ${theme.textSubtle}`}>주의점 데이터가 없습니다.</p>
+            )}
+          </div>
+        </div>
+        {/* End of 4-Box Grid */}
+
+        {/* Existing: View Detail Button - Keeping it below the grid or as requested */}
         <div className="flex gap-3 mt-5">
           <button onClick={() => setActiveTab('personality')} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-colors shadow-lg">
             상세 리포트 보기
@@ -968,12 +1019,12 @@ const fetchAnalysisData = useCallback(
         <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${darkMode ? 'bg-indigo-500/20' : 'bg-gradient-to-br from-indigo-100 to-indigo-200'}`}>
-                <Briefcase size={20} className="text-indigo-500" />
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${darkMode ? 'bg-[#8F5CFF]/20' : 'bg-gradient-to-br from-purple-100 to-purple-200'}`}>
+                <Briefcase size={20} className="text-[#8F5CFF]" />
               </div>
               <h3 className={`text-lg font-bold ${theme.text}`}>추천 직업 TOP 3</h3>
             </div>
-            <button onClick={() => setActiveTab('jobs')} className={`${theme.textMuted} hover:text-indigo-500`}>
+            <button onClick={() => setActiveTab('jobs')} className={`${theme.textMuted} hover:text-[#8F5CFF]`}>
               <ChevronRight size={20} />
             </button>
           </div>
@@ -986,12 +1037,12 @@ const fetchAnalysisData = useCallback(
                     {job.rank}
                   </div>
                   <div>
-                    <p className={`font-bold text-sm group-hover:text-indigo-500 ${theme.text}`}>{job.title}</p>
+                    <p className={`font-bold text-sm group-hover:text-[#8F5CFF] ${theme.text}`}>{job.title}</p>
                     <p className={`text-xs ${theme.textSubtle}`}>{job.tag}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-base font-bold text-indigo-500">{job.match}%</span>
+                  <span className="text-base font-bold text-[#8F5CFF]">{job.match}%</span>
                   <p className={`text-[10px] ${theme.textSubtle}`}>일치</p>
                 </div>
               </div>
@@ -1042,143 +1093,200 @@ const fetchAnalysisData = useCallback(
     const selectedMbtiDetail = getMbtiDetails(analysisData?.mbti);
     return (
       <div className="space-y-6">
-        <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
-          <h3 className={`text-lg font-semibold ${theme.text}`}>성격 특성 분포</h3>
-          {personalityChartData ? (
-            <div className="mt-4 h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={personalityChartData}>
-                  <PolarGrid stroke={darkMode ? 'rgba(255,255,255,0.1)' : '#e5e7eb'} />
-                  <PolarAngleAxis dataKey="trait" tick={{ fill: darkMode ? 'rgba(255,255,255,0.7)' : '#374151' }} />
-                  <Radar name="Personality" dataKey="score" stroke="#4f46e5" fill="#6366f1" fillOpacity={0.5} />
-                  <Tooltip contentStyle={{ backgroundColor: darkMode ? '#1f1f2e' : '#fff', border: darkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e5e7eb', color: darkMode ? '#fff' : '#374151' }} />
-                </RadarChart>
-              </ResponsiveContainer>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left Column: Chart & AI Report */}
+          <div className="space-y-6">
+            {/* Personality Radar Chart */}
+            <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
+              <h3 className={`text-lg font-semibold ${theme.text}`}>성격 특성 분포</h3>
+              {personalityChartData ? (
+                <div className="mt-4 h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart data={personalityChartData}>
+                      <PolarGrid stroke={darkMode ? 'rgba(255,255,255,0.1)' : '#e5e7eb'} />
+                      <PolarAngleAxis dataKey="trait" tick={{ fill: darkMode ? 'rgba(255,255,255,0.7)' : '#374151' }} />
+                      <Radar name="Personality" dataKey="score" stroke="#4f46e5" fill="#6366f1" fillOpacity={0.5} />
+                      <Tooltip contentStyle={{ backgroundColor: darkMode ? '#1f1f2e' : '#fff', border: darkMode ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e5e7eb', color: darkMode ? '#fff' : '#374151' }} />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <p className={`mt-4 text-sm ${theme.textSubtle}`}>성격 데이터가 없습니다.</p>
+              )}
+              {/* AI Personality Report Section (Merged) */}
+              {personalityNarrative && (
+                <div className="mt-8 pt-8 border-t border-dashed border-gray-200 dark:border-white/10">
+                  <h3 className={`text-lg font-semibold ${theme.text}`}>AI 성향 리포트</h3>
+                  {personalityNarrative.type && (
+                    <p className="mt-1 text-sm text-indigo-500 font-semibold">{personalityNarrative.type}</p>
+                  )}
+                  {personalityNarrative.description ? (
+                    <p className={`mt-3 text-sm whitespace-pre-line ${theme.textSecondary}`}>{personalityNarrative.description}</p>
+                  ) : (
+                    analysisData?.summary && <p className={`mt-3 text-sm whitespace-pre-line leading-relaxed ${theme.textSecondary}`}>{analysisData.summary}</p>
+                  )}
+
+                  {(personalityNarrative.strengths.length > 0 || personalityNarrative.growthAreas.length > 0) && (
+                    <div className="mt-4 grid gap-4 md:grid-cols-2">
+                      {personalityNarrative.strengths.length > 0 && (
+                        <div className={`rounded-xl border p-3 ${darkMode ? 'border-[#5A7BFF]/30 bg-[#5A7BFF]/10' : 'border-blue-100 bg-blue-50/60'}`}>
+                          <p className={`text-xs font-semibold uppercase tracking-wide mb-2 ${darkMode ? 'text-[#5A7BFF]' : 'text-[#5A7BFF]'}`}>강점</p>
+                          <div className="flex flex-wrap gap-2">
+                            {personalityNarrative.strengths.map((item, idx) => (
+                              <span key={`${item}-${idx}`} className={`rounded-full px-3 py-1 text-xs shadow-sm ${darkMode ? 'bg-[#5A7BFF]/20 text-blue-300' : 'bg-white text-[#5A7BFF]'}`}>
+                                {item}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {personalityNarrative.growthAreas.length > 0 && (
+                        <div className={`rounded-xl border p-3 ${darkMode ? 'border-amber-500/30 bg-amber-500/10' : 'border-amber-100 bg-amber-50/60'}`}>
+                          <p className={`text-xs font-semibold uppercase tracking-wide mb-2 ${darkMode ? 'text-amber-400' : 'text-amber-700'}`}>성장 포인트</p>
+                          <div className="flex flex-wrap gap-2">
+                            {personalityNarrative.growthAreas.map((item, idx) => (
+                              <span key={`${item}-${idx}`} className={`rounded-full px-3 py-1 text-xs shadow-sm ${darkMode ? 'bg-amber-500/20 text-amber-300' : 'bg-white text-amber-700'}`}>
+                                {item}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          ) : (
-            <p className={`mt-4 text-sm ${theme.textSubtle}`}>성격 데이터가 없습니다.</p>
-          )}
-        </div>
+          </div>
 
-        {personalityNarrative && (
-          <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
-            <h3 className={`text-lg font-semibold ${theme.text}`}>AI 성향 리포트</h3>
-            {personalityNarrative.type && (
-              <p className="mt-1 text-sm text-indigo-500 font-semibold">{personalityNarrative.type}</p>
-            )}
-            {personalityNarrative.description ? (
-              <p className={`mt-3 text-sm whitespace-pre-line ${theme.textSecondary}`}>{personalityNarrative.description}</p>
-            ) : (
-              analysisData?.summary && <p className={`mt-3 text-sm whitespace-pre-line leading-relaxed ${theme.textSecondary}`}>{analysisData.summary}</p>
-            )}
+          {/* Right Column: MBTI Card */}
+          <div className={`backdrop-blur-lg rounded-3xl p-8 border ${darkMode ? 'bg-indigo-500/5 border-indigo-500/20' : 'bg-indigo-50/50 border-white/30'} flex flex-col justify-center h-full`}>
+            {/* Badge */}
+            <div className="mb-6">
+              <span className={`px-4 py-1.5 rounded-full text-xs font-bold tracking-wider border ${darkMode ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' : 'bg-indigo-100 text-indigo-600 border-indigo-200'}`}>
+                ● PERSONALITY TYPE
+              </span>
+            </div>
 
-            {(personalityNarrative.strengths.length > 0 || personalityNarrative.growthAreas.length > 0) && (
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                {personalityNarrative.strengths.length > 0 && (
-                  <div className={`rounded-xl border p-3 ${darkMode ? 'border-[#5A7BFF]/30 bg-[#5A7BFF]/10' : 'border-blue-100 bg-blue-50/60'}`}>
-                    <p className={`text-xs font-semibold uppercase tracking-wide mb-2 ${darkMode ? 'text-[#5A7BFF]' : 'text-[#5A7BFF]'}`}>강점</p>
-                    <div className="flex flex-wrap gap-2">
-                      {personalityNarrative.strengths.map((item, idx) => (
-                        <span key={`${item}-${idx}`} className={`rounded-full px-3 py-1 text-xs shadow-sm ${darkMode ? 'bg-[#5A7BFF]/20 text-blue-300' : 'bg-white text-[#5A7BFF]'}`}>
-                          {item}
-                        </span>
-                      ))}
+            {/* Large Type Text */}
+            <h1 className="text-6xl sm:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 mb-6 tracking-tight">
+              {analysisData?.mbti || 'MBTI'}
+            </h1>
+
+            {/* Description */}
+            <p className={`text-base sm:text-lg leading-relaxed mb-10 ${theme.textSecondary}`}>
+              {selectedMbtiDetail
+                ? selectedMbtiDetail.description
+                : 'MBTI 데이터가 준비되면 이 영역에서 해석을 확인할 수 있습니다.'}
+            </p>
+
+            {/* MBTI Bars Grid */}
+            {mbtiTraits && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+                {mbtiTraits.map((trait) => {
+                  const percentage = Math.round(trait.score * 100);
+                  const labels = trait.pair.split(' / ');
+                  return (
+                    <div key={trait.pair} className={`p-4 rounded-2xl border ${darkMode ? 'bg-black/20 border-white/5' : 'bg-white/50 border-white/20'}`}>
+                      <div className="flex justify-between items-end mb-2">
+                        <span className={`text-lg font-bold ${theme.text}`}>{trait.pair}</span>
+                        <span className={`text-sm font-bold ${theme.textSubtle}`}>{percentage >= 50 ? `${percentage}%` : `${100 - percentage}%`}</span>
+                      </div>
+                      <div className={`h-2 w-full rounded-full overflow-hidden ${darkMode ? 'bg-white/10' : 'bg-gray-200'} mb-2`}>
+                        <div className="relative w-full h-full">
+                          <div
+                            className="absolute left-0 top-0 h-full bg-[#5A7BFF] rounded-full transition-all duration-500"
+                            style={{ width: `${percentage}%`, opacity: percentage >= 50 ? 1 : 0.3 }}
+                          />
+                          {/* Right highlight for < 50% not strictly needed if we just show the dominant bar or split bar. 
+                              The reference image shows a single bar filled from left. Let's keep it simple or double-sided if preferred.
+                              I'll stick to the "progress" style for the primary trait of the pair. */}
+                          <div
+                            className="absolute right-0 top-0 h-full bg-purple-500 rounded-full transition-all duration-500"
+                            style={{ width: `${100 - percentage}%`, opacity: percentage < 50 ? 1 : 0.3 }}
+                          />
+                        </div>
+                      </div>
+                      <p className={`text-xs ${theme.textSubtle}`}>
+                        {percentage >= 50 ? labels[0] : labels[1]} 성향 우세
+                      </p>
                     </div>
-                  </div>
-                )}
-                {personalityNarrative.growthAreas.length > 0 && (
-                  <div className={`rounded-xl border p-3 ${darkMode ? 'border-amber-500/30 bg-amber-500/10' : 'border-amber-100 bg-amber-50/60'}`}>
-                    <p className={`text-xs font-semibold uppercase tracking-wide mb-2 ${darkMode ? 'text-amber-400' : 'text-amber-700'}`}>성장 포인트</p>
-                    <div className="flex flex-wrap gap-2">
-                      {personalityNarrative.growthAreas.map((item, idx) => (
-                        <span key={`${item}-${idx}`} className={`rounded-full px-3 py-1 text-xs shadow-sm ${darkMode ? 'bg-amber-500/20 text-amber-300' : 'bg-white text-amber-700'}`}>
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                  );
+                })}
               </div>
             )}
           </div>
-        )}
-
-        <div className={`backdrop-blur-lg rounded-3xl p-6 border ${darkMode ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-indigo-50/50 border-white/30'}`}>
-          <h3 className={`text-lg font-semibold ${darkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>MBTI Insights</h3>
-
-          <p className="mt-1 text-sm text-indigo-500">
-            {analysisData?.mbti ? `${analysisData.mbti} 유형` : 'MBTI 정보 없음'}
-          </p>
-          <p className={`mt-3 ${theme.textSecondary}`}>
-            {selectedMbtiDetail
-              ? selectedMbtiDetail.description
-              : 'MBTI 데이터가 준비되면 이 영역에서 해석을 확인할 수 있습니다.'}
-          </p>
         </div>
 
         {/* Strengths & Risks Cards */}
-        {(analysisData?.strengths && analysisData.strengths.length > 0) || (analysisData?.risks && analysisData.risks.length > 0) ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Strengths Card */}
-            {analysisData?.strengths && analysisData.strengths.length > 0 && (
-              <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-[#5A7BFF]/20' : 'bg-gradient-to-br from-blue-100 to-purple-200'}`}>
-                    <Check size={20} className="text-[#5A7BFF]" />
+        {
+          (analysisData?.strengths && analysisData.strengths.length > 0) || (analysisData?.risks && analysisData.risks.length > 0) ? (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Strengths Card */}
+              {analysisData?.strengths && analysisData.strengths.length > 0 && (
+                <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-[#5A7BFF]/20' : 'bg-gradient-to-br from-blue-100 to-purple-200'}`}>
+                      <Check size={20} className="text-[#5A7BFF]" />
+                    </div>
+                    <h3 className={`text-lg font-bold ${theme.text}`}>나의 강점</h3>
                   </div>
-                  <h3 className={`text-lg font-bold ${theme.text}`}>나의 강점</h3>
+                  <div className="flex flex-col items-start gap-2">
+                    {analysisData.strengths.map((strength, idx) => (
+                      <span key={idx} className={`px-3 py-1.5 rounded-full text-sm font-medium border shadow-sm transition-colors ${darkMode ? 'bg-[#5A7BFF]/20 text-blue-300 border-[#5A7BFF]/30 hover:bg-[#5A7BFF]/30' : 'bg-blue-50 text-[#5A7BFF] border-blue-200 hover:bg-blue-100'}`}>
+                        {strength}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {analysisData.strengths.map((strength, idx) => (
-                    <span key={idx} className={`px-3 py-1.5 rounded-full text-sm font-medium border shadow-sm transition-colors ${darkMode ? 'bg-[#5A7BFF]/20 text-blue-300 border-[#5A7BFF]/30 hover:bg-[#5A7BFF]/30' : 'bg-blue-50 text-[#5A7BFF] border-blue-200 hover:bg-blue-100'}`}>
-                      {strength}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
+              )}
 
-            {/* Risks Card */}
-            {analysisData?.risks && analysisData.risks.length > 0 && (
-              <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-amber-500/20' : 'bg-gradient-to-br from-amber-100 to-amber-200'}`}>
-                    <AlertCircle size={20} className="text-amber-500" />
+              {/* Risks Card */}
+              {analysisData?.risks && analysisData.risks.length > 0 && (
+                <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-amber-500/20' : 'bg-gradient-to-br from-amber-100 to-amber-200'}`}>
+                      <AlertCircle size={20} className="text-amber-500" />
+                    </div>
+                    <h3 className={`text-lg font-bold ${theme.text}`}>주의할 점</h3>
                   </div>
-                  <h3 className={`text-lg font-bold ${theme.text}`}>주의할 점</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {analysisData.risks.map((risk, idx) => (
+                      <span key={idx} className={`px-3 py-1.5 rounded-full text-sm font-medium border shadow-sm transition-colors ${darkMode ? 'bg-amber-500/20 text-amber-300 border-amber-500/30 hover:bg-amber-500/30' : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'}`}>
+                        {risk}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {analysisData.risks.map((risk, idx) => (
-                    <span key={idx} className={`px-3 py-1.5 rounded-full text-sm font-medium border shadow-sm transition-colors ${darkMode ? 'bg-amber-500/20 text-amber-300 border-amber-500/30 hover:bg-amber-500/30' : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'}`}>
-                      {risk}
-                    </span>
-                  ))}
+              )}
+
+              {/* Values Text List Card (Moved) */}
+              {analysisData?.valuesList && analysisData.valuesList.length > 0 && (
+                <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-[#8F5CFF]/20' : 'bg-purple-100'}`}>
+                      <Heart size={20} className="text-purple-500" />
+                    </div>
+                    <h3 className={`text-lg font-bold ${theme.text}`}>나의 핵심 가치</h3>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {analysisData.valuesList.map((value, idx) => (
+                      <span key={idx} className={`px-4 py-2 rounded-full text-sm font-medium border shadow-sm hover:shadow-md hover:scale-105 transition-all ${darkMode ? 'bg-[#8F5CFF]/20 text-purple-300 border-[#8F5CFF]/30' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>
+                        {value}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        ) : null}
+              )}
+            </div>
+          ) : null
+        }
 
         {/* --- Merged Values Section Content --- */}
         {renderValuesSection()}
 
         {
-          mbtiTraits && (
-            <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
-              <h3 className={`text-lg font-semibold ${theme.text}`}>MBTI 결정 근거</h3>
-              <div className="mt-4 space-y-3">
-                {mbtiTraits.map((trait) => (
-                  <div key={trait.pair} className={`rounded-lg border px-4 py-3 ${darkMode ? 'bg-white/[0.03] border-white/[0.08]' : 'bg-gray-50/50 border-gray-200'}`}>
-                    <div className="flex items-center justify-between">
-                      <span className={`text-sm font-semibold ${theme.textSecondary}`}>{trait.pair}</span>
-                      <span className={`text-sm ${theme.textSubtle}`}>{(trait.score * 100).toFixed(0)}%</span>
-                    </div>
-                    <p className={`mt-1 text-sm ${theme.textSubtle}`}>{trait.explanation}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )
+
         }
       </div >
     );
@@ -1220,26 +1328,7 @@ const fetchAnalysisData = useCallback(
       )}
 
       {/* Values Text List Card */}
-      {analysisData?.valuesList && analysisData.valuesList.length > 0 && (
-        <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
-          <div className="flex items-center gap-3 mb-4">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-[#8F5CFF]/20' : 'bg-purple-100'}`}>
-              <Heart size={20} className="text-purple-500" />
-            </div>
-            <h3 className={`text-lg font-bold ${theme.text}`}>나의 핵심 가치</h3>
-          </div>
-          <p className={`text-sm mb-4 ${theme.textSubtle}`}>
-            Personality Agent가 분석한 당신의 핵심 가치관입니다.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {analysisData.valuesList.map((value, idx) => (
-              <span key={idx} className={`px-4 py-2 rounded-full text-sm font-medium border shadow-sm hover:shadow-md hover:scale-105 transition-all ${darkMode ? 'bg-[#8F5CFF]/20 text-purple-300 border-[#8F5CFF]/30' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>
-                {value}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+
 
       {valuesDetailData && (
         <div className="grid gap-4 md:grid-cols-3">
@@ -1342,11 +1431,10 @@ const fetchAnalysisData = useCallback(
     return (
       <div className="space-y-6">
         {/* AI 학습 코치 카드 */}
-        <div className={`rounded-2xl p-4 sm:p-5 border ${
-          darkMode
-            ? 'bg-gradient-to-r from-[#5A7BFF]/10 to-[#8F5CFF]/10 border-[#5A7BFF]/20'
-            : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
-        }`}>
+        <div className={`rounded-2xl p-4 sm:p-5 border ${darkMode
+          ? 'bg-gradient-to-r from-[#5A7BFF]/10 to-[#8F5CFF]/10 border-[#5A7BFF]/20'
+          : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
+          }`}>
           <div className="flex items-start gap-3 sm:gap-4">
             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-[#5A7BFF] to-[#8F5CFF] rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
               <Bot size={20} className="text-white sm:hidden" />
@@ -1355,17 +1443,15 @@ const fetchAnalysisData = useCallback(
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-slate-800'}`}>AI 학습 코치</p>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  darkMode ? 'bg-[#5A7BFF]/20 text-[#5A7BFF]' : 'bg-blue-100 text-blue-600'
-                }`}>맞춤 조언</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${darkMode ? 'bg-[#5A7BFF]/20 text-[#5A7BFF]' : 'bg-blue-100 text-blue-600'
+                  }`}>맞춤 조언</span>
               </div>
               <p className={`text-sm leading-relaxed mb-3 ${darkMode ? 'text-white/70' : 'text-slate-600'}`}>
                 {coachData.message}
               </p>
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <p className={`text-xs px-3 py-1.5 rounded-lg ${
-                  darkMode ? 'bg-[#5A7BFF]/10 text-[#5A7BFF]' : 'bg-blue-50 text-blue-600'
-                }`}>
+                <p className={`text-xs px-3 py-1.5 rounded-lg ${darkMode ? 'bg-[#5A7BFF]/10 text-[#5A7BFF]' : 'bg-blue-50 text-blue-600'
+                  }`}>
                   {coachData.tip}
                 </p>
                 <Link
@@ -1531,102 +1617,122 @@ const fetchAnalysisData = useCallback(
           </div>
         )}
 
-        {/* My Reservations - 멘티용 */}
+        {/* My Reservations & Become Mentor - 멘티용 */}
         {!isMentor && (
-          <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-[#5A7BFF] rounded-xl flex items-center justify-center">
-                  <Heart size={24} className="text-white" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* My Reservations */}
+            <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg} h-full`}>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-[#5A7BFF] rounded-xl flex items-center justify-center">
+                    <Heart size={24} className="text-white" />
+                  </div>
+                  <div>
+                    <h3 className={`text-lg font-bold ${theme.text}`}>나의 예약</h3>
+                    <p className={`text-sm ${theme.textSubtle}`}>예약한 멘토링 세션</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className={`text-lg font-bold ${theme.text}`}>나의 예약</h3>
-                  <p className={`text-sm ${theme.textSubtle}`}>예약한 멘토링 세션</p>
-                </div>
+                <Link
+                  to="/payments/history"
+                  className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl font-medium transition-all bg-[#5A7BFF] hover:bg-[#4A6BEF] text-white shadow-md hover:shadow-lg"
+                >
+                  결제 내역
+                </Link>
               </div>
-              <Link
-                to="/payments/history"
-                className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl font-medium transition-all bg-[#5A7BFF] hover:bg-[#4A6BEF] text-white shadow-md hover:shadow-lg"
-              >
-                결제 내역
-              </Link>
+
+              {myBookings.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${darkMode ? 'bg-white/10' : 'bg-slate-100'}`}>
+                    <Heart size={32} className={darkMode ? 'text-white/40' : 'text-slate-400'} />
+                  </div>
+                  <p className={`text-sm mb-6 ${theme.textSecondary}`}>예약한 세션이 없습니다</p>
+                  <button onClick={() => navigate('/mentoring')} className="px-6 py-3 bg-[#5A7BFF] text-white rounded-xl text-sm font-bold hover:bg-[#4A6BEF] transition-colors shadow-lg">
+                    세션 찾아보기
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {myBookings.map((booking) => {
+                    const status = getBookingStatusStyle(booking.status);
+                    return (
+                      <div key={booking.bookingId} className={`border rounded-xl p-4 ${darkMode ? 'bg-white/[0.03] border-white/[0.08]' : `${status.bg} ${status.border}`}`}>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-[#5A7BFF] rounded-full flex items-center justify-center">
+                              <User size={20} className="text-white" />
+                            </div>
+                            <div>
+                              <h4 className={`text-sm font-semibold ${theme.text}`}>{booking.mentorName}</h4>
+                              <p className={`text-xs ${theme.textSubtle}`}>멘토</p>
+                            </div>
+                          </div>
+                          <span className={`text-xs px-2 py-1 rounded-lg ${status.bg} ${status.text} border ${status.border}`}>
+                            {status.label}
+                          </span>
+                        </div>
+
+                        <p className={`text-sm font-medium mb-2 ${theme.text}`}>{booking.sessionTitle}</p>
+
+                        {booking.rejectionReason && (
+                          <div className={`rounded-lg p-2 mb-2 ${darkMode ? 'bg-rose-500/10' : 'bg-white/50'}`}>
+                            <p className="text-xs text-rose-500">거절 사유: {booking.rejectionReason}</p>
+                          </div>
+                        )}
+
+                        <p className={`text-xs mb-3 ${theme.textSubtle}`}>
+                          예약일: {booking.bookingDate} {booking.timeSlot}
+                        </p>
+
+                        {booking.status === 'CONFIRMED' && (
+                          <button
+                            onClick={() => navigate(`/mentoring/meeting/${booking.bookingId}`)}
+                            className="w-full py-2 bg-gradient-to-r from-emerald-400 to-emerald-500 text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
+                          >
+                            세션 입장하기
+                          </button>
+                        )}
+                        {booking.status === 'PENDING' && (
+                          <button
+                            onClick={async () => {
+                              if (confirm('예약을 취소하시겠습니까?')) {
+                                try {
+                                  await bookingService.cancelBooking(booking.bookingId);
+                                  showToast('예약이 취소되었습니다.', 'success');
+                                  const bookings = await bookingService.getMyBookings(userId!);
+                                  setMyBookings(bookings || []);
+                                } catch (e) {
+                                  showToast('취소 실패', 'error');
+                                }
+                              }
+                            }}
+                            className="w-full py-2 bg-gradient-to-r from-gray-400 to-gray-500 text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
+                          >
+                            예약 취소
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
-            {myBookings.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12">
-                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${darkMode ? 'bg-white/10' : 'bg-slate-100'}`}>
-                  <Heart size={32} className={darkMode ? 'text-white/40' : 'text-slate-400'} />
+            {/* Become a Mentor CTA */}
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden h-full flex flex-col justify-center">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
+              <div className="relative z-10 flex flex-col items-center text-center">
+                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4">
+                  <User size={32} className="text-white" />
                 </div>
-                <p className={`text-sm mb-6 ${theme.textSecondary}`}>예약한 세션이 없습니다</p>
-                <button onClick={() => navigate('/mentoring')} className="px-6 py-3 bg-[#5A7BFF] text-white rounded-xl text-sm font-bold hover:bg-[#4A6BEF] transition-colors shadow-lg">
-                  세션 찾아보기
+                <h3 className="text-2xl font-bold mb-2">멘토가 되어보세요!</h3>
+                <p className="text-blue-100 mb-6 max-w-md">
+                  후배들의 성장을 도와주실 멘토를 모집합니다.
+                </p>
+                <button onClick={() => setShowMentorModal(true)} className="px-6 py-3 bg-white text-[#5A7BFF] rounded-xl text-sm font-bold hover:bg-blue-50 transition-colors shadow-lg">
+                  멘토 신청하기
                 </button>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {myBookings.map((booking) => {
-                  const status = getBookingStatusStyle(booking.status);
-                  return (
-                    <div key={booking.bookingId} className={`border rounded-xl p-4 ${darkMode ? 'bg-white/[0.03] border-white/[0.08]' : `${status.bg} ${status.border}`}`}>
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-[#5A7BFF] rounded-full flex items-center justify-center">
-                            <User size={20} className="text-white" />
-                          </div>
-                          <div>
-                            <h4 className={`text-sm font-semibold ${theme.text}`}>{booking.mentorName}</h4>
-                            <p className={`text-xs ${theme.textSubtle}`}>멘토</p>
-                          </div>
-                        </div>
-                        <span className={`text-xs px-2 py-1 rounded-lg ${status.bg} ${status.text} border ${status.border}`}>
-                          {status.label}
-                        </span>
-                      </div>
-
-                      <p className={`text-sm font-medium mb-2 ${theme.text}`}>{booking.sessionTitle}</p>
-
-                      {booking.rejectionReason && (
-                        <div className={`rounded-lg p-2 mb-2 ${darkMode ? 'bg-rose-500/10' : 'bg-white/50'}`}>
-                          <p className="text-xs text-rose-500">거절 사유: {booking.rejectionReason}</p>
-                        </div>
-                      )}
-
-                      <p className={`text-xs mb-3 ${theme.textSubtle}`}>
-                        예약일: {booking.bookingDate} {booking.timeSlot}
-                      </p>
-
-                      {booking.status === 'CONFIRMED' && (
-                        <button
-                          onClick={() => navigate(`/mentoring/meeting/${booking.bookingId}`)}
-                          className="w-full py-2 bg-gradient-to-r from-emerald-400 to-emerald-500 text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
-                        >
-                          세션 입장하기
-                        </button>
-                      )}
-                      {booking.status === 'PENDING' && (
-                        <button
-                          onClick={async () => {
-                            if (confirm('예약을 취소하시겠습니까?')) {
-                              try {
-                                await bookingService.cancelBooking(booking.bookingId);
-                                showToast('예약이 취소되었습니다.', 'success');
-                                const bookings = await bookingService.getMyBookings(userId!);
-                                setMyBookings(bookings || []);
-                              } catch (e) {
-                                showToast('취소 실패', 'error');
-                              }
-                            }
-                          }}
-                          className="w-full py-2 bg-gradient-to-r from-gray-400 to-gray-500 text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
-                        >
-                          예약 취소
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            </div>
           </div>
         )}
 
@@ -1733,24 +1839,7 @@ const fetchAnalysisData = useCallback(
           </div>
         )}
 
-        {/* Become a Mentor CTA - 멘토가 아닐 때만 표시 */}
-        {!isMentor && (
-          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-            <div className="relative z-10 flex flex-col items-center text-center">
-              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mb-4">
-                <User size={32} className="text-white" />
-              </div>
-              <h3 className="text-2xl font-bold mb-2">멘토가 되어보세요!</h3>
-              <p className="text-blue-100 mb-6 max-w-md">
-                후배들의 성장을 도와주실 멘토를 모집합니다.
-              </p>
-              <button onClick={() => setShowMentorModal(true)} className="px-6 py-3 bg-white text-[#5A7BFF] rounded-xl text-sm font-bold hover:bg-blue-50 transition-colors shadow-lg">
-                멘토 신청하기
-              </button>
-            </div>
-          </div>
-        )}
+
       </div>
     );
   };
@@ -1838,23 +1927,7 @@ const fetchAnalysisData = useCallback(
       {/* Main Page Header */}
 
 
-      {/* Mobile Header with Hamburger */}
-      <div className={`lg:hidden fixed top-0 left-0 right-0 z-40 ${darkMode ? 'bg-[#0a0a0f]/95' : 'bg-white/95'} backdrop-blur-md border-b ${theme.border} px-4 py-3`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">
-              D
-            </div>
-            <span className={`font-bold text-lg ${theme.text}`}>DreamPath</span>
-          </div>
-          <button
-            onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-            className={`p-2 rounded-lg ${theme.hoverBg} ${theme.text}`}
-          >
-            {mobileSidebarOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </div>
-      </div>
+
 
       {/* Mobile Sidebar Overlay */}
       {mobileSidebarOpen && (
@@ -1933,83 +2006,8 @@ const fetchAnalysisData = useCallback(
 
         {/* 중앙 정렬 컨테이너 - 충분한 여백으로 스크롤 방지 */}
         <div className="relative z-10 flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-4 pt-16 lg:py-6">
-          {/* Transparent Container Box wrapping BOTH sidebar and main content */}
-          <div className={`w-full max-w-[1600px] max-h-[calc(100vh-10rem)] lg:max-h-[calc(100vh-8rem)] ${theme.boxBg} backdrop-blur-xl border rounded-[1.5rem] lg:rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col lg:flex-row`}>
-
-          {/* Left Sidebar - Hidden on mobile */}
-          <div className={`hidden lg:flex flex-shrink-0 flex-col ${theme.sidebarBg} backdrop-blur-xl border-r transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-20'}`}>
-            {/* Logo Area */}
-            <div className="h-20 flex items-center justify-between px-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                  D
-                </div>
-                {sidebarOpen && <span className={`font-bold text-lg ${theme.text}`}>DreamPath</span>}
-              </div>
-              <button onClick={() => setSidebarOpen(!sidebarOpen)} className={`${theme.textSubtle} ${darkMode ? 'hover:text-white' : 'hover:text-slate-700'}`}>
-                <Menu size={20} />
-              </button>
-            </div>
-
-            {/* Menu Sections */}
-            <div className={`flex-1 overflow-y-auto py-4 px-3 space-y-6 ${darkMode ? styles['custom-scrollbar-dark'] : styles['custom-scrollbar']}`}>
-              {/* Career & AI Analysis */}
-              <div>
-                {sidebarOpen && (
-                  <h3 className={`text-xs font-bold ${theme.textMuted} uppercase tracking-wider mb-3 px-3`}>
-                    Career & AI Analysis
-                  </h3>
-                )}
-                <nav className="space-y-1">
-                  <SidebarItem icon={<LayoutGrid size={20} />} label="대시보드" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} collapsed={!sidebarOpen} darkMode={darkMode} />
-                  <SidebarItem icon={<PieChart size={20} />} label="성향 및 가치관 분석" active={activeTab === 'personality'} onClick={() => setActiveTab('personality')} collapsed={!sidebarOpen} darkMode={darkMode} />
-                  {/* <SidebarItem icon={<Heart size={20} />} label="가치관 분석" active={activeTab === 'values'} onClick={() => setActiveTab('values')} collapsed={!sidebarOpen} darkMode={darkMode} /> */}
-                  <SidebarItem icon={<Briefcase size={20} />} label="직업 추천" active={activeTab === 'jobs'} onClick={() => setActiveTab('jobs')} collapsed={!sidebarOpen} darkMode={darkMode} />
-                  <SidebarItem icon={<GraduationCap size={20} />} label="학과 추천" active={activeTab === 'majors'} onClick={() => setActiveTab('majors')} collapsed={!sidebarOpen} darkMode={darkMode} />
-                </nav>
-              </div>
-
-              {/* Learning & Account */}
-              <div>
-                {sidebarOpen && (
-                  <h3 className={`text-xs font-bold ${theme.textMuted} uppercase tracking-wider mb-3 px-3`}>
-                    Learning & Account
-                  </h3>
-                )}
-                <nav className="space-y-1">
-                  <SidebarItem icon={<BookOpen size={20} />} label="학습 현황" active={activeTab === 'learning'} onClick={() => setActiveTab('learning')} collapsed={!sidebarOpen} darkMode={darkMode} />
-                  <SidebarItem icon={<MessageSquare size={20} />} label="멘토링" active={activeTab === 'mentoring'} onClick={() => setActiveTab('mentoring')} collapsed={!sidebarOpen} darkMode={darkMode} />
-                  <SidebarItem icon={<Settings size={20} />} label="계정 설정" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} collapsed={!sidebarOpen} darkMode={darkMode} />
-                </nav>
-              </div>
-            </div>
-
-            {/* User Profile */}
-            <div className={`p-4 border-t ${theme.border}`}>
-              <div className={`flex items-center gap-3 ${!sidebarOpen && 'justify-center'}`}>
-                <div className={`w-10 h-10 rounded-full ${darkMode ? 'bg-gradient-to-br from-slate-600 to-slate-700' : 'bg-gradient-to-br from-slate-200 to-slate-300'} flex items-center justify-center ${theme.text} font-bold shadow`}>
-                  {currentUser?.name?.[0] || 'U'}
-                </div>
-                {sidebarOpen && (
-                  <>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-bold ${theme.text} truncate`}>{currentUser?.name || 'Guest'}</p>
-                      <p className={`text-xs ${theme.textSubtle} truncate`}>Student</p>
-                    </div>
-                    <button onClick={handleLogout} className={`${theme.textMuted} ${darkMode ? 'hover:text-white' : 'hover:text-slate-600'}`}>
-                      <LogOut size={18} />
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Main Content Area */}
-          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-
-            {/* Header - Hidden on desktop (only shown on mobile) */}
-            <header className={`hidden lg:block h-20 flex-shrink-0 border-b ${theme.border} px-4 sm:px-8`} />
+          {/* Main Content Area - Container removed */}
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden w-full h-full">
 
             {/* Scrollable Content */}
             <main className={`flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-6 ${darkMode ? styles['custom-scrollbar-dark'] : styles['custom-scrollbar']}`}>
@@ -2052,7 +2050,6 @@ const fetchAnalysisData = useCallback(
               </div>
             </main>
           </div>
-        </div>
         </div>
       </div>
 
@@ -2105,19 +2102,17 @@ const fetchAnalysisData = useCallback(
 
           {/* Modal Container */}
           <div
-            className={`relative w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden rounded-2xl sm:rounded-3xl shadow-2xl border ${
-              darkMode
-                ? 'bg-[#0f0f14] border-white/10'
-                : 'bg-white border-gray-200'
-            }`}
+            className={`relative w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden rounded-2xl sm:rounded-3xl shadow-2xl border ${darkMode
+              ? 'bg-[#0f0f14] border-white/10'
+              : 'bg-white border-gray-200'
+              }`}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className={`sticky top-0 z-10 px-4 sm:px-8 py-4 sm:py-6 border-b backdrop-blur-xl ${
-              darkMode
-                ? 'bg-[#0f0f14]/95 border-white/10'
-                : 'bg-white/95 border-gray-200'
-            }`}>
+            <div className={`sticky top-0 z-10 px-4 sm:px-8 py-4 sm:py-6 border-b backdrop-blur-xl ${darkMode
+              ? 'bg-[#0f0f14]/95 border-white/10'
+              : 'bg-white/95 border-gray-200'
+              }`}>
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3 sm:gap-4">
                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-[#5A7BFF] to-[#8F5CFF] flex items-center justify-center shadow-lg">
@@ -2135,11 +2130,10 @@ const fetchAnalysisData = useCallback(
                 </div>
                 <button
                   onClick={() => setShowMentorModal(false)}
-                  className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center transition-colors ${
-                    darkMode
-                      ? 'bg-white/10 hover:bg-white/20 text-white/70'
-                      : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-                  }`}
+                  className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center transition-colors ${darkMode
+                    ? 'bg-white/10 hover:bg-white/20 text-white/70'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                    }`}
                 >
                   <X size={18} className="sm:hidden" />
                   <X size={20} className="hidden sm:block" />
@@ -2151,15 +2145,13 @@ const fetchAnalysisData = useCallback(
             <div className={`overflow-y-auto max-h-[calc(95vh-180px)] sm:max-h-[calc(90vh-200px)] px-4 sm:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 ${darkMode ? styles['custom-scrollbar-dark'] : styles['custom-scrollbar']}`}>
 
               {/* Company Info Section */}
-              <div className={`rounded-xl sm:rounded-2xl p-4 sm:p-6 border ${
-                darkMode
-                  ? 'bg-white/[0.03] border-white/10'
-                  : 'bg-gray-50 border-gray-100'
-              }`}>
+              <div className={`rounded-xl sm:rounded-2xl p-4 sm:p-6 border ${darkMode
+                ? 'bg-white/[0.03] border-white/10'
+                : 'bg-gray-50 border-gray-100'
+                }`}>
                 <div className="flex items-center gap-3 mb-4">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    darkMode ? 'bg-[#5A7BFF]/20' : 'bg-gradient-to-br from-blue-100 to-purple-100'
-                  }`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-[#5A7BFF]/20' : 'bg-gradient-to-br from-blue-100 to-purple-100'
+                    }`}>
                     <Briefcase size={20} className="text-[#5A7BFF]" />
                   </div>
                   <div>
@@ -2182,11 +2174,10 @@ const fetchAnalysisData = useCallback(
                       type="text"
                       value={company}
                       onChange={(e) => setCompany(e.target.value)}
-                      className={`w-full p-3 sm:p-3.5 rounded-xl border-2 transition-all text-sm sm:text-base ${
-                        darkMode
-                          ? 'bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#5A7BFF] focus:bg-white/10'
-                          : 'bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-[#5A7BFF]'
-                      } focus:outline-none focus:ring-2 focus:ring-[#5A7BFF]/20`}
+                      className={`w-full p-3 sm:p-3.5 rounded-xl border-2 transition-all text-sm sm:text-base ${darkMode
+                        ? 'bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#5A7BFF] focus:bg-white/10'
+                        : 'bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-[#5A7BFF]'
+                        } focus:outline-none focus:ring-2 focus:ring-[#5A7BFF]/20`}
                       placeholder="예) 카카오"
                     />
                   </div>
@@ -2200,11 +2191,10 @@ const fetchAnalysisData = useCallback(
                       type="text"
                       value={job}
                       onChange={(e) => setJob(e.target.value)}
-                      className={`w-full p-3 sm:p-3.5 rounded-xl border-2 transition-all text-sm sm:text-base ${
-                        darkMode
-                          ? 'bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#5A7BFF] focus:bg-white/10'
-                          : 'bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-[#5A7BFF]'
-                      } focus:outline-none focus:ring-2 focus:ring-[#5A7BFF]/20`}
+                      className={`w-full p-3 sm:p-3.5 rounded-xl border-2 transition-all text-sm sm:text-base ${darkMode
+                        ? 'bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#5A7BFF] focus:bg-white/10'
+                        : 'bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-[#5A7BFF]'
+                        } focus:outline-none focus:ring-2 focus:ring-[#5A7BFF]/20`}
                       placeholder="예) 백엔드 개발자"
                     />
                   </div>
@@ -2219,11 +2209,10 @@ const fetchAnalysisData = useCallback(
                         type="number"
                         value={yearsOfExperience}
                         onChange={(e) => setYearsOfExperience(e.target.value)}
-                        className={`flex-1 p-3 sm:p-3.5 rounded-xl border-2 transition-all text-sm sm:text-base ${
-                          darkMode
-                            ? 'bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#5A7BFF] focus:bg-white/10'
-                            : 'bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-[#5A7BFF]'
-                        } focus:outline-none focus:ring-2 focus:ring-[#5A7BFF]/20`}
+                        className={`flex-1 p-3 sm:p-3.5 rounded-xl border-2 transition-all text-sm sm:text-base ${darkMode
+                          ? 'bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#5A7BFF] focus:bg-white/10'
+                          : 'bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-[#5A7BFF]'
+                          } focus:outline-none focus:ring-2 focus:ring-[#5A7BFF]/20`}
                         placeholder="예) 3"
                         min="1"
                         max="50"
@@ -2235,15 +2224,13 @@ const fetchAnalysisData = useCallback(
               </div>
 
               {/* Bio Section */}
-              <div className={`rounded-xl sm:rounded-2xl p-4 sm:p-6 border ${
-                darkMode
-                  ? 'bg-white/[0.03] border-white/10'
-                  : 'bg-gray-50 border-gray-100'
-              }`}>
+              <div className={`rounded-xl sm:rounded-2xl p-4 sm:p-6 border ${darkMode
+                ? 'bg-white/[0.03] border-white/10'
+                : 'bg-gray-50 border-gray-100'
+                }`}>
                 <div className="flex items-center gap-3 mb-4">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    darkMode ? 'bg-[#8F5CFF]/20' : 'bg-purple-100'
-                  }`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-[#8F5CFF]/20' : 'bg-purple-100'
+                    }`}>
                     <FileText size={20} className="text-[#8F5CFF]" />
                   </div>
                   <div>
@@ -2258,11 +2245,10 @@ const fetchAnalysisData = useCallback(
                 <textarea
                   value={mentorBio}
                   onChange={(e) => setMentorBio(e.target.value)}
-                  className={`w-full h-32 sm:h-40 p-3 sm:p-4 rounded-xl border-2 transition-all resize-none text-sm sm:text-base ${
-                    darkMode
-                      ? 'bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#8F5CFF] focus:bg-white/10'
-                      : 'bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-[#8F5CFF]'
-                  } focus:outline-none focus:ring-2 focus:ring-[#8F5CFF]/20`}
+                  className={`w-full h-32 sm:h-40 p-3 sm:p-4 rounded-xl border-2 transition-all resize-none text-sm sm:text-base ${darkMode
+                    ? 'bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#8F5CFF] focus:bg-white/10'
+                    : 'bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-[#8F5CFF]'
+                    } focus:outline-none focus:ring-2 focus:ring-[#8F5CFF]/20`}
                   placeholder="예시) 저는 10년 경력의 백엔드 개발자로, Spring Boot와 MSA 아키텍처에 전문성을 갖추고 있습니다..."
                 />
                 <div className="flex justify-between items-center mt-2">
@@ -2278,15 +2264,13 @@ const fetchAnalysisData = useCallback(
               </div>
 
               {/* Career Section */}
-              <div className={`rounded-xl sm:rounded-2xl p-4 sm:p-6 border ${
-                darkMode
-                  ? 'bg-white/[0.03] border-white/10'
-                  : 'bg-gray-50 border-gray-100'
-              }`}>
+              <div className={`rounded-xl sm:rounded-2xl p-4 sm:p-6 border ${darkMode
+                ? 'bg-white/[0.03] border-white/10'
+                : 'bg-gray-50 border-gray-100'
+                }`}>
                 <div className="flex items-center gap-3 mb-4">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    darkMode ? 'bg-[#5A7BFF]/20' : 'bg-gradient-to-br from-blue-100 to-indigo-100'
-                  }`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${darkMode ? 'bg-[#5A7BFF]/20' : 'bg-gradient-to-br from-blue-100 to-indigo-100'
+                    }`}>
                     <Briefcase size={20} className="text-[#5A7BFF]" />
                   </div>
                   <div>
@@ -2301,11 +2285,10 @@ const fetchAnalysisData = useCallback(
                 <textarea
                   value={mentorCareer}
                   onChange={(e) => setMentorCareer(e.target.value)}
-                  className={`w-full h-32 sm:h-40 p-3 sm:p-4 rounded-xl border-2 transition-all resize-none text-sm sm:text-base ${
-                    darkMode
-                      ? 'bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#5A7BFF] focus:bg-white/10'
-                      : 'bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-[#5A7BFF]'
-                  } focus:outline-none focus:ring-2 focus:ring-[#5A7BFF]/20`}
+                  className={`w-full h-32 sm:h-40 p-3 sm:p-4 rounded-xl border-2 transition-all resize-none text-sm sm:text-base ${darkMode
+                    ? 'bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-[#5A7BFF] focus:bg-white/10'
+                    : 'bg-white border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-[#5A7BFF]'
+                    } focus:outline-none focus:ring-2 focus:ring-[#5A7BFF]/20`}
                   placeholder="예시) • 삼성전자 SW 센터 (2015-2020): 대규모 분산 시스템 설계 및 개발..."
                 />
                 <div className="flex justify-between items-center mt-2">
@@ -2321,15 +2304,13 @@ const fetchAnalysisData = useCallback(
               </div>
 
               {/* Info Notice */}
-              <div className={`rounded-xl sm:rounded-2xl p-4 sm:p-5 border-2 ${
-                darkMode
-                  ? 'bg-[#5A7BFF]/10 border-[#5A7BFF]/30'
-                  : 'bg-blue-50 border-blue-200'
-              }`}>
+              <div className={`rounded-xl sm:rounded-2xl p-4 sm:p-5 border-2 ${darkMode
+                ? 'bg-[#5A7BFF]/10 border-[#5A7BFF]/30'
+                : 'bg-blue-50 border-blue-200'
+                }`}>
                 <div className="flex items-start gap-3">
-                  <div className={`w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center ${
-                    darkMode ? 'bg-[#5A7BFF]/20' : 'bg-blue-100'
-                  }`}>
+                  <div className={`w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center ${darkMode ? 'bg-[#5A7BFF]/20' : 'bg-blue-100'
+                    }`}>
                     <AlertCircle size={18} className="text-[#5A7BFF]" />
                   </div>
                   <div>
@@ -2346,19 +2327,17 @@ const fetchAnalysisData = useCallback(
             </div>
 
             {/* Modal Footer */}
-            <div className={`sticky bottom-0 px-4 sm:px-8 py-4 sm:py-6 border-t ${
-              darkMode
-                ? 'bg-[#0f0f14] border-white/10'
-                : 'bg-white border-gray-200'
-            }`}>
+            <div className={`sticky bottom-0 px-4 sm:px-8 py-4 sm:py-6 border-t ${darkMode
+              ? 'bg-[#0f0f14] border-white/10'
+              : 'bg-white border-gray-200'
+              }`}>
               <div className="flex gap-3 sm:gap-4">
                 <button
                   onClick={() => setShowMentorModal(false)}
-                  className={`flex-1 py-3 sm:py-4 rounded-xl font-bold text-sm sm:text-base transition-all ${
-                    darkMode
-                      ? 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-800'
-                  }`}
+                  className={`flex-1 py-3 sm:py-4 rounded-xl font-bold text-sm sm:text-base transition-all ${darkMode
+                    ? 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-800'
+                    }`}
                 >
                   취소
                 </button>
@@ -2395,13 +2374,12 @@ const fetchAnalysisData = useCallback(
                       showToast(apiError.response?.data?.message || '멘토 신청 중 오류가 발생했습니다.', 'error');
                     }
                   }}
-                  className={`flex-1 py-3 sm:py-4 rounded-xl font-bold text-sm sm:text-base transition-all flex items-center justify-center gap-2 shadow-lg ${
-                    !company || !job || !yearsOfExperience || mentorBio.length < 50 || mentorCareer.length < 20
-                      ? darkMode
-                        ? 'bg-white/10 text-white/30 cursor-not-allowed shadow-none'
-                        : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
-                      : 'bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white hover:shadow-xl hover:shadow-purple-500/25 hover:scale-[1.02]'
-                  }`}
+                  className={`flex-1 py-3 sm:py-4 rounded-xl font-bold text-sm sm:text-base transition-all flex items-center justify-center gap-2 shadow-lg ${!company || !job || !yearsOfExperience || mentorBio.length < 50 || mentorCareer.length < 20
+                    ? darkMode
+                      ? 'bg-white/10 text-white/30 cursor-not-allowed shadow-none'
+                      : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
+                    : 'bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white hover:shadow-xl hover:shadow-purple-500/25 hover:scale-[1.02]'
+                    }`}
                 >
                   <Send size={18} />
                   <span>멘토 신청하기</span>

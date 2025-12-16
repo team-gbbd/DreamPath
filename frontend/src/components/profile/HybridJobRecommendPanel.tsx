@@ -194,7 +194,7 @@ const HybridJobRecommendPanel = ({ embedded = false, jobs = [], isLoading = fals
       )}
 
       {hasResults && (
-        <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {filteredResults.map((item, index) => {
             const title = item.title || item.jobName || item.metadata?.jobName || "제목 미확인";
             const explanation = item.explanation || item.reason || item.description || "추천 이유가 준비 중입니다.";

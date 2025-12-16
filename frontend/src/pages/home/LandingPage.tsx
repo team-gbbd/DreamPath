@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { MessageSquare, Briefcase, Users, Send, Sparkles, Sun, Moon, Menu, X, Brain, Zap, Target, Bot, User, BookOpen } from "lucide-react";
+import { MessageSquare, Briefcase, Users, Send, Sparkles, Sun, Moon, Menu, X, Brain, Zap, Target, Bot, BookOpen, BarChart3 } from "lucide-react";
 import FaqChatbot from "@/components/chatbot/FaqChatbot";
 
 // Typing animation hook
@@ -184,7 +184,7 @@ export default function LandingPage() {
 
   const sidebarItems = [
     { type: "career" as const, icon: MessageSquare, label: "진로 상담" },
-    { type: "profile" as const, icon: User, label: "프로파일링" },
+    { type: "profile" as const, icon: BarChart3, label: "프로파일링" },
     { type: "job" as const, icon: Briefcase, label: "채용 추천" },
     { type: "mentoring" as const, icon: Users, label: "멘토링" },
     { type: "learning" as const, icon: BookOpen, label: "학습" },

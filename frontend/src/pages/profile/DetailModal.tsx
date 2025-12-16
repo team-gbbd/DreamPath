@@ -116,11 +116,10 @@ const splitLines = (value?: string | null): string[] => {
 };
 
 const EmptyState = ({ message, darkMode = false }: { message: string; darkMode?: boolean }) => (
-  <div className={`rounded-xl border border-dashed p-6 text-center text-sm ${
-    darkMode
+  <div className={`rounded-xl border border-dashed p-6 text-center text-sm ${darkMode
       ? 'border-white/20 bg-white/[0.03] text-white/50'
       : 'border-gray-200 bg-gray-50 text-gray-400'
-  }`}>
+    }`}>
     {message}
   </div>
 );
@@ -242,11 +241,10 @@ export default function DetailModal({
       <div className="space-y-8 animate-in fade-in duration-300">
         <section>
           <SectionTitle darkMode={darkMode}>직업 설명</SectionTitle>
-          <div className={`rounded-2xl border p-6 text-base leading-relaxed ${
-            darkMode
+          <div className={`rounded-2xl border p-6 text-base leading-relaxed ${darkMode
               ? 'border-white/10 bg-white/[0.03] text-white/80'
               : 'border-gray-100 bg-gray-50 text-gray-700'
-          }`}>
+            }`}>
             {summary || <EmptyState message="직업 설명 정보가 없습니다." darkMode={darkMode} />}
           </div>
         </section>
@@ -257,12 +255,10 @@ export default function DetailModal({
             <SectionTitle darkMode={darkMode}>주요 업무</SectionTitle>
             <div className="space-y-3">
               {workList.map((item: any, i: number) => (
-                <div key={i} className={`flex gap-3 rounded-xl px-4 py-3 ${
-                  darkMode ? 'bg-white/[0.03]' : 'bg-gray-50'
-                }`}>
-                  <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                    darkMode ? 'bg-[#5A7BFF]/20 text-[#5A7BFF]' : 'bg-indigo-100 text-indigo-600'
+                <div key={i} className={`flex gap-3 rounded-xl px-4 py-3 ${darkMode ? 'bg-white/[0.03]' : 'bg-gray-50'
                   }`}>
+                  <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${darkMode ? 'bg-[#5A7BFF]/20 text-[#5A7BFF]' : 'bg-indigo-100 text-indigo-600'
+                    }`}>
                     {i + 1}
                   </div>
                   <p className={`text-sm leading-relaxed ${darkMode ? 'text-white/70' : 'text-gray-700'}`}>{item.work}</p>
@@ -302,11 +298,10 @@ export default function DetailModal({
         {prospect && (
           <section>
             <SectionTitle darkMode={darkMode}>일자리 전망</SectionTitle>
-            <div className={`rounded-2xl border p-6 ${
-              darkMode
+            <div className={`rounded-2xl border p-6 ${darkMode
                 ? 'border-white/10 bg-gradient-to-br from-[#5A7BFF]/10 to-[#8F5CFF]/10'
                 : 'border-gray-100 bg-gradient-to-br from-blue-50 to-indigo-50'
-            }`}>
+              }`}>
               <p className={`text-base leading-relaxed ${darkMode ? 'text-white/80' : 'text-gray-700'}`}>{prospect}</p>
             </div>
           </section>
@@ -318,9 +313,8 @@ export default function DetailModal({
             <SectionTitle darkMode={darkMode}>필요 적성 (상세)</SectionTitle>
             <div className="space-y-2">
               {aptitudeList.map((item: any, i: number) => (
-                <div key={i} className={`rounded-xl px-4 py-3 text-sm ${
-                  darkMode ? 'bg-blue-500/10 text-white/70' : 'bg-blue-50 text-gray-700'
-                }`}>
+                <div key={i} className={`rounded-xl px-4 py-3 text-sm ${darkMode ? 'bg-blue-500/10 text-white/70' : 'bg-blue-50 text-gray-700'
+                  }`}>
                   • {item.aptitude}
                 </div>
               ))}
@@ -334,9 +328,8 @@ export default function DetailModal({
             <SectionTitle darkMode={darkMode}>어울리는 성향</SectionTitle>
             <div className="space-y-2">
               {interestList.map((item: any, i: number) => (
-                <div key={i} className={`rounded-xl px-4 py-3 text-sm ${
-                  darkMode ? 'bg-green-500/10 text-white/70' : 'bg-green-50 text-gray-700'
-                }`}>
+                <div key={i} className={`rounded-xl px-4 py-3 text-sm ${darkMode ? 'bg-green-500/10 text-white/70' : 'bg-green-50 text-gray-700'
+                  }`}>
                   • {item.interest}
                 </div>
               ))}
@@ -369,9 +362,8 @@ export default function DetailModal({
             <SectionTitle darkMode={darkMode}>교육 및 훈련</SectionTitle>
             <div className="space-y-2">
               {trainings.map((t: string, i: number) => (
-                <div key={i} className={`rounded-xl px-4 py-3 text-sm ${
-                  darkMode ? 'bg-white/[0.03] text-white/70' : 'bg-gray-50 text-gray-700'
-                }`}>
+                <div key={i} className={`rounded-xl px-4 py-3 text-sm ${darkMode ? 'bg-white/[0.03] text-white/70' : 'bg-gray-50 text-gray-700'
+                  }`}>
                   • {t}
                 </div>
               ))}
@@ -385,9 +377,8 @@ export default function DetailModal({
             <SectionTitle darkMode={darkMode}>직업 탐색 방법</SectionTitle>
             <div className="space-y-2">
               {researchList.map((item: any, i: number) => (
-                <div key={i} className={`rounded-xl px-4 py-3 text-sm ${
-                  darkMode ? 'bg-purple-500/10 text-white/70' : 'bg-purple-50 text-gray-700'
-                }`}>
+                <div key={i} className={`rounded-xl px-4 py-3 text-sm ${darkMode ? 'bg-purple-500/10 text-white/70' : 'bg-purple-50 text-gray-700'
+                  }`}>
                   • {item.research}
                 </div>
               ))}
@@ -399,9 +390,8 @@ export default function DetailModal({
         {eduChart.length > 0 && eduChart[0].chart_data && (
           <section>
             <SectionTitle darkMode={darkMode}>학력 분포</SectionTitle>
-            <div className={`rounded-2xl border p-6 ${
-              darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-100 bg-white'
-            }`}>
+            <div className={`rounded-2xl border p-6 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-100 bg-white'
+              }`}>
               {(() => {
                 const labels = eduChart[0].chart_name?.split(',') || [];
                 const values = eduChart[0].chart_data?.split(',').map(Number) || [];
@@ -434,9 +424,8 @@ export default function DetailModal({
         {majorChart.length > 0 && majorChart[0].major_data && (
           <section>
             <SectionTitle darkMode={darkMode}>전공 계열 분포</SectionTitle>
-            <div className={`rounded-2xl border p-6 ${
-              darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-100 bg-white'
-            }`}>
+            <div className={`rounded-2xl border p-6 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-100 bg-white'
+              }`}>
               {(() => {
                 const labels = majorChart[0].major?.split(',') || [];
                 const values = majorChart[0].major_data?.split(',').map(Number) || [];
@@ -484,44 +473,38 @@ export default function DetailModal({
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`flex items-center justify-between rounded-xl px-4 py-3 text-sm transition group ${
-                      darkMode
+                    className={`flex items-center justify-between rounded-xl px-4 py-3 text-sm transition group ${darkMode
                         ? 'bg-white/[0.03] hover:bg-[#5A7BFF]/10'
                         : 'bg-gray-50 hover:bg-indigo-50'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        darkMode ? 'bg-[#5A7BFF]/20' : 'bg-indigo-100'
-                      }`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${darkMode ? 'bg-[#5A7BFF]/20' : 'bg-indigo-100'
+                        }`}>
                         <i className={`ri-building-line ${darkMode ? 'text-[#5A7BFF]' : 'text-indigo-600'}`} />
                       </div>
                       <div>
                         <p className={`font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{org.rel_org}</p>
-                        <p className={`text-xs transition ${
-                          darkMode
+                        <p className={`text-xs transition ${darkMode
                             ? 'text-white/50 group-hover:text-[#5A7BFF]'
                             : 'text-gray-500 group-hover:text-indigo-600'
-                        }`}>{org.rel_org_url}</p>
+                          }`}>{org.rel_org_url}</p>
                       </div>
                     </div>
-                    <i className={`ri-external-link-line transition ${
-                      darkMode
+                    <i className={`ri-external-link-line transition ${darkMode
                         ? 'text-white/40 group-hover:text-[#5A7BFF]'
                         : 'text-gray-400 group-hover:text-indigo-600'
-                    }`} />
+                      }`} />
                   </a>
                 ) : (
                   <div
                     key={i}
-                    className={`flex items-center justify-between rounded-xl px-4 py-3 text-sm ${
-                      darkMode ? 'bg-white/[0.03]' : 'bg-gray-50'
-                    }`}
+                    className={`flex items-center justify-between rounded-xl px-4 py-3 text-sm ${darkMode ? 'bg-white/[0.03]' : 'bg-gray-50'
+                      }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        darkMode ? 'bg-white/[0.05]' : 'bg-gray-200'
-                      }`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${darkMode ? 'bg-white/[0.05]' : 'bg-gray-200'
+                        }`}>
                         <i className={`ri-building-line ${darkMode ? 'text-white/50' : 'text-gray-500'}`} />
                       </div>
                       <div>
@@ -550,15 +533,13 @@ export default function DetailModal({
                   href={video.OUTPATH3}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`group rounded-xl border overflow-hidden hover:shadow-lg transition ${
-                    darkMode ? 'border-white/10' : 'border-gray-200'
-                  }`}
+                  className={`group rounded-xl border overflow-hidden hover:shadow-lg transition ${darkMode ? 'border-white/10' : 'border-gray-200'
+                    }`}
                 >
-                  <div className={`aspect-video relative overflow-hidden flex items-center justify-center ${
-                    darkMode
+                  <div className={`aspect-video relative overflow-hidden flex items-center justify-center ${darkMode
                       ? 'bg-gradient-to-br from-[#5A7BFF]/20 to-[#8F5CFF]/20'
                       : 'bg-gradient-to-br from-indigo-100 to-purple-100'
-                  }`}>
+                    }`}>
                     {video.THUMNAIL_PATH ? (
                       <>
                         <img
@@ -569,11 +550,10 @@ export default function DetailModal({
                             e.currentTarget.style.display = 'none';
                           }}
                         />
-                        <div className={`absolute inset-0 flex items-center justify-center ${
-                          darkMode
+                        <div className={`absolute inset-0 flex items-center justify-center ${darkMode
                             ? 'bg-gradient-to-br from-[#5A7BFF]/20 to-[#8F5CFF]/20'
                             : 'bg-gradient-to-br from-indigo-100 to-purple-100'
-                        }`}>
+                          }`}>
                           <i className={`ri-video-line text-6xl ${darkMode ? 'text-[#5A7BFF]/50' : 'text-indigo-300'}`} />
                         </div>
                       </>
@@ -609,18 +589,16 @@ export default function DetailModal({
       <div className="space-y-12 animate-in fade-in duration-300">
         <section>
           <SectionTitle darkMode={darkMode}>중요 지식 (Knowledge)</SectionTitle>
-          <div className={`rounded-3xl border p-6 ${
-            darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-100 bg-white'
-          }`}>
+          <div className={`rounded-3xl border p-6 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-100 bg-white'
+            }`}>
             <CompetencyBarChart data={knowledge || []} type="knowledge" darkMode={darkMode} />
           </div>
         </section>
 
         <section>
           <SectionTitle darkMode={darkMode}>주요 업무 수행 (Performance)</SectionTitle>
-          <div className={`rounded-3xl border p-6 ${
-            darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-100 bg-white'
-          }`}>
+          <div className={`rounded-3xl border p-6 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-100 bg-white'
+            }`}>
             <CompetencyBarChart data={perform || []} type="perform" darkMode={darkMode} />
           </div>
         </section>
@@ -666,11 +644,10 @@ export default function DetailModal({
       <div className="space-y-8 animate-in fade-in duration-300">
         <section>
           <SectionTitle darkMode={darkMode}>학과 설명</SectionTitle>
-          <div className={`rounded-2xl border p-6 text-base leading-relaxed ${
-            darkMode
+          <div className={`rounded-2xl border p-6 text-base leading-relaxed ${darkMode
               ? 'border-white/10 bg-white/[0.03] text-white/80'
               : 'border-gray-100 bg-gray-50 text-gray-700'
-          }`}>
+            }`}>
             {summary || <EmptyState message="학과 설명 정보가 없습니다." darkMode={darkMode} />}
           </div>
         </section>
@@ -678,11 +655,10 @@ export default function DetailModal({
         {characteristics && (
           <section>
             <SectionTitle darkMode={darkMode}>학과 특성</SectionTitle>
-            <div className={`rounded-2xl border p-6 text-base leading-relaxed ${
-              darkMode
+            <div className={`rounded-2xl border p-6 text-base leading-relaxed ${darkMode
                 ? 'border-white/10 bg-purple-500/10 text-white/80'
                 : 'border-gray-100 bg-purple-50 text-gray-700'
-            }`}>
+              }`}>
               {characteristics}
             </div>
           </section>
@@ -691,11 +667,10 @@ export default function DetailModal({
         {interest && (
           <section>
             <SectionTitle darkMode={darkMode}>흥미와 적성</SectionTitle>
-            <div className={`rounded-2xl border p-6 text-base leading-relaxed ${
-              darkMode
+            <div className={`rounded-2xl border p-6 text-base leading-relaxed ${darkMode
                 ? 'border-white/10 bg-gradient-to-br from-[#5A7BFF]/10 to-[#8F5CFF]/10 text-white/80'
                 : 'border-gray-100 bg-gradient-to-br from-blue-50 to-indigo-50 text-gray-700'
-            }`}>
+              }`}>
               {interest}
             </div>
           </section>
@@ -716,24 +691,9 @@ export default function DetailModal({
             </div>
             <div className={`rounded-2xl p-4 text-center ${darkMode ? 'bg-blue-500/10' : 'bg-blue-50'}`}>
               <p className={`text-xs font-semibold mb-1 ${darkMode ? 'text-blue-400' : 'text-blue-500'}`}>관련 직업</p>
-              {relatedJobList.length > 0 ? (
-                <div className="flex flex-wrap gap-1 justify-center">
-                  {relatedJobList.map((job, idx) => (
-                    <span
-                      key={`${job}-${idx}`}
-                      className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
-                        darkMode
-                          ? 'text-white bg-white/10 border-white/20'
-                          : 'text-gray-800 bg-white/70 border-blue-100'
-                      }`}
-                    >
-                      {job}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>-</p>
-              )}
+              <p className={`text-sm font-bold line-clamp-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                {relatedJobList.length > 0 ? relatedJobList.join(', ') : '-'}
+              </p>
             </div>
           </div>
         </section>
@@ -785,9 +745,8 @@ export default function DetailModal({
         {genderData.length > 0 && (
           <section>
             <SectionTitle darkMode={darkMode}>성별 분포</SectionTitle>
-            <div className={`rounded-2xl border p-6 ${
-              darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-100 bg-white'
-            }`}>
+            <div className={`rounded-2xl border p-6 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-100 bg-white'
+              }`}>
               <div className="space-y-3">
                 {genderData.map((item: any, i: number) => (
                   <div key={i} className="flex items-center gap-3">
@@ -811,9 +770,8 @@ export default function DetailModal({
         {fieldData.length > 0 && (
           <section>
             <SectionTitle darkMode={darkMode}>계열 분포</SectionTitle>
-            <div className={`rounded-2xl border p-6 ${
-              darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-100 bg-white'
-            }`}>
+            <div className={`rounded-2xl border p-6 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-100 bg-white'
+              }`}>
               <div className="space-y-3">
                 {fieldData.map((item: any, i: number) => (
                   <div key={i} className="flex items-center gap-3">
@@ -837,9 +795,8 @@ export default function DetailModal({
         {employmentData.length > 0 && (
           <section>
             <SectionTitle darkMode={darkMode}>취업률</SectionTitle>
-            <div className={`rounded-2xl border p-6 ${
-              darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-100 bg-white'
-            }`}>
+            <div className={`rounded-2xl border p-6 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-100 bg-white'
+              }`}>
               <div className="space-y-3">
                 {employmentData.map((item: any, i: number) => (
                   <div key={i} className="flex items-center gap-3">
@@ -863,9 +820,8 @@ export default function DetailModal({
         {graduationData.length > 0 && (
           <section>
             <SectionTitle darkMode={darkMode}>졸업 후 진로</SectionTitle>
-            <div className={`rounded-2xl border p-6 ${
-              darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-100 bg-white'
-            }`}>
+            <div className={`rounded-2xl border p-6 ${darkMode ? 'border-white/10 bg-white/[0.03]' : 'border-gray-100 bg-white'
+              }`}>
               <div className="space-y-3">
                 {graduationData.map((item: any, i: number) => (
                   <div key={i} className="flex items-center gap-3">
@@ -921,15 +877,14 @@ export default function DetailModal({
             <button
               key={idx}
               onClick={() => setActiveTab(idx)}
-              className={`px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
-                activeTab === idx
+              className={`px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${activeTab === idx
                   ? darkMode
                     ? 'border-[#5A7BFF] text-[#5A7BFF]'
                     : 'border-indigo-600 text-indigo-600'
                   : darkMode
                     ? 'border-transparent text-white/50 hover:text-white/80'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+                }`}
             >
               {tab}
             </button>

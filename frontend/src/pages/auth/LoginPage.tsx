@@ -155,6 +155,10 @@ export default function LoginPage() {
             userId: user.userId,
             username: user.username,
             name: user.name,
+            email: user.email,
+            phone: user.phone,
+            birth: user.birth,
+            createdAt: user.createdAt,
             role: user.role,
             accessToken: user.accessToken
           };
@@ -189,6 +193,10 @@ export default function LoginPage() {
         userId: res.data.userId,
         username: res.data.username,
         name: res.data.name,
+        email: res.data.email,
+        phone: res.data.phone,
+        birth: res.data.birth,
+        createdAt: res.data.createdAt,
         role: res.data.role,
         accessToken: res.data.accessToken
       };

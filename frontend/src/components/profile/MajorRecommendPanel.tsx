@@ -177,7 +177,7 @@ const MajorRecommendPanel = ({ embedded = false, majors = [], isLoading = false,
       )}
 
       {hasItems && (
-        <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {items.map((item, index) => {
             const title = item.title || item.name || item.majorName || item.major_name || item.metadata?.deptName || "학과명 미확인";
             const explanation = item.explanation || item.reason || item.description || "추천 이유가 준비 중입니다.";
@@ -261,9 +261,8 @@ const MajorRecommendPanel = ({ embedded = false, majors = [], isLoading = false,
                     {/* Badges */}
                     <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-2 sm:mb-3">
                       {badges.map((b, i) => (
-                        <span key={i} className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-semibold ${
-                          b === '대학교' ? theme.badgeBlue : theme.badgeGray
-                        }`}>
+                        <span key={i} className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-semibold ${b === '대학교' ? theme.badgeBlue : theme.badgeGray
+                          }`}>
                           {b}
                         </span>
                       ))}
