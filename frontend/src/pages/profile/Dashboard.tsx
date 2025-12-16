@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   LayoutGrid, MessageSquare, Bell, User, Settings, LogOut,
   BookOpen, GraduationCap, Briefcase, FileText,
@@ -245,8 +245,12 @@ const formatDate = (dateStr: string | undefined): string => {
 
 export default function NewDashboard() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { showToast, ToastContainer } = useToast();
-  const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
+
+  // URL 쿼리 파라미터에서 초기 탭 설정 (예: ?tab=mentoring)
+  const initialTab = (searchParams.get('tab') as TabKey) || 'dashboard';
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [showMentorModal, setShowMentorModal] = useState(false);
@@ -1327,26 +1331,35 @@ export default function NewDashboard() {
     return (
       <div className="space-y-6">
         {/* AI 학습 코치 카드 */}
-        <div className="bg-gradient-to-r from-pink-50 to-purple-50 border border-pink-200 rounded-2xl p-5">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-purple-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
-              <Bot size={24} className="text-white" />
+        <div className={`rounded-2xl p-4 sm:p-5 border ${
+          darkMode
+            ? 'bg-gradient-to-r from-[#5A7BFF]/10 to-[#8F5CFF]/10 border-[#5A7BFF]/20'
+            : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
+        }`}>
+          <div className="flex items-start gap-3 sm:gap-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-[#5A7BFF] to-[#8F5CFF] rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
+              <Bot size={20} className="text-white sm:hidden" />
+              <Bot size={24} className="text-white hidden sm:block" />
             </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <p className="text-sm font-bold text-slate-800">AI 학습 코치</p>
-                <span className="text-xs bg-pink-100 text-pink-600 px-2 py-0.5 rounded-full">맞춤 조언</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <p className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-slate-800'}`}>AI 학습 코치</p>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  darkMode ? 'bg-[#5A7BFF]/20 text-[#5A7BFF]' : 'bg-blue-100 text-blue-600'
+                }`}>맞춤 조언</span>
               </div>
-              <p className="text-sm text-slate-600 leading-relaxed mb-2">
+              <p className={`text-sm leading-relaxed mb-3 ${darkMode ? 'text-white/70' : 'text-slate-600'}`}>
                 {coachData.message}
               </p>
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-pink-600 bg-pink-50 px-3 py-1.5 rounded-lg">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <p className={`text-xs px-3 py-1.5 rounded-lg ${
+                  darkMode ? 'bg-[#5A7BFF]/10 text-[#5A7BFF]' : 'bg-blue-50 text-blue-600'
+                }`}>
                   {coachData.tip}
                 </p>
                 <Link
                   to={coachData.action}
-                  className="text-xs bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded-full transition-colors flex items-center gap-1"
+                  className="text-xs bg-[#5A7BFF] hover:bg-[#4A6BEF] text-white px-4 py-2 rounded-full transition-colors flex items-center gap-1 whitespace-nowrap"
                 >
                   {coachData.actionLabel}
                   <ChevronRight size={14} />
@@ -1510,14 +1523,22 @@ export default function NewDashboard() {
         {/* My Reservations - 멘티용 */}
         {!isMentor && (
           <div className={`backdrop-blur-lg rounded-3xl p-6 border ${theme.cardBg}`}>
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-[#5A7BFF] rounded-xl flex items-center justify-center">
-                <Heart size={24} className="text-white" />
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-[#5A7BFF] rounded-xl flex items-center justify-center">
+                  <Heart size={24} className="text-white" />
+                </div>
+                <div>
+                  <h3 className={`text-lg font-bold ${theme.text}`}>나의 예약</h3>
+                  <p className={`text-sm ${theme.textSubtle}`}>예약한 멘토링 세션</p>
+                </div>
               </div>
-              <div>
-                <h3 className={`text-lg font-bold ${theme.text}`}>나의 예약</h3>
-                <p className={`text-sm ${theme.textSubtle}`}>예약한 멘토링 세션</p>
-              </div>
+              <Link
+                to="/payments/history"
+                className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl font-medium transition-all bg-[#5A7BFF] hover:bg-[#4A6BEF] text-white shadow-md hover:shadow-lg"
+              >
+                결제 내역
+              </Link>
             </div>
 
             {myBookings.length === 0 ? (

@@ -53,9 +53,6 @@ const routes: RouteObject[] = [
     element: <RegisterPage />,
   },
 
-  /* ----------------------
-     WITH MAIN LAYOUT
-     ---------------------- */
   {
     path: "/career-chat",
     element: <MainLayout showFooter={false}><CareerChatPage /></MainLayout>,
@@ -73,17 +70,11 @@ const routes: RouteObject[] = [
     element: <MainLayout showFooter={false}><ChatbotPage /></MainLayout>,
   },
 
-  /* ----------------------
-     PROFILE
-     ---------------------- */
   {
     path: "/profile/dashboard",
     element: <MainLayout><ProfileDashboardPage /></MainLayout>,
   },
 
-  /* ----------------------
-     LEARNING PATH
-     ---------------------- */
   {
     path: "/learning",
     element: <MainLayout><LearningDashboardPage /></MainLayout>,
@@ -97,9 +88,6 @@ const routes: RouteObject[] = [
     element: <MainLayout showFooter={false}><WeeklyQuizPage /></MainLayout>,
   },
 
-  /* ----------------------
-     AI AGENT
-     ---------------------- */
   {
     path: "/ai-agent",
     element: <MainLayout><AIAgentDashboardPage /></MainLayout>,
@@ -127,17 +115,11 @@ const routes: RouteObject[] = [
     element: <MainLayout><JobRecommendationsPage /></MainLayout>,
   },
 
-  /* ----------------------
-     COMPANY TALENT ANALYSIS
-     ---------------------- */
   {
     path: "/company-talent",
     element: <MainLayout><CompanyTalentPage /></MainLayout>,
   },
 
-  /* ----------------------
-     MENTORING
-     ---------------------- */
   {
     path: "/mentoring/book/:sessionId",
     element: <MainLayout><BookMentoringPage /></MainLayout>,

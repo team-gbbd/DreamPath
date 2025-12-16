@@ -599,19 +599,19 @@ function TalentTab({ analysis, darkMode, theme }: { analysis: TalentAnalysis; da
       {/* 채용 프로세스 (새로 추가) */}
       {hiringProcess && (
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">채용 프로세스</h3>
-          <div className="bg-indigo-50 rounded-lg p-4">
+          <h3 className={`text-lg font-semibold mb-3 ${theme.text}`}>채용 프로세스</h3>
+          <div className={`rounded-lg p-4 ${darkMode ? 'bg-indigo-500/10 border border-indigo-500/20' : 'bg-indigo-50'}`}>
             {hiringProcess.steps?.length > 0 && (
               <div className="mb-4">
-                <p className="text-sm text-gray-600 mb-2">전형 단계</p>
+                <p className={`text-sm mb-2 ${theme.textMuted}`}>전형 단계</p>
                 <div className="flex flex-wrap gap-2 items-center">
                   {hiringProcess.steps.map((step, idx) => (
                     <div key={idx} className="flex items-center">
-                      <span className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">
+                      <span className={`px-3 py-1 rounded-full text-sm ${darkMode ? 'bg-indigo-500/20 text-indigo-300' : 'bg-indigo-100 text-indigo-800'}`}>
                         {step}
                       </span>
                       {idx < hiringProcess.steps.length - 1 && (
-                        <span className="mx-1 text-gray-400">→</span>
+                        <span className={`mx-1 ${theme.textSubtle}`}>→</span>
                       )}
                     </div>
                   ))}
@@ -620,14 +620,14 @@ function TalentTab({ analysis, darkMode, theme }: { analysis: TalentAnalysis; da
             )}
             {hiringProcess.timeline && (
               <div className="mb-3">
-                <p className="text-sm text-gray-600">예상 소요 기간</p>
-                <p className="text-indigo-800">{hiringProcess.timeline}</p>
+                <p className={`text-sm ${theme.textMuted}`}>예상 소요 기간</p>
+                <p className={darkMode ? 'text-indigo-300' : 'text-indigo-800'}>{hiringProcess.timeline}</p>
               </div>
             )}
             {hiringProcess.tips && (
               <div>
-                <p className="text-sm text-gray-600">전형별 팁</p>
-                <p className="text-indigo-800 text-sm">{hiringProcess.tips}</p>
+                <p className={`text-sm ${theme.textMuted}`}>전형별 팁</p>
+                <p className={`text-sm ${darkMode ? 'text-indigo-300' : 'text-indigo-800'}`}>{hiringProcess.tips}</p>
               </div>
             )}
           </div>
@@ -691,40 +691,40 @@ function TalentTab({ analysis, darkMode, theme }: { analysis: TalentAnalysis; da
       {/* 나를 위한 맞춤 조언 (새로 추가) */}
       {userSpecificAdvice && (
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">나를 위한 맞춤 조언</h3>
+          <h3 className={`text-lg font-semibold mb-3 ${theme.text}`}>나를 위한 맞춤 조언</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {userSpecificAdvice.strengthsToHighlight?.length > 0 && (
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <h4 className="font-medium text-green-900 mb-2 flex items-center gap-2">
+              <div className={`p-4 rounded-lg ${darkMode ? 'bg-green-500/10 border border-green-500/20' : 'bg-green-50 border border-green-200'}`}>
+                <h4 className={`font-medium mb-2 flex items-center gap-2 ${darkMode ? 'text-green-400' : 'text-green-900'}`}>
                   <span className="text-green-500">✓</span> 강조할 강점
                 </h4>
                 <ul className="space-y-1">
                   {userSpecificAdvice.strengthsToHighlight.map((item, idx) => (
-                    <li key={idx} className="text-green-800 text-sm">• {item}</li>
+                    <li key={idx} className={`text-sm ${darkMode ? 'text-green-300' : 'text-green-800'}`}>• {item}</li>
                   ))}
                 </ul>
               </div>
             )}
             {userSpecificAdvice.areasToImprove?.length > 0 && (
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                <h4 className="font-medium text-amber-900 mb-2 flex items-center gap-2">
+              <div className={`p-4 rounded-lg ${darkMode ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-amber-50 border border-amber-200'}`}>
+                <h4 className={`font-medium mb-2 flex items-center gap-2 ${darkMode ? 'text-amber-400' : 'text-amber-900'}`}>
                   <span className="text-amber-500">⚠</span> 보완할 부분
                 </h4>
                 <ul className="space-y-1">
                   {userSpecificAdvice.areasToImprove.map((item, idx) => (
-                    <li key={idx} className="text-amber-800 text-sm">• {item}</li>
+                    <li key={idx} className={`text-sm ${darkMode ? 'text-amber-300' : 'text-amber-800'}`}>• {item}</li>
                   ))}
                 </ul>
               </div>
             )}
             {userSpecificAdvice.preparationPlan?.length > 0 && (
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <h4 className="font-medium text-blue-900 mb-2 flex items-center gap-2">
+              <div className={`p-4 rounded-lg ${darkMode ? 'bg-blue-500/10 border border-blue-500/20' : 'bg-blue-50 border border-blue-200'}`}>
+                <h4 className={`font-medium mb-2 flex items-center gap-2 ${darkMode ? 'text-blue-400' : 'text-blue-900'}`}>
                   <span className="text-blue-500">📋</span> 준비 계획
                 </h4>
                 <ul className="space-y-1">
                   {userSpecificAdvice.preparationPlan.map((item, idx) => (
-                    <li key={idx} className="text-blue-800 text-sm">• {item}</li>
+                    <li key={idx} className={`text-sm ${darkMode ? 'text-blue-300' : 'text-blue-800'}`}>• {item}</li>
                   ))}
                 </ul>
               </div>
@@ -931,31 +931,34 @@ function MatchingTab({ matching, darkMode, theme }: { matching: UserMatching; da
       {/* 검증 기준 / 합격 가능성 (새로 추가) */}
       {matching.verificationCriteria && (
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+          <h3 className={`text-lg font-semibold mb-3 flex items-center gap-2 ${theme.text}`}>
             <span className="text-indigo-500">📊</span> 검증 기준
           </h3>
-          <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+          <div className={`rounded-lg p-4 ${darkMode ? 'bg-indigo-500/10 border border-indigo-500/20' : 'bg-indigo-50 border border-indigo-200'}`}>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="text-center p-3 bg-white rounded-lg">
-                <p className="text-sm text-gray-600">합격 가능성</p>
+              <div className={`text-center p-3 rounded-lg ${darkMode ? 'bg-white/[0.05]' : 'bg-white'}`}>
+                <p className={`text-sm ${theme.textMuted}`}>합격 가능성</p>
                 <p className={`text-xl font-bold ${
-                  matching.verificationCriteria.passLikelihood === '상' ? 'text-green-600' :
-                  matching.verificationCriteria.passLikelihood === '중' ? 'text-yellow-600' : 'text-red-600'
+                  matching.verificationCriteria.passLikelihood === '상'
+                    ? (darkMode ? 'text-green-400' : 'text-green-600')
+                    : matching.verificationCriteria.passLikelihood === '중'
+                      ? (darkMode ? 'text-yellow-400' : 'text-yellow-600')
+                      : (darkMode ? 'text-red-400' : 'text-red-600')
                 }`}>
                   {matching.verificationCriteria.passLikelihood}
                 </p>
               </div>
-              <div className="p-3 bg-white rounded-lg">
-                <p className="text-sm text-gray-600 mb-1">합격 핵심 요소</p>
-                <ul className="text-sm text-green-700">
+              <div className={`p-3 rounded-lg ${darkMode ? 'bg-white/[0.05]' : 'bg-white'}`}>
+                <p className={`text-sm mb-1 ${theme.textMuted}`}>합격 핵심 요소</p>
+                <ul className={`text-sm ${darkMode ? 'text-green-400' : 'text-green-700'}`}>
                   {matching.verificationCriteria.keyFactors?.map((factor, idx) => (
                     <li key={idx}>✓ {factor}</li>
                   ))}
                 </ul>
               </div>
-              <div className="p-3 bg-white rounded-lg">
-                <p className="text-sm text-gray-600 mb-1">위험 요소</p>
-                <ul className="text-sm text-red-700">
+              <div className={`p-3 rounded-lg ${darkMode ? 'bg-white/[0.05]' : 'bg-white'}`}>
+                <p className={`text-sm mb-1 ${theme.textMuted}`}>위험 요소</p>
+                <ul className={`text-sm ${darkMode ? 'text-red-400' : 'text-red-700'}`}>
                   {matching.verificationCriteria.riskFactors?.map((risk, idx) => (
                     <li key={idx}>⚠ {risk}</li>
                   ))}
@@ -969,17 +972,17 @@ function MatchingTab({ matching, darkMode, theme }: { matching: UserMatching; da
       {/* 채용 현황 / 경쟁력 (새로 추가) */}
       {matching.hiringStatus && (
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+          <h3 className={`text-lg font-semibold mb-3 flex items-center gap-2 ${theme.text}`}>
             <span className="text-purple-500">📈</span> 채용 현황
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
-              <h4 className="font-medium text-purple-900 mb-2">경쟁력 수준</h4>
-              <p className="text-sm text-purple-800">{matching.hiringStatus.competitiveness}</p>
+            <div className={`p-4 rounded-lg ${darkMode ? 'bg-purple-500/10 border border-purple-500/20' : 'bg-purple-50 border border-purple-200'}`}>
+              <h4 className={`font-medium mb-2 ${darkMode ? 'text-purple-400' : 'text-purple-900'}`}>경쟁력 수준</h4>
+              <p className={`text-sm ${darkMode ? 'text-purple-300' : 'text-purple-800'}`}>{matching.hiringStatus.competitiveness}</p>
             </div>
-            <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
-              <h4 className="font-medium text-purple-900 mb-2">지원자 풀에서의 위치</h4>
-              <p className="text-sm text-purple-800">{matching.hiringStatus.positionInPool}</p>
+            <div className={`p-4 rounded-lg ${darkMode ? 'bg-purple-500/10 border border-purple-500/20' : 'bg-purple-50 border border-purple-200'}`}>
+              <h4 className={`font-medium mb-2 ${darkMode ? 'text-purple-400' : 'text-purple-900'}`}>지원자 풀에서의 위치</h4>
+              <p className={`text-sm ${darkMode ? 'text-purple-300' : 'text-purple-800'}`}>{matching.hiringStatus.positionInPool}</p>
             </div>
           </div>
         </div>
@@ -1046,36 +1049,36 @@ function MatchingTab({ matching, darkMode, theme }: { matching: UserMatching; da
       {/* 면접 준비 (새로 추가) */}
       {matching.interviewPreparation && (
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+          <h3 className={`text-lg font-semibold mb-3 flex items-center gap-2 ${theme.text}`}>
             <span className="text-cyan-500">🎯</span> 면접 준비
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {matching.interviewPreparation.expectedQuestions?.length > 0 && (
-              <div className="p-4 bg-cyan-50 border border-cyan-200 rounded-lg">
-                <h4 className="font-medium text-cyan-900 mb-2">예상 면접 질문</h4>
+              <div className={`p-4 rounded-lg ${darkMode ? 'bg-cyan-500/10 border border-cyan-500/20' : 'bg-cyan-50 border border-cyan-200'}`}>
+                <h4 className={`font-medium mb-2 ${darkMode ? 'text-cyan-400' : 'text-cyan-900'}`}>예상 면접 질문</h4>
                 <ul className="space-y-2">
                   {matching.interviewPreparation.expectedQuestions.map((q, idx) => (
-                    <li key={idx} className="text-sm text-cyan-800">• {q}</li>
+                    <li key={idx} className={`text-sm ${darkMode ? 'text-cyan-300' : 'text-cyan-800'}`}>• {q}</li>
                   ))}
                 </ul>
               </div>
             )}
             {matching.interviewPreparation.answerTips?.length > 0 && (
-              <div className="p-4 bg-cyan-50 border border-cyan-200 rounded-lg">
-                <h4 className="font-medium text-cyan-900 mb-2">답변 팁</h4>
+              <div className={`p-4 rounded-lg ${darkMode ? 'bg-cyan-500/10 border border-cyan-500/20' : 'bg-cyan-50 border border-cyan-200'}`}>
+                <h4 className={`font-medium mb-2 ${darkMode ? 'text-cyan-400' : 'text-cyan-900'}`}>답변 팁</h4>
                 <ul className="space-y-2">
                   {matching.interviewPreparation.answerTips.map((tip, idx) => (
-                    <li key={idx} className="text-sm text-cyan-800">• {tip}</li>
+                    <li key={idx} className={`text-sm ${darkMode ? 'text-cyan-300' : 'text-cyan-800'}`}>• {tip}</li>
                   ))}
                 </ul>
               </div>
             )}
             {matching.interviewPreparation.technicalTopics?.length > 0 && (
-              <div className="p-4 bg-cyan-50 border border-cyan-200 rounded-lg">
-                <h4 className="font-medium text-cyan-900 mb-2">준비할 기술 주제</h4>
+              <div className={`p-4 rounded-lg ${darkMode ? 'bg-cyan-500/10 border border-cyan-500/20' : 'bg-cyan-50 border border-cyan-200'}`}>
+                <h4 className={`font-medium mb-2 ${darkMode ? 'text-cyan-400' : 'text-cyan-900'}`}>준비할 기술 주제</h4>
                 <ul className="space-y-2">
                   {matching.interviewPreparation.technicalTopics.map((topic, idx) => (
-                    <li key={idx} className="text-sm text-cyan-800">• {topic}</li>
+                    <li key={idx} className={`text-sm ${darkMode ? 'text-cyan-300' : 'text-cyan-800'}`}>• {topic}</li>
                   ))}
                 </ul>
               </div>

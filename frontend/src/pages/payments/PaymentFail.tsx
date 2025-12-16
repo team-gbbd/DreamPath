@@ -4,7 +4,12 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 export default function PaymentFailPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("dreampath:theme") === "dark";
+    }
+    return false;
+  });
 
   // Theme 객체
   const theme = {

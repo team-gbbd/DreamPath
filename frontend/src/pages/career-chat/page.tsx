@@ -33,7 +33,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import SurveyModal from '../../components/profile/SurveyModal';
 import AgentCard, { type AgentAction } from '../../components/career/AgentCard';
 import { API_BASE_URL, PYTHON_AI_SERVICE_URL, authFetch } from '@/lib/api';
 
@@ -173,29 +172,32 @@ function AISearchingState({ darkMode }: { darkMode: boolean }) {
   }, []);
 
   return (
-    <div className="p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
+    <div className={cn(
+      "p-4 rounded-xl border",
+      darkMode ? "bg-slate-800/50 border-slate-700/50" : "bg-white border-gray-200"
+    )}>
       <div className="flex items-center gap-2 mb-4">
-        <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
-        <span className="text-white text-sm font-medium">AI가 정보를 수집하고 있어요</span>
+        <div className={cn("w-2 h-2 rounded-full animate-pulse", darkMode ? "bg-cyan-400" : "bg-violet-500")} />
+        <span className={cn("text-sm font-medium", darkMode ? "text-white" : "text-gray-900")}>AI가 정보를 수집하고 있어요</span>
       </div>
 
       <div className="space-y-2">
         {steps.map((step) => (
           <div key={step.id} className="flex items-center gap-3">
             {step.status === 'done' && (
-              <CheckCircle2 className="w-4 h-4 text-cyan-400" />
+              <CheckCircle2 className={cn("w-4 h-4", darkMode ? "text-cyan-400" : "text-violet-500")} />
             )}
             {step.status === 'loading' && (
-              <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
+              <Loader2 className={cn("w-4 h-4 animate-spin", darkMode ? "text-cyan-400" : "text-violet-500")} />
             )}
             {step.status === 'pending' && (
-              <Circle className="w-4 h-4 text-slate-500" />
+              <Circle className={cn("w-4 h-4", darkMode ? "text-slate-500" : "text-gray-300")} />
             )}
             <span className={cn(
               "text-sm",
-              step.status === 'done' && "text-slate-300",
-              step.status === 'loading' && "text-white",
-              step.status === 'pending' && "text-slate-500"
+              step.status === 'done' && (darkMode ? "text-slate-300" : "text-gray-600"),
+              step.status === 'loading' && (darkMode ? "text-white" : "text-gray-900"),
+              step.status === 'pending' && (darkMode ? "text-slate-500" : "text-gray-400")
             )}>
               {step.label}
             </span>
@@ -250,8 +252,6 @@ export default function CareerChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [identityStatus, setIdentityStatus] = useState<IdentityStatus | null>(null);
-  const [showSurvey, setShowSurvey] = useState(false);
-  const [surveyQuestions, setSurveyQuestions] = useState<any[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasCheckedAuth = useRef(false);
@@ -393,12 +393,13 @@ export default function CareerChatPage() {
   // HomePage에서 전달받은 initialMessage 처리
   useEffect(() => {
     const state = location.state as { initialMessage?: string } | null;
-    if (state?.initialMessage && sessionId && !isLoading && !hasProcessedInitialMessage.current) {
+    // welcome 메시지가 표시된 후(messages.length > 0)에만 사용자 메시지 전송
+    if (state?.initialMessage && sessionId && !isLoading && messages.length > 0 && !hasProcessedInitialMessage.current) {
       hasProcessedInitialMessage.current = true;
       window.history.replaceState({}, document.title);
       sendMessage(state.initialMessage);
     }
-  }, [sessionId, location.state]);
+  }, [sessionId, location.state, isLoading, messages.length]);
 
   useEffect(() => {
     if (!sessionId) {
@@ -484,6 +485,8 @@ export default function CareerChatPage() {
     );
   };
 
+  const WELCOME_MESSAGE = "안녕! 나는 너의 진로 정체성을 함께 찾아갈 상담사야. 편하게 이야기하자 😊";
+
   const restoreSessionState = async (existingSessionId: string): Promise<boolean> => {
     try {
       const response = await authFetch(`${API_BASE_URL}/chat/history/${existingSessionId}`);
@@ -491,12 +494,31 @@ export default function CareerChatPage() {
         const history = await response.json();
         if (history && history.length > 0) {
           setSessionId(existingSessionId);
-          setMessages(history.map((msg: any) => ({
+
+          // 히스토리를 메시지로 변환
+          const historyMessages = history.map((msg: any) => ({
             id: generateMessageId(),
             role: msg.role as 'user' | 'assistant',
             content: msg.message,
             timestamp: new Date(msg.timestamp),
-          })));
+          }));
+
+          // 첫 번째 메시지가 환영 메시지가 아니면 환영 메시지를 앞에 추가
+          const firstMessage = historyMessages[0];
+          const isWelcomeMessage = firstMessage?.role === 'assistant' &&
+            firstMessage?.content?.includes('진로 정체성을 함께 찾아갈');
+
+          if (!isWelcomeMessage) {
+            const welcomeMsg: Message = {
+              id: generateMessageId(),
+              role: 'assistant',
+              content: WELCOME_MESSAGE,
+              timestamp: new Date(historyMessages[0]?.timestamp || Date.now()),
+            };
+            setMessages([welcomeMsg, ...historyMessages]);
+          } else {
+            setMessages(historyMessages);
+          }
 
           try {
             const savedIdentity = localStorage.getItem('career_chat_identity');
@@ -585,6 +607,14 @@ export default function CareerChatPage() {
     options?: { forceNew?: boolean; skipRestore?: boolean }
   ) => {
     const { forceNew = false, skipRestore = false } = options || {};
+
+    // 새 상담 시작 시 정체성 상태 즉시 초기화
+    if (forceNew) {
+      setIdentityStatus(null);
+      setMessages([]);
+      setResearchPanels([]);
+    }
+
     try {
       let userIdFromStorage: number | null = null;
       try {
@@ -623,11 +653,6 @@ export default function CareerChatPage() {
       const hasHistory = (!forceNew && !skipRestore)
         ? await restoreSessionState(data.sessionId)
         : false;
-
-      if (data.needsSurvey && data.surveyQuestions) {
-        setSurveyQuestions(data.surveyQuestions);
-        setShowSurvey(true);
-      }
 
       if (!hasHistory) {
         setIdentityStatus(null);
@@ -911,23 +936,11 @@ export default function CareerChatPage() {
     setSessionId(null);
     setIdentityStatus(null);
     setAnalysisUnlocked(false);
-    setShowSurvey(false);
-    setSurveyQuestions([]);
     setResearchPanels([]);
     setRightPanelTab('identity');
     setPersonalityPromptDismissed(false);
     setPersonalityTriggered(false);
     startNewSession(null, { forceNew: true, skipRestore: true });
-  };
-
-  const handleSurveyComplete = () => {
-    setShowSurvey(false);
-    setMessages(prev => [...prev, {
-      id: generateMessageId(),
-      role: 'assistant',
-      content: '설문조사가 완료되었습니다! 이제 진로 정체성 탐색을 시작해볼까요?',
-      timestamp: new Date(),
-    }]);
   };
 
   const handleAgentAction = async (actionId: string, params?: Record<string, any>, messageIndex?: number) => {
@@ -1061,98 +1074,73 @@ export default function CareerChatPage() {
   );
 
   return (
-    <div className={`min-h-screen ${theme.bg} relative`}>
+    <div className={`min-h-screen ${theme.bg} relative px-4 sm:px-6 lg:px-8 py-3`}>
       <BackgroundEffects />
 
-      {sessionId && (
-        <SurveyModal
-          isOpen={showSurvey}
-          questions={surveyQuestions}
-          sessionId={sessionId}
-          onComplete={handleSurveyComplete}
-        />
-      )}
-
-      {/* 헤더 */}
-      <header className={`sticky top-0 z-50 border-b ${theme.headerBg} ${theme.headerBorder}`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex h-14 sm:h-16 items-center justify-between">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "rounded-full h-9 w-9",
-                  darkMode && "text-white/70 hover:text-white hover:bg-white/[0.05]"
-                )}
-                onClick={() => navigate('/')}
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className={cn(
-                  "h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center shadow-lg",
-                  darkMode
-                    ? "bg-gradient-to-br from-violet-600 to-violet-500 shadow-violet-500/20"
-                    : "bg-gradient-to-br from-primary to-violet-600 shadow-primary/25"
-                )}>
-                  <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
-                </div>
-                <div>
-                  <h1 className={`text-sm sm:text-base font-semibold ${theme.text}`}>AI 진로 상담</h1>
-                  {identityStatus && (
-                    <div className={`hidden sm:flex items-center gap-1.5 text-xs sm:text-sm ${theme.textSubtle}`}>
-                      <StageIcon className={cn("h-3 w-3 sm:h-3.5 sm:w-3.5", darkMode ? "text-violet-400" : "text-primary")} />
-                      <span>{stageInfo?.label} 단계</span>
-                    </div>
-                  )}
-                </div>
-              </div>
+      <div className="max-w-7xl mx-auto">
+        {/* 상단 헤더 */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-4">
+            <div className={cn(
+              "w-10 h-10 rounded-xl flex items-center justify-center",
+              darkMode
+                ? "bg-violet-500/20"
+                : "bg-gradient-to-br from-violet-500 to-purple-600"
+            )}>
+              <MessageSquare className="w-5 h-5 text-white" />
             </div>
-
-            <div className="flex items-center gap-2 sm:gap-4">
-              {/* 모바일 패널 토글 */}
-              <Button
-                variant="outline"
-                size="sm"
-                className={cn(
-                  "lg:hidden rounded-full",
-                  darkMode && "border-white/[0.1] text-white/70 hover:bg-white/[0.05]"
-                )}
-                onClick={() => setShowMobilePanel(!showMobilePanel)}
-              >
-                {showMobilePanel ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-full"
-                style={darkMode ? {
-                  border: '1px solid rgba(255,255,255,0.3)',
-                  color: '#ffffff',
-                  backgroundColor: 'rgba(255,255,255,0.1)',
-                } : {
-                  borderColor: '#e5e7eb',
-                  color: '#374151',
-                }}
-                onClick={handleNewChat}
-              >
-                <Plus className="h-4 w-4 mr-1.5" />
-                <span className="hidden sm:inline">새 상담</span>
-              </Button>
+            <div>
+              <h1 className={`text-xl font-bold ${theme.text}`}>AI 진로 상담</h1>
+              {identityStatus ? (
+                <p className={`text-sm ${theme.textSubtle} inline-flex items-center gap-1`}>
+                  <StageIcon className={cn("h-3.5 w-3.5", darkMode ? "text-violet-400" : "text-violet-600")} />
+                  {stageInfo?.label} 단계
+                </p>
+              ) : (
+                <p className={`text-sm ${theme.textSubtle}`}>진로 정체성을 함께 찾아가요</p>
+              )}
             </div>
           </div>
-        </div>
-      </header>
 
-      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+          <div className="flex items-center gap-2">
+            {/* 모바일 패널 토글 */}
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                "lg:hidden rounded-xl",
+                darkMode
+                  ? "border-white/[0.1] text-white/70 hover:bg-white/[0.05]"
+                  : "border-slate-200"
+              )}
+              onClick={() => setShowMobilePanel(!showMobilePanel)}
+            >
+              {showMobilePanel ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            </Button>
+
+            <Button
+              size="sm"
+              className={cn(
+                "rounded-xl",
+                darkMode
+                  ? "bg-violet-600 hover:bg-violet-500 text-white"
+                  : "bg-violet-500 hover:bg-violet-600 text-white"
+              )}
+              onClick={handleNewChat}
+            >
+              <Plus className="h-4 w-4 mr-1.5" />
+              <span className="hidden sm:inline">새 상담</span>
+            </Button>
+          </div>
+        </div>
+
+      <main className="relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* 채팅 영역 */}
           <div className="lg:col-span-2">
             <div
               className={cn(
-                "h-[calc(100vh-140px)] sm:h-[calc(100vh-160px)] flex flex-col shadow-sm border rounded-xl",
+                "h-[calc(100vh-90px)] sm:h-[calc(100vh-96px)] flex flex-col shadow-sm border rounded-xl",
                 theme.cardBorder
               )}
               style={{
@@ -1371,6 +1359,7 @@ export default function CareerChatPage() {
           </div>
         )}
       </main>
+      </div>
     </div>
   );
 }
@@ -1417,7 +1406,7 @@ function RightPanel({
   navigate,
   isMobile = false,
 }: RightPanelProps) {
-  const height = isMobile ? "h-[calc(100vh-56px)]" : "h-[calc(100vh-160px)]";
+  const height = isMobile ? "h-[calc(100vh-56px)]" : "h-[calc(100vh-96px)]";
 
   return (
     <Card className={cn(
@@ -1665,29 +1654,41 @@ function RightPanel({
           </ScrollArea>
         </TabsContent>
 
-        {/* 리서치 탭 - 항상 다크 테마 */}
-        <TabsContent value="research" className="flex-1 overflow-hidden m-0 bg-slate-900">
+        {/* 리서치 탭 */}
+        <TabsContent value="research" className={cn("flex-1 overflow-hidden m-0", darkMode ? "bg-slate-900" : "bg-gray-50")}>
           <ScrollArea className="h-full">
             <div className="p-4">
-              {isSearching && <AISearchingState darkMode={true} />}
+              {isSearching && <AISearchingState darkMode={darkMode} />}
 
               {!isSearching && researchPanels.length > 0 && (() => {
                 const panel = researchPanels[0];
                 return (
                   <div className="relative group">
-                    <div className="absolute -inset-0.5 bg-gradient-to-r from-violet-500 to-cyan-500 rounded-xl opacity-30 group-hover:opacity-50 blur transition" />
+                    <div className={cn(
+                      "absolute -inset-0.5 bg-gradient-to-r from-violet-500 to-cyan-500 rounded-xl blur transition",
+                      darkMode ? "opacity-30 group-hover:opacity-50" : "opacity-20 group-hover:opacity-30"
+                    )} />
 
-                    <div className="relative bg-slate-800 rounded-xl p-4">
+                    <div className={cn(
+                      "relative rounded-xl p-4",
+                      darkMode ? "bg-slate-800" : "bg-white border border-gray-200"
+                    )}>
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <div className="h-8 w-8 rounded-lg bg-slate-700 flex items-center justify-center text-cyan-400">
+                          <div className={cn(
+                            "h-8 w-8 rounded-lg flex items-center justify-center",
+                            darkMode ? "bg-slate-700 text-cyan-400" : "bg-violet-100 text-violet-600"
+                          )}>
                             {getResearchIcon(panel.type)}
                           </div>
                           <div>
-                            <h4 className="text-white text-sm font-medium line-clamp-1">
+                            <h4 className={cn(
+                              "text-sm font-medium line-clamp-1",
+                              darkMode ? "text-white" : "text-gray-900"
+                            )}>
                               {panel.title}
                             </h4>
-                            <span className="text-xs text-slate-400">
+                            <span className={cn("text-xs", darkMode ? "text-slate-400" : "text-gray-500")}>
                               {panel.timestamp.toLocaleTimeString('ko-KR', {
                                 hour: '2-digit',
                                 minute: '2-digit'
@@ -1698,48 +1699,51 @@ function RightPanel({
                       </div>
 
                       {panel.type === 'web_search' && (
-                        <p className="text-slate-300 text-sm leading-relaxed mb-4 whitespace-pre-line">
+                        <p className={cn(
+                          "text-sm leading-relaxed mb-4 whitespace-pre-line",
+                          darkMode ? "text-slate-300" : "text-gray-600"
+                        )}>
                           {panel.summary}
                         </p>
                       )}
 
                       {panel.type === 'mentoring' && panel.mentoringData?.sessions && panel.mentoringData.sessions.length > 0 && (
-                        <div className="pt-3 border-t border-slate-700">
-                          <p className="text-xs text-slate-400 mb-3">이런 멘토링도 있어요</p>
+                        <div className={cn("pt-3 border-t", darkMode ? "border-slate-700" : "border-gray-200")}>
+                          <p className={cn("text-xs mb-3", darkMode ? "text-slate-400" : "text-gray-500")}>이런 멘토링도 있어요</p>
                           <div className="space-y-3">
                             {panel.mentoringData.sessions.slice(0, 2).map((session, idx) => (
-                              <div key={idx} className="bg-slate-700/50 rounded-lg p-4">
+                              <div key={idx} className={cn("rounded-lg p-4", darkMode ? "bg-slate-700/50" : "bg-gray-50 border border-gray-200")}>
                                 <div className="flex items-start gap-3 mb-3">
                                   <div className="h-10 w-10 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-white font-medium text-sm">
                                     {session.mentorName?.charAt(0) || 'M'}
                                   </div>
                                   <div className="flex-1">
-                                    <p className="text-white font-medium">{session.mentorName}</p>
-                                    <p className="text-slate-400 text-xs">{session.mentorTitle}</p>
+                                    <p className={cn("font-medium", darkMode ? "text-white" : "text-gray-900")}>{session.mentorName}</p>
+                                    <p className={cn("text-xs", darkMode ? "text-slate-400" : "text-gray-500")}>{session.mentorTitle}</p>
                                   </div>
                                 </div>
 
                                 <div className="mb-3">
-                                  <p className="text-cyan-400 text-sm font-medium mb-1">{session.topic}</p>
+                                  <p className={cn("text-sm font-medium mb-1", darkMode ? "text-cyan-400" : "text-violet-600")}>{session.topic}</p>
                                   {session.description && (
-                                    <p className="text-slate-300 text-xs leading-relaxed line-clamp-2">{session.description}</p>
+                                    <p className={cn("text-xs leading-relaxed line-clamp-2", darkMode ? "text-slate-300" : "text-gray-600")}>{session.description}</p>
                                   )}
                                 </div>
 
-                                <div className="flex items-center gap-3 mb-4 text-xs text-slate-400">
+                                <div className={cn("flex items-center gap-3 mb-4 text-xs", darkMode ? "text-slate-400" : "text-gray-500")}>
                                   <div className="flex items-center gap-1">
                                     <Calendar className="h-3 w-3" />
                                     <span>{session.sessionDate}</span>
                                   </div>
                                   {session.price !== undefined && session.price > 0 && (
-                                    <span className="text-cyan-400">{session.price.toLocaleString()}원</span>
+                                    <span className={darkMode ? "text-cyan-400" : "text-violet-600"}>{session.price.toLocaleString()}원</span>
                                   )}
                                 </div>
 
                                 <div className="flex gap-2">
                                   <Button
                                     size="sm"
-                                    className="flex-1 bg-cyan-500 hover:bg-cyan-600 text-white text-xs"
+                                    className={cn("flex-1 text-white text-xs", darkMode ? "bg-cyan-500 hover:bg-cyan-600" : "bg-violet-500 hover:bg-violet-600")}
                                     onClick={() => navigate(`/mentoring/book/${session.sessionId}`)}
                                   >
                                     예약하기
@@ -1747,7 +1751,10 @@ function RightPanel({
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="flex-1 border-blue-500 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300 text-xs"
+                                    className={cn(
+                                      "flex-1 text-xs",
+                                      darkMode ? "border-blue-500 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300" : "border-violet-300 text-violet-600 hover:bg-violet-50"
+                                    )}
                                     disabled={similarMentorLoading === panel.id}
                                     onClick={() => findSimilarMentors(panel.id, session)}
                                   >
@@ -1760,7 +1767,10 @@ function RightPanel({
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    className="flex-1 text-slate-400 hover:text-white hover:bg-slate-700/50 text-xs"
+                                    className={cn(
+                                      "flex-1 text-xs",
+                                      darkMode ? "text-slate-400 hover:text-white hover:bg-slate-700/50" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                                    )}
                                     onClick={() => {
                                       setResearchPanels(prev => prev.filter(p => p.id !== panel.id));
                                     }}
@@ -1775,24 +1785,24 @@ function RightPanel({
                       )}
 
                       {panel.type === 'learning_path' && panel.learningPathData?.path && (
-                        <div className="pt-3 border-t border-slate-700">
-                          <p className="text-xs text-slate-400 mb-3">이런 학습으로 시작해보는건 어때요?</p>
-                          <div className="bg-slate-700/50 rounded-lg p-4">
+                        <div className={cn("pt-3 border-t", darkMode ? "border-slate-700" : "border-gray-200")}>
+                          <p className={cn("text-xs mb-3", darkMode ? "text-slate-400" : "text-gray-500")}>이런 학습으로 시작해보는건 어때요?</p>
+                          <div className={cn("rounded-lg p-4", darkMode ? "bg-slate-700/50" : "bg-gray-50 border border-gray-200")}>
                             <div className="flex items-start gap-3 mb-3">
                               <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center">
                                 <BookOpen className="h-5 w-5 text-white" />
                               </div>
                               <div className="flex-1">
-                                <p className="text-white font-medium">{panel.learningPathData.path.career}</p>
-                                <p className="text-slate-400 text-xs">{panel.learningPathData.path.weeks}주 학습 코스</p>
+                                <p className={cn("font-medium", darkMode ? "text-white" : "text-gray-900")}>{panel.learningPathData.path.career}</p>
+                                <p className={cn("text-xs", darkMode ? "text-slate-400" : "text-gray-500")}>{panel.learningPathData.path.weeks}주 학습 코스</p>
                               </div>
                             </div>
                             {panel.learningPathData.path.topics && panel.learningPathData.path.topics.length > 0 && (
                               <div className="mb-4">
-                                <p className="text-xs text-slate-400 mb-2">학습 주제</p>
+                                <p className={cn("text-xs mb-2", darkMode ? "text-slate-400" : "text-gray-500")}>학습 주제</p>
                                 <div className="flex flex-wrap gap-1.5">
                                   {panel.learningPathData.path.topics.slice(0, 4).map((topic, idx) => (
-                                    <span key={idx} className="px-2 py-1 bg-slate-600/50 text-slate-300 text-xs rounded">
+                                    <span key={idx} className={cn("px-2 py-1 text-xs rounded", darkMode ? "bg-slate-600/50 text-slate-300" : "bg-violet-100 text-violet-700")}>
                                       {topic}
                                     </span>
                                   ))}
@@ -1802,12 +1812,12 @@ function RightPanel({
                             {panel.learningPathData.exists ? (
                               <div className="space-y-2">
                                 <div className="flex items-center justify-between text-xs">
-                                  <span className="text-slate-400">진행률</span>
-                                  <span className="text-cyan-400">{panel.learningPathData.path.progress || 0}%</span>
+                                  <span className={darkMode ? "text-slate-400" : "text-gray-500"}>진행률</span>
+                                  <span className={darkMode ? "text-cyan-400" : "text-violet-600"}>{panel.learningPathData.path.progress || 0}%</span>
                                 </div>
                                 <Progress value={panel.learningPathData.path.progress || 0} className="h-1.5" />
                                 <Button
-                                  className="w-full mt-2 bg-cyan-500 hover:bg-cyan-600 text-white"
+                                  className={cn("w-full mt-2 text-white", darkMode ? "bg-cyan-500 hover:bg-cyan-600" : "bg-violet-500 hover:bg-violet-600")}
                                   onClick={() => navigate(`/learning?career=${encodeURIComponent(panel.learningPathData!.path.career)}`)}
                                 >
                                   이어서 학습하기
@@ -1821,12 +1831,15 @@ function RightPanel({
                                 학습 시작하기
                               </Button>
                             ) : (
-                              <p className="text-xs text-slate-400 text-center">준비 중인 학습 경로입니다</p>
+                              <p className={cn("text-xs text-center", darkMode ? "text-slate-400" : "text-gray-500")}>준비 중인 학습 경로입니다</p>
                             )}
                           </div>
                           <Button
                             variant="ghost"
-                            className="w-full mt-3 text-slate-400 hover:text-white hover:bg-slate-700/50"
+                            className={cn(
+                              "w-full mt-3",
+                              darkMode ? "text-slate-400 hover:text-white hover:bg-slate-700/50" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                            )}
                             onClick={() => navigate('/learning')}
                           >
                             다른 학습 경로 보기
@@ -1836,10 +1849,13 @@ function RightPanel({
                       )}
 
                       {panel.sources && panel.sources.length > 0 && panel.type !== 'mentoring' && panel.type !== 'learning_path' && (
-                        <div className="pt-3 border-t border-slate-700">
+                        <div className={cn("pt-3 border-t", darkMode ? "border-slate-700" : "border-gray-200")}>
                           <button
                             onClick={() => toggleSourceExpand(panel.id)}
-                            className="flex items-center justify-between w-full text-xs text-slate-400 hover:text-slate-300 transition-colors"
+                            className={cn(
+                              "flex items-center justify-between w-full text-xs transition-colors",
+                              darkMode ? "text-slate-400 hover:text-slate-300" : "text-gray-500 hover:text-gray-700"
+                            )}
                           >
                             <div className="flex items-center gap-1.5">
                               <LinkIcon className="h-3 w-3" />
@@ -1853,18 +1869,21 @@ function RightPanel({
                           {expandedSources.has(panel.id) && (
                             <div className="space-y-3 mt-3">
                               {panel.sources.map((source, idx) => (
-                                <div key={idx} className="bg-slate-800/50 rounded-lg p-3">
+                                <div key={idx} className={cn("rounded-lg p-3", darkMode ? "bg-slate-800/50" : "bg-gray-50 border border-gray-200")}>
                                   <a
                                     href={source.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="flex items-start gap-2 text-sm text-cyan-400 hover:text-cyan-300 transition-colors mb-1.5"
+                                    className={cn(
+                                      "flex items-start gap-2 text-sm transition-colors mb-1.5",
+                                      darkMode ? "text-cyan-400 hover:text-cyan-300" : "text-violet-600 hover:text-violet-700"
+                                    )}
                                   >
                                     <ExternalLink className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                                     <span className="font-medium leading-tight">{source.title}</span>
                                   </a>
                                   {source.snippet && (
-                                    <p className="text-xs text-slate-400 leading-relaxed pl-5">
+                                    <p className={cn("text-xs leading-relaxed pl-5", darkMode ? "text-slate-400" : "text-gray-500")}>
                                       {source.snippet}
                                     </p>
                                   )}
@@ -1881,13 +1900,16 @@ function RightPanel({
 
               {!isSearching && researchPanels.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="h-16 w-16 rounded-2xl bg-slate-800 flex items-center justify-center mb-4">
-                    <Search className="h-8 w-8 text-slate-600" />
+                  <div className={cn(
+                    "h-16 w-16 rounded-2xl flex items-center justify-center mb-4",
+                    darkMode ? "bg-slate-800" : "bg-gray-100"
+                  )}>
+                    <Search className={cn("h-8 w-8", darkMode ? "text-slate-600" : "text-gray-400")} />
                   </div>
-                  <p className="text-sm text-slate-400 mb-1">
+                  <p className={cn("text-sm mb-1", darkMode ? "text-slate-400" : "text-gray-500")}>
                     리서치 결과가 없어요
                   </p>
-                  <p className="text-xs text-slate-500">
+                  <p className={cn("text-xs", darkMode ? "text-slate-500" : "text-gray-400")}>
                     대화 중 필요한 정보를<br/>AI가 자동으로 검색합니다
                   </p>
                 </div>

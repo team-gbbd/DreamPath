@@ -52,22 +52,6 @@ public class CareerSession {
     @Column(name = "stage_message_count")
     @Builder.Default
     private Integer stageMessageCount = 0;
-    
-    /**
-     * 설문조사 완료 여부
-     */
-    @Column(name = "survey_completed")
-    @Builder.Default
-    private Boolean surveyCompleted = false;
-    
-    /**
-     * 설문조사 응답 데이터 (JSON 형식)
-     * 예: {"name": "홍길동", "age": 17, "interests": ["프로그래밍", "디자인"],
-     *      "favoriteSubjects": ["수학", "과학"], "difficultSubjects": ["영어"],
-     *      "hasDreamCareer": "모호함", "careerPressure": "높음", "concern": "진로가 불확실함"}
-     */
-    @Column(name = "survey_data", columnDefinition = "TEXT")
-    private String surveyData;
 
     /**
      * 정체성 분석 상태 캐시 (JSON 형식)

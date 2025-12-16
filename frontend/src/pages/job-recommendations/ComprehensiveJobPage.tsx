@@ -494,33 +494,32 @@ export default function ComprehensiveJobPage() {
   // 에러 발생
   if (loadError) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <div className="max-w-7xl mx-auto px-4 py-12">
-          <div className="bg-white rounded-lg shadow p-12 text-center">
-            <div className="text-6xl mb-4">⚠️</div>
-            <h2 className="text-2xl font-bold text-red-600 mb-4">추천 조회 실패</h2>
-            <p className="text-gray-600 mb-4">{loadError}</p>
-            <div className="flex gap-4 justify-center">
+      <div className={`min-h-screen ${theme.bg} relative overflow-hidden`}>
+        <BackgroundEffects />
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+          <div className={`${theme.card} border rounded-xl sm:rounded-2xl shadow-xl p-8 sm:p-12 text-center backdrop-blur-sm`}>
+            <div className="text-5xl sm:text-6xl mb-4">⚠️</div>
+            <h2 className={`text-xl sm:text-2xl font-bold mb-4 ${darkMode ? 'text-red-400' : 'text-red-600'}`}>추천 조회 실패</h2>
+            <p className={`mb-4 text-sm sm:text-base ${theme.textMuted}`}>{loadError}</p>
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
               <button
                 onClick={() => {
                   setLoadError(null);
                   loadRecommendations();
                 }}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-5 sm:px-6 py-2.5 sm:py-3 bg-[#5A7BFF] text-white rounded-lg hover:bg-[#4A6BEF] transition-colors"
               >
                 다시 시도
               </button>
               <button
                 onClick={() => navigate("/profile/input")}
-                className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                className={`px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg transition-colors ${darkMode ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
               >
                 프로필 분석하기
               </button>
             </div>
           </div>
         </div>
-        <Footer />
       </div>
     );
   }

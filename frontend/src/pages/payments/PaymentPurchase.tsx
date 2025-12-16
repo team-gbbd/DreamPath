@@ -73,7 +73,12 @@ export default function PaymentPurchasePage() {
   const [error, setError] = useState<string | null>(null);
   const paymentWidgetRef = useRef<PaymentWidgetInstance | null>(null);
   const [isWidgetReady, setIsWidgetReady] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("dreampath:theme") === "dark";
+    }
+    return false;
+  });
 
   // Theme 객체
   const theme = {
