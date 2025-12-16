@@ -61,7 +61,7 @@ class CareerAnalysisService:
         # DB 저장
         try:
             self.db_service.save_career_analysis(
-                session_id=session_id,
+                session_identifier=session_id,
                 user_id=None,
                 analysis_data=analysis_result
             )
@@ -116,8 +116,16 @@ class CareerAnalysisService:
     "description": "성향 분석 상세 설명",
     "type": "성격 유형 (예: 외향적, 내향적, 분석적 등)",
     "strengths": ["강점1", "강점2", "강점3"],
-    "growthAreas": ["발전영역1", "발전영역2"]
+    "growthAreas": ["발전영역1", "발전영역2"],
+    "big_five": {{
+        "openness": 50,
+        "conscientiousness": 50,
+        "extraversion": 50,
+        "agreeableness": 50,
+        "neuroticism": 50
+    }}
 }}
+(big_five 점수는 1-100 사이의 정수로 입력해주세요)
 """
         
         messages = [
@@ -134,6 +142,42 @@ class CareerAnalysisService:
             "personality"
         )
         return self._parse_personality_analysis(response)
+
+    def _parse_personality_analysis(self, response: str) -> dict:
+        """성향 분석 JSON 파싱"""
+        try:
+            json_str = self.openai_service.extract_json(response)
+            data = json.loads(json_str)
+
+            # Sanitize Big Five to ensure integers
+            big_five = data.get("big_five", {})
+            sanitized_big_five = {}
+            for key in ["openness", "conscientiousness", "extraversion", "agreeableness", "neuroticism"]:
+                val = big_five.get(key, 50)
+                # Handle nested dict if LLM returns it (e.g. {"score": 80})
+                if isinstance(val, dict):
+                     val = val.get("score", 50)
+                
+                try:
+                    sanitized_big_five[key] = int(float(val))
+                except:
+                    sanitized_big_five[key] = 50
+
+            return {
+                "description": data.get("description", "분석 중 오류가 발생했습니다."),
+                "type": data.get("type", "미분류"),
+                "strengths": data.get("strengths", []),
+                "growthAreas": data.get("growthAreas", []),
+                "big_five": sanitized_big_five
+            }
+        except Exception as e:
+            return {
+                "description": "분석 중 오류가 발생했습니다.",
+                "type": "미분류",
+                "strengths": [],
+                "growthAreas": [],
+                "big_five": {}
+            }
     
     async def analyze_interest(self, conversation_history: str) -> dict:
         """흥미 분석"""
@@ -269,7 +313,8 @@ class CareerAnalysisService:
                 "description": data.get("description", "분석 중 오류가 발생했습니다."),
                 "type": data.get("type", "미분류"),
                 "strengths": data.get("strengths", []),
-                "growthAreas": data.get("growthAreas", [])
+                "growthAreas": data.get("growthAreas", []),
+                "big_five": data.get("big_five", {})
             }
         except Exception as e:
             return {

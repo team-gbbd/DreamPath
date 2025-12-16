@@ -1,5 +1,6 @@
 package com.dreampath.domain.profile.dto;
 
+import com.fasterxml.jackson.annotation.JsonRawValue;
 import com.dreampath.domain.profile.entity.ProfileAnalysis;
 import lombok.Builder;
 import lombok.Getter;
@@ -13,10 +14,19 @@ public class ProfileAnalysisResponse {
 
     private final Long analysisId;
     private final Long userId;
+
+    @JsonRawValue
     private final String personality;
+
+    @JsonRawValue
     private final String values;
+
+    @JsonRawValue
     private final String emotions;
+
+    @JsonRawValue
     private final String interests;
+
     private final Double confidenceScore;
     private final LocalDateTime createdAt;
     private final String mbti;

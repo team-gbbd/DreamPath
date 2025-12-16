@@ -90,6 +90,10 @@ class PersonalityAgent:
 
         big_five_raw = await self.bigfive.analyze_bigfive(document)
         big_five = self._safe_json(big_five_raw)
+        
+        # Ensure scores are integers
+        big_five = self._sanitize_big_five(big_five)
+
         mbti_result = await self.mbti.convert_bigfive_to_mbti(
             self._extract_score(big_five, "openness"),
             self._extract_score(big_five, "conscientiousness"),
@@ -146,6 +150,25 @@ class PersonalityAgent:
             self._stringify(bundle.survey_data),
         ]
         return "\n".join(sections).strip()
+
+    def _sanitize_big_five(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Ensure all Big Five scores are strictly integers."""
+        validated = {}
+        for trait in ["openness", "conscientiousness", "extraversion", "agreeableness", "neuroticism"]:
+            # Use existing extraction logic which handles casting and defaults
+            score = self._extract_score(params, trait)
+            
+            # Preserve the original structure structure if it was a dict, or create one
+            original_value = params.get(trait)
+            reason = ""
+            if isinstance(original_value, dict):
+                reason = original_value.get("reason", "")
+            
+            validated[trait] = {
+                "score": score,
+                "reason": reason
+            }
+        return validated
 
     def _safe_json(self, raw: str) -> Dict[str, Any]:
         try:

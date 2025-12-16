@@ -2,7 +2,7 @@
 진로 분석 관련 Pydantic 모델
 """
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional, Dict, Any
 from .common import ConversationMessage
 
 
@@ -22,6 +22,7 @@ class PersonalityAnalysis(BaseModel):
     type: str
     strengths: List[str]
     growthAreas: List[str]
+    big_five: Optional[Dict[str, Any]] = None
 
 
 class InterestArea(BaseModel):

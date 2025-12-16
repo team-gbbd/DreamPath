@@ -232,7 +232,15 @@ class JobRecommendationCalculator:
 
                         # 매칭 점수 계산 (직업 추천 점수 기반)
                         base_score = career_score if isinstance(career_score, (int, float)) else 0.5
-                        match_score = int(base_score * 100)
+
+                        # CareerNet/AI가 0-1 또는 0-100 범위를 혼용하므로 모두 처리
+                        if base_score <= 1:
+                            match_score = int(base_score * 100)
+                        else:
+                            match_score = int(base_score)
+
+                        # DB precision(5,2)을 넘지 않도록 0-100 범위로 클램프
+                        match_score = max(0, min(match_score, 100))
 
                         recommendations.append({
                             "id": job_id,
@@ -493,6 +501,14 @@ class JobRecommendationCalculator:
                             continue
 
                         match_score = rec.get("matchScore", 0)
+                        
+                        # DB precision(5,2) safety check (max 999.99)
+                        # Ensure score is within valid range 0-100
+                        if match_score > 100:
+                            match_score = 100
+                        elif match_score < 0:
+                            match_score = 0
+                            
                         match_reason = rec.get("matchReason", "")
                         recommendation_data = json.dumps(rec, ensure_ascii=False)
 

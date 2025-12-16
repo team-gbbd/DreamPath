@@ -95,7 +95,8 @@ public class CareerAnalysisService {
         analysisRepository.save(analysis);
         sessionRepository.save(session);
 
-        // 🔄 자동 동기화: CareerAnalysis → ProfileAnalysis → UserProfile → Vector 재생성 → 채용추천 계산
+        // 🔄 자동 동기화: CareerAnalysis → ProfileAnalysis → UserProfile → Vector 재생성 → 채용추천
+        // 계산
         try {
             if (session.getUserId() != null) {
                 Long userId = Long.parseLong(session.getUserId());
@@ -296,7 +297,9 @@ public class CareerAnalysisService {
         payload.put("growthAreas", personality != null && personality.getGrowthAreas() != null
                 ? personality.getGrowthAreas()
                 : Collections.emptyList());
-        payload.put("traits", Collections.emptyMap());
+        payload.put("big_five", personality != null && personality.getBig_five() != null
+                ? personality.getBig_five()
+                : Collections.emptyMap());
 
         return serializeToJson(payload);
     }

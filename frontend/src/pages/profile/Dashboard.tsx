@@ -767,18 +767,24 @@ export default function NewDashboard() {
   const personalityChartData = useMemo(() => {
     if (!personalityJson) return null;
 
-    // Handle both direct key-value pairs and nested "bigFive" structure
-    const traitSource = (personalityJson as Record<string, unknown>).big_five ||
-      (personalityJson as Record<string, unknown>).bigFive ||
-      (personalityJson as Record<string, unknown>).traits ||
-      personalityJson;
-
-    const entries = Object.entries(traitSource as Record<string, unknown>);
-    if (!entries.length) return null;
-
     // Filter relevant Big5 keys
     const validKeys = ['openness', 'conscientiousness', 'extraversion', 'agreeableness', 'neuroticism', 'stability'];
-    const filteredEntries = entries.filter(([key]) => validKeys.includes(key));
+
+    const p = personalityJson as Record<string, unknown>;
+
+    console.log('[DEBUG] Personality JSON:', p);
+
+    // Match logic exactly with mbtiTraits: prioritize big_five/bigFive, otherwise root.
+    // Explicitly IGNORE 'traits' property as it might be an empty/misleading object.
+    const source = (p.big_five || p.bigFive || p) as Record<string, any>;
+
+    console.log('[DEBUG] Selected Trait Source:', source);
+
+    const entries = Object.entries(source);
+    // Filter relevant Big5 keys (case-insensitive)
+    const filteredEntries = entries.filter(([key]) => validKeys.includes(key.toLowerCase()));
+
+    console.log('[DEBUG] Filtered Entries:', filteredEntries);
 
     if (!filteredEntries.length) return null;
 
@@ -904,6 +910,23 @@ export default function NewDashboard() {
     ];
   }, [analysisData]);
 
+  const displayMbti = useMemo(() => {
+    let mbti = analysisData?.mbti;
+    const isValidMbti = mbti && Object.keys(MBTI_DETAILS).includes(mbti);
+
+    if (!isValidMbti && mbtiTraits && mbtiTraits.length >= 4) {
+      const getLetter = (index: number, left: string, right: string) =>
+        mbtiTraits[index].score >= 0.5 ? left : right;
+
+      const l1 = getLetter(0, 'E', 'I');
+      const l2 = getLetter(1, 'N', 'S');
+      const l3 = getLetter(2, 'F', 'T');
+      const l4 = getLetter(3, 'J', 'P');
+      mbti = `${l1}${l2}${l3}${l4}`;
+    }
+    return mbti;
+  }, [analysisData?.mbti, mbtiTraits]);
+
   // --- Render Sections ---
   const renderOverviewSection = () => (
     <div className="space-y-6">
@@ -918,7 +941,7 @@ export default function NewDashboard() {
 
         <div className="mb-5">
           <p className="text-lg font-bold text-indigo-500 mb-3">
-            {analysisData?.mbti ? `"${analysisData.mbti} 유형의 잠재력을 가진 인재"` : '"분석 중..."'}
+            {displayMbti ? `"${displayMbti} 유형의 잠재력을 가진 인재"` : '"분석 중..."'}
           </p>
           <p className={`leading-relaxed text-sm ${theme.textSecondary}`}>
             {analysisData?.summary || '요약 정보가 아직 준비되지 않았습니다.'}
@@ -1090,7 +1113,7 @@ export default function NewDashboard() {
   );
 
   const renderPersonalitySection = () => {
-    const selectedMbtiDetail = getMbtiDetails(analysisData?.mbti);
+    const selectedMbtiDetail = getMbtiDetails(displayMbti);
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1117,43 +1140,14 @@ export default function NewDashboard() {
               {personalityNarrative && (
                 <div className="mt-8 pt-8 border-t border-dashed border-gray-200 dark:border-white/10">
                   <h3 className={`text-lg font-semibold ${theme.text}`}>AI 성향 리포트</h3>
-                  {personalityNarrative.type && (
-                    <p className="mt-1 text-sm text-indigo-500 font-semibold">{personalityNarrative.type}</p>
-                  )}
+
                   {personalityNarrative.description ? (
                     <p className={`mt-3 text-sm whitespace-pre-line ${theme.textSecondary}`}>{personalityNarrative.description}</p>
                   ) : (
                     analysisData?.summary && <p className={`mt-3 text-sm whitespace-pre-line leading-relaxed ${theme.textSecondary}`}>{analysisData.summary}</p>
                   )}
 
-                  {(personalityNarrative.strengths.length > 0 || personalityNarrative.growthAreas.length > 0) && (
-                    <div className="mt-4 grid gap-4 md:grid-cols-2">
-                      {personalityNarrative.strengths.length > 0 && (
-                        <div className={`rounded-xl border p-3 ${darkMode ? 'border-[#5A7BFF]/30 bg-[#5A7BFF]/10' : 'border-blue-100 bg-blue-50/60'}`}>
-                          <p className={`text-xs font-semibold uppercase tracking-wide mb-2 ${darkMode ? 'text-[#5A7BFF]' : 'text-[#5A7BFF]'}`}>강점</p>
-                          <div className="flex flex-wrap gap-2">
-                            {personalityNarrative.strengths.map((item, idx) => (
-                              <span key={`${item}-${idx}`} className={`rounded-full px-3 py-1 text-xs shadow-sm ${darkMode ? 'bg-[#5A7BFF]/20 text-blue-300' : 'bg-white text-[#5A7BFF]'}`}>
-                                {item}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {personalityNarrative.growthAreas.length > 0 && (
-                        <div className={`rounded-xl border p-3 ${darkMode ? 'border-amber-500/30 bg-amber-500/10' : 'border-amber-100 bg-amber-50/60'}`}>
-                          <p className={`text-xs font-semibold uppercase tracking-wide mb-2 ${darkMode ? 'text-amber-400' : 'text-amber-700'}`}>성장 포인트</p>
-                          <div className="flex flex-wrap gap-2">
-                            {personalityNarrative.growthAreas.map((item, idx) => (
-                              <span key={`${item}-${idx}`} className={`rounded-full px-3 py-1 text-xs shadow-sm ${darkMode ? 'bg-amber-500/20 text-amber-300' : 'bg-white text-amber-700'}`}>
-                                {item}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  {/* Strengths & Growth Points Section Removed as per request */}
                 </div>
               )}
             </div>
@@ -1170,7 +1164,7 @@ export default function NewDashboard() {
 
             {/* Large Type Text */}
             <h1 className="text-6xl sm:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 mb-6 tracking-tight">
-              {analysisData?.mbti || 'MBTI'}
+              {displayMbti || 'MBTI'}
             </h1>
 
             {/* Description */}
@@ -1214,9 +1208,10 @@ export default function NewDashboard() {
                   );
                 })}
               </div>
-            )}
-          </div>
-        </div>
+            )
+            }
+          </div >
+        </div >
 
         {/* Strengths & Risks Cards */}
         {

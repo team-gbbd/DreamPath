@@ -39,7 +39,7 @@ public class PythonAIService {
     public AnalysisResponse analyzeCareer(String sessionId, List<Map<String, String>> conversationHistory) {
         try {
             String url = pythonAiServiceUrl + "/api/analyze";
-            
+
             // 요청 본문 구성
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("sessionId", sessionId);
@@ -88,6 +88,7 @@ public class PythonAIService {
             AnalysisResponse.PersonalityAnalysis personality = AnalysisResponse.PersonalityAnalysis.builder()
                     .description((String) personalityMap.get("description"))
                     .type((String) personalityMap.get("type"))
+                    .big_five((Map<String, Object>) personalityMap.get("big_five"))
                     .strengths((List<String>) personalityMap.get("strengths"))
                     .growthAreas((List<String>) personalityMap.get("growthAreas"))
                     .build();
@@ -149,7 +150,7 @@ public class PythonAIService {
     public void triggerJobRecommendationCalculation(Long userId) {
         try {
             String url = pythonAiServiceUrl + "/api/job-agent/recommendations/calculate/"
-                + userId + "?background=true";
+                    + userId + "?background=true";
 
             log.info("채용공고 추천 계산 트리거: userId={}, url={}", userId, url);
 
@@ -166,7 +167,7 @@ public class PythonAIService {
                         log.info("채용공고 추천 계산 트리거 성공: userId={}", userId);
                     } else {
                         log.warn("채용공고 추천 계산 트리거 응답 오류: userId={}, status={}",
-                            userId, response.getStatusCode());
+                                userId, response.getStatusCode());
                     }
 
                 } catch (Exception e) {
@@ -181,4 +182,3 @@ public class PythonAIService {
         }
     }
 }
-

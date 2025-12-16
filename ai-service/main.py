@@ -26,7 +26,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 from config import settings
 from routers import api_router
@@ -212,6 +212,7 @@ class PersonalityAnalysis(BaseModel):
     type: str
     strengths: List[str]
     growthAreas: List[str]
+    big_five: Optional[Dict[str, Any]] = None
 
 class InterestArea(BaseModel):
     name: str
