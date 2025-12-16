@@ -1,4 +1,5 @@
 import os
+import json
 from supabase import create_client, Client
 
 
@@ -82,17 +83,47 @@ class SupabaseVectorRepository:
                         continue
                 else:
                     numeric_ids.append(job_id)
-            
+
             if not numeric_ids:
                 return []
-            
+
             response = (
                 self.supabase.table('job_details')
                 .select('*')
                 .in_('job_id', numeric_ids)
                 .execute()
             )
-            return response.data
+
+            # raw_data에서 직업명 추출하여 최상위 필드로 추가
+            enriched_data = []
+            for item in response.data:
+                enriched_item = item.copy()
+                raw_data = item.get('raw_data')
+
+                # raw_data가 문자열이면 JSON 파싱
+                if isinstance(raw_data, str):
+                    try:
+                        raw_data = json.loads(raw_data)
+                    except:
+                        raw_data = {}
+
+                # baseInfo에서 직업명 추출
+                if isinstance(raw_data, dict):
+                    base_info = raw_data.get('baseInfo', {})
+                    job_name = base_info.get('job_nm', '')
+                    if job_name:
+                        enriched_item['jobName'] = job_name
+                        enriched_item['job_nm'] = job_name
+
+                    # 추가 유용한 정보도 추출
+                    enriched_item['wage'] = base_info.get('wage', '')
+                    enriched_item['wlb'] = base_info.get('wlb', '')
+                    enriched_item['aptitude'] = base_info.get('aptit_name', '')
+                    enriched_item['relatedJob'] = base_info.get('rel_job_nm', '')
+
+                enriched_data.append(enriched_item)
+
+            return enriched_data
         except Exception as e:
             print(f"Error fetching job details: {e}")
             return []
@@ -126,7 +157,18 @@ class SupabaseVectorRepository:
                 .in_('major_id', numeric_ids)
                 .execute()
             )
-            return response.data
+
+            # 학과명 필드 정규화 (majorName, name 추가)
+            enriched_data = []
+            for item in response.data:
+                enriched_item = item.copy()
+                major_name = item.get('major_name', '')
+                if major_name:
+                    enriched_item['majorName'] = major_name
+                    enriched_item['name'] = major_name
+                enriched_data.append(enriched_item)
+
+            return enriched_data
         except Exception as e:
             print(f"Error fetching major details: {e}")
             return []
