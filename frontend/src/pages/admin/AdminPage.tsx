@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/common/Toast.tsx';
+import { authFetch } from '@/lib/api';
 
 export default function AdminPage() {
   const navigate = useNavigate();
@@ -100,20 +101,20 @@ export default function AdminPage() {
         setFaqCount(faqData.length);
       }
 
-      const inquiryResponse = await fetch(`${JAVA_BACKEND_URL}/api/inquiry/all`);
+      const inquiryResponse = await authFetch(`${JAVA_BACKEND_URL}/api/inquiry/all`);
       if (inquiryResponse.ok) {
         const inquiryData = await inquiryResponse.json();
         const unansweredCount = inquiryData.filter((inquiry: any) => !inquiry.answered).length;
         setInquiryCount(unansweredCount);
       }
 
-      const usersResponse = await fetch(`${JAVA_BACKEND_URL}/api/users`);
+      const usersResponse = await authFetch(`${JAVA_BACKEND_URL}/api/users`);
       if (usersResponse.ok) {
         const usersData = await usersResponse.json();
         setUserCount(usersData.length);
       }
 
-      const mentorsResponse = await fetch(`${JAVA_BACKEND_URL}/api/mentors/applications`);
+      const mentorsResponse = await authFetch(`${JAVA_BACKEND_URL}/api/mentors/applications`);
       if (mentorsResponse.ok) {
         const mentorsData = await mentorsResponse.json();
         setMentorCount(mentorsData.length);

@@ -1,6 +1,7 @@
 """
 DreamPath Career Analysis AI Service
 Python FastAPI Microservice
+# 서버 스펙 업그레이드: 0.5 vCPU/1GB → 1 vCPU/2GB
 """
 
 import os

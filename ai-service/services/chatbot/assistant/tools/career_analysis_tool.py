@@ -42,9 +42,7 @@ def execute(user_id: int, db: DatabaseService = None, **kwargs) -> Dict[str, Any
             db = DatabaseService()
 
         # SQL 쿼리 - career_analyses 테이블과 career_sessions 테이블을 조인하여 최신 분석 결과 조회
-        # Table: career_analyses (ca), career_sessions (cs)
-        # Join: ca.session_id = cs.id
-        # Filter: cs.user_id = user_id
+        # JPA 컬럼명: camelCase -> DB 컬럼명: snake_case
         query = """
             SELECT
                 ca.id,
@@ -64,7 +62,7 @@ def execute(user_id: int, db: DatabaseService = None, **kwargs) -> Dict[str, Any
             LIMIT 1
         """
 
-        # user_id를 문자열로 변환 (DB 스키마상 String 타입)
+        # user_id는 String 타입
         results = db.execute_query(query, (str(user_id),))
 
         if not results or len(results) == 0:

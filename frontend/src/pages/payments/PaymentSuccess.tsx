@@ -9,7 +9,12 @@ export default function PaymentSuccessPage() {
   const [error, setError] = useState<string | null>(null);
   const [paymentInfo, setPaymentInfo] = useState<any>(null);
   const hasProcessed = useRef(false);
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("dreampath:theme") === "dark";
+    }
+    return false;
+  });
 
   // Theme 객체
   const theme = {
@@ -212,7 +217,7 @@ export default function PaymentSuccessPage() {
         <div className={`max-w-md w-full rounded-2xl border p-4 sm:p-5 ${theme.card}`}>
           <div className="text-center">
             {/* Success Icon */}
-            <div className={`w-16 h-16 sm:w-18 sm:h-18 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 ${
+            <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 ${
               darkMode ? 'bg-green-500/20' : 'bg-green-100'
             }`}>
               <i className={`ri-check-line text-4xl sm:text-5xl ${darkMode ? 'text-green-400' : 'text-green-500'}`}></i>

@@ -3,7 +3,12 @@ import { useNavigate } from 'react-router-dom';
 
 export default function NotFound() {
   const navigate = useNavigate();
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("dreampath:theme") === "dark";
+    }
+    return false;
+  });
 
   // Theme 객체
   const theme = {

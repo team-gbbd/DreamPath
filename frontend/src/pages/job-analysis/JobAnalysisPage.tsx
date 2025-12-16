@@ -36,7 +36,12 @@ export default function JobAnalysisPage() {
   const [trendsData, setTrendsData] = useState<any>(null);
   const [skillsData, setSkillsData] = useState<any>(null);
   const [salaryData, setSalaryData] = useState<any>(null);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("dreampath:theme") === "dark";
+    }
+    return false;
+  });
 
   // 테마 설정
   const theme: ThemeColors = darkMode ? {

@@ -310,46 +310,30 @@ export default function JobListingsPage() {
   const totalPages = Math.ceil(currentData.jobListings.length / itemsPerPage);
 
   return (
-    <div className={`min-h-screen ${theme.bg} relative`}>
+    <div className={`min-h-screen ${theme.bg} relative px-4 sm:px-6 lg:px-8 py-3`}>
       <BackgroundEffects />
 
-      {/* Header */}
-      <header className={`sticky top-0 z-50 border-b ${theme.headerBg} ${theme.headerBorder}`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex h-14 sm:h-16 items-center justify-between">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "rounded-full h-9 w-9",
-                  darkMode && "text-white/70 hover:text-white hover:bg-white/[0.05]"
-                )}
-                onClick={() => navigate(-1)}
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className={cn(
-                  "h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center shadow-lg",
-                  darkMode
-                    ? "bg-gradient-to-br from-violet-600 to-violet-500 shadow-violet-500/20"
-                    : "bg-gradient-to-br from-primary to-violet-600 shadow-primary/25"
-                )}>
-                  <Briefcase className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
-                </div>
-                <div>
-                  <h1 className={`text-sm sm:text-base font-semibold ${theme.text}`}>채용 정보</h1>
-                  <p className={`hidden sm:block text-xs ${theme.textSubtle}`}>추천된 직업에 맞는 채용 공고</p>
-                </div>
-              </div>
+      <div className="max-w-7xl mx-auto">
+        {/* 상단 헤더 */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-4">
+            <div className={cn(
+              "w-10 h-10 rounded-xl flex items-center justify-center shadow-lg",
+              darkMode
+                ? "bg-gradient-to-br from-violet-600 to-violet-500 shadow-violet-500/20"
+                : "bg-gradient-to-br from-primary to-violet-600 shadow-primary/25"
+            )}>
+              <Briefcase className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className={`text-xl font-bold ${theme.text}`}>채용 정보</h1>
+              <p className={`text-sm ${theme.textSubtle}`}>추천된 직업에 맞는 채용 공고</p>
             </div>
           </div>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+        {/* Main Content */}
+        <main className="relative z-10">
         {/* Search Section */}
         <Card className={cn(
           "p-4 sm:p-6 mb-4 sm:mb-6 border shadow-lg",
@@ -767,7 +751,8 @@ export default function JobListingsPage() {
             <p className={`text-sm ${theme.textSubtle}`}>추천된 직업을 클릭하거나 검색 키워드를 입력하세요</p>
           </Card>
         )}
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

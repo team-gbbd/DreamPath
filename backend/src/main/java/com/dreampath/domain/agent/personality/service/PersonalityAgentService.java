@@ -130,17 +130,7 @@ public class PersonalityAgentService {
         if (provided != null && !provided.isEmpty()) {
             return provided;
         }
-        if (session.getSurveyData() == null || session.getSurveyData().isBlank()) {
-            return new HashMap<>();
-        }
-        try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> parsed = objectMapper.readValue(session.getSurveyData(), Map.class);
-            return parsed;
-        } catch (Exception e) {
-            log.warn("설문 데이터 파싱 실패: {}", e.getMessage());
-            return new HashMap<>();
-        }
+        return new HashMap<>();
     }
 
     private Map<String, Object> resolveUserProfile(Map<String, Object> provided, String userIdRaw) {

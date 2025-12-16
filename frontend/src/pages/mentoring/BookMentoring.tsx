@@ -380,12 +380,12 @@ export default function BookMentoringPage() {
                     <p className={`text-xs ml-7 ${theme.textMuted}`}>멘토링 1회 차감됩니다</p>
                   </div>
                 ) : (
-                  <div className={`rounded-xl p-4 h-full flex flex-col justify-center ${darkMode ? "bg-red-500/10 border border-red-500/30" : "bg-red-50 border border-red-200"}`}>
+                  <div className={`rounded-xl p-4 h-full flex flex-col justify-center ${darkMode ? "bg-red-500/10 border border-red-500/30" : "bg-red-50 border border-red-300"}`}>
                     <div className="flex items-center mb-2">
-                      <XCircle className="w-5 h-5 text-red-500 mr-2" />
-                      <span className={`text-sm font-bold ${darkMode ? "text-red-400" : "text-red-700"}`}>이용권 없음</span>
+                      <XCircle className={`w-5 h-5 mr-2 ${darkMode ? "text-red-400" : "text-red-600"}`} />
+                      <span className={`text-sm font-bold ${darkMode ? "text-red-400" : "text-red-800"}`}>이용권 없음</span>
                     </div>
-                    <p className={`text-xs mb-3 ${darkMode ? "text-red-400/70" : "text-red-600"}`}>이용권을 구매해주세요</p>
+                    <p className={`text-xs mb-3 ${darkMode ? "text-red-400/70" : "text-red-700"}`}>이용권을 구매해주세요</p>
                     <button
                       onClick={() => navigate(`/payments/purchase?returnUrl=${encodeURIComponent(`/mentoring/book/${sessionId}`)}`)}
                       className={`w-full py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1 ${

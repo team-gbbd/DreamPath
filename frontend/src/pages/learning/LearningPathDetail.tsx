@@ -290,20 +290,20 @@ export default function LearningPathDetail() {
               || (completedSessions.length > 0 ? Math.min(completedSessions.length + 1, 4) : 1);
 
             return (
-              <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                <div className={`text-center p-2 sm:p-3 rounded-xl ${theme.statBg}`}>
+              <div className="grid grid-cols-1 min-[400px]:grid-cols-3 gap-2 sm:gap-4">
+                <div className={`text-center p-3 sm:p-3 rounded-xl ${theme.statBg}`}>
                   <p className={`text-xl sm:text-2xl font-bold ${theme.text}`}>
                     {((completedSessions.length / 4) * 100).toFixed(0)}%
                   </p>
                   <p className={`text-xs ${theme.textSubtle} mt-1`}>진도율</p>
                 </div>
-                <div className={`text-center p-2 sm:p-3 rounded-xl ${theme.statBg}`}>
+                <div className={`text-center p-3 sm:p-3 rounded-xl ${theme.statBg}`}>
                   <p className={`text-xl sm:text-2xl font-bold ${theme.text}`}>
                     {avgScore}<span className={`text-xs sm:text-sm font-normal ${theme.textSubtle}`}>점</span>
                   </p>
                   <p className={`text-xs ${theme.textSubtle} mt-1`}>평균 점수</p>
                 </div>
-                <div className={`text-center p-2 sm:p-3 rounded-xl ${theme.statBg}`}>
+                <div className={`text-center p-3 sm:p-3 rounded-xl ${theme.statBg}`}>
                   <p className={`text-xl sm:text-2xl font-bold ${theme.text}`}>
                     {currentWeek}<span className={`text-xs sm:text-sm font-normal ${theme.textSubtle}`}>주차</span>
                   </p>

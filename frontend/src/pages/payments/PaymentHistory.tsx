@@ -30,7 +30,12 @@ export default function PaymentHistoryPage() {
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
   const [usageHistory, setUsageHistory] = useState<UsageHistory[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [darkMode, setDarkMode] = useState(true);
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("dreampath:theme") === "dark";
+    }
+    return false;
+  });
 
   // Theme 객체
   const theme = {
@@ -180,7 +185,7 @@ export default function PaymentHistoryPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
             <div className="flex items-center gap-3">
               <button
-                onClick={() => navigate('/profile/dashboard')}
+                onClick={() => navigate('/profile/dashboard?tab=mentoring')}
                 className={`${theme.textMuted} hover:${theme.text} transition-colors`}
               >
                 <i className="ri-arrow-left-line text-xl"></i>

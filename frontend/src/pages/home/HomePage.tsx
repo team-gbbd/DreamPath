@@ -10,7 +10,6 @@ import {
   Moon,
   Menu,
   X,
-  Mic,
   Bot,
   LogOut,
   User,
@@ -236,10 +235,12 @@ export default function HomePage() {
     navigate("/");
   };
 
-  const handleSidebarClick = (type: "career" | "job" | "mentoring" | "learning") => {
+  const handleSidebarClick = (type: "career" | "profile" | "job" | "mentoring" | "learning") => {
     setSidebarOpen(false);
     if (type === "career") {
       navigate("/career-chat");
+    } else if (type === "profile") {
+      navigate(userRole === 'ADMIN' ? "/admin" : "/profile/dashboard");
     } else if (type === "job") {
       navigate("/job-recommendations");
     } else if (type === "learning") {
@@ -264,6 +265,7 @@ export default function HomePage() {
 
   const sidebarItems = [
     { type: "career" as const, icon: MessageSquare, label: "진로 상담" },
+    { type: "profile" as const, icon: User, label: userRole === 'ADMIN' ? '대시보드' : '프로파일링' },
     { type: "job" as const, icon: Briefcase, label: "채용 추천" },
     { type: "mentoring" as const, icon: Users, label: "멘토링" },
     { type: "learning" as const, icon: BookOpen, label: "학습" },
@@ -397,15 +399,6 @@ export default function HomePage() {
 
         <div className="px-3 mt-auto space-y-2">
           <button
-            onClick={() => navigate(userRole === 'ADMIN' ? "/admin" : "/profile/dashboard")}
-            className={`w-full flex items-center gap-4 px-3 py-4 rounded-xl transition-all duration-300 ${theme.sidebarText} ${theme.sidebarHover}`}
-          >
-            <User className="w-6 h-6 flex-shrink-0" />
-            <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap font-medium text-sm">
-              {userRole === 'ADMIN' ? '대시보드' : '프로파일링'}
-            </span>
-          </button>
-          <button
             onClick={handleLogout}
             className={`w-full flex items-center gap-4 px-3 py-4 rounded-xl transition-all duration-300 ${theme.sidebarText} ${theme.sidebarHover}`}
           >
@@ -458,18 +451,6 @@ export default function HomePage() {
         </nav>
 
         <div className="px-3 space-y-2">
-          {isLoggedIn && (
-            <button
-              onClick={() => {
-                setSidebarOpen(false);
-                navigate(userRole === 'ADMIN' ? "/admin" : "/profile/dashboard");
-              }}
-              className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 ${theme.sidebarText} ${theme.sidebarHover}`}
-            >
-              <User className="w-5 h-5 flex-shrink-0" />
-              <span className="font-medium text-sm">{userRole === 'ADMIN' ? '대시보드' : '프로파일링'}</span>
-            </button>
-          )}
           {isLoggedIn ? (
             <button
               onClick={handleLogout}
@@ -584,11 +565,6 @@ export default function HomePage() {
                 rows={1}
               />
               <div className="absolute right-3 bottom-3 flex items-center gap-2">
-                <button
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 ${theme.sidebarText} ${theme.sidebarHover} hover:scale-105`}
-                >
-                  <Mic className="w-5 h-5" />
-                </button>
                 <button
                   onClick={handleSendMessage}
                   className="w-10 h-10 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] rounded-xl flex items-center justify-center text-white hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-300 disabled:opacity-50 hover:scale-105 relative overflow-hidden group/send"

@@ -583,8 +583,8 @@ export default function MentoringPage() {
                   darkMode ? "bg-[#5A7BFF]/10 border border-[#5A7BFF]/20" : "bg-[#5A7BFF]/5 border border-[#5A7BFF]/20"
                 }`}>
                   <div className="flex items-center">
-                    <UserIcon className="w-5 h-5 text-[#5A7BFF] mr-2" />
-                    <p className={`text-sm ${darkMode ? "text-[#5A7BFF]" : "text-[#5A7BFF]"}`}>
+                    <UserIcon className={`w-5 h-5 mr-2 ${darkMode ? "text-[#5A7BFF]" : "text-[#4A6BEF]"}`} />
+                    <p className={`text-sm ${darkMode ? "text-[#5A7BFF]" : "text-[#4A6BEF]"}`}>
                       1:1 멘토링으로 진행됩니다
                     </p>
                   </div>
