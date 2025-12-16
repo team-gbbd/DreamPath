@@ -432,9 +432,9 @@ export const jobRecommendationService = {
   },
 
   // 진로상담 직업추천 기반 채용공고 추천
-  getRecommendationsByCareerAnalysis: async (userId: number, limit: number = 20) => {
+  getRecommendationsByCareerAnalysis: async (userId: number, limit: number = 20, forceRefresh: boolean = false) => {
     const response = await pythonApi.get(`/api/job-agent/recommendations/by-careers/${userId}`, {
-      params: { limit },
+      params: { limit, force_refresh: forceRefresh },
     });
     return response.data;
   },

@@ -6,6 +6,7 @@ OpenAI Agents SDK 기반 채용공고 에이전트 API 엔드포인트
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict
+from datetime import datetime
 import json
 import asyncio
 
@@ -171,11 +172,54 @@ async def trigger_recommendation_calculation(
 async def get_recommendations_by_career_analysis(
     user_id: int,
     limit: int = Query(20, ge=1, le=100),
-    use_ai_analysis: bool = Query(True, description="AI 종합 분석 사용 여부")
+    use_ai_analysis: bool = Query(True, description="AI 종합 분석 사용 여부"),
+    force_refresh: bool = Query(False, description="캐시 무시하고 새로 계산")
 ):
     """진로상담 직업추천 결과 기반 채용공고 추천"""
     try:
         listing_service = get_job_listing_service()
+
+        # 0. 캐시된 추천 먼저 확인 (force_refresh가 아닐 때)
+        if not force_refresh:
+            cached = listing_service.get_cached_recommendations(user_id, limit)
+            if cached and len(cached) > 0:
+                print(f"[JobRecommendation] 캐시 히트! user_id={user_id}, count={len(cached)}")
+                recommendations = []
+                for row in cached:
+                    rec = {
+                        "id": row.get("job_listing_id"),
+                        "title": row.get("title", ""),
+                        "company": row.get("company", ""),
+                        "location": row.get("location"),
+                        "url": row.get("url", ""),
+                        "description": row.get("description"),
+                        "siteName": row.get("site_name", ""),
+                        "matchScore": int(row.get("match_score", 0)),
+                        "matchReason": row.get("match_reason", ""),
+                        "techStack": row.get("tech_stack"),
+                        "requiredSkills": row.get("required_skills"),
+                    }
+                    # recommendation_data에 저장된 추가 정보 복원
+                    if row.get("recommendation_data"):
+                        try:
+                            extra = json.loads(row["recommendation_data"]) if isinstance(row["recommendation_data"], str) else row["recommendation_data"]
+                            rec.update({
+                                "reasons": extra.get("reasons", []),
+                                "strengths": extra.get("strengths", []),
+                                "concerns": extra.get("concerns", []),
+                                "comprehensiveAnalysis": extra.get("comprehensiveAnalysis"),
+                            })
+                        except:
+                            pass
+                    recommendations.append(rec)
+
+                return {
+                    "success": True,
+                    "recommendations": recommendations,
+                    "totalCount": len(recommendations),
+                    "cached": True,
+                    "calculatedAt": str(cached[0].get("calculated_at")) if cached else None
+                }
 
         # 1. 추천 직업 조회
         career_names, data_source, career_analysis_data = listing_service.get_user_career_names(user_id)
@@ -236,6 +280,14 @@ async def get_recommendations_by_career_analysis(
             for rec in recommendations:
                 rec["comprehensiveAnalysis"] = JobListingService.generate_default_analysis(rec)
 
+        # 7. 캐시에 저장 (다음 요청 시 빠르게 조회)
+        if recommendations:
+            try:
+                saved = calculator._save_recommendations(user_id, recommendations)
+                print(f"[JobRecommendation] 캐시 저장 완료: user_id={user_id}, count={saved}")
+            except Exception as save_err:
+                print(f"[JobRecommendation] 캐시 저장 실패: {save_err}")
+
         return {
             "success": True,
             "recommendations": recommendations,
@@ -244,6 +296,7 @@ async def get_recommendations_by_career_analysis(
             "aiGeneratedKeywords": unique_keywords,
             "dataSource": data_source,
             "cached": False,
+            "calculatedAt": str(datetime.now()),
             "aiAnalyzed": use_ai_analysis
         }
 
