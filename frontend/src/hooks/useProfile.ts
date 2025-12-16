@@ -14,6 +14,8 @@ type UseProfileResult = {
  * /api/profiles/{userId}/analysis에서 성향 분석 결과를 불러오는 커스텀 훅
  * 프로필 입력 폼 대신 챗봇 기반 분석 결과를 사용합니다.
  */
+const NO_ANALYSIS_MESSAGE = '성향 분석 결과가 없습니다. AI 분석을 먼저 실행해주세요.';
+
 export default function useProfile(userId?: number | null): UseProfileResult {
   const [data, setData] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -35,6 +37,13 @@ export default function useProfile(userId?: number | null): UseProfileResult {
       try {
         // 성향 분석 API 호출 (프로필 입력 폼 대신 분석 결과 사용)
         const response = await fetch(`${API_BASE_URL}/profiles/${userId}/analysis`);
+        if (response.status === 404) {
+          if (!cancelled) {
+            setError(NO_ANALYSIS_MESSAGE);
+            setData(null);
+          }
+          return;
+        }
         if (!response.ok) {
           const message = await response.text();
           throw new Error(message || '성향 분석 결과를 불러오지 못했습니다.');
@@ -69,6 +78,11 @@ export default function useProfile(userId?: number | null): UseProfileResult {
     setError(null);
     try {
       const response = await fetch(`${API_BASE_URL}/profiles/${userId}/analysis`);
+      if (response.status === 404) {
+        setError(NO_ANALYSIS_MESSAGE);
+        setData(null);
+        return;
+      }
       if (!response.ok) {
         const message = await response.text();
         throw new Error(message || '성향 분석 결과를 불러오지 못했습니다.');

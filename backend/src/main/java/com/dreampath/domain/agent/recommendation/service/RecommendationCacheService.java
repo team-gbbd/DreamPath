@@ -164,11 +164,16 @@ public class RecommendationCacheService {
     private void saveJobRecommendation(Long userId, Map<String, Object> jobMap, String explanation) {
         try {
             Map<String, Object> metadata = asMap(jobMap.get("metadata"));
+            String jobName = getStringValue(jobMap, "jobName", getStringValue(jobMap, "title"));
+            if (jobName == null || jobName.isBlank()) {
+                log.warn("직업 추천 이름 누락으로 스킵: userId={}, job={}", userId, jobMap);
+                return;
+            }
 
             JobRecommendation recommendation = JobRecommendation.builder()
                     .userId(userId)
                     .jobCode(getStringValue(metadata, "job_code"))
-                    .jobName(getStringValue(jobMap, "jobName", getStringValue(jobMap, "title")))
+                    .jobName(jobName)
                     .matchScore(getDoubleValue(jobMap, "match", getDoubleValue(jobMap, "score")))
                     .category(getStringValue(jobMap, "tag", getStringValue(jobMap, "category")))
                     .description(getStringValue(metadata, "description"))
@@ -185,11 +190,17 @@ public class RecommendationCacheService {
     private void saveMajorRecommendation(Long userId, Map<String, Object> majorMap, String explanation) {
         try {
             Map<String, Object> metadata = asMap(majorMap.get("metadata"));
+            String majorName = getStringValue(majorMap, "name",
+                    getStringValue(majorMap, "title", getStringValue(majorMap, "majorName")));
+            if (majorName == null || majorName.isBlank()) {
+                log.warn("학과 추천 이름 누락으로 스킵: userId={}, major={}", userId, majorMap);
+                return;
+            }
 
             MajorRecommendation recommendation = MajorRecommendation.builder()
                     .userId(userId)
                     .majorCode(getStringValue(metadata, "major_code"))
-                    .majorName(getStringValue(majorMap, "name", getStringValue(majorMap, "title")))
+                    .majorName(majorName)
                     .matchScore(getDoubleValue(majorMap, "match", getDoubleValue(majorMap, "score")))
                     .category(getStringValue(majorMap, "tag", getStringValue(majorMap, "category")))
                     .description(getStringValue(metadata, "description"))

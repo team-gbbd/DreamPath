@@ -4,6 +4,13 @@ import logging
 import json
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
+from typing import Any, Dict, Optional
+
+try:
+    from openai import RateLimitError
+except Exception:  # pragma: no cover - fallback when openai isn't installed
+    class RateLimitError(Exception):
+        pass
 
 def generate_ai_reasons(user_summary, items, item_type="직업"):
     try:
@@ -56,30 +63,94 @@ def generate_ai_reasons(user_summary, items, item_type="직업"):
 
 class RecommendationPipeline:
 
+    @staticmethod
+    def _clean_text(value: Any) -> Optional[str]:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            text = value.strip()
+            return text or None
+        text = str(value).strip()
+        return text or None
+
+    def _ensure_job_name(self, job: Dict[str, Any]) -> bool:
+        metadata = job.get("metadata") or {}
+        if not isinstance(metadata, dict):
+            metadata = {}
+        name = self._clean_text(job.get("jobName")) or \
+            self._clean_text(job.get("title")) or \
+            self._clean_text(job.get("job_nm")) or \
+            self._clean_text(job.get("name")) or \
+            self._clean_text(metadata.get("jobName")) or \
+            self._clean_text(metadata.get("title")) or \
+            self._clean_text(metadata.get("job_nm")) or \
+            self._clean_text(metadata.get("job_name"))
+
+        if not name:
+            logging.warning("Dropping job recommendation without name: %s", job)
+            return False
+
+        job["jobName"] = name
+        job.setdefault("title", name)
+        job["metadata"] = metadata
+        return True
+
+    def _ensure_major_name(self, major: Dict[str, Any]) -> bool:
+        metadata = major.get("metadata") or {}
+        if not isinstance(metadata, dict):
+            metadata = {}
+        name = self._clean_text(major.get("name")) or \
+            self._clean_text(major.get("majorName")) or \
+            self._clean_text(major.get("title")) or \
+            self._clean_text(major.get("major_nm")) or \
+            self._clean_text(metadata.get("majorName")) or \
+            self._clean_text(metadata.get("name")) or \
+            self._clean_text(metadata.get("deptName")) or \
+            self._clean_text(metadata.get("mClass")) or \
+            self._clean_text(metadata.get("lClass"))
+
+        if not name:
+            logging.warning("Dropping major recommendation without name: %s", major)
+            return False
+
+        major["name"] = name
+        major.setdefault("majorName", name)
+        major.setdefault("title", name)
+        major["metadata"] = metadata
+        return True
+
     async def run(self, user_profile: dict):
         """
         user_profile must include:
         summary, goals, values, personality, strengths, risks
         """
         runner = Runner()
-        result = await runner.run(
-            recommendation_agent,
-            input=json.dumps(user_profile, ensure_ascii=False)
-        )
+        rate_limited = False
+        try:
+            result = await runner.run(
+                recommendation_agent,
+                input=json.dumps(user_profile, ensure_ascii=False)
+            )
+        except RateLimitError as exc:
+            logging.warning("Recommendation agent hit rate limit/quota: %s", exc)
+            rate_limited = True
+            result = None
 
-        final_output = result.final_output
-        if hasattr(final_output, "model_dump"):
-            final_output = final_output.model_dump()
-        elif hasattr(final_output, "dict"):
-            final_output = final_output.dict()
-        elif isinstance(final_output, str):
-            try:
-                final_output = json.loads(final_output)
-            except json.JSONDecodeError as exc:
-                raise ValueError("Recommendation agent returned non-JSON string output.") from exc
+        final_output: dict = {}
+        if result is not None:
+            final_output = result.final_output
+            if hasattr(final_output, "model_dump"):
+                final_output = final_output.model_dump()
+            elif hasattr(final_output, "dict"):
+                final_output = final_output.dict()
+            elif isinstance(final_output, str):
+                try:
+                    final_output = json.loads(final_output)
+                except json.JSONDecodeError as exc:
+                    raise ValueError("Recommendation agent returned non-JSON string output.") from exc
 
-        if not isinstance(final_output, dict):
-            raise ValueError(f"Recommendation agent did not return a valid object. Got: {type(final_output)}")
+            if not isinstance(final_output, dict):
+                raise ValueError(f"Recommendation agent did not return a valid object. Got: {type(final_output)}")
 
         job_explanations = final_output.get("job_explanations") or final_output.get("jobExplanations") or []
         major_explanations = final_output.get("major_explanations") or final_output.get("majorExplanations") or []
@@ -111,12 +182,17 @@ class RecommendationPipeline:
                  new_m['match'] = int(float(new_m['score']) * 100) if new_m['score'] <= 1 else int(new_m['score'])
             normalized_majors.append(new_m)
 
+        normalized_jobs = [job for job in normalized_jobs if self._ensure_job_name(job)]
+        normalized_majors = [major for major in normalized_majors if self._ensure_major_name(major)]
+
         response = {
             "jobs": normalized_jobs,
             "majors": normalized_majors,
             "jobExplanations": job_explanations,
             "majorExplanations": major_explanations
         }
+        if rate_limited:
+            response["warning"] = "AI 추천 모델 사용 한도를 초과해 기본 추천 결과를 제공했습니다. 잠시 후 다시 시도해주세요."
 
         # ---------------------------------------------------------
         # 🛡️ SAFETY NET: Fallback Mechanism
@@ -421,4 +497,7 @@ class RecommendationPipeline:
             import traceback
             traceback.print_exc()
             
+        response["jobs"] = [job for job in response.get("jobs", []) if self._ensure_job_name(job)]
+        response["majors"] = [major for major in response.get("majors", []) if self._ensure_major_name(major)]
+
         return response

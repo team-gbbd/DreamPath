@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   LayoutGrid, MessageSquare, Bell, User, Settings, LogOut,
@@ -305,15 +305,24 @@ export default function NewDashboard() {
     [],
   );
 
-  const fetchAnalysisData = useCallback(
-    async (targetUserId: number, options: FetchOptions = {}) => {
-      const { signal } = options;
-      const response = await fetch(`${BACKEND_BASE_URL}/api/profiles/${targetUserId}/analysis`, { signal });
-      if (!response.ok) throw new Error('분석 데이터를 불러오지 못했습니다.');
-      return (await response.json()) as AnalysisData;
-    },
-    [],
-  );
+  const showToastRef = useRef(showToast);
+  useEffect(() => {
+    showToastRef.current = showToast;
+  }, [showToast]);
+
+  const fetchAnalysisData = useCallback(async (targetUserId: number, options: FetchOptions = {}): Promise<AnalysisData | null> => {
+    const { signal } = options;
+    const response = await fetch(`${BACKEND_BASE_URL}/api/profiles/${targetUserId}/analysis`, { signal });
+    if (response.status === 404) {
+      showToastRef.current?.('아직 성향 분석 결과가 없습니다. AI 분석을 먼저 실행해주세요.', 'warning');
+      return null;
+    }
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(message || '분석 데이터를 불러오지 못했습니다.');
+    }
+    return (await response.json()) as AnalysisData;
+  }, []);
 
   const fetchLegacyTopRecommendations = useCallback(async (profileId: number) => {
     try {
@@ -406,7 +415,7 @@ export default function NewDashboard() {
     } finally {
       setRecommendationLoading(false);
     }
-  }, [fetchLegacyTopRecommendations]);
+  }, []);
 
   const fetchInitialData = useCallback(
     async (targetUserId: number, options: FetchOptions = {}) => {
@@ -419,10 +428,14 @@ export default function NewDashboard() {
       setAnalysisData(analysis);
 
       if (profile.profileId) {
-        fetchTopRecommendations(profile, analysis);
+        if (analysis) {
+          fetchTopRecommendations(profile, analysis);
+        } else {
+          fetchLegacyTopRecommendations(profile.profileId);
+        }
       }
     },
-    [fetchProfileData, fetchAnalysisData, fetchTopRecommendations],
+    [fetchProfileData, fetchAnalysisData, fetchTopRecommendations, fetchLegacyTopRecommendations],
   );
 
   useEffect(() => {
@@ -625,21 +638,6 @@ export default function NewDashboard() {
               : '#f97316',
     }));
   }, [valuesJson]);
-
-  const emotionJson = useMemo(
-    () => safeParseJson<Record<string, number | string>>(analysisData?.emotions ?? profileData?.emotions),
-    [analysisData, profileData],
-  );
-
-  const emotionProgressData = useMemo(() => {
-    if (!emotionJson) return null;
-    return Object.entries(emotionJson)
-      .filter(([, value]) => typeof value === 'number')
-      .map(([key, value]) => ({
-        name: key,
-        score: Number(value),
-      }));
-  }, [emotionJson]);
 
   const valuesDetailData = useMemo(() => {
     if (!valuesChartData) return null;
@@ -896,22 +894,6 @@ export default function NewDashboard() {
                 )}
               </div>
             )}
-          </div>
-        )}
-
-        {emotionProgressData && emotionProgressData.length > 0 && (
-          <div className={styles['glass-card']}>
-            <h3 className="text-lg font-semibold text-gray-800">감정 반응 지표</h3>
-            <div className="mt-4 space-y-4">
-              {emotionProgressData.map((item, index) => (
-                <ProgressBar
-                  key={item.name}
-                  label={item.name}
-                  value={item.score}
-                  color={index % 2 === 0 ? 'bg-emerald-500' : 'bg-blue-500'}
-                />
-              ))}
-            </div>
           </div>
         )}
 
