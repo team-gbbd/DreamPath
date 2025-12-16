@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { jobRecommendationService, jobSiteService, BACKEND_BASE_URL, authFetch } from "@/lib/api";
 import ApplicationWriterModal from "../../components/application/ApplicationWriterModal";
@@ -145,6 +145,7 @@ interface ThemeColors {
 
 export default function ComprehensiveJobPage() {
   const navigate = useNavigate();
+  const isLoadingRef = useRef(false); // 중복 호출 방지
   const [loading, setLoading] = useState(false);
   const [calculating, setCalculating] = useState(false);
   const [result, setResult] = useState<RecommendationResult | null>(null);
@@ -216,7 +217,18 @@ export default function ComprehensiveJobPage() {
   }, []);
 
   useEffect(() => {
-    loadRecommendations();
+    let isMounted = true;
+
+    const fetchData = async () => {
+      if (!isMounted) return;
+      await loadRecommendations();
+    };
+
+    fetchData();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // 검색어에 따라 추천 목록 필터링
@@ -241,17 +253,45 @@ export default function ComprehensiveJobPage() {
     setFilteredRecommendations(filtered);
   }, [searchKeyword, result?.recommendations]);
 
-  const loadRecommendations = async () => {
+  const loadRecommendations = async (forceRefresh = false) => {
+    // 이미 로딩 중이면 중복 호출 방지
+    if (isLoadingRef.current) {
+      console.log('[ComprehensiveJobPage] 이미 로딩 중 - 중복 호출 방지');
+      return;
+    }
+
+    const userId = getStoredUserId();
+    if (!userId) {
+      setNotLoggedIn(true);
+      return;
+    }
+
+    // sessionStorage 캐시 확인 (forceRefresh가 아닐 때만)
+    const cacheKey = `jobRecommendations_${userId}`;
+    if (!forceRefresh) {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const { data, timestamp } = JSON.parse(cached);
+          // 30분 이내 캐시만 사용
+          if (Date.now() - timestamp < 30 * 60 * 1000) {
+            console.log('[ComprehensiveJobPage] sessionStorage 캐시 사용');
+            setResult(data.result);
+            setSelectedJob(data.selectedJob);
+            setIsCached(true);
+            setCalculatedAt(data.calculatedAt);
+            return;
+          }
+        } catch (e) {
+          sessionStorage.removeItem(cacheKey);
+        }
+      }
+    }
+
+    isLoadingRef.current = true;
     setLoading(true);
     setLoadError(null);
     try {
-      const userId = getStoredUserId();
-      if (!userId) {
-        setNotLoggedIn(true);
-        setLoading(false);
-        return;
-      }
-
       const analysisResponse = await authFetch(`${BACKEND_BASE_URL}/api/profiles/${userId}/analysis`);
       if (!analysisResponse.ok) {
         if (analysisResponse.status === 404) {
@@ -296,11 +336,38 @@ export default function ComprehensiveJobPage() {
             commonRequiredTechnologies: [],
             overallLearningPath: []
           });
-          if (mappedRecommendations.length > 0) {
-            setSelectedJob(mappedRecommendations[0]);
+          const selectedJobData = mappedRecommendations.length > 0 ? mappedRecommendations[0] : null;
+          if (selectedJobData) {
+            setSelectedJob(selectedJobData);
           }
           setIsCached(true);
           setCalculatedAt(cachedResult.calculatedAt || null);
+
+          // sessionStorage에 캐시 저장
+          const resultData = {
+            recommendations: mappedRecommendations,
+            totalCount: cachedResult.totalCount || mappedRecommendations.length,
+            summary: {
+              message: `${mappedRecommendations.length}개의 맞춤 채용 공고를 분석했습니다.`,
+              topRecommendation: selectedJobData ? {
+                company: selectedJobData.company,
+                reason: selectedJobData.reasons[0] || '높은 매칭 점수'
+              } : null,
+              insights: [],
+              actionPriorities: []
+            },
+            commonRequiredTechnologies: [],
+            overallLearningPath: []
+          };
+          sessionStorage.setItem(cacheKey, JSON.stringify({
+            data: {
+              result: resultData,
+              selectedJob: selectedJobData,
+              calculatedAt: cachedResult.calculatedAt || null
+            },
+            timestamp: Date.now()
+          }));
+
           setLoading(false);
           return;
         }
@@ -330,6 +397,7 @@ export default function ComprehensiveJobPage() {
     } finally {
       setLoading(false);
       setCalculating(false);
+      isLoadingRef.current = false;
     }
   };
 
@@ -337,10 +405,14 @@ export default function ComprehensiveJobPage() {
     const userId = getStoredUserId();
     if (!userId) return;
 
+    // 캐시 삭제
+    sessionStorage.removeItem(`jobRecommendations_${userId}`);
+
     setCalculating(true);
     try {
       await jobRecommendationService.triggerCalculation(userId, false);
-      await loadRecommendations();
+      isLoadingRef.current = false;
+      await loadRecommendations(true); // forceRefresh=true
     } catch (error) {
       console.error("재계산 실패:", error);
       alert("추천 재계산에 실패했습니다.");
@@ -505,7 +577,8 @@ export default function ComprehensiveJobPage() {
               <button
                 onClick={() => {
                   setLoadError(null);
-                  loadRecommendations();
+                  isLoadingRef.current = false;
+                  loadRecommendations(true); // forceRefresh=true
                 }}
                 className="px-5 sm:px-6 py-2.5 sm:py-3 bg-[#5A7BFF] text-white rounded-lg hover:bg-[#4A6BEF] transition-colors"
               >
