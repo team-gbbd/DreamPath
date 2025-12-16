@@ -63,6 +63,11 @@ dependencies {
     // Pinecone (Java 일단 설치됨)
     implementation 'io.pinecone:pinecone-client:1.0.0'
 
+    // JWT
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.3'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.3'
+
     // JSON
     implementation 'com.fasterxml.jackson.core:jackson-databind'
     implementation 'org.json:json:20231013'  // RAG에서 사용

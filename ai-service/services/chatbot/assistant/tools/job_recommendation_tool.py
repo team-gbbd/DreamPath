@@ -154,7 +154,7 @@ def format_result(data: Dict[str, Any]) -> str:
         포맷된 마크다운 문자열
     """
     if not data.get("success"):
-        return data.get("message", "채용 공고를 찾을 수 없습니다.")
+        return data.get("message", "관련 채용 공고를 찾을 수 없습니다.")
 
     result = data.get("data", {})
     keywords = result.get("keywords", "최신 공고")
@@ -163,7 +163,7 @@ def format_result(data: Dict[str, Any]) -> str:
     response = f"## 💼 채용 공고 추천 (키워드: {keywords})\n\n"
 
     if not job_postings or len(job_postings) == 0:
-        return f"'{keywords}' 관련 채용 공고가 없습니다."
+        return f"'{keywords}' 관련 채용 공고를 찾을 수 없습니다."
 
     for idx, job in enumerate(job_postings, 1):
         title = job.get("title", "제목 없음")

@@ -24,6 +24,10 @@
         {
           "name": "PYTHON_AI_SERVICE_URL",
           "value": "https://ai.dreampathai.link"
+        },
+        {
+          "name": "APP_FRONTENDURL",
+          "value": "https://dreampathai.link"
         }
       ],
       "secrets": [
@@ -122,6 +126,10 @@
         {
           "name": "PINECONE_FAQ_INDEX",
           "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:479324456849:secret:dreampath/pinecone:PINECONE_FAQ_INDEX::"
+        },
+        {
+          "name": "JWT_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:ap-northeast-2:479324456849:secret:dreampath/jwt:JWT_SECRET::"
         }
       ],
       "logConfiguration": {
@@ -134,7 +142,7 @@
         }
       },
       "healthCheck": {
-        "command": ["CMD-SHELL", "wget -q --spider http://localhost:8080/health || exit 1"],
+        "command": ["CMD-SHELL", "wget -q --spider http://localhost:8080/actuator/health || exit 1"],
         "interval": 30,
         "timeout": 5,
         "retries": 3,

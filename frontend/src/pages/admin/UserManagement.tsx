@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "@/components/feature/Header";
 import { useToast } from "@/components/common/Toast";
 import { userService } from "@/lib/api";
 
@@ -50,6 +49,56 @@ export default function UserManagementPage() {
   const [filterStatuses, setFilterStatuses] = useState<Set<"active" | "inactive">>(new Set());
   const [sortConfigs, setSortConfigs] = useState<SortConfig[]>([{ field: "userId", order: "asc" }]);
   const [updatingUserId, setUpdatingUserId] = useState<number | null>(null);
+  const [darkMode, setDarkMode] = useState(true);
+
+  // Theme 객체 (purple 기반)
+  const theme = {
+    bg: darkMode ? "bg-[#0B0D14]" : "bg-gradient-to-br from-slate-50 via-white to-slate-100",
+    text: darkMode ? "text-white" : "text-slate-900",
+    textMuted: darkMode ? "text-white/60" : "text-slate-600",
+    textSubtle: darkMode ? "text-white/40" : "text-slate-500",
+    card: darkMode
+      ? "bg-white/[0.03] border-white/[0.08]"
+      : "bg-white border-slate-200 shadow-sm",
+    cardHover: darkMode
+      ? "hover:bg-white/[0.06] hover:border-white/[0.15]"
+      : "hover:shadow-md hover:border-slate-300",
+    statCard: darkMode
+      ? "bg-white/[0.03] border-white/[0.08]"
+      : "bg-white/70 backdrop-blur-sm border-slate-200/50 shadow-sm",
+    sectionBg: darkMode
+      ? "bg-white/[0.03]"
+      : "bg-gradient-to-br from-slate-50 to-slate-100",
+    input: darkMode
+      ? "bg-white/[0.05] border-white/[0.1] text-white placeholder-white/40 focus:border-purple-500/50"
+      : "bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-purple-500",
+    tableHeader: darkMode
+      ? "bg-white/[0.03]"
+      : "bg-slate-50",
+    tableRow: darkMode
+      ? "hover:bg-white/[0.03]"
+      : "hover:bg-slate-50",
+    tableBorder: darkMode
+      ? "border-white/[0.06]"
+      : "border-slate-200",
+  };
+
+  useEffect(() => {
+    // 테마 로드
+    const savedTheme = localStorage.getItem('dreampath:theme');
+    if (savedTheme) {
+      setDarkMode(savedTheme === 'dark');
+    }
+
+    // 테마 변경 이벤트 리스너
+    const handleThemeChange = () => {
+      const t = localStorage.getItem('dreampath:theme');
+      setDarkMode(t === 'dark');
+    };
+
+    window.addEventListener('dreampath-theme-change', handleThemeChange);
+    return () => window.removeEventListener('dreampath-theme-change', handleThemeChange);
+  }, []);
 
   useEffect(() => {
     fetchUsers();
@@ -203,8 +252,10 @@ export default function UserManagementPage() {
 
   const getSortIcon = (field: SortField) => {
     const info = getSortInfo(field);
-    if (!info) return "ri-arrow-up-down-line text-gray-300";
-    return info.order === "asc" ? "ri-arrow-up-line text-purple-500" : "ri-arrow-down-line text-purple-500";
+    if (!info) return `ri-arrow-up-down-line ${darkMode ? 'text-white/20' : 'text-gray-300'}`;
+    return info.order === "asc"
+      ? `ri-arrow-up-line ${darkMode ? 'text-purple-400' : 'text-purple-500'}`
+      : `ri-arrow-down-line ${darkMode ? 'text-purple-400' : 'text-purple-500'}`;
   };
 
   const handleRoleChange = async (userId: number, newRole: "USER" | "ADMIN") => {
@@ -260,10 +311,18 @@ export default function UserManagementPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50/30 via-indigo-50/20 to-blue-50/30 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-purple-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-lg text-gray-600 font-medium">로딩 중...</p>
+      <div className={`min-h-screen ${theme.bg} relative`}>
+        {/* Background Effects */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className={`absolute top-0 right-1/4 w-[500px] h-[500px] rounded-full blur-[120px] ${darkMode ? "bg-purple-500/10" : "bg-purple-500/20"}`} />
+          <div className={`absolute bottom-1/4 left-1/4 w-[400px] h-[400px] rounded-full blur-[120px] ${darkMode ? "bg-pink-500/10" : "bg-pink-500/20"}`} />
+        </div>
+
+        <div className="flex-1 flex items-center justify-center min-h-screen relative z-10">
+          <div className="text-center">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+            <p className={`text-base sm:text-lg font-medium ${theme.text}`}>로딩 중...</p>
+          </div>
         </div>
       </div>
     );
@@ -271,124 +330,164 @@ export default function UserManagementPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50/30 via-indigo-50/20 to-blue-50/30 flex items-center justify-center">
-        <div className="text-center">
-          <i className="ri-error-warning-line text-6xl text-red-400 mb-4"></i>
-          <p className="text-lg text-gray-600 font-medium mb-4">{error}</p>
-          <button
-            onClick={fetchUsers}
-            className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-xl font-medium transition-all"
-          >
-            다시 시도
-          </button>
+      <div className={`min-h-screen ${theme.bg} relative`}>
+        {/* Background Effects */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className={`absolute top-0 right-1/4 w-[500px] h-[500px] rounded-full blur-[120px] ${darkMode ? "bg-purple-500/10" : "bg-purple-500/20"}`} />
+          <div className={`absolute bottom-1/4 left-1/4 w-[400px] h-[400px] rounded-full blur-[120px] ${darkMode ? "bg-pink-500/10" : "bg-pink-500/20"}`} />
+        </div>
+
+        <div className="flex-1 flex items-center justify-center min-h-screen relative z-10">
+          <div className="text-center">
+            <i className={`ri-error-warning-line text-5xl sm:text-6xl mb-4 ${darkMode ? 'text-red-400' : 'text-red-500'}`}></i>
+            <p className={`text-base sm:text-lg font-medium mb-4 ${theme.text}`}>{error}</p>
+            <button
+              onClick={fetchUsers}
+              className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-medium transition-all shadow-lg shadow-purple-500/20"
+            >
+              다시 시도
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50/30 via-indigo-50/20 to-blue-50/30">
+    <div className={`min-h-screen ${theme.bg} relative`}>
       <ToastContainer />
-      <Header />
 
-      <div className="pt-24 pb-8 min-h-screen">
-        <div className="max-w-7xl mx-auto px-6">
-          {/* Title Section */}
-          <div className="mb-8 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-14 h-14 bg-purple-400 rounded-full flex items-center justify-center">
-                <i className="ri-user-settings-line text-white text-2xl"></i>
+      {/* Background Effects */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className={`absolute top-0 right-1/4 w-[500px] h-[500px] rounded-full blur-[120px] ${darkMode ? "bg-purple-500/10" : "bg-purple-500/20"}`} />
+        <div className={`absolute bottom-1/4 left-1/4 w-[400px] h-[400px] rounded-full blur-[120px] ${darkMode ? "bg-pink-500/10" : "bg-pink-500/20"}`} />
+      </div>
+
+      {/* Grid Pattern */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: darkMode
+            ? "linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)"
+            : "linear-gradient(rgba(147,51,234,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(147,51,234,0.05) 1px, transparent 1px)",
+          backgroundSize: "60px 60px",
+        }}
+      />
+
+      <div className="relative z-10 py-6 sm:py-8 pb-8 min-h-screen">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          {/* Header */}
+          <div className="mb-6 sm:mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/20">
+                  <i className="ri-user-settings-line text-white text-xl sm:text-2xl"></i>
+                </div>
+                <div>
+                  <h1 className={`text-2xl sm:text-3xl font-bold ${theme.text}`}>사용자 관리</h1>
+                  <p className={`text-sm sm:text-base ${theme.textMuted}`}>등록된 사용자 관리</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">사용자 관리</h1>
-                <p className="text-gray-600">등록된 사용자 관리</p>
-              </div>
+              <button
+                onClick={() => navigate("/admin")}
+                className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl font-medium transition-all flex items-center gap-2 text-sm sm:text-base ${
+                  darkMode
+                    ? 'bg-white/[0.05] hover:bg-white/[0.1] text-white border border-white/[0.1]'
+                    : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm'
+                }`}
+              >
+                <i className="ri-arrow-left-line"></i>
+                <span className="hidden sm:inline">대시보드로 돌아가기</span>
+                <span className="sm:hidden">대시보드</span>
+              </button>
             </div>
-            <button
-              onClick={() => navigate("/admin")}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-5 py-2.5 rounded-xl font-medium transition-all flex items-center gap-2"
-            >
-              <i className="ri-arrow-left-line"></i>
-              대시보드로
-            </button>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
-            <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-purple-100/50 p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center">
-                  <i className="ri-group-line text-2xl text-purple-500"></i>
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
+            {/* 전체 사용자 */}
+            <div className={`rounded-xl sm:rounded-2xl border p-4 sm:p-6 transition-all ${theme.statCard}`}>
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center ${darkMode ? 'bg-purple-500/20' : 'bg-purple-50'}`}>
+                  <i className={`ri-group-line text-xl sm:text-2xl ${darkMode ? 'text-purple-400' : 'text-purple-500'}`}></i>
                 </div>
               </div>
-              <p className="text-sm text-gray-500 mb-1">전체 사용자</p>
-              <p className="text-3xl font-bold text-gray-900">{users.length}</p>
+              <p className={`text-xs sm:text-sm ${theme.textMuted} mb-1`}>전체 사용자</p>
+              <p className={`text-2xl sm:text-3xl font-bold ${theme.text}`}>{users.length}</p>
             </div>
-            <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-blue-100/50 p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
-                  <i className="ri-user-line text-2xl text-blue-500"></i>
+
+            {/* 일반 사용자 */}
+            <div className={`rounded-xl sm:rounded-2xl border p-4 sm:p-6 transition-all ${theme.statCard}`}>
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center ${darkMode ? 'bg-blue-500/20' : 'bg-blue-50'}`}>
+                  <i className={`ri-user-line text-xl sm:text-2xl ${darkMode ? 'text-blue-400' : 'text-blue-500'}`}></i>
                 </div>
               </div>
-              <p className="text-sm text-gray-500 mb-1">일반 사용자</p>
-              <p className="text-3xl font-bold text-gray-900">
+              <p className={`text-xs sm:text-sm ${theme.textMuted} mb-1`}>일반 사용자</p>
+              <p className={`text-2xl sm:text-3xl font-bold ${theme.text}`}>
                 {users.filter((u) => u.role === "USER").length}
               </p>
             </div>
-            <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-red-100/50 p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center">
-                  <i className="ri-admin-line text-2xl text-red-500"></i>
+
+            {/* 관리자 */}
+            <div className={`rounded-xl sm:rounded-2xl border p-4 sm:p-6 transition-all ${theme.statCard}`}>
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center ${darkMode ? 'bg-red-500/20' : 'bg-red-50'}`}>
+                  <i className={`ri-admin-line text-xl sm:text-2xl ${darkMode ? 'text-red-400' : 'text-red-500'}`}></i>
                 </div>
               </div>
-              <p className="text-sm text-gray-500 mb-1">관리자</p>
-              <p className="text-3xl font-bold text-gray-900">
+              <p className={`text-xs sm:text-sm ${theme.textMuted} mb-1`}>관리자</p>
+              <p className={`text-2xl sm:text-3xl font-bold ${theme.text}`}>
                 {users.filter((u) => u.role === "ADMIN").length}
               </p>
             </div>
-            <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-green-100/50 p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
-                  <i className="ri-user-follow-line text-2xl text-green-500"></i>
+
+            {/* 활성 사용자 */}
+            <div className={`rounded-xl sm:rounded-2xl border p-4 sm:p-6 transition-all ${theme.statCard}`}>
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center ${darkMode ? 'bg-green-500/20' : 'bg-green-50'}`}>
+                  <i className={`ri-user-follow-line text-xl sm:text-2xl ${darkMode ? 'text-green-400' : 'text-green-500'}`}></i>
                 </div>
               </div>
-              <p className="text-sm text-gray-500 mb-1">활성 사용자</p>
-              <p className="text-3xl font-bold text-gray-900">
+              <p className={`text-xs sm:text-sm ${theme.textMuted} mb-1`}>활성 사용자</p>
+              <p className={`text-2xl sm:text-3xl font-bold ${theme.text}`}>
                 {users.filter((u) => u.isActive).length}
               </p>
             </div>
-            <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/50 p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center">
-                  <i className="ri-user-unfollow-line text-2xl text-gray-500"></i>
+
+            {/* 비활성 사용자 */}
+            <div className={`rounded-xl sm:rounded-2xl border p-4 sm:p-6 transition-all col-span-2 sm:col-span-1 ${theme.statCard}`}>
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center ${darkMode ? 'bg-gray-500/20' : 'bg-gray-100'}`}>
+                  <i className={`ri-user-unfollow-line text-xl sm:text-2xl ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}></i>
                 </div>
               </div>
-              <p className="text-sm text-gray-500 mb-1">비활성 사용자</p>
-              <p className="text-3xl font-bold text-gray-900">
+              <p className={`text-xs sm:text-sm ${theme.textMuted} mb-1`}>비활성 사용자</p>
+              <p className={`text-2xl sm:text-3xl font-bold ${theme.text}`}>
                 {users.filter((u) => !u.isActive).length}
               </p>
             </div>
           </div>
 
           {/* Search & Filter */}
-          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-purple-100/50 p-6 mb-6">
+          <div className={`rounded-xl sm:rounded-2xl border p-4 sm:p-6 mb-4 sm:mb-6 ${theme.statCard}`}>
             <div className="flex flex-col gap-4">
               {/* Search */}
-              <div className="flex gap-4">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <div className="flex-1 relative">
-                  <i className="ri-search-line absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                  <i className={`ri-search-line absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 ${theme.textMuted}`}></i>
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="이름, 아이디, 이메일, 전화번호로 검색..."
-                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className={`w-full pl-10 sm:pl-12 pr-4 py-2.5 sm:py-3 border rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm sm:text-base ${theme.input}`}
                   />
                 </div>
                 {(hasActiveFilters || hasMultipleSorts) && (
                   <button
                     onClick={clearAllFilters}
-                    className="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-xl font-medium transition-all flex items-center gap-2 shadow-sm"
+                    className="px-4 py-2 sm:py-2.5 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-lg sm:rounded-xl font-medium transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20 text-sm sm:text-base"
                   >
                     <i className="ri-refresh-line"></i>
                     초기화
@@ -397,51 +496,59 @@ export default function UserManagementPage() {
               </div>
 
               {/* Filters */}
-              <div className="flex flex-wrap gap-4 items-center">
-                <span className="text-sm font-medium text-gray-600">역할:</span>
+              <div className="flex flex-wrap gap-3 sm:gap-4 items-center">
+                <span className={`text-xs sm:text-sm font-medium ${theme.textMuted}`}>역할:</span>
                 <div className="flex gap-2">
                   <button
                     onClick={() => toggleRoleFilter("USER")}
-                    className={`px-4 py-2 rounded-xl font-medium transition-all ${
+                    className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl font-medium transition-all text-xs sm:text-sm ${
                       filterRoles.has("USER")
                         ? "bg-blue-500 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        : darkMode
+                          ? "bg-white/[0.05] text-white/70 hover:bg-white/[0.1]"
+                          : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                     }`}
                   >
                     일반
                   </button>
                   <button
                     onClick={() => toggleRoleFilter("ADMIN")}
-                    className={`px-4 py-2 rounded-xl font-medium transition-all ${
+                    className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl font-medium transition-all text-xs sm:text-sm ${
                       filterRoles.has("ADMIN")
                         ? "bg-red-500 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        : darkMode
+                          ? "bg-white/[0.05] text-white/70 hover:bg-white/[0.1]"
+                          : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                     }`}
                   >
                     관리자
                   </button>
                 </div>
 
-                <div className="w-px h-6 bg-gray-300 mx-2"></div>
+                <div className={`hidden sm:block w-px h-6 ${darkMode ? 'bg-white/[0.1]' : 'bg-gray-300'} mx-2`}></div>
 
-                <span className="text-sm font-medium text-gray-600">상태:</span>
+                <span className={`text-xs sm:text-sm font-medium ${theme.textMuted}`}>상태:</span>
                 <div className="flex gap-2">
                   <button
                     onClick={() => toggleStatusFilter("active")}
-                    className={`px-4 py-2 rounded-xl font-medium transition-all ${
+                    className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl font-medium transition-all text-xs sm:text-sm ${
                       filterStatuses.has("active")
                         ? "bg-green-500 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        : darkMode
+                          ? "bg-white/[0.05] text-white/70 hover:bg-white/[0.1]"
+                          : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                     }`}
                   >
                     활성
                   </button>
                   <button
                     onClick={() => toggleStatusFilter("inactive")}
-                    className={`px-4 py-2 rounded-xl font-medium transition-all ${
+                    className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl font-medium transition-all text-xs sm:text-sm ${
                       filterStatuses.has("inactive")
                         ? "bg-gray-500 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        : darkMode
+                          ? "bg-white/[0.05] text-white/70 hover:bg-white/[0.1]"
+                          : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                     }`}
                   >
                     비활성
@@ -452,18 +559,22 @@ export default function UserManagementPage() {
               {/* Sort Info */}
               {sortConfigs.length > 0 && (
                 <div className="flex flex-wrap gap-2 items-center">
-                  <span className="text-sm font-medium text-gray-600">정렬:</span>
+                  <span className={`text-xs sm:text-sm font-medium ${theme.textMuted}`}>정렬:</span>
                   {sortConfigs.map((config, idx) => (
                     <span
                       key={config.field}
-                      className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm"
+                      className={`inline-flex items-center gap-1 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm ${
+                        darkMode
+                          ? 'bg-purple-500/20 text-purple-300'
+                          : 'bg-purple-100 text-purple-700'
+                      }`}
                     >
                       <span className="font-medium">{idx + 1}.</span>
                       {FIELD_LABELS[config.field]}
                       <i className={config.order === "asc" ? "ri-arrow-up-line" : "ri-arrow-down-line"}></i>
                     </span>
                   ))}
-                  <span className="text-xs text-gray-400 ml-2">
+                  <span className={`text-xs ${theme.textSubtle} ml-2 hidden sm:inline`}>
                     (Ctrl+클릭으로 다중 정렬)
                   </span>
                 </div>
@@ -472,176 +583,87 @@ export default function UserManagementPage() {
           </div>
 
           {/* User List */}
-          <div className="bg-white rounded-xl shadow-md border-2 border-purple-200 overflow-hidden">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-800 flex items-center">
-                <i className="ri-list-check text-purple-500 mr-3"></i>
+          <div className={`rounded-xl sm:rounded-2xl border-2 overflow-hidden ${darkMode ? 'bg-white/[0.02] border-purple-500/30' : 'bg-white border-purple-200 shadow-md'}`}>
+            <div className={`p-4 sm:p-6 border-b ${theme.tableBorder}`}>
+              <h2 className={`text-lg sm:text-xl lg:text-2xl font-bold flex items-center ${theme.text}`}>
+                <i className={`ri-list-check mr-2 sm:mr-3 ${darkMode ? 'text-purple-400' : 'text-purple-500'}`}></i>
                 사용자 목록 ({filteredUsers.length}명)
               </h2>
             </div>
 
             {filteredUsers.length === 0 ? (
-              <div className="text-center py-12 bg-gray-50">
-                <i className="ri-user-search-line text-6xl text-gray-300 mb-4"></i>
-                <p className="text-gray-500">사용자가 없습니다.</p>
+              <div className={`text-center py-10 sm:py-12 ${theme.sectionBg}`}>
+                <i className={`ri-user-search-line text-5xl sm:text-6xl mb-4 ${darkMode ? 'text-white/20' : 'text-slate-300'}`}></i>
+                <p className={theme.textMuted}>사용자가 없습니다.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-gray-50">
+                  <thead className={theme.tableHeader}>
                     <tr>
-                      <th
-                        className="px-4 py-4 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-100 whitespace-nowrap"
-                        onClick={(e) => handleSort("userId", e)}
-                      >
-                        <div className="flex items-center gap-1">
-                          ID
-                          {getSortInfo("userId") && (
-                            <span className="text-xs text-purple-500 font-bold">{getSortInfo("userId")?.index}</span>
-                          )}
-                          <i className={getSortIcon("userId")}></i>
-                        </div>
-                      </th>
-                      <th
-                        className="px-4 py-4 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-100 whitespace-nowrap"
-                        onClick={(e) => handleSort("username", e)}
-                      >
-                        <div className="flex items-center gap-1">
-                          아이디
-                          {getSortInfo("username") && (
-                            <span className="text-xs text-purple-500 font-bold">{getSortInfo("username")?.index}</span>
-                          )}
-                          <i className={getSortIcon("username")}></i>
-                        </div>
-                      </th>
-                      <th
-                        className="px-4 py-4 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-100 whitespace-nowrap"
-                        onClick={(e) => handleSort("name", e)}
-                      >
-                        <div className="flex items-center gap-1">
-                          이름
-                          {getSortInfo("name") && (
-                            <span className="text-xs text-purple-500 font-bold">{getSortInfo("name")?.index}</span>
-                          )}
-                          <i className={getSortIcon("name")}></i>
-                        </div>
-                      </th>
-                      <th
-                        className="px-4 py-4 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-100 whitespace-nowrap"
-                        onClick={(e) => handleSort("email", e)}
-                      >
-                        <div className="flex items-center gap-1">
-                          이메일
-                          {getSortInfo("email") && (
-                            <span className="text-xs text-purple-500 font-bold">{getSortInfo("email")?.index}</span>
-                          )}
-                          <i className={getSortIcon("email")}></i>
-                        </div>
-                      </th>
-                      <th
-                        className="px-4 py-4 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-100 whitespace-nowrap"
-                        onClick={(e) => handleSort("phone", e)}
-                      >
-                        <div className="flex items-center gap-1">
-                          전화번호
-                          {getSortInfo("phone") && (
-                            <span className="text-xs text-purple-500 font-bold">{getSortInfo("phone")?.index}</span>
-                          )}
-                          <i className={getSortIcon("phone")}></i>
-                        </div>
-                      </th>
-                      <th
-                        className="px-4 py-4 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-100 whitespace-nowrap"
-                        onClick={(e) => handleSort("role", e)}
-                      >
-                        <div className="flex items-center gap-1">
-                          역할
-                          {getSortInfo("role") && (
-                            <span className="text-xs text-purple-500 font-bold">{getSortInfo("role")?.index}</span>
-                          )}
-                          <i className={getSortIcon("role")}></i>
-                        </div>
-                      </th>
-                      <th
-                        className="px-4 py-4 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-100 whitespace-nowrap"
-                        onClick={(e) => handleSort("isActive", e)}
-                      >
-                        <div className="flex items-center gap-1">
-                          상태
-                          {getSortInfo("isActive") && (
-                            <span className="text-xs text-purple-500 font-bold">{getSortInfo("isActive")?.index}</span>
-                          )}
-                          <i className={getSortIcon("isActive")}></i>
-                        </div>
-                      </th>
-                      <th
-                        className="px-4 py-4 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-100 whitespace-nowrap"
-                        onClick={(e) => handleSort("remainingSessions", e)}
-                      >
-                        <div className="flex items-center gap-1">
-                          멘토링
-                          {getSortInfo("remainingSessions") && (
-                            <span className="text-xs text-purple-500 font-bold">{getSortInfo("remainingSessions")?.index}</span>
-                          )}
-                          <i className={getSortIcon("remainingSessions")}></i>
-                        </div>
-                      </th>
-                      <th
-                        className="px-4 py-4 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-100 whitespace-nowrap"
-                        onClick={(e) => handleSort("createdAt", e)}
-                      >
-                        <div className="flex items-center gap-1">
-                          가입일
-                          {getSortInfo("createdAt") && (
-                            <span className="text-xs text-purple-500 font-bold">{getSortInfo("createdAt")?.index}</span>
-                          )}
-                          <i className={getSortIcon("createdAt")}></i>
-                        </div>
-                      </th>
+                      {(["userId", "username", "name", "email", "phone", "role", "isActive", "remainingSessions", "createdAt"] as SortField[]).map((field) => (
+                        <th
+                          key={field}
+                          className={`px-3 sm:px-4 py-3 sm:py-4 text-left text-xs sm:text-sm font-semibold cursor-pointer transition-colors whitespace-nowrap ${theme.text} ${
+                            darkMode ? 'hover:bg-white/[0.03]' : 'hover:bg-slate-100'
+                          }`}
+                          onClick={(e) => handleSort(field, e)}
+                        >
+                          <div className="flex items-center gap-1">
+                            {FIELD_LABELS[field]}
+                            {getSortInfo(field) && (
+                              <span className={`text-xs font-bold ${darkMode ? 'text-purple-400' : 'text-purple-500'}`}>
+                                {getSortInfo(field)?.index}
+                              </span>
+                            )}
+                            <i className={getSortIcon(field)}></i>
+                          </div>
+                        </th>
+                      ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className={`divide-y ${theme.tableBorder}`}>
                     {filteredUsers.map((user) => (
-                      <tr key={user.userId} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-4 text-sm text-gray-900 whitespace-nowrap">{user.userId}</td>
-                        <td className="px-4 py-4 text-sm text-gray-900 font-medium whitespace-nowrap">{user.username}</td>
-                        <td className="px-4 py-4 text-sm text-gray-900 whitespace-nowrap">{user.name}</td>
-                        <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">{user.email || "-"}</td>
-                        <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">{user.phone || "-"}</td>
-                        <td className="px-4 py-4 whitespace-nowrap">
+                      <tr key={user.userId} className={`transition-colors ${theme.tableRow}`}>
+                        <td className={`px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm whitespace-nowrap ${theme.text}`}>{user.userId}</td>
+                        <td className={`px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-medium whitespace-nowrap ${theme.text}`}>{user.username}</td>
+                        <td className={`px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm whitespace-nowrap ${theme.text}`}>{user.name}</td>
+                        <td className={`px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm whitespace-nowrap ${theme.textMuted}`}>{user.email || "-"}</td>
+                        <td className={`px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm whitespace-nowrap ${theme.textMuted}`}>{user.phone || "-"}</td>
+                        <td className="px-3 sm:px-4 py-3 sm:py-4 whitespace-nowrap">
                           <select
                             value={user.role}
                             onChange={(e) => handleRoleChange(user.userId, e.target.value as "USER" | "ADMIN")}
                             disabled={updatingUserId === user.userId}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium border-0 cursor-pointer focus:ring-2 focus:ring-purple-500 ${
+                            className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs font-medium border-0 cursor-pointer focus:ring-2 focus:ring-purple-500 ${
                               user.role === "ADMIN"
-                                ? "bg-red-100 text-red-700"
-                                : "bg-blue-100 text-blue-700"
+                                ? darkMode ? "bg-red-500/20 text-red-300" : "bg-red-100 text-red-700"
+                                : darkMode ? "bg-blue-500/20 text-blue-300" : "bg-blue-100 text-blue-700"
                             } ${updatingUserId === user.userId ? "opacity-50" : ""}`}
                           >
                             <option value="USER">일반</option>
                             <option value="ADMIN">관리자</option>
                           </select>
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap">
+                        <td className="px-3 sm:px-4 py-3 sm:py-4 whitespace-nowrap">
                           <select
                             value={user.isActive ? "active" : "inactive"}
                             onChange={(e) => handleStatusChangeFromSelect(user.userId, e.target.value)}
                             disabled={updatingUserId === user.userId}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium border-0 cursor-pointer focus:ring-2 focus:ring-purple-500 ${
+                            className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs font-medium border-0 cursor-pointer focus:ring-2 focus:ring-purple-500 ${
                               user.isActive
-                                ? "bg-green-100 text-green-700"
-                                : "bg-gray-200 text-gray-700"
+                                ? darkMode ? "bg-green-500/20 text-green-300" : "bg-green-100 text-green-700"
+                                : darkMode ? "bg-gray-500/20 text-gray-300" : "bg-gray-200 text-gray-700"
                             } ${updatingUserId === user.userId ? "opacity-50" : ""}`}
                           >
                             <option value="active">활성</option>
                             <option value="inactive">비활성</option>
                           </select>
                         </td>
-                        <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">
+                        <td className={`px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm whitespace-nowrap ${theme.textMuted}`}>
                           {user.remainingSessions}회
                         </td>
-                        <td className="px-4 py-4 text-sm text-gray-600 whitespace-nowrap">
+                        <td className={`px-3 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm whitespace-nowrap ${theme.textMuted}`}>
                           {formatDate(user.createdAt)}
                         </td>
                       </tr>

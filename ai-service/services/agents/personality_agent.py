@@ -116,6 +116,8 @@ class PersonalityAgent:
             "mbti": output.mbti,
             "strengths": output.strengths,
             "risks": output.risks,
+            "goals": output.goals,
+            "values": output.values,
             "embedding_document": embedding_doc,
         }
 

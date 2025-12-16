@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, authFetch } from '@/lib/api';
 
 interface DeleteProfileModalProps {
   isOpen: boolean;
@@ -19,7 +19,7 @@ const DeleteProfileModal = ({ isOpen, onClose, profileId, onDeleted }: DeletePro
     try {
       setIsDeleting(true);
       setError(null);
-      const response = await fetch(`${API_BASE_URL}/profiles/${profileId}`, {
+      const response = await authFetch(`${API_BASE_URL}/profiles/${profileId}`, {
         method: 'DELETE',
       });
       if (!response.ok && response.status !== 204) {

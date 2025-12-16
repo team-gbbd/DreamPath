@@ -13,7 +13,7 @@ import com.dreampath.domain.profile.repository.ProfileAnalysisRepository;
 import com.dreampath.domain.profile.repository.ProfileVectorRepository;
 import com.dreampath.domain.profile.repository.UserProfileRepository;
 import com.dreampath.domain.profile.service.UserProfileSyncService;
-import com.dreampath.domain.recommendation.service.RecommendationStorageService;
+import com.dreampath.domain.agent.recommendation.service.RecommendationCacheService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Service
@@ -39,17 +40,21 @@ public class PersonalityAgentService {
     private final PythonAgentService pythonAgentService;
     private final ObjectMapper objectMapper;
     private final UserProfileSyncService userProfileSyncService;
-    private final RecommendationStorageService recommendationStorageService;
+    private final RecommendationCacheService recommendationCacheService;
 
-    @Transactional
+    @Transactional(readOnly = true)
     public PersonalityAgentResponse run(PersonalityAgentRequest incomingRequest) {
         if (incomingRequest.getSessionId() == null || incomingRequest.getSessionId().isBlank()) {
             throw new IllegalArgumentException("sessionId는 필수입니다.");
         }
 
         String sessionId = incomingRequest.getSessionId();
-        CareerSession session = careerSessionRepository.findBySessionId(sessionId)
+        // findBySessionIdWithMessages로 메시지를 함께 조회 (REQUIRES_NEW 트랜잭션에서 lazy loading 문제 방지)
+        CareerSession session = careerSessionRepository.findBySessionIdWithMessages(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("세션을 찾을 수 없습니다."));
+
+        log.info("PersonalityAgent 세션 조회 완료 - sessionId: {}, 메시지 수: {}",
+                sessionId, session.getMessages() != null ? session.getMessages().size() : 0);
 
         List<Map<String, Object>> history = resolveConversationHistory(
                 incomingRequest.getConversationHistory(),
@@ -66,7 +71,16 @@ public class PersonalityAgentService {
                 .build();
 
         Map<String, Object> pythonResponse = pythonAgentService.callPersonalityAgent(payload.toPythonPayload());
-        persistAnalysis(session.getUserId(), pythonResponse);
+
+        // 비동기로 프로필 저장 및 추천 생성 (응답 지연 방지)
+        String userIdForAsync = session.getUserId();
+        CompletableFuture.runAsync(() -> {
+            try {
+                persistAnalysis(userIdForAsync, pythonResponse);
+            } catch (Exception e) {
+                log.error("❌ 비동기 프로필 저장 실패. userId: {}", userIdForAsync, e);
+            }
+        });
 
         return PersonalityAgentResponse.builder()
                 .sessionId(sessionId)
@@ -116,17 +130,7 @@ public class PersonalityAgentService {
         if (provided != null && !provided.isEmpty()) {
             return provided;
         }
-        if (session.getSurveyData() == null || session.getSurveyData().isBlank()) {
-            return new HashMap<>();
-        }
-        try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> parsed = objectMapper.readValue(session.getSurveyData(), Map.class);
-            return parsed;
-        } catch (Exception e) {
-            log.warn("설문 데이터 파싱 실패: {}", e.getMessage());
-            return new HashMap<>();
-        }
+        return new HashMap<>();
     }
 
     private Map<String, Object> resolveUserProfile(Map<String, Object> provided, String userIdRaw) {
@@ -166,7 +170,8 @@ public class PersonalityAgentService {
         return map;
     }
 
-    private void persistAnalysis(String userIdRaw, Map<String, Object> pythonResponse) {
+    @Transactional
+    public void persistAnalysis(String userIdRaw, Map<String, Object> pythonResponse) {
         Optional<Long> userId = parseUserId(userIdRaw);
         if (userId.isEmpty()) {
             return;
@@ -191,38 +196,44 @@ public class PersonalityAgentService {
         profileAnalysisRepository.save(analysis);
         log.info("✅ ProfileAnalysis 저장 완료. userId: {}", userId.get());
 
-        // 2. UserProfile 동기화 및 벡터 재생성
+        // 2. UserProfile 동기화
         try {
             UserProfile updatedProfile = userProfileSyncService.syncFromAnalysis(userId.get(), analysis);
-            log.info("✅ UserProfile 동기화 및 벡터 재생성 완료. profileId: {}", updatedProfile.getProfileId());
+            log.info("✅ UserProfile 동기화 완료. profileId: {}", updatedProfile.getProfileId());
 
-            // 3. 추천 결과 저장
-            saveRecommendations(userId.get(), updatedProfile.getProfileId());
+            // 3. 벡터 재생성과 추천 저장을 병렬로 실행
+            Long userIdValue = userId.get();
+            Long profileId = updatedProfile.getProfileId();
+
+            CompletableFuture<Void> recommendationFuture = CompletableFuture.runAsync(() -> {
+                try {
+                    saveRecommendations(userIdValue, profileId);
+                } catch (Exception e) {
+                    log.error("❌ 추천 저장 실패. userId: {}", userIdValue, e);
+                }
+            });
+
+            // 추천 저장 완료 대기 (벡터는 syncFromAnalysis에서 이미 처리됨)
+            recommendationFuture.join();
         } catch (Exception e) {
             log.error("❌ UserProfile 동기화 실패. userId: {}", userId.get(), e);
         }
     }
 
     /**
-     * 직업/학과 추천 결과를 DB에 저장합니다.
+     * 직업/학과 추천 캐시를 무효화합니다.
+     * 새로운 분석 결과가 저장되었으므로, 다음 추천 조회 시 새로운 추천이 생성되도록 합니다.
      */
     private void saveRecommendations(Long userId, Long profileId) {
         try {
-            // ProfileVector에서 실제 vectorDbId 조회 (user-{profileId} 형식)
-            ProfileVector profileVector = profileVectorRepository.findByProfileId(profileId);
-            if (profileVector == null || profileVector.getVectorDbId() == null) {
-                log.warn("ProfileVector를 찾을 수 없어 추천 결과를 저장하지 않습니다. profileId: {}", profileId);
-                return;
-            }
+            // 캐시 무효화 (기존 추천 삭제)
+            recommendationCacheService.invalidateCache(userId);
+            log.info("✅ 추천 캐시 무효화 완료. userId: {}", userId);
 
-            String vectorId = profileVector.getVectorDbId();
-            log.info("🔮 VectorDbId 조회 완료: {}", vectorId);
-
-            // 추천 결과 저장
-            recommendationStorageService.updateRecommendations(userId, vectorId);
-            log.info("✅ 추천 결과 저장 완료. userId: {}, vectorId: {}", userId, vectorId);
+            // TODO: 필요 시 여기서 비동기로 RecommendationAgentService를 호출하여 미리 생성할 수 있음.
+            // 현재는 사용자가 대시보드에 접속할 때(On-Demand) 생성하도록 함.
         } catch (Exception e) {
-            log.error("❌ 추천 결과 저장 중 오류 발생. userId: {}, profileId: {}", userId, profileId, e);
+            log.error("❌ 추천 캐시 무효화 중 오류 발생. userId: {}", userId, e);
         }
     }
 

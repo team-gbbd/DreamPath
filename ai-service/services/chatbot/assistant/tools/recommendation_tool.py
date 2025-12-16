@@ -63,7 +63,7 @@ def execute(
         if not results or len(results) == 0:
             return {
                 "success": False,
-                "message": "아직 진로 분석 결과가 없습니다. 진로 상담을 먼저 진행해주세요."
+                "message": "아직 진로 분석을 진행하지 않으셨네요! 진로 분석을 먼저 진행해주세요."
             }
 
         analysis = results[0]
@@ -148,7 +148,7 @@ def format_result(data: Dict[str, Any]) -> str:
         response += "\n"
 
     if not recommended_careers and not interest_areas:
-        return "추천 결과가 없습니다. 진로 상담을 먼저 완료해주세요."
+        return "추천 결과가 없습니다. 진로 분석을 먼저 완료해주세요."
 
     response += "*상세 분석은 '내 진로 분석 결과'에서 확인하세요.*"
 

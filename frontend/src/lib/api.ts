@@ -39,6 +39,52 @@ export const backendApi = axios.create({
   withCredentials: true,
 });
 
+// JWT 토큰을 Authorization 헤더에 추가하는 interceptor
+const addAuthHeader = (config: any) => {
+  const userStr = localStorage.getItem("dreampath:user");
+  if (userStr) {
+    try {
+      const user = JSON.parse(userStr);
+      if (user.accessToken) {
+        config.headers.Authorization = `Bearer ${user.accessToken}`;
+      }
+    } catch {
+      // 파싱 실패 시 무시
+    }
+  }
+  return config;
+};
+
+api.interceptors.request.use(addAuthHeader);
+backendApi.interceptors.request.use(addAuthHeader);
+
+// Native fetch wrapper with JWT auth header
+export const authFetch = async (
+  input: RequestInfo | URL,
+  init?: RequestInit
+): Promise<Response> => {
+  const headers = new Headers(init?.headers);
+
+  const userStr = localStorage.getItem("dreampath:user");
+  if (userStr) {
+    try {
+      const user = JSON.parse(userStr);
+      if (user.accessToken) {
+        headers.set("Authorization", `Bearer ${user.accessToken}`);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // Set Content-Type if not set and body exists
+  if (init?.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  return fetch(input, { ...init, headers });
+};
+
 export interface JobDetailData {
   jobId: number;
   summary?: string | null;
@@ -60,7 +106,43 @@ export interface MajorDetailData {
   job?: string | null;
   salary?: string | null;
   employment?: string | null;
-  rawData?: Record<string, any>;
+  rawData?: {
+    // Basic info
+    major?: string;
+    summary?: string;
+    major_summary?: string;
+    interest?: string;
+    property?: string;
+    characteristics?: string;
+    job?: string;
+    salary?: string;
+    employment?: string;
+    relateQualf?: string; // 관련 자격
+    lClass?: string; // 대분류
+    mClass?: string; // 중분류
+    // Chart data - can be object or array
+    chartData?: {
+      gender?: Array<{ item: string; data: number }>;
+      field?: Array<{ item: string; data: number }>;
+      after_graduation?: Array<{ item: string; data: number }>;
+      employment_rate?: Array<{ item: string; data: number }>;
+      [key: string]: any;
+    } | Array<any>;
+    // Department list (universities offering this major)
+    department?: Array<{
+      univ_NM?: string;
+      campus_NM?: string;
+      [key: string]: any;
+    }>;
+    // Curriculum data
+    highSchoolSubjects?: Array<{ subject_DESCRIPTION?: string }>;
+    careerActivities?: Array<{ act_NAME?: string; act_DESCRIPTION?: string }>;
+    majorSubjects?: Array<{ subject_NAME?: string; subject_DESCRIPTION?: string }>;
+    // Career paths
+    graduateAfter?: Array<{ graduate_AFTER_NAME?: string; graduate_AFTER_DESCRIPTION?: string }>;
+    relatedJobs?: Array<{ relate_JOB_NAME?: string }>;
+    [key: string]: any;
+  };
 }
 
 export const fetchJobDetail = async (jobId: number | string): Promise<JobDetailData> => {
@@ -125,6 +207,7 @@ export const pythonApi = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  timeout: 120000, // 2분 (AI 분석 API가 오래 걸림)
 });
 
 export const jobSiteService = {

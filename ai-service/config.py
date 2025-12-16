@@ -16,8 +16,14 @@ class Settings:
     API_DESCRIPTION = "AI 기반 진로 분석, 정체성 분석 및 대화형 상담 서비스"
     API_VERSION = "1.0.0"
     
-    # CORS 설정
-    CORS_ORIGINS = ["*"]  # 프로덕션에서는 특정 도메인으로 제한
+    # CORS 설정 (credentials 사용 시 명시적 origin 필수)
+    CORS_ORIGINS = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:3002",
+        "https://dreampathai.link",
+        "https://www.dreampathai.link",
+    ]
     CORS_CREDENTIALS = True
     CORS_METHODS = ["*"]
     CORS_HEADERS = ["*"]

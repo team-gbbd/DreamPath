@@ -12,4 +12,3 @@ public interface CareerAnalysisRepository extends JpaRepository<CareerAnalysis, 
     Optional<CareerAnalysis> findBySession(CareerSession session);
     Optional<CareerAnalysis> findBySession_SessionId(String sessionId);
 }
-

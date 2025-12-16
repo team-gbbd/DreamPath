@@ -77,6 +77,16 @@ public class LearningPathService {
     }
 
     @Transactional
+    public LearningPath updateStatistics(Long pathId, int totalQuestions, int correctCount, int earnedScore, int totalMaxScore) {
+        LearningPath learningPath = getLearningPath(pathId);
+        learningPath.setTotalQuestions(totalQuestions);
+        learningPath.setCorrectCount(correctCount);
+        learningPath.setEarnedScore(earnedScore);
+        learningPath.setTotalMaxScore(totalMaxScore);
+        return learningPathRepository.save(learningPath);
+    }
+
+    @Transactional
     public LearningPath updateWeaknessTags(Long pathId, String weaknessTags) {
         LearningPath learningPath = getLearningPath(pathId);
         learningPath.setWeaknessTags(weaknessTags);

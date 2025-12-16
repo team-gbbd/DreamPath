@@ -7,6 +7,8 @@ import ChatMessage from "../shared/ChatMessage";
 import ChatInput from "../shared/ChatInput";
 import InquiryForm, { InquiryData } from "../shared/InquiryForm";
 import { BACKEND_BASE_URL } from "@/lib/api";
+import { X, Bot, Mail } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Message {
   role: "user" | "assistant";
@@ -54,6 +56,27 @@ function clearFaqCache() {
 }
 
 export default function FaqChatbot({ onClose }: { onClose?: () => void }) {
+  // Dark mode detection
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("dreampath:theme") === "dark";
+    }
+    return false;
+  });
+
+  // Theme sync
+  useEffect(() => {
+    const handleThemeChange = () => {
+      setDarkMode(localStorage.getItem("dreampath:theme") === "dark");
+    };
+    window.addEventListener("dreampath-theme-change", handleThemeChange);
+    window.addEventListener("storage", handleThemeChange);
+    return () => {
+      window.removeEventListener("dreampath-theme-change", handleThemeChange);
+      window.removeEventListener("storage", handleThemeChange);
+    };
+  }, []);
+
   // 마운트 시 사용자 변경 감지
   const currentUserId = getUserId();
   if (currentUserId !== cachedUserId) {
@@ -272,43 +295,113 @@ export default function FaqChatbot({ onClose }: { onClose?: () => void }) {
   const userStr = isLoggedIn ? localStorage.getItem("dreampath:user") : null;
   const user = userStr ? JSON.parse(userStr) : null;
 
+  // Theme styles
+  const theme = {
+    container: darkMode
+      ? "bg-[#0B0D14]"
+      : "bg-gradient-to-br from-[#eef2ff] to-[#f5e8ff]",
+    header: darkMode
+      ? "bg-[#0B0D14]/95 border-white/[0.06]"
+      : "bg-white border-gray-200",
+    headerText: darkMode ? "text-white" : "text-gray-900",
+    headerSubtext: darkMode ? "text-white/50" : "text-gray-500",
+    closeBtn: darkMode
+      ? "text-white/50 hover:text-white hover:bg-white/[0.05]"
+      : "text-gray-500 hover:text-gray-900 hover:bg-gray-100",
+    welcomeBubble: darkMode
+      ? "bg-white/[0.05] text-white/90 border border-white/[0.08]"
+      : "bg-white text-gray-900 shadow-sm",
+    categoryBtn: darkMode
+      ? "bg-white/[0.05] text-white/70 hover:bg-white/[0.08] border border-white/[0.08]"
+      : "bg-white text-gray-700 hover:bg-gray-50 shadow-sm",
+    categoryBtnActive: "bg-gradient-to-r from-violet-600 to-violet-500 text-white border-transparent",
+    inquiryBtn: "bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600",
+    faqBtn: darkMode
+      ? "bg-white/[0.03] text-white/80 hover:bg-white/[0.06] border border-white/[0.06]"
+      : "bg-white text-gray-700 hover:bg-gray-50 shadow-sm",
+    loadingDot: darkMode ? "bg-white/40" : "bg-gray-400",
+  };
+
+  // Custom scrollbar styles
+  const scrollbarStyles = darkMode ? `
+    .faq-scroll::-webkit-scrollbar { width: 6px; }
+    .faq-scroll::-webkit-scrollbar-track { background: transparent; }
+    .faq-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+    .faq-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+  ` : `
+    .faq-scroll::-webkit-scrollbar { width: 6px; }
+    .faq-scroll::-webkit-scrollbar-track { background: transparent; }
+    .faq-scroll::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 3px; }
+    .faq-scroll::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
+  `;
+
   return (
-    <div className="w-full h-full flex flex-col bg-gradient-to-br from-[#eef2ff] to-[#f5e8ff] rounded-lg overflow-hidden">
+    <div className={cn(
+      "w-full max-w-full h-full flex flex-col rounded-xl sm:rounded-2xl overflow-hidden box-border",
+      theme.container
+    )}>
+      <style>{scrollbarStyles}</style>
       {/* 상단바 */}
-      <div className="flex items-center justify-between px-4 py-3 bg-white border-b">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">🤖</span>
-          <span className="font-semibold">AI 챗봇과 대화 중 ···</span>
+      <div className={cn(
+        "flex items-center justify-between px-3 sm:px-4 py-3 border-b",
+        theme.header
+      )}>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className={cn(
+            "h-8 w-8 sm:h-9 sm:w-9 rounded-lg flex items-center justify-center",
+            darkMode
+              ? "bg-gradient-to-br from-violet-600 to-violet-500"
+              : "bg-gradient-to-br from-violet-500 to-purple-600"
+          )}>
+            <Bot className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+          </div>
+          <div>
+            <span className={cn("font-semibold text-sm sm:text-base", theme.headerText)}>
+              AI 챗봇
+            </span>
+            <p className={cn("text-xs hidden sm:block", theme.headerSubtext)}>
+              무엇이든 물어보세요
+            </p>
+          </div>
         </div>
-        <button
-          onClick={handleClose}
-          className="text-gray-500 hover:text-black"
-        >
-          ✕
-        </button>
+        {onClose && (
+          <button
+            onClick={handleClose}
+            className={cn(
+              "p-2 rounded-lg transition-colors",
+              theme.closeBtn
+            )}
+          >
+            <X className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
       {/* 메시지 영역 */}
-      <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-2">
+      <div ref={chatRef} className="faq-scroll flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 space-y-3">
         {/* 인사말 */}
-        <div className="max-w-[78%] bg-white text-gray-1000 px-4 py-2 rounded-2xl rounded-bl-none shadow-sm text-[14px] leading-relaxed">
-          <p>안녕하세요! DreamPath AI 챗봇이에요😊</p>
+        <div className={cn(
+          "max-w-[85%] sm:max-w-[78%] px-3 sm:px-4 py-2 sm:py-3 rounded-2xl rounded-bl-none text-sm leading-relaxed",
+          theme.welcomeBubble
+        )}>
+          <p>안녕하세요! DreamPath AI 챗봇이에요</p>
           <p>무엇을 도와드릴까요?</p>
         </div>
 
         {/* FAQ 카테고리 */}
         <div className="flex flex-col gap-2">
           {chunkedCategories.map((row, idx) => (
-            <div key={idx} className="flex gap-2">
+            <div key={idx} className="flex flex-wrap gap-2">
               {row.map((c) => (
                 <button
                   key={c}
                   onClick={() => setSelectedCategory(c)}
-                  className={`inline-flex items-center justify-center py-2 px-2 text-sm rounded-xl shadow ${
+                  className={cn(
+                    "py-2 px-3 text-xs sm:text-sm rounded-lg sm:rounded-xl transition-all",
                     selectedCategory === c
-                      ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white"
-                      : "bg-white"
-                  }`}
+                      ? theme.categoryBtnActive
+                      : theme.categoryBtn
+                  )}
                 >
                   {c}
                 </button>
@@ -320,9 +413,13 @@ export default function FaqChatbot({ onClose }: { onClose?: () => void }) {
           <div className="flex gap-2 mt-2">
             <button
               onClick={handleInquiryClick}
-              className="inline-flex items-center justify-center py-2 px-4 text-sm rounded-xl shadow bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600"
+              className={cn(
+                "flex items-center gap-1.5 py-2 px-3 sm:px-4 text-xs sm:text-sm rounded-lg sm:rounded-xl transition-all",
+                theme.inquiryBtn
+              )}
             >
-              📧 문의하기
+              <Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span>문의하기</span>
             </button>
           </div>
         </div>
@@ -334,7 +431,10 @@ export default function FaqChatbot({ onClose }: { onClose?: () => void }) {
               <button
                 key={q.id}
                 onClick={() => sendFaq(q.question)}
-                className="bg-white inline-flex items-center py-3 px-3 text-sm rounded-xl shadow hover:bg-gray-100"
+                className={cn(
+                  "py-2 sm:py-3 px-3 text-xs sm:text-sm rounded-lg sm:rounded-xl text-left transition-all",
+                  theme.faqBtn
+                )}
               >
                 {q.question}
               </button>
@@ -344,16 +444,19 @@ export default function FaqChatbot({ onClose }: { onClose?: () => void }) {
 
         {/* 모든 채팅 메시지 */}
         {messages.map((m, i) => (
-          <ChatMessage key={i} role={m.role} text={m.text} />
+          <ChatMessage key={i} role={m.role} text={m.text} darkMode={darkMode} />
         ))}
 
         {/* 타이핑 애니메이션 */}
         {loading && (
           <div className="mb-2 flex justify-start">
-            <div className="px-4 py-2 rounded-2xl bg-white text-gray-500 max-w-[75%] text-sm flex gap-1 items-center shadow-sm">
-              <span className="w-2 h-2 bg-gray-400 rounded-full animate-[typing_1s_infinite]"></span>
-              <span className="w-2 h-2 bg-gray-400 rounded-full animate-[typing_1s_infinite_0.2s]"></span>
-              <span className="w-2 h-2 bg-gray-400 rounded-full animate-[typing_1s_infinite_0.4s]"></span>
+            <div className={cn(
+              "px-4 py-3 rounded-2xl max-w-[75%] text-sm flex gap-1.5 items-center",
+              theme.welcomeBubble
+            )}>
+              <span className={cn("w-2 h-2 rounded-full animate-bounce", theme.loadingDot)} style={{ animationDelay: "0ms" }} />
+              <span className={cn("w-2 h-2 rounded-full animate-bounce", theme.loadingDot)} style={{ animationDelay: "150ms" }} />
+              <span className={cn("w-2 h-2 rounded-full animate-bounce", theme.loadingDot)} style={{ animationDelay: "300ms" }} />
             </div>
           </div>
         )}
@@ -366,6 +469,7 @@ export default function FaqChatbot({ onClose }: { onClose?: () => void }) {
             defaultName={user?.name || ""}
             defaultEmail={user?.email || ""}
             isLoggedIn={isLoggedIn}
+            darkMode={darkMode}
           />
         )}
       </div>
@@ -376,6 +480,7 @@ export default function FaqChatbot({ onClose }: { onClose?: () => void }) {
         onChange={setInput}
         onSend={handleSend}
         disabled={loading}
+        darkMode={darkMode}
       />
     </div>
   );

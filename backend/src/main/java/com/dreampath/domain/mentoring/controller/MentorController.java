@@ -5,10 +5,12 @@ import com.dreampath.domain.mentoring.dto.mentor.MentorApplicationRequest;
 import com.dreampath.domain.mentoring.dto.mentor.MentorResponse;
 import com.dreampath.global.enums.MentorStatus;
 import com.dreampath.domain.mentoring.service.MentorService;
+import com.dreampath.global.jwt.JwtUserPrincipal;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -60,8 +62,14 @@ public class MentorController {
      * GET /api/mentors/applications
      */
     @GetMapping("/applications")
-    public ResponseEntity<List<MentorResponse>> getAllMentorApplications() {
-        log.info("모든 멘토 신청 목록 조회 API (관리자)");
+    public ResponseEntity<List<MentorResponse>> getAllMentorApplications(
+            @AuthenticationPrincipal JwtUserPrincipal principal) {
+        log.info("모든 멘토 신청 목록 조회 API (관리자) - userId: {}", principal.getUserId());
+
+        // ADMIN 권한 검증
+        if (!"ADMIN".equals(principal.getRole())) {
+            throw new RuntimeException("관리자 권한이 필요합니다.");
+        }
 
         List<MentorResponse> responses = mentorService.getAllMentorApplications();
         return ResponseEntity.ok(responses);
@@ -73,8 +81,14 @@ public class MentorController {
      */
     @GetMapping("/applications/status/{status}")
     public ResponseEntity<List<MentorResponse>> getMentorApplicationsByStatus(
-            @PathVariable MentorStatus status) {
-        log.info("멘토 신청 목록 조회 API - status: {}", status);
+            @PathVariable MentorStatus status,
+            @AuthenticationPrincipal JwtUserPrincipal principal) {
+        log.info("멘토 신청 목록 조회 API - status: {}, userId: {}", status, principal.getUserId());
+
+        // ADMIN 권한 검증
+        if (!"ADMIN".equals(principal.getRole())) {
+            throw new RuntimeException("관리자 권한이 필요합니다.");
+        }
 
         List<MentorResponse> responses = mentorService.getMentorApplicationsByStatus(status);
         return ResponseEntity.ok(responses);
@@ -88,12 +102,16 @@ public class MentorController {
     public ResponseEntity<MentorResponse> reviewMentorApplication(
             @PathVariable Long mentorId,
             @Valid @RequestBody ApproveRejectRequest request,
-            @RequestHeader(value = "X-Admin-Id", required = false) Long adminId) {
+            @AuthenticationPrincipal JwtUserPrincipal principal) {
         log.info("멘토 신청 심사 API - mentorId: {}, approve: {}, adminId: {}",
-                mentorId, request.getApprove(), adminId);
+                mentorId, request.getApprove(), principal.getUserId());
 
-        // TODO: 실제로는 JWT에서 adminId 추출
-        Long reviewerId = adminId != null ? adminId : 1L; // 임시: adminId=1
+        // ADMIN 권한 검증
+        if (!"ADMIN".equals(principal.getRole())) {
+            throw new RuntimeException("관리자 권한이 필요합니다.");
+        }
+
+        Long reviewerId = principal.getUserId();
 
         MentorResponse response;
         if (request.getApprove()) {

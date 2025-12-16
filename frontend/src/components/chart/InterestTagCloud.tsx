@@ -5,8 +5,8 @@ type InterestTagCloudProps = {
 
 const palette = [
   'bg-indigo-100 text-indigo-700 border-indigo-200',
-  'bg-pink-100 text-pink-700 border-pink-200',
   'bg-blue-100 text-blue-700 border-blue-200',
+  'bg-cyan-100 text-cyan-700 border-cyan-200',
   'bg-amber-100 text-amber-700 border-amber-200',
   'bg-emerald-100 text-emerald-700 border-emerald-200',
   'bg-purple-100 text-purple-700 border-purple-200',
@@ -43,7 +43,7 @@ export default function InterestTagCloud({
     <div className="w-full bg-white rounded-3xl border border-gray-100 shadow-lg p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-pink-400 font-semibold">
+          <p className="text-xs uppercase tracking-[0.3em] text-[#5A7BFF] font-semibold">
             Interest Cloud
           </p>
           <h3 className="text-xl font-bold text-gray-900">{title}</h3>

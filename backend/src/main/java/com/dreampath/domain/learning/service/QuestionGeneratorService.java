@@ -30,23 +30,41 @@ public class QuestionGeneratorService {
     @Value("${python.ai.service.url:http://localhost:8000}")
     private String pythonServiceUrl;
 
-    @Transactional
+    // Self-injection for @Transactional proxy to work
+    @org.springframework.context.annotation.Lazy
+    @org.springframework.beans.factory.annotation.Autowired
+    private QuestionGeneratorService self;
+
+    /**
+     * AI 문제 생성 - 커넥션 누수 방지를 위해 트랜잭션 분리
+     * HTTP 호출은 트랜잭션 밖에서 수행
+     */
     public List<WeeklyQuestion> generateQuestions(WeeklySession session, String domain, int count) {
         log.info("AI 문제 생성 시작 - 세션: {}, 주차: {}, 도메인: {}",
                  session.getWeeklyId(), session.getWeekNumber(), domain);
 
-        // 이미 문제가 존재하는지 확인
-        List<WeeklyQuestion> existingQuestions = questionRepository.findByWeeklySessionWeeklyIdOrderByOrderNumAsc(session.getWeeklyId());
+        // 1. 이미 문제가 존재하는지 확인 (짧은 트랜잭션 - self를 통해 호출해야 프록시가 동작)
+        List<WeeklyQuestion> existingQuestions = self.getExistingQuestions(session.getWeeklyId());
         if (!existingQuestions.isEmpty()) {
             log.info("이미 문제가 존재함 - 세션: {}, 기존 문제 수: {}", session.getWeeklyId(), existingQuestions.size());
             return existingQuestions;
         }
 
-        // Python AI Service 호출
+        // 2. Python AI Service 호출 (트랜잭션 밖 - 시간이 오래 걸림)
         List<Map<String, Object>> generatedQuestions = callPythonService(domain, session.getWeekNumber(), count);
 
-        // 응답을 WeeklyQuestion 엔티티로 변환
+        // 3. 응답을 저장 (짧은 트랜잭션 - self를 통해 호출해야 프록시가 동작)
         List<WeeklyQuestion> questions = convertToEntities(generatedQuestions, session);
+        return self.saveQuestions(questions);
+    }
+
+    @Transactional(readOnly = true)
+    public List<WeeklyQuestion> getExistingQuestions(Long weeklyId) {
+        return questionRepository.findByWeeklySessionWeeklyIdOrderByOrderNumAsc(weeklyId);
+    }
+
+    @Transactional
+    public List<WeeklyQuestion> saveQuestions(List<WeeklyQuestion> questions) {
         return questionRepository.saveAll(questions);
     }
 

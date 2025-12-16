@@ -80,7 +80,7 @@ def execute(user_id: int, job_name: str = None, db: DatabaseService = None, **kw
                 return {
                     "success": False,
                     "need_analysis": True,
-                    "message": "아직 진로분석을 진행하지 않으셨네요! 진로분석을 먼저 진행하시면 맞춤 직업 정보를 제공해드릴 수 있어요."
+                    "message": "아직 진로 분석을 진행하지 않으셨네요! 진로 분석을 진행하시면 맞춤 직업 정보를 제공해드릴 수 있어요."
                 }
 
             # JSON 파싱
@@ -95,7 +95,7 @@ def execute(user_id: int, job_name: str = None, db: DatabaseService = None, **kw
                 return {
                     "success": False,
                     "need_analysis": True,
-                    "message": "아직 진로분석을 진행하지 않으셨네요! 진로분석을 먼저 진행하시면 맞춤 직업 정보를 제공해드릴 수 있어요."
+                    "message": "아직 진로 분석을 진행하지 않으셨네요! 진로 분석을 진행하시면 맞춤 직업 정보를 제공해드릴 수 있어요."
                 }
 
             # 2. 추천 직업명으로 job_details 테이블에서 상세 정보 검색
@@ -150,13 +150,13 @@ def execute(user_id: int, job_name: str = None, db: DatabaseService = None, **kw
                 return {
                     "success": False,
                     "need_analysis": True,
-                    "message": "아직 진로분석을 진행하지 않으셨네요! 진로분석을 먼저 진행하시면 맞춤 직업 정보를 제공해드릴 수 있어요."
+                    "message": "아직 진로 분석을 진행하지 않으셨네요! 진로 분석을 진행하시면 맞춤 직업 정보를 제공해드릴 수 있어요."
                 }
 
         if not jobs or len(jobs) == 0:
             return {
                 "success": False,
-                "message": "해당 직업 정보를 찾을 수 없습니다. 다른 직업 이름으로 검색해보세요."
+                "message": "해당 직업의 정보를 찾을 수 없습니다."
             }
 
         return {
@@ -175,7 +175,7 @@ def execute(user_id: int, job_name: str = None, db: DatabaseService = None, **kw
 def format_result(data: Dict[str, Any]) -> str:
     """직업 정보를 마크다운으로 포맷팅"""
     if not data.get("success"):
-        return data.get("message", "직업 정보를 찾을 수 없습니다.")
+        return data.get("message", "해당 직업의 정보를 찾을 수 없습니다.")
 
     jobs = data.get("data", [])
 

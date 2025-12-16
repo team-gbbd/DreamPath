@@ -25,9 +25,14 @@ class PineconeVectorService:
             }]
         )
 
-    def query(self, embedding: list, top_k: int = 10):
-        return self.index.query(
-            vector=embedding,
-            top_k=top_k,
-            include_metadata=True
-        )
+    def query(self, embedding: list, top_k: int = 10, namespace: str = None, include_metadata: bool = True, filter: dict = None):
+        query_params = {
+            "vector": embedding,
+            "top_k": top_k,
+            "include_metadata": include_metadata
+        }
+        if filter:
+            query_params["filter"] = filter
+        if namespace:
+            query_params["namespace"] = namespace
+        return self.index.query(**query_params)

@@ -8,14 +8,18 @@ import com.dreampath.domain.learning.entity.StudentAnswer;
 import com.dreampath.domain.learning.entity.WeeklyQuestion;
 import com.dreampath.domain.learning.entity.WeeklySession;
 import com.dreampath.global.exception.ResourceNotFoundException;
+import com.dreampath.global.jwt.JwtUserPrincipal;
 import com.dreampath.domain.user.repository.UserRepository;
 import com.dreampath.domain.career.repository.CareerAnalysisRepository;
 import com.dreampath.domain.learning.service.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -39,14 +43,18 @@ public class LearningPathController {
     private final com.dreampath.domain.learning.repository.StudentAnswerRepository studentAnswerRepository;
 
     /**
-     * 진로 상담 결과에서 직업 선택 후 학습 경로 생성
+     * 진로 상담 결과에서 직업 선택 후 학습 경로 생성 (본인만 가능)
      * POST /api/learning-paths/from-career
      */
     @PostMapping("/from-career")
     public ResponseEntity<CareerSelectionResponse> createLearningPathFromCareer(
-            @Valid @RequestBody CareerSelectionRequest request) {
+            @Valid @RequestBody CareerSelectionRequest request,
+            @AuthenticationPrincipal JwtUserPrincipal principal) {
         log.info("직업 선택 기반 로드맵 생성 요청 - userId: {}, sessionId: {}, selectedCareer: {}",
                 request.getUserId(), request.getSessionId(), request.getSelectedCareer());
+
+        // 본인 확인
+        validateOwnership(principal, request.getUserId());
 
         try {
             // 1. 사용자 조회
@@ -96,13 +104,17 @@ public class LearningPathController {
     }
 
     /**
-     * 로드맵 생성
+     * 로드맵 생성 (본인만 가능)
      * POST /api/learning-paths
      */
     @PostMapping
     public ResponseEntity<LearningPathResponse> createLearningPath(
-            @Valid @RequestBody CreateLearningPathRequest request) {
+            @Valid @RequestBody CreateLearningPathRequest request,
+            @AuthenticationPrincipal JwtUserPrincipal principal) {
         log.info("로드맵 생성 요청 - userId: {}, domain: {}", request.getUserId(), request.getDomain());
+
+        // 본인 확인
+        validateOwnership(principal, request.getUserId());
 
         User user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", request.getUserId()));
@@ -118,24 +130,35 @@ public class LearningPathController {
     }
 
     /**
-     * 로드맵 조회
+     * 로드맵 조회 (본인 것만 조회 가능)
      * GET /api/learning-paths/{pathId}
      */
     @GetMapping("/{pathId}")
-    public ResponseEntity<LearningPathResponse> getLearningPath(@PathVariable Long pathId) {
-        log.info("로드맵 조회 - pathId: {}", pathId);
+    public ResponseEntity<LearningPathResponse> getLearningPath(
+            @PathVariable Long pathId,
+            @AuthenticationPrincipal JwtUserPrincipal principal) {
+        log.info("로드맵 조회 - pathId: {}, userId: {}", pathId, principal != null ? principal.getUserId() : "null");
 
         LearningPath path = learningPathService.getLearningPath(pathId);
+
+        // 본인 확인
+        validateOwnership(principal, path.getUser().getUserId());
+
         return ResponseEntity.ok(LearningPathResponse.from(path));
     }
 
     /**
-     * 사용자의 모든 로드맵 조회
+     * 사용자의 모든 로드맵 조회 (본인 것만 조회 가능)
      * GET /api/learning-paths/user/{userId}
      */
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<LearningPathResponse>> getUserLearningPaths(@PathVariable Long userId) {
+    public ResponseEntity<List<LearningPathResponse>> getUserLearningPaths(
+            @PathVariable Long userId,
+            @AuthenticationPrincipal JwtUserPrincipal principal) {
         log.info("사용자 로드맵 조회 - userId: {}", userId);
+
+        // 본인 확인
+        validateOwnership(principal, userId);
 
         List<LearningPath> paths = learningPathService.getUserLearningPaths(userId);
         List<LearningPathResponse> responses = paths.stream()
@@ -145,16 +168,21 @@ public class LearningPathController {
     }
 
     /**
-     * 주차별 문제 AI 생성
+     * 주차별 문제 AI 생성 (본인 path만 가능)
      * POST /api/learning-paths/weekly-sessions/{weeklyId}/generate-questions
      */
     @PostMapping("/weekly-sessions/{weeklyId}/generate-questions")
     public ResponseEntity<List<QuestionResponse>> generateQuestions(
             @PathVariable Long weeklyId,
-            @Valid @RequestBody GenerateQuestionsRequest request) {
+            @Valid @RequestBody GenerateQuestionsRequest request,
+            @AuthenticationPrincipal JwtUserPrincipal principal) {
         log.info("문제 생성 요청 - weeklyId: {}, count: {}", weeklyId, request.getCount());
 
         WeeklySession session = weeklySessionService.getWeeklySession(weeklyId);
+
+        // 본인 확인
+        validateOwnership(principal, session.getLearningPath().getUser().getUserId());
+
         String domain = session.getLearningPath().getDomain();
 
         List<WeeklyQuestion> questions = questionGeneratorService.generateQuestions(
@@ -168,14 +196,20 @@ public class LearningPathController {
     }
 
     /**
-     * 주차별 문제 조회 (기존 제출 답안 포함)
+     * 주차별 문제 조회 (기존 제출 답안 포함, 본인 path만 가능)
      * GET /api/learning-paths/weekly-sessions/{weeklyId}/questions?userId={userId}
      */
     @GetMapping("/weekly-sessions/{weeklyId}/questions")
     public ResponseEntity<List<QuestionResponse>> getSessionQuestions(
             @PathVariable Long weeklyId,
-            @RequestParam(required = false) Long userId) {
+            @RequestParam(required = false) Long userId,
+            @AuthenticationPrincipal JwtUserPrincipal principal) {
         log.info("문제 조회 - weeklyId: {}, userId: {}", weeklyId, userId);
+
+        WeeklySession session = weeklySessionService.getWeeklySession(weeklyId);
+
+        // 본인 확인
+        validateOwnership(principal, session.getLearningPath().getUser().getUserId());
 
         List<WeeklyQuestion> questions = questionGeneratorService.getSessionQuestions(weeklyId);
 
@@ -196,17 +230,24 @@ public class LearningPathController {
     }
 
     /**
-     * 답변 제출
+     * 답변 제출 (본인 path만 가능)
      * POST /api/learning-paths/questions/{questionId}/submit
      */
     @PostMapping("/questions/{questionId}/submit")
     public ResponseEntity<AnswerResponse> submitAnswer(
             @PathVariable Long questionId,
-            @Valid @RequestBody SubmitAnswerRequest request) {
+            @Valid @RequestBody SubmitAnswerRequest request,
+            @AuthenticationPrincipal JwtUserPrincipal principal) {
         log.info("답변 제출 - questionId: {}, userId: {}", questionId, request.getUserId());
+
+        // 본인 확인
+        validateOwnership(principal, request.getUserId());
 
         WeeklyQuestion question = weeklyQuestionRepository.findById(questionId)
                 .orElseThrow(() -> new ResourceNotFoundException("WeeklyQuestion", "id", questionId));
+
+        // 해당 문제가 본인의 path에 속하는지 추가 확인
+        validateOwnership(principal, question.getWeeklySession().getLearningPath().getUser().getUserId());
 
         User user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", request.getUserId()));
@@ -229,37 +270,65 @@ public class LearningPathController {
 
         int totalQuestions = 0;
         int totalCorrect = 0;
+        int totalEarnedScore = 0;
+        int totalMaxScore = 0;
 
         for (WeeklySession session : path.getWeeklySessions()) {
             List<WeeklyQuestion> questions = weeklyQuestionRepository.findByWeeklySessionWeeklyId(session.getWeeklyId());
             totalQuestions += questions.size();
             totalCorrect += session.getCorrectCount() != null ? session.getCorrectCount() : 0;
+            totalEarnedScore += session.getEarnedScore() != null ? session.getEarnedScore() : 0;
+            totalMaxScore += session.getTotalScore() != null ? session.getTotalScore() : 0;
         }
 
-        learningPathService.updateStatistics(pathId, totalQuestions, totalCorrect);
+        learningPathService.updateStatistics(pathId, totalQuestions, totalCorrect, totalEarnedScore, totalMaxScore);
     }
 
     /**
-     * 주차 완료
+     * 주차 완료 (본인 path만 가능)
      * POST /api/learning-paths/weekly-sessions/{weeklyId}/complete
      */
     @PostMapping("/weekly-sessions/{weeklyId}/complete")
-    public ResponseEntity<Void> completeSession(@PathVariable Long weeklyId) {
+    public ResponseEntity<Void> completeSession(
+            @PathVariable Long weeklyId,
+            @AuthenticationPrincipal JwtUserPrincipal principal) {
         log.info("주차 완료 - weeklyId: {}", weeklyId);
+
+        WeeklySession session = weeklySessionService.getWeeklySession(weeklyId);
+
+        // 본인 확인
+        validateOwnership(principal, session.getLearningPath().getUser().getUserId());
+
         weeklySessionService.completeSession(weeklyId);
         return ResponseEntity.ok().build();
     }
 
     /**
-     * 대시보드 조회
+     * 대시보드 조회 (본인 것만 조회 가능)
      * GET /api/learning-paths/{pathId}/dashboard
      */
     @GetMapping("/{pathId}/dashboard")
     public ResponseEntity<DashboardService.DashboardData> getDashboard(
-            @PathVariable Long pathId) {
+            @PathVariable Long pathId,
+            @AuthenticationPrincipal JwtUserPrincipal principal) {
         log.info("대시보드 조회 - pathId: {}", pathId);
+
+        LearningPath path = learningPathService.getLearningPath(pathId);
+        validateOwnership(principal, path.getUser().getUserId());
 
         DashboardService.DashboardData dashboard = dashboardService.getDashboard(pathId);
         return ResponseEntity.ok(dashboard);
+    }
+
+    /**
+     * 본인 확인 헬퍼 메서드
+     */
+    private void validateOwnership(JwtUserPrincipal principal, Long ownerId) {
+        if (principal == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "인증이 필요합니다.");
+        }
+        if (!principal.getUserId().equals(ownerId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "접근 권한이 없습니다.");
+        }
     }
 }

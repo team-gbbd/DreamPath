@@ -3,6 +3,7 @@
 MySQL/PostgreSQL 데이터베이스 연결 및 채용 공고 저장/조회 기능
 """
 import os
+import json
 import threading
 from typing import List, Dict, Optional
 from datetime import datetime
@@ -207,8 +208,12 @@ class DatabaseService:
                 # job_details 테이블 생성
                 self._ensure_job_details_table(conn)
                 
+
                 # major_details 테이블 생성
                 self._ensure_major_details_table(conn)
+
+                # career_analyses & job_recommendations 테이블 생성
+                self._ensure_career_analysis_tables(conn)
         except Exception as e:
             print(f"테이블 생성 확인 중 오류 발생: {str(e)}")
             # 테이블 생성 실패해도 계속 진행 (이미 존재할 수 있음)
@@ -1298,3 +1303,246 @@ class DatabaseService:
         except Exception as e:
             print(f"대화 기록 조회 실패 (sessionId: {session_id}): {str(e)}")
             return ""
+
+    def _ensure_career_analysis_tables(self, conn):
+        """career_analyses 및 job_recommendations 테이블을 생성/보정합니다."""
+        try:
+            cursor = conn.cursor()
+
+            if USE_POSTGRES:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS career_analyses (
+                        id BIGSERIAL PRIMARY KEY,
+                        session_id BIGINT NOT NULL,
+                        emotion_analysis TEXT,
+                        emotion_score INT,
+                        personality_analysis TEXT,
+                        personality_type VARCHAR(50),
+                        interest_analysis TEXT,
+                        interest_areas JSONB,
+                        comprehensive_analysis TEXT,
+                        recommended_careers JSONB,
+                        analyzed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (session_id) REFERENCES career_sessions(id) ON DELETE CASCADE
+                    )
+                """)
+            else:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS career_analyses (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        session_id BIGINT NOT NULL,
+                        emotion_analysis TEXT,
+                        emotion_score INT,
+                        personality_analysis TEXT,
+                        personality_type VARCHAR(50),
+                        interest_analysis TEXT,
+                        interest_areas JSON,
+                        comprehensive_analysis TEXT,
+                        recommended_careers JSON,
+                        analyzed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (session_id) REFERENCES career_sessions(id) ON DELETE CASCADE,
+                        INDEX idx_session (session_id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """)
+
+            if USE_POSTGRES:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS job_recommendations (
+                        id BIGSERIAL PRIMARY KEY,
+                        user_id BIGINT NOT NULL,
+                        job_name VARCHAR(255) NOT NULL,
+                        job_code VARCHAR(100),
+                        match_score INT DEFAULT 0,
+                        category VARCHAR(100),
+                        description TEXT,
+                        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE (user_id, job_name)
+                    )
+                """)
+            else:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS job_recommendations (
+                        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                        user_id BIGINT NOT NULL,
+                        job_name VARCHAR(255) NOT NULL,
+                        job_code VARCHAR(100),
+                        match_score INT DEFAULT 0,
+                        category VARCHAR(100),
+                        description TEXT,
+                        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        UNIQUE KEY uk_user_job (user_id, job_name),
+                        INDEX idx_user (user_id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """)
+
+            conn.commit()
+
+        except Exception as e:
+            print(f"커리어 분석 테이블 생성 중 오류 (무시 가능): {str(e)}")
+    
+    def save_career_analysis(self, session_identifier: str, user_id: Optional[str], analysis_data: Dict) -> bool:
+        """career_analyses 테이블에 분석 결과를 저장하거나 갱신합니다."""
+        if not session_identifier:
+            raise ValueError("session_identifier가 필요합니다.")
+        if not analysis_data:
+            raise ValueError("analysis_data가 비어 있습니다.")
+
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+
+                session_pk = None
+                session_user_id = None
+
+                cursor.execute(
+                    """
+                    SELECT id, user_id
+                    FROM career_sessions
+                    WHERE session_id = %s
+                    LIMIT 1
+                    """,
+                    (session_identifier,),
+                )
+                row = cursor.fetchone()
+
+                if row:
+                    if isinstance(row, dict):
+                        session_pk = row.get("id")
+                        session_user_id = row.get("user_id")
+                    else:
+                        session_pk = row[0]
+                        session_user_id = row[1] if len(row) > 1 else None
+
+                if session_pk is None:
+                    try:
+                        numeric_id = int(session_identifier)
+                        cursor.execute(
+                            """
+                            SELECT id, user_id
+                            FROM career_sessions
+                            WHERE id = %s
+                            LIMIT 1
+                            """,
+                            (numeric_id,),
+                        )
+                        row = cursor.fetchone()
+                        if row:
+                            if isinstance(row, dict):
+                                session_pk = row.get("id")
+                                session_user_id = row.get("user_id")
+                            else:
+                                session_pk = row[0]
+                                session_user_id = row[1] if len(row) > 1 else None
+                    except (ValueError, TypeError):
+                        pass
+
+                if session_pk is None:
+                    raise ValueError(f"session_id '{session_identifier}'에 해당하는 세션을 찾을 수 없습니다.")
+
+                resolved_user_id = user_id or session_user_id
+
+                emotion = analysis_data.get("emotion") or {}
+                personality = analysis_data.get("personality") or {}
+                interest = analysis_data.get("interest") or {}
+
+                emotion_analysis = emotion.get("description")
+                emotion_score = emotion.get("score")
+
+                personality_analysis = personality.get("description")
+                personality_type = personality.get("type")
+
+                interest_analysis = interest.get("description")
+                interest_areas = interest.get("areas") or []
+
+                comprehensive_analysis = analysis_data.get("comprehensiveAnalysis")
+                recommended_careers = analysis_data.get("recommendedCareers") or []
+
+                interest_areas_json = (
+                    json.dumps(interest_areas, ensure_ascii=False) if interest_areas else None
+                )
+                recommended_careers_json = json.dumps(
+                    recommended_careers, ensure_ascii=False
+                )
+
+                now = datetime.utcnow()
+
+                if USE_POSTGRES:
+                    query = """
+                        INSERT INTO career_analyses (
+                            session_id,
+                            emotion_analysis, emotion_score,
+                            personality_analysis, personality_type,
+                            interest_analysis, interest_areas,
+                            comprehensive_analysis, recommended_careers,
+                            analyzed_at, updated_at
+                        ) VALUES (
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                        )
+                        ON CONFLICT (session_id) DO UPDATE SET
+                            emotion_analysis = EXCLUDED.emotion_analysis,
+                            emotion_score = EXCLUDED.emotion_score,
+                            personality_analysis = EXCLUDED.personality_analysis,
+                            personality_type = EXCLUDED.personality_type,
+                            interest_analysis = EXCLUDED.interest_analysis,
+                            interest_areas = EXCLUDED.interest_areas,
+                            comprehensive_analysis = EXCLUDED.comprehensive_analysis,
+                            recommended_careers = EXCLUDED.recommended_careers,
+                            updated_at = EXCLUDED.updated_at
+                    """
+                else:
+                    query = """
+                        INSERT INTO career_analyses (
+                            session_id,
+                            emotion_analysis, emotion_score,
+                            personality_analysis, personality_type,
+                            interest_analysis, interest_areas,
+                            comprehensive_analysis, recommended_careers,
+                            analyzed_at, updated_at
+                        ) VALUES (
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                        )
+                        ON DUPLICATE KEY UPDATE
+                            emotion_analysis = VALUES(emotion_analysis),
+                            emotion_score = VALUES(emotion_score),
+                            personality_analysis = VALUES(personality_analysis),
+                            personality_type = VALUES(personality_type),
+                            interest_analysis = VALUES(interest_analysis),
+                            interest_areas = VALUES(interest_areas),
+                            comprehensive_analysis = VALUES(comprehensive_analysis),
+                            recommended_careers = VALUES(recommended_careers),
+                            updated_at = VALUES(updated_at)
+                    """
+
+                cursor.execute(
+                    query,
+                    (
+                        session_pk,
+                        emotion_analysis,
+                        emotion_score,
+                        personality_analysis,
+                        personality_type,
+                        interest_analysis,
+                        interest_areas_json,
+                        comprehensive_analysis,
+                        recommended_careers_json,
+                        now,
+                        now,
+                    ),
+                )
+
+                if resolved_user_id:
+                    print(
+                        f"[DB] career_analyses 저장 완료 (session_id={session_identifier}, user_id={resolved_user_id})"
+                    )
+                else:
+                    print(f"[DB] career_analyses 저장 완료 (session_id={session_identifier})")
+
+                return True
+
+        except Exception as e:
+            print(f"[DB] career_analyses 저장 실패: {e}")
+            raise e

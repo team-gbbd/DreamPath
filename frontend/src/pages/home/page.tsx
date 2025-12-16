@@ -24,10 +24,13 @@ export default function Home() {
   }, []);
 
   // Loading state
+  const savedTheme = typeof window !== 'undefined' ? localStorage.getItem('dreampath:theme') : null;
+  const isDark = savedTheme === 'dark' || savedTheme === null;
+
   if (isLoggedIn === null) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900' : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-100'}`}>
+        <div className={`w-8 h-8 border-2 border-t-transparent rounded-full animate-spin ${isDark ? 'border-purple-500' : 'border-[#5A7BFF]'}`}></div>
       </div>
     );
   }

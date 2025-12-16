@@ -5,6 +5,7 @@ import com.dreampath.domain.user.dto.LoginResponse;
 import com.dreampath.domain.user.dto.RegisterRequest;
 import com.dreampath.domain.user.entity.User;
 import com.dreampath.global.enums.Role;
+import com.dreampath.global.jwt.JwtTokenProvider;
 import com.dreampath.global.oauth.OAuthAttributes;
 import com.dreampath.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailVerificationService emailVerificationService;
+    private final JwtTokenProvider jwtTokenProvider;
 
     // =======================
     // 비밀번호 정책 검증
@@ -197,6 +199,13 @@ public class AuthService {
     }
 
     private LoginResponse toLoginResponse(User user) {
+        // JWT 토큰 생성
+        String token = jwtTokenProvider.createToken(
+                user.getUserId(),
+                user.getUsername(),
+                user.getRole().name()
+        );
+
         return LoginResponse.builder()
                 .userId(user.getUserId())
                 .username(user.getUsername())
@@ -206,6 +215,7 @@ public class AuthService {
                 .birth(user.getBirth())
                 .createdAt(user.getCreatedAt())
                 .role(user.getRole())
+                .accessToken(token)
                 .build();
     }
 

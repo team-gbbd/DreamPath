@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { bookingService, mentorService } from '@/lib/api';
-import Header from '@/components/feature/Header';
 
 interface Booking {
   bookingId: number;
@@ -93,7 +92,7 @@ export default function MentorSessionsPage() {
     } catch (error: any) {
       console.error('멘토 정보 조회 실패:', error);
       alert('멘토로 승인된 사용자만 접근할 수 있습니다.');
-      navigate('/mypage');
+      navigate('/profile/dashboard');
     }
   };
 
@@ -283,7 +282,7 @@ export default function MentorSessionsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      
 
       <div className="pt-16">
         <div className="max-w-7xl mx-auto px-6 py-8">

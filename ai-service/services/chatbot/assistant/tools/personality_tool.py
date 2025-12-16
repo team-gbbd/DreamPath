@@ -78,7 +78,7 @@ def execute(
         if not results or len(results) == 0:
             return {
                 "success": False,
-                "message": "아직 성격 분석 결과가 없습니다. 프로필 분석을 먼저 진행해주세요."
+                "message": "아직 진로 분석을 진행하지 않으셨네요! 진로 분석을 진행하시면 성격 분석 결과를 조회할 수 있어요."
             }
 
         analysis = results[0]
@@ -125,7 +125,7 @@ def execute(
         if not any([data.get("personality"), data.get("mbti"), data.get("values"), data.get("emotions")]):
             return {
                 "success": False,
-                "message": "분석 결과가 비어있습니다. 프로필 분석을 다시 진행해주세요."
+                "message": "성격 분석 결과를 조회할 수 없습니다. 진로 분석을 다시 진행해주세요."
             }
 
         return {

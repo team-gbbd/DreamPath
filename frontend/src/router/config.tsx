@@ -1,16 +1,10 @@
 import { lazy } from "react";
 import type { RouteObject } from "react-router-dom";
-import VectorStatusPage from "@/pages/profile/VectorStatusPage";
-import JobRecommend from "@/pages/profile/JobRecommend";
-import RecruitRecommend from "@/pages/profile/RecruitRecommend";
-import MajorRecommend from "@/pages/profile/MajorRecommend";
-import SchoolRecommend from "@/pages/profile/SchoolRecommend";
 
 const ProfileDashboardPage = lazy(() => import("../pages/profile/Dashboard"));
 const HomePage = lazy(() => import("../pages/home/page"));
 const NotFoundPage = lazy(() => import("../pages/NotFound"));
 const CareerChatPage = lazy(() => import("../pages/career-chat/page"));
-const AnalysisResultPage = lazy(() => import("../pages/analysis-result/page"));
 const JobListingsPage = lazy(() => import("../pages/job-listings/page"));
 const LoginPage = lazy(() => import("../pages/auth/LoginPage"));
 const RegisterPage = lazy(() => import("../pages/auth/RegisterPage"));
@@ -19,37 +13,27 @@ const ChatbotPage = lazy(() => import("../pages/chatbot/ChatbotPage"));
 const LearningPathDetailPage = lazy(() => import("../pages/learning/LearningPathDetail"));
 const WeeklyQuizPage = lazy(() => import("../pages/learning/WeeklyQuiz"));
 const LearningDashboardPage = lazy(() => import("../pages/learning/Dashboard"));
-const DeveloperExperiencePage = lazy(() => import("../pages/career-simulation/DeveloperExperience"));
-const CareerSimulationResultPage = lazy(() => import("../pages/career-simulation/Result"));
-const CodingTestPage = lazy(() => import("../pages/career-simulation/CodingTest"));
 const AIAgentDashboardPage = lazy(() => import("../pages/ai-agent/Dashboard"));
 const CompanyListPage = lazy(() => import("../pages/company/CompanyListPage"));
 const CompanyDetailPage = lazy(() => import("../pages/company/CompanyDetailPage"));
 const CrawlerPage = lazy(() => import("../pages/admin/CrawlerPage"));
-const MentorApplyPage = lazy(() => import("../pages/mentors/MentorApply"));
-const AdminDashboardPage = lazy(() => import("../pages/admin/AdminDashboard"));
 const MentorApplicationsPage = lazy(() => import("../pages/admin/MentorApplications"));
 const FaqManagementPage = lazy(() => import("../pages/admin/FaqManagement"));
 const InquiriesManagementPage = lazy(() => import("../pages/admin/InquiriesManagement"));
 const UserManagementPage = lazy(() => import("../pages/admin/UserManagement"));
 const MentorManagementPage = lazy(() => import("../pages/admin/MentorManagement"));
 const AdminPage = lazy(() => import("../pages/admin/AdminPage.tsx"));
-const MentorsListPage = lazy(() => import("../pages/mentors/MentorsList"));
-const MentorDetailPage = lazy(() => import("../pages/mentors/MentorDetail"));
-const MentorEditPage = lazy(() => import("../pages/mypage/mentor/MentorEditPage"));
 const PaymentPurchasePage = lazy(() => import("../pages/payments/PaymentPurchase"));
 const PaymentHistoryPage = lazy(() => import("../pages/payments/PaymentHistory"));
 const PaymentSuccessPage = lazy(() => import("../pages/payments/PaymentSuccess"));
 const PaymentFailPage = lazy(() => import("../pages/payments/PaymentFail"));
 const BookMentoringPage = lazy(() => import("../pages/mentoring/BookMentoring"));
-const MyBookingsPage = lazy(() => import("../pages/mypage/shared/BookingsPage"));
-const MentorSessionsPage = lazy(() => import("../pages/mypage/mentor/MentorSessionsPage"));
 const MentoringMeetingPage = lazy(() => import("../pages/mentoring/MentoringMeeting"));
 const JobAnalysisPage = lazy(() => import("../pages/job-analysis/JobAnalysisPage"));
 const PersonalizedInsightsPage = lazy(() => import("../pages/job-analysis/PersonalizedInsightsPage"));
-// 채용 추천?� 종합분석(JobRecommendationsPage)�??�용
 const JobRecommendationsPage = lazy(() => import("../pages/job-recommendations/ComprehensiveJobPage"));
 const CompanyTalentPage = lazy(() => import("../pages/company-talent/CompanyTalentPage"));
+const MainLayout = lazy(() => import("../components/layout/MainLayout"));
 
 const routes: RouteObject[] = [
   {
@@ -57,16 +41,8 @@ const routes: RouteObject[] = [
     element: <HomePage />,
   },
   {
-    path: "/career-chat",
-    element: <CareerChatPage />,
-  },
-  {
-    path: "/analysis/:sessionId",
-    element: <AnalysisResultPage />,
-  },
-  {
-    path: "/job-listings",
-    element: <JobListingsPage />,
+    path: "/home",
+    element: <HomePage />,
   },
   {
     path: "/login",
@@ -76,222 +52,129 @@ const routes: RouteObject[] = [
     path: "/register",
     element: <RegisterPage />,
   },
+
+  {
+    path: "/career-chat",
+    element: <MainLayout showFooter={false}><CareerChatPage /></MainLayout>,
+  },
+  {
+    path: "/job-listings",
+    element: <MainLayout><JobListingsPage /></MainLayout>,
+  },
   {
     path: "/mentoring",
-    element: <MentoringPage />,
+    element: <MainLayout><MentoringPage /></MainLayout>,
   },
   {
     path: "/chatbot",
-    element: <ChatbotPage />,
+    element: <MainLayout showFooter={false}><ChatbotPage /></MainLayout>,
   },
 
-  /* ----------------------
-     PROFILE
-     ---------------------- */
   {
     path: "/profile/dashboard",
-    element: <ProfileDashboardPage />,
-  },
-  {
-    path: "/profile/vector-status",
-    element: <VectorStatusPage />,
-  },
-  {
-    path: "/profile/recommend",
-    element: <JobRecommend />,
-  },
-  {
-    path: "/profile/recommend/worknet",
-    element: <RecruitRecommend />,
-  },
-  {
-    path: "/profile/recommend/majors",
-    element: <MajorRecommend />,
-  },
-  {
-    path: "/profile/recommend/schools",
-    element: <SchoolRecommend />,
+    element: <MainLayout><ProfileDashboardPage /></MainLayout>,
   },
 
-  /* ----------------------
-     LEARNING PATH
-     ---------------------- */
   {
     path: "/learning",
-    element: <LearningDashboardPage />,
+    element: <MainLayout><LearningDashboardPage /></MainLayout>,
   },
   {
     path: "/learning/:pathId",
-    element: <LearningPathDetailPage />,
+    element: <MainLayout><LearningPathDetailPage /></MainLayout>,
   },
   {
     path: "/learning/:pathId/week/:weeklyId",
-    element: <WeeklyQuizPage />,
+    element: <MainLayout showFooter={false}><WeeklyQuizPage /></MainLayout>,
   },
 
-  /* ----------------------
-     CAREER SIMULATION
-     ---------------------- */
-  {
-    path: "/career-simulation/developer",
-    element: <DeveloperExperiencePage />,
-  },
-  {
-    path: "/career-simulation/result",
-    element: <CareerSimulationResultPage />,
-  },
-  {
-    path: "/career-simulation/coding-test",
-    element: <CodingTestPage />,
-  },
-
-  /* ----------------------
-     AI AGENT
-     ---------------------- */
   {
     path: "/ai-agent",
-    element: <AIAgentDashboardPage />,
+    element: <MainLayout><AIAgentDashboardPage /></MainLayout>,
   },
 
-  /* ----------------------
-     COMPANY INFO
-     ---------------------- */
   {
     path: "/company-list",
-    element: <CompanyListPage />,
+    element: <MainLayout><CompanyListPage /></MainLayout>,
   },
   {
     path: "/company/:id",
-    element: <CompanyDetailPage />,
+    element: <MainLayout><CompanyDetailPage /></MainLayout>,
   },
 
-  /* ----------------------
-     JOB ANALYSIS & RECOMMENDATIONS
-     ---------------------- */
   {
     path: "/job-analysis",
-    element: <JobAnalysisPage />,
+    element: <MainLayout><JobAnalysisPage /></MainLayout>,
   },
   {
     path: "/job-analysis/personalized",
-    element: <PersonalizedInsightsPage />,
+    element: <MainLayout><PersonalizedInsightsPage /></MainLayout>,
   },
   {
     path: "/job-recommendations",
-    element: <JobRecommendationsPage />,
+    element: <MainLayout><JobRecommendationsPage /></MainLayout>,
   },
 
-  /* ----------------------
-     COMPANY TALENT ANALYSIS
-     ---------------------- */
   {
     path: "/company-talent",
-    element: <CompanyTalentPage />,
+    element: <MainLayout><CompanyTalentPage /></MainLayout>,
   },
 
-  /* ----------------------
-     MYPAGE
-     ---------------------- */
-  {
-    path: "/mypage/bookings",
-    element: <MyBookingsPage />,
-  },
-  {
-    path: "/mypage/mentor/sessions",
-    element: <MentorSessionsPage />,
-  },
-  {
-    path: "/mypage/mentor/edit",
-    element: <MentorEditPage />,
-  },
-
-  /* ----------------------
-     MENTORS
-     ---------------------- */
-  {
-    path: "/mentors",
-    element: <MentorsListPage />,
-  },
-  {
-    path: "/mentors/:id",
-    element: <MentorDetailPage />,
-  },
-  {
-    path: "/mentors/apply",
-    element: <MentorApplyPage />,
-  },
-
-  /* ----------------------
-     MENTORING
-     ---------------------- */
   {
     path: "/mentoring/book/:sessionId",
-    element: <BookMentoringPage />,
+    element: <MainLayout><BookMentoringPage /></MainLayout>,
   },
   {
     path: "/mentoring/meeting/:bookingId",
-    element: <MentoringMeetingPage />,
+    element: <MainLayout showFooter={false}><MentoringMeetingPage /></MainLayout>,
   },
 
-  /* ----------------------
-     PAYMENTS
-     ---------------------- */
   {
     path: "/payments/purchase",
-    element: <PaymentPurchasePage />,
+    element: <MainLayout><PaymentPurchasePage /></MainLayout>,
   },
   {
     path: "/payments/history",
-    element: <PaymentHistoryPage />,
+    element: <MainLayout><PaymentHistoryPage /></MainLayout>,
   },
   {
     path: "/payments/success",
-    element: <PaymentSuccessPage />,
+    element: <MainLayout><PaymentSuccessPage /></MainLayout>,
   },
   {
     path: "/payments/fail",
-    element: <PaymentFailPage />,
+    element: <MainLayout><PaymentFailPage /></MainLayout>,
   },
 
-  /* ----------------------
-     ADMIN
-     ---------------------- */
   {
     path: "/admin",
-    element: <AdminPage />,
-  },
-  {
-    path: "/admin/dashboard",
-    element: <AdminDashboardPage />,
+    element: <MainLayout><AdminPage /></MainLayout>,
   },
   {
     path: "/admin/mentor-applications",
-    element: <MentorApplicationsPage />,
+    element: <MainLayout><MentorApplicationsPage /></MainLayout>,
   },
   {
     path: "/admin/crawler",
-    element: <CrawlerPage />,
+    element: <MainLayout><CrawlerPage /></MainLayout>,
   },
   {
     path: "/admin/faq",
-    element: <FaqManagementPage />,
+    element: <MainLayout><FaqManagementPage /></MainLayout>,
   },
   {
     path: "/admin/inquiries",
-    element: <InquiriesManagementPage />,
+    element: <MainLayout><InquiriesManagementPage /></MainLayout>,
   },
   {
     path: "/admin/users",
-    element: <UserManagementPage />,
+    element: <MainLayout><UserManagementPage /></MainLayout>,
   },
   {
     path: "/admin/mentors",
-    element: <MentorManagementPage />,
+    element: <MainLayout><MentorManagementPage /></MainLayout>,
   },
 
-  /* ----------------------
-     NOT FOUND
-     ---------------------- */
   {
     path: "*",
     element: <NotFoundPage />,
