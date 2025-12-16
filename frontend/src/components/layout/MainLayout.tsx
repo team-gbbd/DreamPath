@@ -1,4 +1,4 @@
-import { useState, useEffect, ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   MessageSquare,
@@ -15,6 +15,12 @@ import {
   BookOpen,
   Home,
   AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  LayoutDashboard,
+  PieChart,
+  GraduationCap,
+  BarChart3,
 } from "lucide-react";
 import FaqChatbot from "@/components/chatbot/FaqChatbot";
 
@@ -33,6 +39,7 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
   const [userRole, setUserRole] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showProfileRequiredModal, setShowProfileRequiredModal] = useState(false);
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(["profile"]); // Default expanded for demo/convenience
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("dreampath:theme");
@@ -98,19 +105,29 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
     }
   };
 
-  const handleSidebarClick = (type: string) => {
-    setSidebarOpen(false);
+  const handleSidebarClick = (item: any) => {
+    // If item has subitems, toggle expansion
+    if (item.subItems) {
+      setExpandedMenus(prev =>
+        prev.includes(item.type)
+          ? prev.filter(t => t !== item.type)
+          : [...prev, item.type]
+      );
+      return;
+    }
+
+    setSidebarOpen(false); // Close mobile sidebar on navigation
 
     // 로그인하지 않은 상태에서의 처리
     if (!isLoggedIn) {
       // 홈은 누구나 접근 가능
-      if (type === "home") {
+      if (item.type === "home") {
         navigate("/home");
         return;
       }
 
       // 진로 상담은 로그인 필요 메시지 후 로그인 페이지로
-      if (type === "career") {
+      if (item.type === "career") {
         navigate("/career-chat"); // career-chat 페이지에서 자체적으로 로그인 필요 처리
         return;
       }
@@ -121,37 +138,36 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
     }
 
     // 로그인된 상태에서의 정상 동작
-    switch (type) {
-      case "home":
-        navigate("/home");
-        break;
-      case "career":
-        navigate("/career-chat");
-        break;
-      case "profile":
-        navigate(userRole === 'ADMIN' ? "/admin" : "/profile/dashboard");
-        break;
-      case "job":
-        navigate("/job-recommendations");
-        break;
-      case "learning":
-        navigate("/learning");
-        break;
-      case "mentoring":
-        navigate("/mentoring");
-        break;
-      default:
-        break;
+    // Handle specific paths if provided
+    if (item.path) {
+      // Special case for admin dashboard
+      if (item.type === 'profile' && userRole === 'ADMIN') {
+        navigate("/admin");
+      } else {
+        navigate(item.path);
+      }
     }
   };
 
   const sidebarItems = [
-    { type: "home", icon: Home, label: "홈" },
-    { type: "career", icon: MessageSquare, label: "진로 상담" },
-    { type: "profile", icon: User, label: userRole === 'ADMIN' ? '대시보드' : '프로파일링' },
-    { type: "job", icon: Briefcase, label: "채용 추천" },
-    { type: "mentoring", icon: Users, label: "멘토링" },
-    { type: "learning", icon: BookOpen, label: "학습" },
+    { type: "home", icon: Home, label: "홈", path: "/home" },
+    { type: "career", icon: MessageSquare, label: "진로 상담", path: "/career-chat" },
+    {
+      type: "profile",
+      icon: BarChart3,
+      label: userRole === 'ADMIN' ? '대시보드' : '성향 프로파일링',
+      path: userRole === 'ADMIN' ? "/admin" : undefined,
+      subItems: userRole === 'ADMIN' ? undefined : [
+        { label: "대시보드", path: "/profile/dashboard", icon: LayoutDashboard },
+        { label: "성향 및 가치관 분석", path: "/job-analysis", icon: PieChart },
+        { label: "직업 추천", path: "/job-recommendations", icon: Briefcase },
+        { label: "학과 추천", path: "/major-recommendations", icon: GraduationCap },
+      ]
+    },
+    // Job Removed from top level as it is now in subItems
+    { type: "learning", icon: BookOpen, label: "학습 현황", path: "/learning" }, // user asked for "학습 현황"
+    { type: "mentoring", icon: Users, label: "멘토링", path: "/mentoring" },
+    { type: "settings", icon: User, label: "계정 설정", path: "/settings" }, // Added to match image
   ];
 
   const theme = {
@@ -205,21 +221,61 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
         </div>
 
         <nav className="flex-1 px-3 space-y-2">
-          {sidebarItems.map((item) => (
-            <button
-              key={item.type}
-              onClick={() => handleSidebarClick(item.type)}
-              className={`w-full flex items-center gap-4 px-3 py-4 rounded-xl transition-all duration-300 group/nav ${theme.sidebarText} ${theme.sidebarHover}`}
-            >
-              <div className="relative">
-                <item.icon className="w-6 h-6 flex-shrink-0 transition-transform group-hover/nav:scale-110" />
-                <div className="absolute -inset-2 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] rounded-lg opacity-0 group-hover/nav:opacity-20 blur transition-opacity" />
+          {sidebarItems.map((item) => {
+            const isExpanded = expandedMenus.includes(item.type);
+            const isActive = location.pathname === item.path || (item.subItems && item.subItems.some(sub => location.pathname === sub.path));
+
+            return (
+              <div key={item.type} className="w-full">
+                <button
+                  onClick={() => handleSidebarClick(item)}
+                  className={`w-full flex items-center justify-between px-3 py-4 rounded-xl transition-all duration-300 group/nav relative
+                    ${(isExpanded || isActive) && item.subItems ? "bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white shadow-lg shadow-purple-500/20" : `${theme.sidebarText} ${theme.sidebarHover}`}
+                  `}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <item.icon className={`w-6 h-6 flex-shrink-0 transition-transform group-hover/nav:scale-110 ${(isExpanded || isActive) && item.subItems ? "text-white" : ""}`} />
+                      {!(isExpanded || isActive) && (
+                        <div className="absolute -inset-2 bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] rounded-lg opacity-0 group-hover/nav:opacity-20 blur transition-opacity" />
+                      )}
+                    </div>
+                    <span className={`opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap font-medium text-sm ${(isExpanded || isActive) && item.subItems ? "text-white font-bold" : ""}`}>
+                      {item.label}
+                    </span>
+                  </div>
+                  {item.subItems && (
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </div>
+                  )}
+                </button>
+
+                {/* Submenu */}
+                {item.subItems && isExpanded && (
+                  <div className="ml-4 mt-2 mb-2 pl-4 border-l-2 border-purple-500/20 space-y-1 bg-purple-50/50 dark:bg-white/5 rounded-r-xl py-2 overflow-hidden animate-slide-up">
+                    {item.subItems.map((subItem) => {
+                      const isSubActive = location.pathname === subItem.path;
+                      return (
+                        <button
+                          key={subItem.path}
+                          onClick={() => navigate(subItem.path)}
+                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm
+                            ${isSubActive
+                              ? "text-[#6C5CE7] font-bold bg-purple-100 dark:bg-white/10"
+                              : darkMode ? "text-white/50 hover:text-white hover:bg-white/5" : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"}
+                          `}
+                        >
+                          <subItem.icon className={`w-4 h-4 ${isSubActive ? "text-[#6C5CE7] dark:text-[#8F5CFF]" : ""}`} />
+                          <span className="whitespace-nowrap">{subItem.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-              <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap font-medium text-sm">
-                {item.label}
-              </span>
-            </button>
-          ))}
+            );
+          })}
         </nav>
 
         <div className="px-3 mt-auto space-y-2">
@@ -237,9 +293,8 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
 
       {/* Left Sidebar - Mobile */}
       <div
-        className={`fixed left-0 top-0 h-full w-72 z-50 lg:hidden transform transition-transform duration-300 border-r flex flex-col py-6 ${
-          theme.sidebar
-        } ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`fixed left-0 top-0 h-full w-72 z-50 lg:hidden transform transition-transform duration-300 border-r flex flex-col py-6 ${theme.sidebar
+          } ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="flex items-center justify-between px-4 mb-8">
           <div className="flex items-center gap-3 cursor-pointer" onClick={handleLogoClick}>
@@ -256,16 +311,57 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
         </div>
 
         <nav className="flex-1 px-3 space-y-2 overflow-y-auto min-h-0">
-          {sidebarItems.map((item) => (
-            <button
-              key={item.type}
-              onClick={() => handleSidebarClick(item.type)}
-              className={`w-full flex items-center gap-4 px-4 py-4 rounded-xl transition-all duration-200 ${theme.sidebarText} ${theme.sidebarHover}`}
-            >
-              <item.icon className="w-6 h-6 flex-shrink-0" />
-              <span className="font-medium text-sm">{item.label}</span>
-            </button>
-          ))}
+          {sidebarItems.map((item) => {
+            const isExpanded = expandedMenus.includes(item.type);
+            const isActive = location.pathname === item.path || (item.subItems && item.subItems.some(sub => location.pathname === sub.path));
+
+            return (
+              <div key={item.type}>
+                <button
+                  onClick={() => handleSidebarClick(item)}
+                  className={`w-full flex items-center justify-between px-4 py-4 rounded-xl transition-all duration-200 
+                    ${(isExpanded || isActive) && item.subItems ? "bg-gradient-to-r from-[#5A7BFF] to-[#8F5CFF] text-white shadow-lg" : `${theme.sidebarText} ${theme.sidebarHover}`}
+                  `}
+                >
+                  <div className="flex items-center gap-4">
+                    <item.icon className="w-6 h-6 flex-shrink-0" />
+                    <span className="font-medium text-sm">{item.label}</span>
+                  </div>
+                  {item.subItems && (
+                    <div>
+                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </div>
+                  )}
+                </button>
+
+                {/* Mobile Submenu */}
+                {item.subItems && isExpanded && (
+                  <div className="ml-8 mt-2 space-y-1 border-l-2 border-purple-500/20 pl-4 py-2">
+                    {item.subItems.map((subItem) => {
+                      const isSubActive = location.pathname === subItem.path;
+                      return (
+                        <button
+                          key={subItem.path}
+                          onClick={() => {
+                            navigate(subItem.path);
+                            setSidebarOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200 text-sm
+                            ${isSubActive
+                              ? "text-[#6C5CE7] font-bold bg-purple-50 dark:bg-white/10 dark:text-white"
+                              : darkMode ? "text-white/60" : "text-slate-600"}
+                          `}
+                        >
+                          <subItem.icon className={`w-4 h-4 ${isSubActive ? "text-[#6C5CE7] dark:text-white" : ""}`} />
+                          <span className="font-medium">{subItem.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </nav>
 
         <div className="px-3 pt-2 flex-shrink-0 space-y-2">
@@ -398,9 +494,8 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
             ${darkMode ? "bg-[#0f0f14] border-white/10" : "bg-white border-gray-200"}
           `}>
             <div className="flex flex-col items-center text-center">
-              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${
-                darkMode ? "bg-amber-500/20" : "bg-amber-100"
-              }`}>
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${darkMode ? "bg-amber-500/20" : "bg-amber-100"
+                }`}>
                 <AlertCircle className="w-8 h-8 text-amber-500" />
               </div>
               <h3 className={`text-xl font-bold mb-2 ${darkMode ? "text-white" : "text-slate-900"}`}>
@@ -413,11 +508,10 @@ export default function MainLayout({ children, showFooter = true }: MainLayoutPr
               <div className="flex gap-3 w-full">
                 <button
                   onClick={() => setShowProfileRequiredModal(false)}
-                  className={`flex-1 py-3 rounded-xl font-medium transition-all ${
-                    darkMode
-                      ? "bg-white/10 text-white/70 hover:bg-white/20"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
+                  className={`flex-1 py-3 rounded-xl font-medium transition-all ${darkMode
+                    ? "bg-white/10 text-white/70 hover:bg-white/20"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
                 >
                   닫기
                 </button>
