@@ -207,7 +207,7 @@ export const pythonApi = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 120000, // 2분 (AI 분석 API가 오래 걸림)
+  timeout: 240000, // 4분 (AI 분석 API가 오래 걸림)
 });
 
 export const jobSiteService = {
