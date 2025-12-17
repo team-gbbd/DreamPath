@@ -1665,7 +1665,7 @@ function RightPanel({
             )}
           </div>
 
-          {/* AI Research 섹션 */}
+          {/* AI Assistant 섹션 */}
           <div>
             {/* 아코디언 헤더 */}
             <button
@@ -1691,7 +1691,7 @@ function RightPanel({
                   "font-medium text-sm",
                   darkMode ? "text-white" : "text-gray-900"
                 )}>
-                  AI Research
+                  AI Assistant
                 </span>
                 {researchPanels.length > 0 && (
                   <span className={cn(
