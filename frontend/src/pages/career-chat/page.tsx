@@ -23,12 +23,13 @@ import {
   BookOpen,
   ChevronRight,
   ChevronDown,
+  ChevronUp,
   Menu,
-  X
+  X,
+  User
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -61,7 +62,6 @@ interface RecentInsight {
   type: string;
 }
 
-type RightPanelTab = 'identity' | 'research';
 
 interface ResearchSource {
   title: string;
@@ -256,7 +256,6 @@ export default function CareerChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasCheckedAuth = useRef(false);
   const hasProcessedInitialMessage = useRef(false);
-  const [rightPanelTab, setRightPanelTab] = useState<RightPanelTab>('identity');
   const [researchPanels, setResearchPanels] = useState<ResearchPanel[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set());
@@ -725,7 +724,6 @@ export default function CareerChatPage() {
             } : undefined,
           };
           setResearchPanels(prev => [newResearchPanel, ...prev]);
-          setRightPanelTab('research');
           return;
         }
 
@@ -937,7 +935,6 @@ export default function CareerChatPage() {
     setIdentityStatus(null);
     setAnalysisUnlocked(false);
     setResearchPanels([]);
-    setRightPanelTab('identity');
     setPersonalityPromptDismissed(false);
     setPersonalityTriggered(false);
     startNewSession(null, { forceNew: true, skipRestore: true });
@@ -1291,8 +1288,6 @@ export default function CareerChatPage() {
             <RightPanel
               darkMode={darkMode}
               theme={theme}
-              rightPanelTab={rightPanelTab}
-              setRightPanelTab={setRightPanelTab}
               identityStatus={identityStatus}
               isIdentityLoading={isIdentityLoading}
               stageInfo={stageInfo}
@@ -1338,8 +1333,6 @@ export default function CareerChatPage() {
               <RightPanel
                 darkMode={darkMode}
                 theme={theme}
-                rightPanelTab={rightPanelTab}
-                setRightPanelTab={setRightPanelTab}
                 identityStatus={identityStatus}
                 isIdentityLoading={isIdentityLoading}
                 stageInfo={stageInfo}
@@ -1368,8 +1361,6 @@ export default function CareerChatPage() {
 interface RightPanelProps {
   darkMode: boolean;
   theme: ThemeColors;
-  rightPanelTab: RightPanelTab;
-  setRightPanelTab: (tab: RightPanelTab) => void;
   identityStatus: IdentityStatus | null;
   isIdentityLoading: boolean;
   stageInfo: { label: string; icon: any } | null;
@@ -1389,8 +1380,6 @@ interface RightPanelProps {
 function RightPanel({
   darkMode,
   theme,
-  rightPanelTab,
-  setRightPanelTab,
   identityStatus,
   isIdentityLoading,
   stageInfo,
@@ -1406,6 +1395,8 @@ function RightPanel({
   navigate,
   isMobile = false,
 }: RightPanelProps) {
+  const [identityExpanded, setIdentityExpanded] = useState(true);
+  const [researchExpanded, setResearchExpanded] = useState(true);
   const height = isMobile ? "h-[calc(100vh-56px)]" : "h-[calc(100vh-96px)]";
 
   return (
@@ -1414,510 +1405,583 @@ function RightPanel({
       darkMode ? "bg-[#0B0D14]" : "bg-white/80 backdrop-blur-sm",
       isMobile ? height : `sticky top-24 ${height}`
     )}>
-      <Tabs value={rightPanelTab} onValueChange={(v) => setRightPanelTab(v as RightPanelTab)} className="flex flex-col h-full">
-        <TabsList className={cn(
-          "grid w-full grid-cols-2 p-1 rounded-none",
-          darkMode ? "bg-white/[0.03]" : "bg-gray-100"
-        )}>
-          <TabsTrigger
-            value="identity"
-            className={cn(
-              "rounded-md text-sm transition-all",
-              darkMode
-                ? "data-[state=active]:bg-white/[0.08] data-[state=active]:text-white text-white/50"
-                : "data-[state=active]:bg-white"
-            )}
-          >
-            나의 정체성
-          </TabsTrigger>
-          <TabsTrigger
-            value="research"
-            className={cn(
-              "rounded-md text-sm transition-all",
-              "data-[state=active]:bg-slate-800 data-[state=active]:text-white",
-              darkMode ? "text-white/50" : "text-gray-600"
-            )}
-          >
-            AI Research
-          </TabsTrigger>
-        </TabsList>
-
-        {/* 정체성 탭 */}
-        <TabsContent value="identity" className={cn(
-          "flex-1 overflow-hidden m-0",
-          darkMode ? "bg-white/[0.02]" : "bg-white"
-        )}>
-          <ScrollArea className="h-full">
-            <div className="p-4 space-y-4">
-              {isIdentityLoading && (
+      <ScrollArea className="h-full">
+        <div className="flex flex-col">
+          {/* 나의 정체성 섹션 */}
+          <div className={cn(
+            "border-b",
+            darkMode ? "border-white/[0.06]" : "border-gray-200"
+          )}>
+            {/* 아코디언 헤더 */}
+            <button
+              onClick={() => setIdentityExpanded(!identityExpanded)}
+              className={cn(
+                "w-full flex items-center justify-between px-4 py-3 transition-colors",
+                darkMode
+                  ? "hover:bg-white/[0.03]"
+                  : "hover:bg-gray-50"
+              )}
+            >
+              <div className="flex items-center gap-2">
                 <div className={cn(
-                  "rounded-xl p-4",
-                  darkMode
-                    ? "bg-gradient-to-r from-violet-500/10 to-violet-600/10 border border-violet-500/20"
-                    : "bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/10"
+                  "h-7 w-7 rounded-lg flex items-center justify-center",
+                  darkMode ? "bg-violet-500/20" : "bg-violet-100"
                 )}>
-                  <div className="flex items-center gap-3">
-                    <Loader2 className={cn(
-                      "h-5 w-5 animate-spin",
-                      darkMode ? "text-violet-400" : "text-primary"
-                    )} />
-                    <div>
-                      <p className={`text-sm font-medium ${theme.text}`}>정체성 분석 중...</p>
-                      <p className={`text-xs ${theme.textSubtle}`}>대화 내용을 분석하고 있어요</p>
-                    </div>
-                  </div>
+                  <User className={cn(
+                    "h-4 w-4",
+                    darkMode ? "text-violet-400" : "text-violet-600"
+                  )} />
                 </div>
-              )}
-
-              {identityStatus ? (
-                <>
-                  {/* 새로운 인사이트 */}
-                  {identityStatus.recentInsight?.hasInsight && identityStatus.recentInsight?.insight && (
-                    <div className={cn(
-                      "rounded-xl p-4",
-                      darkMode
-                        ? "bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20"
-                        : "bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/50"
-                    )}>
-                      <div className="flex items-start gap-3">
-                        <div className={cn(
-                          "h-8 w-8 rounded-lg flex items-center justify-center",
-                          darkMode ? "bg-amber-500/20" : "bg-amber-100"
-                        )}>
-                          <Lightbulb className={cn(
-                            "h-4 w-4",
-                            darkMode ? "text-amber-400" : "text-amber-600"
-                          )} />
-                        </div>
-                        <div>
-                          <p className={cn(
-                            "text-sm font-medium",
-                            darkMode ? "text-amber-400" : "text-amber-800"
-                          )}>새로운 발견!</p>
-                          <p className={cn(
-                            "text-sm mt-1",
-                            darkMode ? "text-amber-300/80" : "text-amber-700"
-                          )}>
-                            {identityStatus.recentInsight.insight}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 현재 단계 */}
-                  {identityStatus.currentStage && (
-                    <div className={cn(
-                      "rounded-xl p-4",
-                      darkMode
-                        ? "bg-gradient-to-r from-violet-500/10 to-violet-600/10 border border-violet-500/20"
-                        : "bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/10"
-                    )}>
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <StageIcon className={cn(
-                            "h-5 w-5",
-                            darkMode ? "text-violet-400" : "text-primary"
-                          )} />
-                          <span className={`font-medium ${theme.text}`}>
-                            {stageInfo?.label} 단계
-                          </span>
-                        </div>
-                        <span className={cn(
-                          "text-sm font-semibold",
-                          darkMode ? "text-violet-400" : "text-primary"
-                        )}>
-                          {identityStatus.overallProgress}%
-                        </span>
-                      </div>
-                      {identityStatus.stageDescription && (
-                        <p className={`text-sm ${theme.textMuted}`}>
-                          {identityStatus.stageDescription}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* 명확도 */}
-                  {identityStatus.clarity != null && (
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className={`text-sm font-medium ${theme.textMuted}`}>정체성 명확도</span>
-                        <span className={cn(
-                          "text-sm font-semibold",
-                          darkMode ? "text-violet-400" : "text-primary"
-                        )}>
-                          {identityStatus.clarity}%
-                        </span>
-                      </div>
-                      <Progress value={identityStatus.clarity} className="h-2" />
-                      {identityStatus.clarityReason && (
-                        <p className={`text-xs ${theme.textSubtle}`}>
-                          {identityStatus.clarityReason}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* 핵심 정체성 */}
-                  {identityStatus.identityCore && identityStatus.identityCore !== '탐색 중...' && (
-                    <div className={cn(
-                      "rounded-xl p-4",
-                      darkMode ? "bg-white/[0.03]" : "bg-gray-50"
-                    )}>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Target className={cn(
-                          "h-4 w-4",
-                          darkMode ? "text-white/40" : "text-gray-500"
-                        )} />
-                        <span className={`text-xs font-medium uppercase tracking-wide ${theme.textSubtle}`}>핵심 정체성</span>
-                      </div>
-                      <p className={`text-sm leading-relaxed ${theme.text}`}>{identityStatus.identityCore}</p>
-                      {identityStatus.confidence != null && identityStatus.confidence > 0 && (
-                        <p className={`text-xs mt-2 ${theme.textSubtle}`}>
-                          확신도 {identityStatus.confidence}%
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* 발견된 특징 */}
-                  {identityStatus.traits && identityStatus.traits.length > 0 && (
-                    <div className="space-y-3">
-                      <span className={`text-xs font-medium uppercase tracking-wide ${theme.textSubtle}`}>발견된 특징</span>
-                      {identityStatus.traits.map((item, index) => (
-                        <div key={index} className={cn(
-                          "rounded-lg p-3 shadow-sm border",
-                          darkMode
-                            ? "bg-white/[0.02] border-white/[0.06]"
-                            : "bg-white border-gray-100"
-                        )}>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className={`text-sm font-medium ${theme.text}`}>{item.trait}</span>
-                            <span className={cn(
-                              "text-xs px-2 py-0.5 rounded",
-                              darkMode ? "bg-white/[0.05] text-white/60" : "bg-gray-100 text-gray-400"
-                            )}>
-                              {item.category}
-                            </span>
-                          </div>
-                          {item.evidence && (
-                            <p className={`text-xs ${theme.textSubtle}`}>"{item.evidence}"</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {identityStatus.nextFocus && (
-                    <div className={cn(
-                      "rounded-xl p-4",
-                      darkMode
-                        ? "bg-gradient-to-r from-violet-500/10 to-violet-600/10 border border-violet-500/20"
-                        : "bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/10"
-                    )}>
-                      <div className="flex items-start gap-3">
-                        <ArrowRight className={cn(
-                          "h-5 w-5 mt-0.5",
-                          darkMode ? "text-violet-400" : "text-primary"
-                        )} />
-                        <div>
-                          <p className={cn(
-                            "text-sm font-medium",
-                            darkMode ? "text-violet-400" : "text-primary"
-                          )}>다음 탐색</p>
-                          <p className={`text-sm mt-1 ${theme.textMuted}`}>
-                            {identityStatus.nextFocus}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className={cn(
-                    "h-16 w-16 rounded-2xl flex items-center justify-center mb-4",
-                    darkMode ? "bg-white/[0.03]" : "bg-gray-100"
+                <span className={cn(
+                  "font-medium text-sm",
+                  darkMode ? "text-white" : "text-gray-900"
+                )}>
+                  나의 정체성
+                </span>
+                {identityStatus?.clarity != null && (
+                  <span className={cn(
+                    "text-xs px-2 py-0.5 rounded-full",
+                    darkMode ? "bg-violet-500/20 text-violet-400" : "bg-violet-100 text-violet-600"
                   )}>
-                    <MessageSquare className={cn(
-                      "h-8 w-8",
-                      darkMode ? "text-white/20" : "text-gray-300"
-                    )} />
-                  </div>
-                  <p className={`text-sm ${theme.textSubtle}`}>
-                    대화를 시작하면<br/>정체성 분석이 표시됩니다
-                  </p>
-                </div>
+                    {identityStatus.clarity}%
+                  </span>
+                )}
+              </div>
+              {identityExpanded ? (
+                <ChevronUp className={cn("h-4 w-4", darkMode ? "text-white/50" : "text-gray-400")} />
+              ) : (
+                <ChevronDown className={cn("h-4 w-4", darkMode ? "text-white/50" : "text-gray-400")} />
               )}
-            </div>
-          </ScrollArea>
-        </TabsContent>
+            </button>
 
-        {/* 리서치 탭 */}
-        <TabsContent value="research" className={cn("flex-1 overflow-hidden m-0", darkMode ? "bg-slate-900" : "bg-gray-50")}>
-          <ScrollArea className="h-full">
-            <div className="p-4">
-              {isSearching && <AISearchingState darkMode={darkMode} />}
+            {/* 아코디언 컨텐츠 */}
+            {identityExpanded && (
+              <div className={cn(
+                "px-4 pb-4 space-y-4",
+                darkMode ? "bg-white/[0.02]" : "bg-white"
+              )}>
+                {isIdentityLoading && (
+                  <div className={cn(
+                    "rounded-xl p-4",
+                    darkMode
+                      ? "bg-gradient-to-r from-violet-500/10 to-violet-600/10 border border-violet-500/20"
+                      : "bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/10"
+                  )}>
+                    <div className="flex items-center gap-3">
+                      <Loader2 className={cn(
+                        "h-5 w-5 animate-spin",
+                        darkMode ? "text-violet-400" : "text-primary"
+                      )} />
+                      <div>
+                        <p className={`text-sm font-medium ${theme.text}`}>정체성 분석 중...</p>
+                        <p className={`text-xs ${theme.textSubtle}`}>대화 내용을 분석하고 있어요</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-              {!isSearching && researchPanels.length > 0 && (() => {
-                const panel = researchPanels[0];
-                return (
-                  <div className="relative group">
-                    <div className={cn(
-                      "absolute -inset-0.5 bg-gradient-to-r from-violet-500 to-cyan-500 rounded-xl blur transition",
-                      darkMode ? "opacity-30 group-hover:opacity-50" : "opacity-20 group-hover:opacity-30"
-                    )} />
-
-                    <div className={cn(
-                      "relative rounded-xl p-4",
-                      darkMode ? "bg-slate-800" : "bg-white border border-gray-200"
-                    )}>
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-2">
+                {identityStatus ? (
+                  <>
+                    {/* 새로운 인사이트 */}
+                    {identityStatus.recentInsight?.hasInsight && identityStatus.recentInsight?.insight && (
+                      <div className={cn(
+                        "rounded-xl p-4",
+                        darkMode
+                          ? "bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20"
+                          : "bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/50"
+                      )}>
+                        <div className="flex items-start gap-3">
                           <div className={cn(
                             "h-8 w-8 rounded-lg flex items-center justify-center",
-                            darkMode ? "bg-slate-700 text-cyan-400" : "bg-violet-100 text-violet-600"
+                            darkMode ? "bg-amber-500/20" : "bg-amber-100"
                           )}>
-                            {getResearchIcon(panel.type)}
+                            <Lightbulb className={cn(
+                              "h-4 w-4",
+                              darkMode ? "text-amber-400" : "text-amber-600"
+                            )} />
                           </div>
                           <div>
-                            <h4 className={cn(
-                              "text-sm font-medium line-clamp-1",
-                              darkMode ? "text-white" : "text-gray-900"
+                            <p className={cn(
+                              "text-sm font-medium",
+                              darkMode ? "text-amber-400" : "text-amber-800"
+                            )}>새로운 발견!</p>
+                            <p className={cn(
+                              "text-sm mt-1",
+                              darkMode ? "text-amber-300/80" : "text-amber-700"
                             )}>
-                              {panel.title}
-                            </h4>
-                            <span className={cn("text-xs", darkMode ? "text-slate-400" : "text-gray-500")}>
-                              {panel.timestamp.toLocaleTimeString('ko-KR', {
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </span>
+                              {identityStatus.recentInsight.insight}
+                            </p>
                           </div>
                         </div>
                       </div>
+                    )}
 
-                      {panel.type === 'web_search' && (
-                        <p className={cn(
-                          "text-sm leading-relaxed mb-4 whitespace-pre-line",
-                          darkMode ? "text-slate-300" : "text-gray-600"
-                        )}>
-                          {panel.summary}
-                        </p>
-                      )}
-
-                      {panel.type === 'mentoring' && panel.mentoringData?.sessions && panel.mentoringData.sessions.length > 0 && (
-                        <div className={cn("pt-3 border-t", darkMode ? "border-slate-700" : "border-gray-200")}>
-                          <p className={cn("text-xs mb-3", darkMode ? "text-slate-400" : "text-gray-500")}>이런 멘토링도 있어요</p>
-                          <div className="space-y-3">
-                            {panel.mentoringData.sessions.slice(0, 2).map((session, idx) => (
-                              <div key={idx} className={cn("rounded-lg p-4", darkMode ? "bg-slate-700/50" : "bg-gray-50 border border-gray-200")}>
-                                <div className="flex items-start gap-3 mb-3">
-                                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-white font-medium text-sm">
-                                    {session.mentorName?.charAt(0) || 'M'}
-                                  </div>
-                                  <div className="flex-1">
-                                    <p className={cn("font-medium", darkMode ? "text-white" : "text-gray-900")}>{session.mentorName}</p>
-                                    <p className={cn("text-xs", darkMode ? "text-slate-400" : "text-gray-500")}>{session.mentorTitle}</p>
-                                  </div>
-                                </div>
-
-                                <div className="mb-3">
-                                  <p className={cn("text-sm font-medium mb-1", darkMode ? "text-cyan-400" : "text-violet-600")}>{session.topic}</p>
-                                  {session.description && (
-                                    <p className={cn("text-xs leading-relaxed line-clamp-2", darkMode ? "text-slate-300" : "text-gray-600")}>{session.description}</p>
-                                  )}
-                                </div>
-
-                                <div className={cn("flex items-center gap-3 mb-4 text-xs", darkMode ? "text-slate-400" : "text-gray-500")}>
-                                  <div className="flex items-center gap-1">
-                                    <Calendar className="h-3 w-3" />
-                                    <span>{session.sessionDate}</span>
-                                  </div>
-                                  {session.price !== undefined && session.price > 0 && (
-                                    <span className={darkMode ? "text-cyan-400" : "text-violet-600"}>{session.price.toLocaleString()}원</span>
-                                  )}
-                                </div>
-
-                                <div className="flex gap-2">
-                                  <Button
-                                    size="sm"
-                                    className={cn("flex-1 text-white text-xs", darkMode ? "bg-cyan-500 hover:bg-cyan-600" : "bg-violet-500 hover:bg-violet-600")}
-                                    onClick={() => navigate(`/mentoring/book/${session.sessionId}`)}
-                                  >
-                                    예약하기
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className={cn(
-                                      "flex-1 text-xs",
-                                      darkMode ? "border-blue-500 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300" : "border-violet-300 text-violet-600 hover:bg-violet-50"
-                                    )}
-                                    disabled={similarMentorLoading === panel.id}
-                                    onClick={() => findSimilarMentors(panel.id, session)}
-                                  >
-                                    {similarMentorLoading === panel.id ? (
-                                      <Loader2 className="h-3 w-3 animate-spin" />
-                                    ) : (
-                                      '비슷한 멘토'
-                                    )}
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className={cn(
-                                      "flex-1 text-xs",
-                                      darkMode ? "text-slate-400 hover:text-white hover:bg-slate-700/50" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-                                    )}
-                                    onClick={() => {
-                                      setResearchPanels(prev => prev.filter(p => p.id !== panel.id));
-                                    }}
-                                  >
-                                    괜찮아요
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {panel.type === 'learning_path' && panel.learningPathData?.path && (
-                        <div className={cn("pt-3 border-t", darkMode ? "border-slate-700" : "border-gray-200")}>
-                          <p className={cn("text-xs mb-3", darkMode ? "text-slate-400" : "text-gray-500")}>이런 학습으로 시작해보는건 어때요?</p>
-                          <div className={cn("rounded-lg p-4", darkMode ? "bg-slate-700/50" : "bg-gray-50 border border-gray-200")}>
-                            <div className="flex items-start gap-3 mb-3">
-                              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center">
-                                <BookOpen className="h-5 w-5 text-white" />
-                              </div>
-                              <div className="flex-1">
-                                <p className={cn("font-medium", darkMode ? "text-white" : "text-gray-900")}>{panel.learningPathData.path.career}</p>
-                                <p className={cn("text-xs", darkMode ? "text-slate-400" : "text-gray-500")}>{panel.learningPathData.path.weeks}주 학습 코스</p>
-                              </div>
-                            </div>
-                            {panel.learningPathData.path.topics && panel.learningPathData.path.topics.length > 0 && (
-                              <div className="mb-4">
-                                <p className={cn("text-xs mb-2", darkMode ? "text-slate-400" : "text-gray-500")}>학습 주제</p>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {panel.learningPathData.path.topics.slice(0, 4).map((topic, idx) => (
-                                    <span key={idx} className={cn("px-2 py-1 text-xs rounded", darkMode ? "bg-slate-600/50 text-slate-300" : "bg-violet-100 text-violet-700")}>
-                                      {topic}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            {panel.learningPathData.exists ? (
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between text-xs">
-                                  <span className={darkMode ? "text-slate-400" : "text-gray-500"}>진행률</span>
-                                  <span className={darkMode ? "text-cyan-400" : "text-violet-600"}>{panel.learningPathData.path.progress || 0}%</span>
-                                </div>
-                                <Progress value={panel.learningPathData.path.progress || 0} className="h-1.5" />
-                                <Button
-                                  className={cn("w-full mt-2 text-white", darkMode ? "bg-cyan-500 hover:bg-cyan-600" : "bg-violet-500 hover:bg-violet-600")}
-                                  onClick={() => navigate(`/learning?career=${encodeURIComponent(panel.learningPathData!.path.career)}`)}
-                                >
-                                  이어서 학습하기
-                                </Button>
-                              </div>
-                            ) : panel.learningPathData.canCreate ? (
-                              <Button
-                                className="w-full bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white"
-                                onClick={() => navigate(`/learning?career=${encodeURIComponent(panel.learningPathData!.path.career)}`)}
-                              >
-                                학습 시작하기
-                              </Button>
-                            ) : (
-                              <p className={cn("text-xs text-center", darkMode ? "text-slate-400" : "text-gray-500")}>준비 중인 학습 경로입니다</p>
-                            )}
-                          </div>
-                          <Button
-                            variant="ghost"
-                            className={cn(
-                              "w-full mt-3",
-                              darkMode ? "text-slate-400 hover:text-white hover:bg-slate-700/50" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
-                            )}
-                            onClick={() => navigate('/learning')}
-                          >
-                            다른 학습 경로 보기
-                            <ChevronRight className="h-4 w-4 ml-1" />
-                          </Button>
-                        </div>
-                      )}
-
-                      {panel.sources && panel.sources.length > 0 && panel.type !== 'mentoring' && panel.type !== 'learning_path' && (
-                        <div className={cn("pt-3 border-t", darkMode ? "border-slate-700" : "border-gray-200")}>
-                          <button
-                            onClick={() => toggleSourceExpand(panel.id)}
-                            className={cn(
-                              "flex items-center justify-between w-full text-xs transition-colors",
-                              darkMode ? "text-slate-400 hover:text-slate-300" : "text-gray-500 hover:text-gray-700"
-                            )}
-                          >
-                            <div className="flex items-center gap-1.5">
-                              <LinkIcon className="h-3 w-3" />
-                              <span>{panel.sources.length}개 출처에서 수집</span>
-                            </div>
-                            <ChevronDown className={cn(
-                              "h-4 w-4 transition-transform",
-                              expandedSources.has(panel.id) && "rotate-180"
+                    {/* 현재 단계 */}
+                    {identityStatus.currentStage && (
+                      <div className={cn(
+                        "rounded-xl p-4",
+                        darkMode
+                          ? "bg-gradient-to-r from-violet-500/10 to-violet-600/10 border border-violet-500/20"
+                          : "bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/10"
+                      )}>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <StageIcon className={cn(
+                              "h-5 w-5",
+                              darkMode ? "text-violet-400" : "text-primary"
                             )} />
-                          </button>
-                          {expandedSources.has(panel.id) && (
-                            <div className="space-y-3 mt-3">
-                              {panel.sources.map((source, idx) => (
-                                <div key={idx} className={cn("rounded-lg p-3", darkMode ? "bg-slate-800/50" : "bg-gray-50 border border-gray-200")}>
-                                  <a
-                                    href={source.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={cn(
-                                      "flex items-start gap-2 text-sm transition-colors mb-1.5",
-                                      darkMode ? "text-cyan-400 hover:text-cyan-300" : "text-violet-600 hover:text-violet-700"
+                            <span className={`font-medium ${theme.text}`}>
+                              {stageInfo?.label} 단계
+                            </span>
+                          </div>
+                          <span className={cn(
+                            "text-sm font-semibold",
+                            darkMode ? "text-violet-400" : "text-primary"
+                          )}>
+                            {identityStatus.overallProgress}%
+                          </span>
+                        </div>
+                        {identityStatus.stageDescription && (
+                          <p className={`text-sm ${theme.textMuted}`}>
+                            {identityStatus.stageDescription}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 명확도 */}
+                    {identityStatus.clarity != null && (
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className={`text-sm font-medium ${theme.textMuted}`}>정체성 명확도</span>
+                          <span className={cn(
+                            "text-sm font-semibold",
+                            darkMode ? "text-violet-400" : "text-primary"
+                          )}>
+                            {identityStatus.clarity}%
+                          </span>
+                        </div>
+                        <Progress value={identityStatus.clarity} className="h-2" />
+                        {identityStatus.clarityReason && (
+                          <p className={`text-xs ${theme.textSubtle}`}>
+                            {identityStatus.clarityReason}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 핵심 정체성 */}
+                    {identityStatus.identityCore && identityStatus.identityCore !== '탐색 중...' && (
+                      <div className={cn(
+                        "rounded-xl p-4",
+                        darkMode ? "bg-white/[0.03]" : "bg-gray-50"
+                      )}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Target className={cn(
+                            "h-4 w-4",
+                            darkMode ? "text-white/40" : "text-gray-500"
+                          )} />
+                          <span className={`text-xs font-medium uppercase tracking-wide ${theme.textSubtle}`}>핵심 정체성</span>
+                        </div>
+                        <p className={`text-sm leading-relaxed ${theme.text}`}>{identityStatus.identityCore}</p>
+                        {identityStatus.confidence != null && identityStatus.confidence > 0 && (
+                          <p className={`text-xs mt-2 ${theme.textSubtle}`}>
+                            확신도 {identityStatus.confidence}%
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 발견된 특징 */}
+                    {identityStatus.traits && identityStatus.traits.length > 0 && (
+                      <div className="space-y-3">
+                        <span className={`text-xs font-medium uppercase tracking-wide ${theme.textSubtle}`}>발견된 특징</span>
+                        {identityStatus.traits.map((item, index) => (
+                          <div key={index} className={cn(
+                            "rounded-lg p-3 shadow-sm border",
+                            darkMode
+                              ? "bg-white/[0.02] border-white/[0.06]"
+                              : "bg-white border-gray-100"
+                          )}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className={`text-sm font-medium ${theme.text}`}>{item.trait}</span>
+                              <span className={cn(
+                                "text-xs px-2 py-0.5 rounded",
+                                darkMode ? "bg-white/[0.05] text-white/60" : "bg-gray-100 text-gray-400"
+                              )}>
+                                {item.category}
+                              </span>
+                            </div>
+                            {item.evidence && (
+                              <p className={`text-xs ${theme.textSubtle}`}>"{item.evidence}"</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {identityStatus.nextFocus && (
+                      <div className={cn(
+                        "rounded-xl p-4",
+                        darkMode
+                          ? "bg-gradient-to-r from-violet-500/10 to-violet-600/10 border border-violet-500/20"
+                          : "bg-gradient-to-r from-primary/5 to-violet-500/5 border border-primary/10"
+                      )}>
+                        <div className="flex items-start gap-3">
+                          <ArrowRight className={cn(
+                            "h-5 w-5 mt-0.5",
+                            darkMode ? "text-violet-400" : "text-primary"
+                          )} />
+                          <div>
+                            <p className={cn(
+                              "text-sm font-medium",
+                              darkMode ? "text-violet-400" : "text-primary"
+                            )}>다음 탐색</p>
+                            <p className={`text-sm mt-1 ${theme.textMuted}`}>
+                              {identityStatus.nextFocus}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <div className={cn(
+                      "h-12 w-12 rounded-xl flex items-center justify-center mb-3",
+                      darkMode ? "bg-white/[0.03]" : "bg-gray-100"
+                    )}>
+                      <MessageSquare className={cn(
+                        "h-6 w-6",
+                        darkMode ? "text-white/20" : "text-gray-300"
+                      )} />
+                    </div>
+                    <p className={`text-sm ${theme.textSubtle}`}>
+                      대화를 시작하면<br/>정체성 분석이 표시됩니다
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* AI Research 섹션 */}
+          <div>
+            {/* 아코디언 헤더 */}
+            <button
+              onClick={() => setResearchExpanded(!researchExpanded)}
+              className={cn(
+                "w-full flex items-center justify-between px-4 py-3 transition-colors",
+                darkMode
+                  ? "hover:bg-white/[0.03]"
+                  : "hover:bg-gray-50"
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  "h-7 w-7 rounded-lg flex items-center justify-center",
+                  darkMode ? "bg-cyan-500/20" : "bg-cyan-100"
+                )}>
+                  <Search className={cn(
+                    "h-4 w-4",
+                    darkMode ? "text-cyan-400" : "text-cyan-600"
+                  )} />
+                </div>
+                <span className={cn(
+                  "font-medium text-sm",
+                  darkMode ? "text-white" : "text-gray-900"
+                )}>
+                  AI Research
+                </span>
+                {researchPanels.length > 0 && (
+                  <span className={cn(
+                    "text-xs px-2 py-0.5 rounded-full",
+                    darkMode ? "bg-cyan-500/20 text-cyan-400" : "bg-cyan-100 text-cyan-600"
+                  )}>
+                    {researchPanels.length}
+                  </span>
+                )}
+                {isSearching && (
+                  <Loader2 className={cn(
+                    "h-3 w-3 animate-spin ml-1",
+                    darkMode ? "text-cyan-400" : "text-cyan-600"
+                  )} />
+                )}
+              </div>
+              {researchExpanded ? (
+                <ChevronUp className={cn("h-4 w-4", darkMode ? "text-white/50" : "text-gray-400")} />
+              ) : (
+                <ChevronDown className={cn("h-4 w-4", darkMode ? "text-white/50" : "text-gray-400")} />
+              )}
+            </button>
+
+            {/* 아코디언 컨텐츠 */}
+            {researchExpanded && (
+              <div className={cn(
+                "px-4 pb-4",
+                darkMode ? "bg-slate-900/50" : "bg-gray-50"
+              )}>
+                {isSearching && <AISearchingState darkMode={darkMode} />}
+
+                {!isSearching && researchPanels.length > 0 && (() => {
+                  const panel = researchPanels[0];
+                  return (
+                    <div className="relative group mt-2">
+                      <div className={cn(
+                        "absolute -inset-0.5 bg-gradient-to-r from-violet-500 to-cyan-500 rounded-xl blur transition",
+                        darkMode ? "opacity-30 group-hover:opacity-50" : "opacity-20 group-hover:opacity-30"
+                      )} />
+
+                      <div className={cn(
+                        "relative rounded-xl p-4",
+                        darkMode ? "bg-slate-800" : "bg-white border border-gray-200"
+                      )}>
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className={cn(
+                              "h-8 w-8 rounded-lg flex items-center justify-center",
+                              darkMode ? "bg-slate-700 text-cyan-400" : "bg-violet-100 text-violet-600"
+                            )}>
+                              {getResearchIcon(panel.type)}
+                            </div>
+                            <div>
+                              <h4 className={cn(
+                                "text-sm font-medium line-clamp-1",
+                                darkMode ? "text-white" : "text-gray-900"
+                              )}>
+                                {panel.title}
+                              </h4>
+                              <span className={cn("text-xs", darkMode ? "text-slate-400" : "text-gray-500")}>
+                                {panel.timestamp.toLocaleTimeString('ko-KR', {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {panel.type === 'web_search' && (
+                          <p className={cn(
+                            "text-sm leading-relaxed mb-4 whitespace-pre-line",
+                            darkMode ? "text-slate-300" : "text-gray-600"
+                          )}>
+                            {panel.summary}
+                          </p>
+                        )}
+
+                        {panel.type === 'mentoring' && panel.mentoringData?.sessions && panel.mentoringData.sessions.length > 0 && (
+                          <div className={cn("pt-3 border-t", darkMode ? "border-slate-700" : "border-gray-200")}>
+                            <p className={cn("text-xs mb-3", darkMode ? "text-slate-400" : "text-gray-500")}>이런 멘토링도 있어요</p>
+                            <div className="space-y-3">
+                              {panel.mentoringData.sessions.slice(0, 2).map((session, idx) => (
+                                <div key={idx} className={cn("rounded-lg p-4", darkMode ? "bg-slate-700/50" : "bg-gray-50 border border-gray-200")}>
+                                  <div className="flex items-start gap-3 mb-3">
+                                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-white font-medium text-sm">
+                                      {session.mentorName?.charAt(0) || 'M'}
+                                    </div>
+                                    <div className="flex-1">
+                                      <p className={cn("font-medium", darkMode ? "text-white" : "text-gray-900")}>{session.mentorName}</p>
+                                      <p className={cn("text-xs", darkMode ? "text-slate-400" : "text-gray-500")}>{session.mentorTitle}</p>
+                                    </div>
+                                  </div>
+
+                                  <div className="mb-3">
+                                    <p className={cn("text-sm font-medium mb-1", darkMode ? "text-cyan-400" : "text-violet-600")}>{session.topic}</p>
+                                    {session.description && (
+                                      <p className={cn("text-xs leading-relaxed line-clamp-2", darkMode ? "text-slate-300" : "text-gray-600")}>{session.description}</p>
                                     )}
-                                  >
-                                    <ExternalLink className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                                    <span className="font-medium leading-tight">{source.title}</span>
-                                  </a>
-                                  {source.snippet && (
-                                    <p className={cn("text-xs leading-relaxed pl-5", darkMode ? "text-slate-400" : "text-gray-500")}>
-                                      {source.snippet}
-                                    </p>
-                                  )}
+                                  </div>
+
+                                  <div className={cn("flex items-center gap-3 mb-4 text-xs", darkMode ? "text-slate-400" : "text-gray-500")}>
+                                    <div className="flex items-center gap-1">
+                                      <Calendar className="h-3 w-3" />
+                                      <span>{session.sessionDate}</span>
+                                    </div>
+                                    {session.price !== undefined && session.price > 0 && (
+                                      <span className={darkMode ? "text-cyan-400" : "text-violet-600"}>{session.price.toLocaleString()}원</span>
+                                    )}
+                                  </div>
+
+                                  <div className="flex gap-2">
+                                    <Button
+                                      size="sm"
+                                      className={cn("flex-1 text-white text-xs", darkMode ? "bg-cyan-500 hover:bg-cyan-600" : "bg-violet-500 hover:bg-violet-600")}
+                                      onClick={() => navigate(`/mentoring/book/${session.sessionId}`)}
+                                    >
+                                      예약하기
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className={cn(
+                                        "flex-1 text-xs",
+                                        darkMode ? "border-blue-500 text-blue-400 hover:bg-blue-500/20 hover:text-blue-300" : "border-violet-300 text-violet-600 hover:bg-violet-50"
+                                      )}
+                                      disabled={similarMentorLoading === panel.id}
+                                      onClick={() => findSimilarMentors(panel.id, session)}
+                                    >
+                                      {similarMentorLoading === panel.id ? (
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                      ) : (
+                                        '비슷한 멘토'
+                                      )}
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className={cn(
+                                        "flex-1 text-xs",
+                                        darkMode ? "text-slate-400 hover:text-white hover:bg-slate-700/50" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                                      )}
+                                      onClick={() => {
+                                        setResearchPanels(prev => prev.filter(p => p.id !== panel.id));
+                                      }}
+                                    >
+                                      괜찮아요
+                                    </Button>
+                                  </div>
                                 </div>
                               ))}
                             </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
+                          </div>
+                        )}
 
-              {!isSearching && researchPanels.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className={cn(
-                    "h-16 w-16 rounded-2xl flex items-center justify-center mb-4",
-                    darkMode ? "bg-slate-800" : "bg-gray-100"
-                  )}>
-                    <Search className={cn("h-8 w-8", darkMode ? "text-slate-600" : "text-gray-400")} />
+                        {panel.type === 'learning_path' && panel.learningPathData?.path && (
+                          <div className={cn("pt-3 border-t", darkMode ? "border-slate-700" : "border-gray-200")}>
+                            <p className={cn("text-xs mb-3", darkMode ? "text-slate-400" : "text-gray-500")}>이런 학습으로 시작해보는건 어때요?</p>
+                            <div className={cn("rounded-lg p-4", darkMode ? "bg-slate-700/50" : "bg-gray-50 border border-gray-200")}>
+                              <div className="flex items-start gap-3 mb-3">
+                                <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center">
+                                  <BookOpen className="h-5 w-5 text-white" />
+                                </div>
+                                <div className="flex-1">
+                                  <p className={cn("font-medium", darkMode ? "text-white" : "text-gray-900")}>{panel.learningPathData.path.career}</p>
+                                  <p className={cn("text-xs", darkMode ? "text-slate-400" : "text-gray-500")}>{panel.learningPathData.path.weeks}주 학습 코스</p>
+                                </div>
+                              </div>
+                              {panel.learningPathData.path.topics && panel.learningPathData.path.topics.length > 0 && (
+                                <div className="mb-4">
+                                  <p className={cn("text-xs mb-2", darkMode ? "text-slate-400" : "text-gray-500")}>학습 주제</p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {panel.learningPathData.path.topics.slice(0, 4).map((topic, idx) => (
+                                      <span key={idx} className={cn("px-2 py-1 text-xs rounded", darkMode ? "bg-slate-600/50 text-slate-300" : "bg-violet-100 text-violet-700")}>
+                                        {topic}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {panel.learningPathData.exists ? (
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between text-xs">
+                                    <span className={darkMode ? "text-slate-400" : "text-gray-500"}>진행률</span>
+                                    <span className={darkMode ? "text-cyan-400" : "text-violet-600"}>{panel.learningPathData.path.progress || 0}%</span>
+                                  </div>
+                                  <Progress value={panel.learningPathData.path.progress || 0} className="h-1.5" />
+                                  <Button
+                                    className={cn("w-full mt-2 text-white", darkMode ? "bg-cyan-500 hover:bg-cyan-600" : "bg-violet-500 hover:bg-violet-600")}
+                                    onClick={() => navigate(`/learning?career=${encodeURIComponent(panel.learningPathData!.path.career)}`)}
+                                  >
+                                    이어서 학습하기
+                                  </Button>
+                                </div>
+                              ) : panel.learningPathData.canCreate ? (
+                                <Button
+                                  className="w-full bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white"
+                                  onClick={() => navigate(`/learning?career=${encodeURIComponent(panel.learningPathData!.path.career)}`)}
+                                >
+                                  학습 시작하기
+                                </Button>
+                              ) : (
+                                <p className={cn("text-xs text-center", darkMode ? "text-slate-400" : "text-gray-500")}>준비 중인 학습 경로입니다</p>
+                              )}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              className={cn(
+                                "w-full mt-3",
+                                darkMode ? "text-slate-400 hover:text-white hover:bg-slate-700/50" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                              )}
+                              onClick={() => navigate('/learning')}
+                            >
+                              다른 학습 경로 보기
+                              <ChevronRight className="h-4 w-4 ml-1" />
+                            </Button>
+                          </div>
+                        )}
+
+                        {panel.sources && panel.sources.length > 0 && panel.type !== 'mentoring' && panel.type !== 'learning_path' && (
+                          <div className={cn("pt-3 border-t", darkMode ? "border-slate-700" : "border-gray-200")}>
+                            <button
+                              onClick={() => toggleSourceExpand(panel.id)}
+                              className={cn(
+                                "flex items-center justify-between w-full text-xs transition-colors",
+                                darkMode ? "text-slate-400 hover:text-slate-300" : "text-gray-500 hover:text-gray-700"
+                              )}
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <LinkIcon className="h-3 w-3" />
+                                <span>{panel.sources.length}개 출처에서 수집</span>
+                              </div>
+                              <ChevronDown className={cn(
+                                "h-4 w-4 transition-transform",
+                                expandedSources.has(panel.id) && "rotate-180"
+                              )} />
+                            </button>
+                            {expandedSources.has(panel.id) && (
+                              <div className="space-y-3 mt-3">
+                                {panel.sources.map((source, idx) => (
+                                  <div key={idx} className={cn("rounded-lg p-3", darkMode ? "bg-slate-800/50" : "bg-gray-50 border border-gray-200")}>
+                                    <a
+                                      href={source.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={cn(
+                                        "flex items-start gap-2 text-sm transition-colors mb-1.5",
+                                        darkMode ? "text-cyan-400 hover:text-cyan-300" : "text-violet-600 hover:text-violet-700"
+                                      )}
+                                    >
+                                      <ExternalLink className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                      <span className="font-medium leading-tight">{source.title}</span>
+                                    </a>
+                                    {source.snippet && (
+                                      <p className={cn("text-xs leading-relaxed pl-5", darkMode ? "text-slate-400" : "text-gray-500")}>
+                                        {source.snippet}
+                                      </p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {!isSearching && researchPanels.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <div className={cn(
+                      "h-12 w-12 rounded-xl flex items-center justify-center mb-3",
+                      darkMode ? "bg-slate-800" : "bg-gray-100"
+                    )}>
+                      <Search className={cn("h-6 w-6", darkMode ? "text-slate-600" : "text-gray-400")} />
+                    </div>
+                    <p className={cn("text-sm mb-1", darkMode ? "text-slate-400" : "text-gray-500")}>
+                      리서치 결과가 없어요
+                    </p>
+                    <p className={cn("text-xs", darkMode ? "text-slate-500" : "text-gray-400")}>
+                      대화 중 필요한 정보를<br/>AI가 자동으로 검색합니다
+                    </p>
                   </div>
-                  <p className={cn("text-sm mb-1", darkMode ? "text-slate-400" : "text-gray-500")}>
-                    리서치 결과가 없어요
-                  </p>
-                  <p className={cn("text-xs", darkMode ? "text-slate-500" : "text-gray-400")}>
-                    대화 중 필요한 정보를<br/>AI가 자동으로 검색합니다
-                  </p>
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-        </TabsContent>
-      </Tabs>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </ScrollArea>
     </Card>
   );
 }
