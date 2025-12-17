@@ -1180,15 +1180,20 @@ async def get_recommendations_by_career_analysis(
         # 상위 N개만 유지
         recommendations = recommendations[:limit]
 
-        # 6. AI 기반 종합 분석 수행 (use_ai_analysis=True인 경우)
+        # 6. AI 기반 종합 분석 수행 (상위 5개만, 나머지는 템플릿)
+        AI_ANALYSIS_LIMIT = 5  # 상위 N개만 AI 분석
+
         if use_ai_analysis and recommendations and career_analysis_data:
-            print(f"[AI Analysis] {len(recommendations)}개 공고에 대해 AI 종합 분석 시작...")
+            top_recommendations = recommendations[:AI_ANALYSIS_LIMIT]
+            rest_recommendations = recommendations[AI_ANALYSIS_LIMIT:]
+
+            print(f"[AI Analysis] 상위 {len(top_recommendations)}개 공고에 대해 AI 종합 분석 시작... (나머지 {len(rest_recommendations)}개는 템플릿)")
             try:
                 agent = JobRecommendationAgent()
 
-                # 배치 처리를 위한 데이터 준비
+                # 상위 N개만 배치 처리
                 jobs_with_data = []
-                for rec in recommendations:
+                for rec in top_recommendations:
                     company_name = rec.get("company", "")
                     external_data = await agent._fetch_external_company_data(company_name)
                     jobs_with_data.append({"job": rec, "external_data": external_data})
@@ -1201,19 +1206,23 @@ async def get_recommendations_by_career_analysis(
                     []     # user_skills
                 )
 
-                # 분석 결과를 각 추천에 추가
-                for i, rec in enumerate(recommendations):
+                # 상위 N개: AI 분석 결과 추가
+                for i, rec in enumerate(top_recommendations):
                     if i < len(comprehensive_analyses):
                         rec["comprehensiveAnalysis"] = comprehensive_analyses[i]
                     else:
-                        rec["comprehensiveAnalysis"] = agent._get_default_comprehensive_analysis()
+                        rec["comprehensiveAnalysis"] = _get_default_comprehensive_analysis_template(rec)
 
-                print(f"[AI Analysis] 종합 분석 완료")
+                # 나머지: 템플릿 사용
+                for rec in rest_recommendations:
+                    rec["comprehensiveAnalysis"] = _get_default_comprehensive_analysis_template(rec)
+
+                print(f"[AI Analysis] 종합 분석 완료 (AI: {len(top_recommendations)}개, 템플릿: {len(rest_recommendations)}개)")
             except Exception as ai_error:
                 print(f"[AI Analysis] 종합 분석 실패: {ai_error}")
                 import traceback
                 traceback.print_exc()
-                # 실패 시 기본 템플릿 데이터 사용
+                # 실패 시 전체 기본 템플릿 데이터 사용
                 for rec in recommendations:
                     rec["comprehensiveAnalysis"] = _get_default_comprehensive_analysis_template(rec)
         else:
