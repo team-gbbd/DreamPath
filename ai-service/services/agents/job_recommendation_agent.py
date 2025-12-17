@@ -1225,14 +1225,14 @@ class JobRecommendationAgent:
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
-                    max_completion_tokens=4000
+                    max_completion_tokens=16000
                 )
             else:
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
                     temperature=0.4,
-                    max_completion_tokens=4000
+                    max_completion_tokens=16000
                 )
 
             result_text = response.choices[0].message.content
