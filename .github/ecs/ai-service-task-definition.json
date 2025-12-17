@@ -2,8 +2,8 @@
   "family": "dreampath-ai-task",
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
-  "cpu": "1024",
-  "memory": "2048",
+  "cpu": "2048",
+  "memory": "4096",
   "executionRoleArn": "arn:aws:iam::479324456849:role/ecsTaskExecutionRole",
   "containerDefinitions": [
     {
